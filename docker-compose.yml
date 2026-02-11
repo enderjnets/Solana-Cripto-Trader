@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  personaplex:
+    image: nvcr.io/nvidia/personaplex:latest
+    container_name: personaplex-eko
+    ports:
+      - "8998:8998"
+    volumes:
+      - ./persona:/app/persona
+    environment:
+      - HF_TOKEN=${HF_TOKEN}
+      - PERSONA_VOICE=/app/persona/voice.wav
+      - PERSONA_TEXT=/app/persona/personality.txt
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8998/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+volumes:
+  persona:
