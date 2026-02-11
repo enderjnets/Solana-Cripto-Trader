@@ -653,9 +653,16 @@ def generate_sample_data(n_candles: int = 1000) -> pd.DataFrame:
     return df
 
 
-def backtest_strategy(strategy: Strategy, df: pd.DataFrame) -> Dict:
+def backtest_strategy(strategy: Strategy, df: pd.DataFrame, 
+                                   tp_pct: float = 0.05, sl_pct: float = 0.03) -> Dict:
     """
-    Simple backtest for a strategy
+    Backtest with Take Profit and Stop Loss
+    
+    Args:
+        strategy: Strategy to test
+        df: Price data  
+        tp_pct: Take profit percentage (default 5%)
+        sl_pct: Stop loss percentage (default 3%)
     
     Returns:
         Dictionary with backtest results
@@ -669,31 +676,68 @@ def backtest_strategy(strategy: Strategy, df: pd.DataFrame) -> Dict:
     position = None
     
     for i in range(len(df)):
+        price = df.iloc[i]['close']
         signal = strategy.generate_signal(df.iloc[:i+1])
         signals.append(signal)
         
+        # Check TP/SL first if in position
+        if position is not None:
+            entry_price = position["entry_price"]
+            pnl_pct = (price - entry_price) / entry_price
+            
+            # Take Profit
+            if pnl_pct >= tp_pct:
+                positions.append({
+                    "entry_price": entry_price,
+                    "exit_price": price,
+                    "pnl": tp_pct,
+                    "exit_reason": "TP",
+                })
+                position = None
+                continue
+            
+            # Stop Loss
+            if pnl_pct <= -sl_pct:
+                positions.append({
+                    "entry_price": entry_price,
+                    "exit_price": price,
+                    "pnl": -sl_pct,
+                    "exit_reason": "SL",
+                })
+                position = None
+                continue
+        
+        # Signal-based entries/exits
         if signal.signal == SignalType.BUY and position is None:
-            position = {
-                "entry_price": signal.price,
-                "entry_index": i,
-                "entry_time": signal.timestamp
-            }
+            position = {"entry_price": signal.price, "entry_time": signal.timestamp}
         elif signal.signal == SignalType.SELL and position is not None:
             pnl = (signal.price - position["entry_price"]) / position["entry_price"]
             positions.append({
                 "entry_price": position["entry_price"],
                 "exit_price": signal.price,
                 "pnl": pnl,
-                "entry_time": position["entry_time"],
-                "exit_time": signal.timestamp
+                "exit_reason": "SIGNAL",
             })
             position = None
+    
+    # Close any open position at end
+    if position is not None:
+        last_price = df.iloc[-1]['close']
+        pnl = (last_price - position["entry_price"]) / position["entry_price"]
+        positions.append({
+            "entry_price": position["entry_price"],
+            "exit_price": last_price,
+            "pnl": pnl,
+            "exit_reason": "EOD",
+        })
     
     # Calculate statistics
     if positions:
         pnls = [p["pnl"] for p in positions]
         wins = sum(1 for p in pnls if p > 0)
         losses = sum(1 for p in pnls if p <= 0)
+        tp_count = sum(1 for p in positions if p.get("exit_reason") == "TP")
+        sl_count = sum(1 for p in positions if p.get("exit_reason") == "SL")
         
         return {
             "strategy": strategy.name,
@@ -705,17 +749,23 @@ def backtest_strategy(strategy: Strategy, df: pd.DataFrame) -> Dict:
             "max_pnl": max(pnls) if pnls else 0,
             "min_pnl": min(pnls) if pnls else 0,
             "total_return": sum(pnls),
-            "signals": [s.to_dict() for s in signals[-10:]]  # Last 10 signals
+            "tp_count": tp_count,
+            "sl_count": sl_count,
+            "signals": [s.to_dict() for s in signals[-10:]]
         }
     
     return {
         "strategy": strategy.name,
         "total_trades": 0,
         "win_rate": 0,
+        "avg_pnl": 0,
+        "max_pnl": 0,
+        "min_pnl": 0,
         "total_return": 0,
-        "message": "No trades executed"
+        "tp_count": 0,
+        "sl_count": 0,
+        "signals": []
     }
-
 
 if __name__ == "__main__":
     # Demo strategies

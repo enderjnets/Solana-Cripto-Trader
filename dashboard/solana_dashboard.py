@@ -522,14 +522,23 @@ with tab3:
                     format_func=lambda x: f"{x} days ({x//365} years)" if x >= 365 else f"{x} days"
                 )
             
+            # TP/SL settings
+            col_tp1, col_tp2 = st.columns(2)
+            with col_tp1:
+                tp_pct = st.slider("Take Profit %", 2, 20, 5) / 100
+            with col_tp2:
+                sl_pct = st.slider("Stop Loss %", 1, 10, 3) / 100
+            
+            st.write(f"📊 TP: {tp_pct*100:.0f}% | SL: {sl_pct*100:.0f}%")
+            
             with col_bt3:
                 st.write("")  # Spacer
                 st.write("")
                 if st.button("🏃 Run Backtest", type="primary"):
-                    with st.spinner(f"Running backtest with {bt_days} days of data..."):
-                        results = runner.run_backtest(bt_strategy, days=bt_days)
+                    with st.spinner(f"Running backtest with {bt_days} days..."):
+                        results = runner.run_backtest(bt_strategy, days=bt_days, tp_pct=tp_pct, sl_pct=sl_pct)
                         
-                        st.success("Backtest complete!")
+                        st.success("✅ Backtest complete!")
                         
                         # Results
                         col_r1, col_r2, col_r3, col_r4 = st.columns(4)
@@ -540,19 +549,24 @@ with tab3:
                             st.metric("Win Rate", f"{wr:.1f}%")
                         with col_r3:
                             ret = results.get("total_return", 0) * 100
-                            st.metric("Return", f"{ret:.2f}%")
+                            st.metric("Return", f"{ret:+.2f}%")
                         with col_r4:
-                            st.metric("Avg PnL", f"{results.get('avg_pnl', 0)*100:.2f}%")
+                            st.metric("Avg PnL", f"{results.get('avg_pnl', 0)*100:+.2f}%")
+                        
+                        # TP/SL stats
+                        tp_count = results.get("tp_count", 0)
+                        sl_count = results.get("sl_count", 0)
+                        st.info(f"🎯 TP: {tp_count} | 🛑 SL: {sl_count}")
                         
                         # Data info
                         if "data_info" in results:
-                            st.caption(f"📊 Data: {results['data_info']['total_candles']:,} candles | "
-                                     f"Range: {results['data_info']['date_range'][:10]}")
+                            info = results["data_info"]
+                            st.caption(f"📊 {info['total_candles']:,} candles | {info['date_range'][:10]} | TP: {info.get('tp_pct', 5)}% | SL: {info.get('sl_pct', 3)}%")
             
             # Run backtest immediately if strategies exist
             if strategies:
                 with st.spinner("Running initial backtest..."):
-                    results = runner.run_backtest(strategies[0]["name"], days=90)
+                    results = runner.run_backtest(strategies[0]["name"], days=90, tp_pct=0.05, sl_pct=0.03)
                     
                     col_r1, col_r2, col_r3, col_r4 = st.columns(4)
                     with col_r1:

@@ -134,8 +134,9 @@ class StrategyRunner:
         """Get all recent signals"""
         return self.state.signals[-50:]  # Last 50 signals
     
-    def run_backtest(self, strategy_name: str, df: pd.DataFrame = None, days: int = 365) -> Dict:
-        """Run backtest for a strategy with REAL historical data"""
+    def run_backtest(self, strategy_name: str, df: pd.DataFrame = None, days: int = 365,
+                    tp_pct: float = 0.05, sl_pct: float = 0.03) -> Dict:
+        """Run backtest for a strategy with REAL historical data and TP/SL"""
         if strategy_name not in self.state.active_strategies:
             return {"error": f"Strategy not found: {strategy_name}"}
         
@@ -162,13 +163,15 @@ class StrategyRunner:
                 df = generate_sample_data(min(days * 24, 1000))
         
         from strategies import backtest_strategy
-        results = backtest_strategy(strategy, df)
+        results = backtest_strategy(strategy, df, tp_pct=tp_pct, sl_pct=sl_pct)
         
         # Add data info
         results["data_info"] = {
             "total_candles": len(df),
             "date_range": f"{str(df['timestamp'].min())[:10]} to {str(df['timestamp'].max())[:10]}",
             "days": days,
+            "tp_pct": tp_pct * 100,
+            "sl_pct": sl_pct * 100,
             "source": "HistoricalDataManager"
         }
         
