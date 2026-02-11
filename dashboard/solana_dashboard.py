@@ -14,13 +14,20 @@ Features:
 - System controls
 """
 
+import sys
+import os
+from pathlib import Path
+
+# Add project root to path for imports
+PROJECT_ROOT = Path(__file__).parent.parent
+sys.path.insert(0, str(PROJECT_ROOT))
+
 import streamlit as st
 import pandas as pd
 import numpy as np
 import json
 import time
 from datetime import datetime, timedelta
-from pathlib import Path
 from typing import Dict, List, Optional
 
 # Configure page
