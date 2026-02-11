@@ -1,758 +1,543 @@
-#!/usr/bin/env python3
 """
-Real API Integrations for Multi-Agent Trading System
-===================================================
-Connects trading agents with real Solana/Jupiter/Helius APIs.
+Jupiter API Integration for Solana Trading Bot
+=============================================
+Based on official Jupiter documentation: https://dev.jup.ag/
 
-APIs Configured:
-- Solana RPC (devnet): https://api.devnet.solana.com
-- Jupiter DEX: https://api.jup.ag
-- Helius (optional): Historical data
+APIs Available:
+1. Ultra Swap - Swap execution (quotes + execute)
+2. Tokens V2 - Token discovery
+3. Price V3 - Pricing (no API key required)
 
-Usage:
-    from api_integrations import SolanaClient, JupiterClient
-    
-    solana = SolanaClient()
-    balance = await solana.get_balance(wallet)
-    
-    jupiter = JupiterClient()
-    quote = await jupiter.get_quote("SOL", "USDC", 1.0)
+Note: API keys are OPTIONAL for higher rate limits via portal.jup.ag
 """
 
 import os
-import sys
 import json
-import time
 import asyncio
-import logging
-from datetime import datetime
+import aiohttp
 from typing import Dict, List, Optional, Any
 from dataclasses import dataclass
-from pathlib import Path
+from datetime import datetime
 
-# Add project root
-PROJECT_ROOT = Path(__file__).parent.parent
-sys.path.insert(0, str(PROJECT_ROOT))
+# Jupiter API Endpoints
+JUPITER_BASE_URL = "https://lite-api.jup.ag"
+JUPITER_PRICE_URL = f"{JUPITER_BASE_URL}/price/v3"
+JUPITER_TOKENS_URL = f"{JUPITER_BASE_URL}/tokens/v2"
+JUPITER_ULTRA_URL = f"{JUPITER_BASE_URL}/ultra/v1"
 
-from config.config import get_config
+# Common Tokens
+SOL_MINT = "So11111111111111111111111111111111111111112"
+USDC_MINT = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+USDT_MINT = "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenuNYW"
 
-logger = logging.getLogger("api_integrations")
 
-# ============================================================================
-# CONFIGURATION
-# ============================================================================
 @dataclass
-class APIConfig:
-    """API configuration from environment"""
-    network: str = "devnet"
-    
-    # RPC
-    rpc_url: str = "https://api.devnet.solana.com"
-    
-    # Wallet
-    wallet_address: str = ""
-    wallet_private_key: str = ""
-    
-    # Jupiter
-    jupiter_url: str = "https://api.jup.ag/swap/v6"
-    jupiter_api_key: str = ""
-    
-    # Helius
-    helius_url: str = "https://api.devnet.solana.com"
-    helius_api_key: str = ""
-    
-    @classmethod
-    def from_env(cls) -> "APIConfig":
-        """Load configuration from environment"""
-        return cls(
-            network=os.environ.get("NETWORK", "devnet"),
-            rpc_url=os.environ.get("SOLANA_RPC_URL", "https://api.devnet.solana.com"),
-            wallet_address=os.environ.get("HOT_WALLET_ADDRESS", ""),
-            wallet_private_key=os.environ.get("HOT_WALLET_PRIVATE_KEY", ""),
-            jupiter_url="https://api.jup.ag/swap/v6",
-            jupiter_api_key=os.environ.get("JUPITER_API_KEY", ""),
-            helius_url="https://api.devnet.solana.com",
-            helius_api_key=os.environ.get("HELIUS_API_KEY", "")
-        )
+class TokenInfo:
+    """Token metadata from Jupiter"""
+    mint: str
+    name: str
+    symbol: str
+    decimals: int
+    usd_price: float
+    logo_uri: Optional[str] = None
 
 
-# ============================================================================
-# HTTP CLIENT
-# ============================================================================
-class HTTPClient:
-    """Async HTTP client with retry logic"""
-    
-    def __init__(self, base_url: str = "", headers: Dict = None):
-        self.base_url = base_url
-        self.headers = headers or {}
-        self.session = None
-        
-    async def get(self, endpoint: str, params: Dict = None) -> Dict:
-        """GET request with retry"""
-        import aiohttp
-        
-        url = f"{self.base_url}{endpoint}" if self.base_url else endpoint
-        
-        async with aiohttp.ClientSession() as session:
-            async with session.get(url, params=params, headers=self.headers) as resp:
-                return await resp.json()
-    
-    async def post(self, endpoint: str, data: Dict = None) -> Dict:
-        """POST request with retry"""
-        import aiohttp
-        
-        url = f"{self.base_url}{endpoint}" if self.base_url else endpoint
-        
-        async with aiohttp.ClientSession() as session:
-            async with session.post(url, json=data, headers=self.headers) as resp:
-                return await resp.json()
+@dataclass
+class QuoteRequest:
+    """Swap quote request"""
+    input_mint: str
+    output_mint: str
+    amount: int  # In lamports/smallest unit
+    slippage_bps: int = 50  # 0.5% default
 
 
-# ============================================================================
-# SOLANA RPC CLIENT
-# ============================================================================
-class SolanaClient:
-    """
-    Solana RPC client for blockchain operations.
-    
-    Supported operations:
-    - get_balance
-    - get_token_accounts
-    - get_transaction
-    - send_transaction
-    """
-    
-    def __init__(self, config: APIConfig = None):
-        self.config = config or APIConfig.from_env()
-        self.rpc_url = self.config.rpc_url
-        self.wallet_address = self.config.wallet_address
-        
-    async def get_balance(self, wallet: str = None) -> Dict:
-        """
-        Get SOL balance for a wallet.
-        
-        Returns:
-            {
-                "lamports": 5000000000,
-                "sol": 5.0,
-                "status": "success"
-            }
-        """
-        address = wallet or self.wallet_address
-        
-        payload = {
-            "jsonrpc": "2.0",
-            "id": 1,
-            "method": "getBalance",
-            "params": [address]
-        }
-        
-        try:
-            import aiohttp
-            
-            async with aiohttp.ClientSession() as session:
-                async with session.post(self.rpc_url, json=payload) as resp:
-                    data = await resp.json()
-                    
-                    if "result" in data:
-                        lamports = data["result"]["value"]
-                        return {
-                            "lamports": lamports,
-                            "sol": lamports / 1e9,
-                            "status": "success"
-                        }
-                    
-                    return {"error": data.get("error", "Unknown error")}
-                    
-        except Exception as e:
-            logger.error(f"Error getting balance: {e}")
-            return {"error": str(e)}
-    
-    async def get_token_balances(self, wallet: str = None) -> Dict:
-        """Get all token balances for a wallet"""
-        address = wallet or self.wallet_address
-        
-        payload = {
-            "jsonrpc": "2.0",
-            "id": 1,
-            "method": "getTokenAccountsByOwner",
-            "params": [
-                address,
-                {"programId": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"},
-                {"encoding": "jsonParsed"}
-            ]
-        }
-        
-        try:
-            import aiohttp
-            
-            async with aiohttp.ClientSession() as session:
-                async with session.post(self.rpc_url, json=payload) as resp:
-                    data = await resp.json()
-                    
-                    balances = {}
-                    if "result" in data:
-                        for account in data["result"]["value"]:
-                            info = account["account"]["data"]["parsed"]["info"]
-                            balances[info["mint"]] = {
-                                "amount": float(info["tokenAmount"]["amount"]),
-                                "decimals": int(info["tokenAmount"]["decimals"]),
-                                "ui_amount": float(info["tokenAmount"]["uiAmount"])
-                            }
-                    
-                    return {"balances": balances, "status": "success"}
-                    
-        except Exception as e:
-            logger.error(f"Error getting token balances: {e}")
-            return {"error": str(e)}
-    
-    async def get_recent_blockhash(self) -> Dict:
-        """Get recent blockhash"""
-        payload = {
-            "jsonrpc": "2.0",
-            "id": 1,
-            "method": "getRecentBlockhash"
-        }
-        
-        try:
-            import aiohttp
-            
-            async with aiohttp.ClientSession() as session:
-                async with session.post(self.rpc_url, json=payload) as resp:
-                    data = await resp.json()
-                    
-                    if "result" in data:
-                        return {
-                            "blockhash": data["result"]["value"]["blockhash"],
-                            "status": "success"
-                        }
-                    
-                    return {"error": data.get("error", "Unknown error")}
-                    
-        except Exception as e:
-            return {"error": str(e)}
-    
-    async def get_account_info(self, address: str) -> Dict:
-        """Get account information"""
-        payload = {
-            "jsonrpc": "2.0",
-            "id": 1,
-            "method": "getAccountInfo",
-            "params": [
-                address,
-                {"encoding": "jsonParsed"}
-            ]
-        }
-        
-        try:
-            import aiohttp
-            
-            async with aiohttp.ClientSession() as session:
-                async with session.post(self.rpc_url, json=payload) as resp:
-                    data = await resp.json()
-                    return data
-                    
-        except Exception as e:
-            return {"error": str(e)}
-    
-    async def get_supply(self) -> Dict:
-        """Get total SOL supply"""
-        payload = {
-            "jsonrpc": "2.0",
-            "id": 1,
-            "method": "getSupply"
-        }
-        
-        try:
-            import aiohttp
-            
-            async with aiohttp.ClientSession() as session:
-                async with session.post(self.rpc_url, json=payload) as resp:
-                    data = await resp.json()
-                    return data
-                    
-        except Exception as e:
-            return {"error": str(e)}
-    
-    async def get_cluster_nodes(self) -> List[Dict]:
-        """Get all cluster nodes"""
-        payload = {
-            "jsonrpc": "2.0",
-            "id": 1,
-            "method": "getClusterNodes"
-        }
-        
-        try:
-            import aiohttp
-            
-            async with aiohttp.ClientSession() as session:
-                async with session.post(self.rpc_url, json=payload) as resp:
-                    data = await resp.json()
-                    return data.get("result", {}).get("value", [])
-                    
-        except Exception as e:
-            return []
+@dataclass  
+class QuoteResponse:
+    """Swap quote response"""
+    input_mint: str
+    output_mint: str
+    in_amount: int
+    out_amount: int
+    other_amount_threshold: int
+    swap_mode: str  # "ExactIn" or "ExactOut"
+    price_impact_pct: float
+    route_plan: List[Dict]
 
 
-# ============================================================================
-# JUPITER DEX CLIENT
-# ============================================================================
+@dataclass
+class SwapRequest:
+    """Swap execution request"""
+    quote_response: Dict  # Full quote response
+    user_public_key: str
+    wrap_and_unwrap_sol: bool = True
+    prioritization_fee_lamports: int = 0
+    as_legacy_transaction: bool = False
+
+
 class JupiterClient:
     """
-    Jupiter DEX client for token swaps.
+    Jupiter DEX Client for Solana
     
-    Supported operations:
-    - get_quote: Get swap quote
-    - get_swap: Create swap transaction
-    - get_tokens: Get supported tokens
-    - get_routes: Get available routes
+    Features:
+    - Token discovery
+    - Price lookup
+    - Swap quotes
+    - Swap execution
+    
+    No API key required for basic usage.
+    Get API key from portal.jup.ag for higher rate limits.
     """
     
-    def __init__(self, config: APIConfig = None):
-        self.config = config or APIConfig.from_env()
-        self.base_url = "https://api.jup.ag"
+    def __init__(self, api_key: str = None):
+        """
+        Initialize Jupiter client
         
-        # Public Lite API (works without API key)
-        self.lite_url = "https://lite-api.jup.ag"
+        Args:
+            api_key: Optional API key for higher rate limits
+        """
+        self.api_key = api_key
+        self.session = None
+        self._tokens_cache = None
+    
+    async def _get_session(self) -> aiohttp.ClientSession:
+        """Get or create aiohttp session"""
+        if self.session is None or self.session.closed:
+            headers = {}
+            if self.api_key:
+                headers["x-api-key"] = self.api_key
+            self.session = aiohttp.ClientSession(headers=headers)
+        return self.session
+    
+    async def close(self):
+        """Close the HTTP session"""
+        if self.session and not self.session.closed:
+            await self.session.close()
+    
+    # ==================== PRICE API ====================
+    
+    async def get_price(self, token_mints: List[str]) -> Dict[str, Dict]:
+        """
+        Get USD prices for tokens
         
-        # Auth headers if API key provided
-        self.headers = {}
-        if self.config.jupiter_api_key:
-            self.headers["Authorization"] = f"Bearer {self.config.jupiter_api_key}"
+        GET https://lite-api.jup.ag/price/v3?ids={mint1},{mint2},...
+        
+        Args:
+            token_mints: List of token mint addresses
+            
+        Returns:
+            Dict mapping mint addresses to price info
+        """
+        session = await self._get_session()
+        ids = ",".join(token_mints)
+        url = f"{JUPITER_PRICE_URL}?ids={ids}"
+        
+        async with session.get(url) as response:
+            if response.status != 200:
+                raise Exception(f"Price API error: {response.status}")
+            return await response.json()
+    
+    async def get_token_price(self, mint: str) -> float:
+        """Get price for a single token in USD"""
+        data = await self.get_price([mint])
+        return float(data.get(mint, {}).get("usdPrice", 0))
+    
+    # ==================== TOKENS API ====================
+    
+    async def get_tokens(self) -> List[TokenInfo]:
+        """
+        Get all supported tokens
+        
+        GET https://lite-api.jup.ag/tokens/v2/all
+        
+        Returns:
+            List of TokenInfo objects
+        """
+        session = await self._get_session()
+        url = f"{JUPITER_TOKENS_URL}/all"
+        
+        async with session.get(url) as response:
+            if response.status != 200:
+                raise Exception(f"Tokens API error: {response.status}")
+            data = await response.json()
+            
+            return [
+                TokenInfo(
+                    mint=t.get("address", ""),
+                    name=t.get("name", ""),
+                    symbol=t.get("symbol", ""),
+                    decimals=t.get("decimals", 0),
+                    usd_price=float(t.get("usdPrice", 0)),
+                    logo_uri=t.get("logoURI")
+                )
+                for t in data
+            ]
+    
+    async def search_tokens(self, query: str) -> List[TokenInfo]:
+        """
+        Search tokens by symbol, name, or mint
+        
+        GET https://lite-api.jup.ag/tokens/v2/search?query={query}
+        
+        Args:
+            query: Search term
+            
+        Returns:
+            List of matching tokens
+        """
+        session = await self._get_session()
+        url = f"{JUPITER_TOKENS_URL}/search?query={query}"
+        
+        async with session.get(url) as response:
+            if response.status != 200:
+                raise Exception(f"Search API error: {response.status}")
+            data = await response.json()
+            
+            return [
+                TokenInfo(
+                    mint=t.get("address", ""),
+                    name=t.get("name", ""),
+                    symbol=t.get("symbol", ""),
+                    decimals=t.get("decimals", 0),
+                    usd_price=float(t.get("usdPrice", 0)),
+                    logo_uri=t.get("logoURI")
+                )
+                for t in data
+            ]
+    
+    # ==================== ULTRA SWAP API ====================
     
     async def get_quote(
         self,
         input_mint: str,
         output_mint: str,
-        amount: float,
-        slippage_bps: int = 50
-    ) -> Dict:
+        amount: int,
+        slippage_bps: int = 50,
+        swap_mode: str = "ExactIn"
+    ) -> QuoteResponse:
         """
-        Get swap quote from Jupiter.
+        Get swap quote
+        
+        GET https://lite-api.jup.ag/ultra/v1/quote
         
         Args:
-            input_mint: Input token address
-            output_mint: Output token address
-            amount: Amount in base units (decimals handled)
+            input_mint: Input token mint address
+            output_mint: Output token mint address
+            amount: Amount in smallest unit (lamports for SOL)
             slippage_bps: Slippage in basis points (50 = 0.5%)
-        
+            swap_mode: "ExactIn" or "ExactOut"
+            
         Returns:
-            Quote with routes, prices, and fees
+            QuoteResponse with swap details
         """
-        endpoint = f"{self.lite_url}/price/v3"
-        params = {
-            "ids": f"{input_mint},{output_mint}"
-        }
-        
-        try:
-            import aiohttp
-            
-            async with aiohttp.ClientSession() as session:
-                async with session.get(endpoint, params=params) as resp:
-                    if resp.status == 200:
-                        data = await resp.json()
-                        return self._parse_quote(data, input_mint, output_mint, amount)
-                    
-                    return {"error": f"HTTP {resp.status}"}
-                    
-        except Exception as e:
-            logger.error(f"Error getting quote: {e}")
-            return {"error": str(e)}
-    
-    def _parse_quote(self, data: Dict, input_mint: str, output_mint: str, amount: float) -> Dict:
-        """Parse quote response"""
-        prices = data.get("data", {})
-        
-        input_price = prices.get(input_mint, {}).get("price", 0)
-        output_price = prices.get(output_mint, {}).get("price", 0)
-        
-        # Calculate output
-        output_amount = (amount / 1e9) * input_price / output_price * 1e6  # Assuming USDC decimals
-        
-        return {
-            "status": "success",
-            "input_mint": input_mint,
-            "output_mint": output_mint,
-            "input_amount": amount,
-            "output_amount": output_amount,
-            "input_price": input_price,
-            "output_price": output_price,
-            "price_impact": 0,  # Would need full quote endpoint
-            "route": "SOL → USDC (direct)"
-        }
-    
-    async def get_swap_quote(
-        self,
-        input_mint: str,
-        output_mint: str,
-        amount: float,
-        slippage_bps: int = 50
-    ) -> Dict:
-        """
-        Get detailed swap quote with all routes.
-        
-        Uses the full Jupiter API for best routes.
-        """
-        endpoint = f"{self.base_url}/swap/v6/quote"
+        session = await self._get_session()
         params = {
             "inputMint": input_mint,
             "outputMint": output_mint,
-            "amount": int(amount * 1e9),  # Convert to lamports/smallest units
+            "amount": amount,
             "slippageBps": slippage_bps,
-            "onlyDirectRoutes": False,
-            "excludeDexes": []
+            "swapMode": swap_mode
         }
         
-        try:
-            import aiohttp
+        url = f"{JUPITER_ULTRA_URL}/quote?" + "&".join(f"{k}={v}" for k, v in params.items())
+        
+        async with session.get(url) as response:
+            if response.status != 200:
+                error = await response.text()
+                raise Exception(f"Quote API error {response.status}: {error}")
+            data = await response.json()
             
-            async with aiohttp.ClientSession() as session:
-                async with session.get(endpoint, params=params, headers=self.headers) as resp:
-                    if resp.status == 200:
-                        data = await resp.json()
-                        return {
-                            "status": "success",
-                            "data": data,
-                            "route": data.get("routePlan", []),
-                            "out_amount": data.get("outAmount", 0),
-                            "price_impact": data.get("priceImpactPct", 0)
-                        }
-                    
-                    return {"error": f"HTTP {resp.status}"}
-                    
-        except Exception as e:
-            logger.error(f"Error getting swap quote: {e}")
-            return {"error": str(e)}
+            return QuoteResponse(
+                input_mint=data.get("inputMint", ""),
+                output_mint=data.get("outputMint", ""),
+                in_amount=int(data.get("inAmount", 0)),
+                out_amount=int(data.get("outAmount", 0)),
+                other_amount_threshold=int(data.get("otherAmountThreshold", 0)),
+                swap_mode=data.get("swapMode", "ExactIn"),
+                price_impact_pct=float(data.get("priceImpactPct", 0)),
+                route_plan=data.get("routePlan", [])
+            )
     
-    async def get_swap_instruction(
+    async def get_swap_instructions(self, quote_response: Dict, user_public_key: str) -> Dict:
+        """
+        Get swap transaction instructions
+        
+        POST https://lite-api.jup.ag/ultra/v1/swap-instructions
+        
+        Args:
+            quote_response: Full quote response from get_quote()
+            user_public_key: User's wallet public key
+            
+        Returns:
+            Transaction instructions ready for signing
+        """
+        session = await self._get_session()
+        url = f"{JUPITER_ULTRA_URL}/swap-instructions"
+        
+        payload = {
+            "quoteResponse": quote_response,
+            "userPublicKey": user_public_key,
+            "wrapAndUnwrapSol": True,
+            "prioritizationFeeLamports": 0,
+            "asLegacyTransaction": False
+        }
+        
+        async with session.post(url, json=payload) as response:
+            if response.status != 200:
+                error = await response.text()
+                raise Exception(f"Swap instructions error {response.status}: {error}")
+            return await response.json()
+    
+    async def get_serialized_transaction(
         self,
-        input_mint: str,
-        output_mint: str,
-        amount: float,
-        wallet_address: str,
-        slippage_bps: int = 50
-    ) -> Dict:
+        quote_response: Dict,
+        user_public_key: str
+    ) -> str:
         """
-        Get swap instruction for signing.
+        Get serialized transaction (simpler than instructions)
         
-        Returns the full transaction data ready to be signed.
+        POST https://lite-api.jup.ag/ultra/v1/swap
+        
+        Args:
+            quote_response: Full quote response from get_quote()
+            user_public_key: User's wallet public key
+            
+        Returns:
+            Serialized transaction as base64 string
         """
-        endpoint = f"{self.base_url}/swap/v6/swap"
-        params = {
-            "inputMint": input_mint,
-            "outputMint": output_mint,
-            "amount": int(amount * 1e9),
-            "slippageBps": slippage_bps,
-            "userPublicKey": wallet_address,
-            "computeUnitsPrice": "1000"  # Priority fee in micro-lamports
-        }
-        
-        try:
-            import aiohttp
-            
-            async with aiohttp.ClientSession() as session:
-                async with session.get(endpoint, params=params, headers=self.headers) as resp:
-                    if resp.status == 200:
-                        data = await resp.json()
-                        return {
-                            "status": "success",
-                            "setup_missions": data.get("setupMissions", []),
-                            "swap_mission": data.get("swapMission", ""),
-                            "cleanup_missions": data.get("cleanupMissions", []),
-                            "address_lookup_tables": data.get("addressLookupTableAddresses", [])
-                        }
-                    
-                    return {"error": f"HTTP {resp.status}"}
-                    
-        except Exception as e:
-            logger.error(f"Error getting swap instruction: {e}")
-            return {"error": str(e)}
-    
-    async def get_tokens(self) -> Dict:
-        """Get list of supported tokens"""
-        endpoint = f"{self.base_url}/tokens/v2"
-        
-        try:
-            import aiohttp
-            
-            async with aiohttp.ClientSession() as session:
-                async with session.get(endpoint, headers=self.headers) as resp:
-                    if resp.status == 200:
-                        data = await resp.json()
-                        return {"status": "success", "tokens": data}
-                    
-                    return {"error": f"HTTP {resp.status}"}
-                    
-        except Exception as e:
-            return {"error": str(e)}
-    
-    async def get_holdings(self, wallet: str) -> Dict:
-        """Get user's holdings from Jupiter"""
-        endpoint = f"{self.lite_url}/ultra/v1/holdings/{wallet}"
-        
-        try:
-            import aiohttp
-            
-            async with aiohttp.ClientSession() as session:
-                async with session.get(endpoint) as resp:
-                    if resp.status == 200:
-                        data = await resp.json()
-                        return {"status": "success", "holdings": data}
-                    
-                    return {"error": f"HTTP {resp.status}"}
-                    
-        except Exception as e:
-            return {"error": str(e)}
-
-
-# ============================================================================
-# HELIUS RPC CLIENT
-# ============================================================================
-class HeliusClient:
-    """
-    Helius RPC client for enhanced Solana data.
-    
-    Enhanced features:
-    - Rich account data
-    - Token balances with metadata
-    - Parsed transactions
-    """
-    
-    def __init__(self, config: APIConfig = None):
-        self.config = config or APIConfig.from_env()
-        
-        # Use Helius if API key provided, else use standard RPC
-        if self.config.helius_api_key:
-            self.rpc_url = f"https://api.helius.xyz/v0?api-key={self.config.helius_api_key}"
-        else:
-            self.rpc_url = self.config.rpc_url
-    
-    async def get_parsed_transaction(self, tx_signature: str) -> Dict:
-        """Get parsed transaction with human-readable data"""
-        endpoint = self.rpc_url
+        session = await self._get_session()
+        url = f"{JUPITER_ULTRA_URL}/swap"
         
         payload = {
-            "jsonrpc": "2.0",
-            "id": 1,
-            "method": "getParsedTransaction",
-            "params": [tx_signature]
+            "quoteResponse": quote_response,
+            "userPublicKey": user_public_key,
+            "wrapAndUnwrapSol": True,
+            "prioritizationFeeLamports": 0,
+            "asLegacyTransaction": False
         }
         
-        try:
-            import aiohttp
+        async with session.post(url, json=payload) as response:
+            if response.status != 200:
+                error = await response.text()
+                raise Exception(f"Swap error {response.status}: {error}")
+            data = await response.json()
+            return data.get("serializedTransaction", "")
+    
+    # ==================== HELPER METHODS ====================
+    
+    def sol_to_lamports(self, sol_amount: float) -> int:
+        """Convert SOL to lamports"""
+        return int(sol_amount * 1e9)
+    
+    def lamports_to_sol(self, lamports: int) -> float:
+        """Convert lamports to SOL"""
+        return lamports / 1e9
+    
+    def usdc_to_micro(self, usdc_amount: float) -> int:
+        """Convert USDC to micro-USDC (6 decimals)"""
+        return int(usdc_amount * 1e6)
+    
+    def micro_to_usdc(self, micro: int) -> float:
+        """Convert micro-USDC to USDC"""
+        return micro / 1e6
+    
+    async def get_sol_to_usdc_quote(self, sol_amount: float) -> QuoteResponse:
+        """
+        Get quote for SOL to USDC swap
+        
+        Args:
+            sol_amount: Amount in SOL
             
-            async with aiohttp.ClientSession() as session:
-                async with session.post(endpoint, json=payload) as resp:
-                    data = await resp.json()
-                    return data
-                    
-        except Exception as e:
-            return {"error": str(e)}
+        Returns:
+            QuoteResponse
+        """
+        lamports = self.sol_to_lamports(sol_amount)
+        return await self.get_quote(SOL_MINT, USDC_MINT, lamports)
     
-    async def get_token_balances(self, wallet: str) -> Dict:
-        """Get token balances with metadata"""
-        endpoint = self.rpc_url
+    async def get_usdc_to_sol_quote(self, usdc_amount: float) -> QuoteResponse:
+        """
+        Get quote for USDC to SOL swap
         
-        payload = {
-            "jsonrpc": "2.0",
-            "id": 1,
-            "method": "getTokenBalances",
-            "params": [wallet]
-        }
-        
-        try:
-            import aiohttp
+        Args:
+            usdc_amount: Amount in USDC
             
-            async with aiohttp.ClientSession() as session:
-                async with session.post(endpoint, json=payload) as resp:
-                    data = await resp.json()
-                    return data
-                    
-        except Exception as e:
-            return {"error": str(e)}
-
-
-# ============================================================================
-# TRADING AGENT INTEGRATION
-# ============================================================================
-class TradingAPIClient:
-    """
-    Unified trading client combining all APIs.
+        Returns:
+            QuoteResponse
+        """
+        micro = self.usdc_to_micro(usdc_amount)
+        return await self.get_quote(USDC_MINT, SOL_MINT, micro)
     
-    Used by the TradingAgent for real trading operations.
-    """
-    
-    def __init__(self, config: APIConfig = None):
-        self.config = config or APIConfig.from_env()
-        self.solana = SolanaClient(config)
-        self.jupiter = JupiterClient(config)
-        self.helius = HeliusClient(config)
-        
-        # Default tokens
-        self.SOL = "So11111111111111111111111111111111111111112"
-        self.USDC = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
-        self.USDT = "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYW"
-        self.JUP = "JUPyiwrYJFskUPiHa7hkeR8VUtkqjberbSOWd91pbT2"
-        self.BONK = "DezXAZ8z7PnrnRJjz3wXBoZGVixqUi5iA2ztETHuJXJP"
-    
-    async def get_portfolio(self, wallet: str = None) -> Dict:
-        """Get complete portfolio view"""
-        address = wallet or self.config.wallet_address
-        
-        # Get SOL balance
-        sol_balance = await self.solana.get_balance(address)
-        
-        # Get token balances
-        token_balances = await self.solana.get_token_balances(address)
-        
-        # Get Jupiter holdings
-        jupiter_holdings = await self.jupiter.get_holdings(address)
-        
-        return {
-            "wallet": address,
-            "network": self.config.network,
-            "sol": sol_balance,
-            "tokens": token_balances.get("balances", {}),
-            "holdings": jupiter_holdings.get("holdings", []),
-            "timestamp": datetime.now().isoformat()
-        }
-    
-    async def get_quote(self, from_token: str, to_token: str, amount: float) -> Dict:
-        """Get swap quote"""
-        return await self.jupiter.get_quote(from_token, to_token, amount)
-    
-    async def prepare_swap(
+    async def get_output_amount(
         self,
         from_token: str,
         to_token: str,
-        amount: float,
-        wallet: str = None
-    ) -> Dict:
-        """Prepare swap transaction"""
-        address = wallet or self.config.wallet_address
+        amount: float
+    ) -> float:
+        """
+        Get output amount in human-readable format
+        
+        Args:
+            from_token: Source token (SOL, USDC, or mint)
+            to_token: Destination token
+            amount: Amount in source token
+            
+        Returns:
+            Amount in destination token
+        """
+        # Convert to mints
+        from_mint = self._get_mint(from_token)
+        to_mint = self._get_mint(to_token)
         
         # Get quote
-        quote = await self.jupiter.get_swap_quote(from_token, to_token, amount)
+        if from_mint == SOL_MINT:
+            in_amount = self.sol_to_lamports(amount)
+        elif from_mint == USDC_MINT:
+            in_amount = self.usdc_to_micro(amount)
+        else:
+            # For other tokens, assume 9 decimals
+            in_amount = int(amount * 1e9)
         
-        if quote.get("status") != "success":
-            return quote
+        quote = await self.get_quote(from_mint, to_mint, in_amount)
         
-        # Get instruction
-        instruction = await self.jupiter.get_swap_instruction(
-            from_token, to_token, amount, address
-        )
-        
-        return {
-            "status": "success",
-            "quote": quote.get("data", {}),
-            "instruction": instruction,
-            "wallet": address
-        }
+        # Convert output to human-readable
+        if to_mint == SOL_MINT:
+            return self.lamports_to_sol(quote.out_amount)
+        elif to_mint == USDC_MINT:
+            return self.micro_to_usdc(quote.out_amount)
+        else:
+            return quote.out_amount / 1e9
     
-    async def execute_swap(self, from_token: str, to_token: str, amount: float) -> Dict:
-        """
-        Execute a swap.
-        
-        Note: This prepares the transaction. Actual signing
-        requires a wallet adapter or keypair.
-        """
-        # For devnet/testing, prepare without signing
-        swap_data = await self.prepare_swap(from_token, to_token, amount)
-        
-        return {
-            "status": "pending_signature",
-            "data": swap_data,
-            "message": "Transaction prepared. Requires wallet signing.",
-            "network": self.config.network
+    def _get_mint(self, token: str) -> str:
+        """Convert token name to mint address"""
+        tokens = {
+            "SOL": SOL_MINT,
+            "WSOL": SOL_MINT,
+            "USDC": USDC_MINT,
+            "USDT": USDT_MINT
         }
+        return tokens.get(token.upper(), token)
 
 
-# ============================================================================
-# API STATUS CHECKER
-# ============================================================================
-async def check_api_status() -> Dict:
-    """Check status of all APIs"""
-    solana = SolanaClient()
-    jupiter = JupiterClient()
-    
-    results = {
-        "solana_rpc": {"status": "unknown"},
-        "jupiter_api": {"status": "unknown"},
-        "timestamp": datetime.now().isoformat()
-    }
-    
-    # Check Solana RPC
+# ==================== CONVENIENCE FUNCTIONS ====================
+
+async def get_sol_price() -> float:
+    """Get current SOL price in USD"""
+    client = JupiterClient()
     try:
-        balance = await solana.get_balance("65YqSYGwR6UNCUmeaKt1V1HV99Ky1tii2bgg6jwJSGN3")
-        results["solana_rpc"] = {
-            "status": "✅" if balance.get("status") == "success" else "❌",
-            "balance": balance
-        }
-    except Exception as e:
-        results["solana_rpc"] = {"status": "❌", "error": str(e)}
-    
-    # Check Jupiter
+        return await client.get_token_price(SOL_MINT)
+    finally:
+        await client.close()
+
+
+async def get_usdc_price() -> float:
+    """Get current USDC price in USD (should be $1.00)"""
+    client = JupiterClient()
     try:
-        tokens = await jupiter.get_tokens()
-        results["jupiter_api"] = {
-            "status": "✅" if tokens.get("status") == "success" else "❌",
-            "token_count": len(tokens.get("tokens", []))
+        return await client.get_token_price(USDC_MINT)
+    finally:
+        await client.close()
+
+
+async def check_portfolio(wallet_address: str) -> Dict[str, Any]:
+    """
+    Get complete portfolio from Jupiter
+    
+    Args:
+        wallet_address: Solana wallet address
+        
+    Returns:
+        Dict with SOL balance and token holdings
+    """
+    client = JupiterClient()
+    try:
+        # Get SOL price
+        sol_price = await client.get_token_price(SOL_MINT)
+        
+        # Get Jupiter holdings
+        session = await client._get_session()
+        url = f"{JUPITER_ULTRA_URL}/holdings/{wallet_address}"
+        async with session.get(url) as response:
+            if response.status != 200:
+                holdings = []
+            else:
+                holdings = await response.json()
+        
+        # Get token info for each holding
+        portfolio = {
+            "wallet": wallet_address,
+            "sol_balance": 0,  # Will be filled by Solana RPC
+            "sol_price": sol_price,
+            "tokens": [],
+            "total_usd": 0
         }
-    except Exception as e:
-        results["jupiter_api"] = {"status": "❌", "error": str(e)}
-    
-    return results
+        
+        for holding in holdings:
+            mint = holding.get("mint", "")
+            amount = float(holding.get("amount", 0))
+            
+            if mint == SOL_MINT:
+                portfolio["sol_balance"] = amount
+                portfolio["total_usd"] += amount * sol_price
+            else:
+                price = await client.get_token_price(mint)
+                value = amount * price
+                portfolio["tokens"].append({
+                    "mint": mint,
+                    "amount": amount,
+                    "usd_value": value
+                })
+                portfolio["total_usd"] += value
+        
+        return portfolio
+    finally:
+        await client.close()
 
 
-# ============================================================================
-# MAIN DEMO
-# ============================================================================
-async def main():
-    """Demo API integrations"""
+# ==================== MAIN DEMO ====================
+
+async def demo():
+    """Demo Jupiter API integration"""
     
-    print("="*70)
-    print("🚀 API INTEGRATIONS DEMO")
-    print("="*70)
+    print("="*60)
+    print("🚀 JUPITER API DEMO")
+    print("="*60)
     
-    # Load config
-    config = APIConfig.from_env()
-    print(f"\n📡 Network: {config.network}")
-    print(f"   RPC: {config.rpc_url[:40]}...")
+    client = JupiterClient()
     
-    # Check APIs
-    print("\n📊 Checking API status...")
-    status = await check_api_status()
-    print(f"   Solana RPC: {status['solana_rpc']['status']}")
-    print(f"   Jupiter API: {status['jupiter_api']['status']}")
+    try:
+        # 1. Get SOL Price
+        print("\n📊 SOL Price:")
+        price = await client.get_token_price(SOL_MINT)
+        print(f"   ${price:.2f}")
+        
+        # 2. Search Tokens
+        print("\n🔍 Search for JUP:")
+        tokens = await client.search_tokens("JUP")
+        for t in tokens[:3]:
+            print(f"   {t.symbol}: {t.name}")
+        
+        # 3. Get Quote (SOL → USDC)
+        print("\n💱 Quote: 1 SOL → USDC")
+        quote = await client.get_sol_to_usdc_quote(1.0)
+        out_usdc = quote.out_amount / 1e6
+        print(f"   Output: {out_usdc:.2f} USDC")
+        print(f"   Price Impact: {quote.price_impact_pct:.4f}%")
+        print(f"   Route: {len(quote.route_plan)} hops")
+        
+        # 4. Get Full Quote
+        print("\n📋 Full Quote Details:")
+        full_quote = await client.get_quote(SOL_MINT, USDC_MINT, 1_000_000_000)  # 1 SOL
+        print(f"   In: {full_quote.in_amount} lamports")
+        print(f"   Out: {full_quote.out_amount} micro-USDC")
+        print(f"   Min Output: {full_quote.other_amount_threshold}")
+        print(f"   Mode: {full_quote.swap_mode}")
+        
+    finally:
+        await client.close()
     
-    # Demo trading client
-    print("\n💰 Trading Client Demo:")
-    client = TradingAPIClient(config)
-    
-    # Get portfolio
-    print("\n📊 Portfolio for wallet:")
-    portfolio = await client.get_portfolio()
-    print(f"   Wallet: {portfolio['wallet'][:20]}...")
-    print(f"   SOL: {portfolio['sol'].get('sol', 'N/A')} SOL")
-    print(f"   Tokens: {len(portfolio.get('holdings', []))} holdings")
-    
-    # Get quote
-    print("\n💱 Swap Quote: SOL → USDC (1 SOL)")
-    quote = await client.get_quote(client.SOL, client.USDC, 1.0)
-    print(f"   Status: {quote.get('status')}")
-    if "output_amount" in quote:
-        print(f"   Output: {quote['output_amount']:.2f} USDC")
-    
-    # Prepare swap
-    print("\n🔄 Preparing swap: 0.5 SOL → USDC")
-    swap = await client.prepare_swap(client.SOL, client.USDC, 0.5)
-    print(f"   Status: {swap.get('status')}")
-    
-    print("\n" + "="*70)
-    print("✅ API Integrations Demo Complete")
-    print("="*70)
+    print("\n" + "="*60)
+    print("✅ Demo complete!")
+    print("="*60)
 
 
 if __name__ == "__main__":
-    import asyncio
-    asyncio.run(main())
+    asyncio.run(demo())
