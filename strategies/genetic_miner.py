@@ -31,8 +31,8 @@ logger = logging.getLogger("genetic_miner")
 # CONFIGURATION
 # ============================================================================
 DB_PATH = "data/genetic_results.db"
-DEFAULT_POPULATION = 50
-DEFAULT_GENERATIONS = 20
+DEFAULT_POPULATION = 20
+DEFAULT_GENERATIONS = 10
 
 
 # ============================================================================
