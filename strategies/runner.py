@@ -83,12 +83,16 @@ class StrategyRunner:
                 strategy_config.get("parameters", {})
             )
             
+            # Filter only valid StrategyConfig fields
+            valid_fields = {
+                'enabled', 'parameters', 'timeframe', 'check_interval',
+                'min_confidence', 'auto_execute', 'pair'
+            }
+            filtered_config = {k: v for k, v in strategy_config.items() if k in valid_fields}
+            
             self.state.active_strategies[name] = {
                 "strategy": strategy,
-                "config": StrategyConfig(
-                    name=name,
-                    **strategy_config
-                )
+                "config": StrategyConfig(name=name, **filtered_config)
             }
             
             logger.info(f"Strategy added: {name} ({strategy_config['type']})")
@@ -111,7 +115,7 @@ class StrategyRunner:
         return [
             {
                 "name": name,
-                "type": config["strategy"].name,
+                "type": data["strategy"].name,
                 "enabled": data["config"].enabled,
                 "pair": data["config"].pair,
                 "auto_execute": data["config"].auto_execute
