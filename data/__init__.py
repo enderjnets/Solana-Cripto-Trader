@@ -1,18 +1,20 @@
 # Data Module - Historical price data for backtesting
 from data.historical_data import (
-    DataManager,
-    BirdeyeClient,
+    HistoricalDataManager,
+    DexScreenerClient,
+    HeliusClient,
     Candle,
     DataConfig,
-    get_sol_data,
-    get_backtest_data
+    get_real_price,
+    get_historical_data
 )
 
 __all__ = [
-    "DataManager",
-    "BirdeyeClient", 
+    "HistoricalDataManager",
+    "DexScreenerClient",
+    "HeliusClient",
     "Candle",
     "DataConfig",
-    "get_sol_data",
-    "get_backtest_data"
+    "get_real_price",
+    "get_historical_data"
 ]
