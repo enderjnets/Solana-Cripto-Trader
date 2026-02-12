@@ -324,32 +324,36 @@ def evaluate_genome_python(
 ) -> Dict[str, float]:
     """
     Pure Python fallback for genome evaluation.
-    Used when Numba is not available.
+    Uses genome entry rules (indicator index, threshold, operator).
     """
     n = len(indicators[0])
-    
+
     sl_pct = abs(genome[GEN_SL_PCT])
     tp_pct = abs(genome[GEN_TP_PCT])
-    
+    num_rules = int(abs(genome[GEN_NUM_RULES]))
+    num_rules = min(max(num_rules, 1), 3)
+
     balance = initial_balance
     position = 0.0
     entry_price = 0.0
-    
+
     trades = 0
     wins = 0
     losses = 0
     pnl_total = 0.0
-    
+    max_balance = initial_balance
+    max_drawdown = 0.0
+    trade_pnls = []
+
     for i in range(n):
         close = indicators[IND_CLOSE, i]
         high = indicators[IND_HIGH, i]
         low = indicators[IND_LOW, i]
-        rsi = indicators[IND_RSI_BASE + 1, i]
-        
+
         if position > 0:
             sl_price = entry_price * (1 - sl_pct)
             tp_price = entry_price * (1 + tp_pct)
-            
+
             if low <= sl_price:
                 pnl = (sl_price - entry_price) / entry_price
                 pnl_total += pnl
@@ -357,7 +361,8 @@ def evaluate_genome_python(
                 trades += 1
                 losses += 1
                 position = 0
-                
+                trade_pnls.append(pnl)
+
             elif high >= tp_price:
                 pnl = (tp_price - entry_price) / entry_price
                 pnl_total += pnl
@@ -365,22 +370,65 @@ def evaluate_genome_python(
                 trades += 1
                 wins += 1
                 position = 0
-        
+                trade_pnls.append(pnl)
+
+            # Track drawdown
+            if balance > max_balance:
+                max_balance = balance
+            dd = (max_balance - balance) / max_balance if max_balance > 0 else 0
+            if dd > max_drawdown:
+                max_drawdown = dd
+
         else:
-            if rsi < 30:
+            # Evaluate genome entry rules
+            all_rules_pass = True
+            for r in range(num_rules):
+                offset = GEN_RULES_START + r * 3
+                if offset + 2 >= len(genome):
+                    break
+                ind_idx = int(genome[offset])
+                threshold = genome[offset + 1]
+                operator = int(genome[offset + 2])
+
+                # Clamp indicator index to valid range
+                ind_idx = max(0, min(ind_idx, NUM_INDICATORS - 1))
+                ind_val = indicators[ind_idx, i]
+
+                if np.isnan(ind_val):
+                    all_rules_pass = False
+                    break
+
+                if operator == OP_GT:  # >
+                    if not (ind_val > threshold):
+                        all_rules_pass = False
+                        break
+                else:  # <
+                    if not (ind_val < threshold):
+                        all_rules_pass = False
+                        break
+
+            if all_rules_pass:
                 position = 1
                 entry_price = close
-    
+
     win_rate = wins / trades if trades > 0 else 0.0
-    
+
+    # Sharpe ratio
+    sharpe = 0.0
+    if trade_pnls:
+        arr = np.array(trade_pnls)
+        std = np.std(arr)
+        if std > 0:
+            sharpe = (np.mean(arr) / std) * np.sqrt(252)
+
     return {
         'pnl': pnl_total,
         'trades': trades,
         'wins': wins,
         'losses': losses,
         'win_rate': win_rate,
-        'sharpe_ratio': 0.0,
-        'max_drawdown': 0.0
+        'sharpe_ratio': sharpe,
+        'max_drawdown': max_drawdown,
     }
 
 

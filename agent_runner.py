@@ -173,7 +173,7 @@ class AccumulationReader:
     def get_target(self) -> Dict:
         """Read latest accumulation target (cached for 60s)."""
         now = datetime.now()
-        if self._last_read and (now - self._last_read).seconds < 60:
+        if self._last_read and (now - self._last_read).total_seconds() < 60:
             return self.current
 
         if self.target_file.exists():
@@ -190,12 +190,14 @@ class AccumulationReader:
 
 
 class StrategyAgent:
-    """Generates and evaluates trading strategies."""
+    """Generates and evaluates trading strategies using brain-deployed rules."""
 
     def __init__(self):
         self.strategies: List[Dict] = []
         self.active_strategy: Optional[Dict] = None
         self._last_deploy_check = None
+        self._price_window: List[float] = []  # Rolling price window for indicators
+        self._max_window = 200
         self._init_strategies()
 
     def _load_deployed_strategies(self):
@@ -250,23 +252,109 @@ class StrategyAgent:
         ]
         self.active_strategy = self.strategies[0]
 
+    def _compute_rsi(self, prices: List[float], period: int) -> float:
+        """Compute RSI from price list."""
+        if len(prices) < period + 1:
+            return 50.0
+        deltas = [prices[i] - prices[i - 1] for i in range(-period, 0)]
+        gains = [d for d in deltas if d > 0]
+        losses = [-d for d in deltas if d < 0]
+        avg_gain = sum(gains) / period if gains else 0
+        avg_loss = sum(losses) / period if losses else 1e-10
+        rs = avg_gain / avg_loss if avg_loss > 0 else 100
+        return 100.0 - (100.0 / (1.0 + rs))
+
+    def _compute_sma(self, prices: List[float], period: int) -> float:
+        """Compute SMA from price list."""
+        if len(prices) < period:
+            return prices[-1] if prices else 0
+        return sum(prices[-period:]) / period
+
+    def _compute_ema(self, prices: List[float], period: int) -> float:
+        """Compute EMA from price list."""
+        if len(prices) < period:
+            return prices[-1] if prices else 0
+        k = 2.0 / (period + 1)
+        ema = prices[-period]
+        for p in prices[-period + 1:]:
+            ema = p * k + ema * (1 - k)
+        return ema
+
+    def _evaluate_brain_rules(self, rules: List[Dict], price: float) -> str:
+        """Evaluate brain strategy rules against current price data.
+
+        Returns BUY/SELL/HOLD signal based on rule evaluation.
+        """
+        if not rules or len(self._price_window) < 20:
+            return "HOLD"
+
+        all_pass = True
+        for rule in rules:
+            ind = rule.get("indicator", "RSI")
+            period = rule.get("period", 14)
+            operator = rule.get("operator", ">")
+            threshold = rule.get("threshold", 50)
+
+            # Compute indicator value
+            if ind == "RSI":
+                value = self._compute_rsi(self._price_window, period)
+            elif ind == "SMA":
+                value = self._compute_sma(self._price_window, period)
+            elif ind == "EMA":
+                value = self._compute_ema(self._price_window, period)
+            else:
+                continue
+
+            # Evaluate rule
+            if operator == ">":
+                if not (value > threshold):
+                    all_pass = False
+                    break
+            elif operator == "<":
+                if not (value < threshold):
+                    all_pass = False
+                    break
+
+        return "BUY" if all_pass else "HOLD"
+
     def evaluate(self, analysis: Dict) -> Optional[Dict]:
         """Evaluate current strategy against market data."""
         # Check for brain-deployed strategies every 5 minutes
         now = datetime.now()
-        if self._last_deploy_check is None or (now - self._last_deploy_check).seconds > 300:
+        if self._last_deploy_check is None or (now - self._last_deploy_check).total_seconds() > 300:
             self._load_deployed_strategies()
             self._last_deploy_check = now
 
         if not self.active_strategy:
             return None
 
-        signal = analysis.get("signal", "WAIT")
-        confidence = analysis.get("confidence", 0)
         price = analysis.get("sol_price", 0)
+        confidence = analysis.get("confidence", 0)
+
+        # Track price for indicator computation
+        if price > 0:
+            self._price_window.append(price)
+            if len(self._price_window) > self._max_window:
+                self._price_window = self._price_window[-self._max_window:]
 
         if confidence < 0.4:
             return {"action": "WAIT", "reason": "Low confidence", "strategy": self.active_strategy["name"]}
+
+        # Determine signal: use brain rules if available, else fallback to mean-reversion
+        brain_rules = self.active_strategy.get("brain_rules", [])
+        if brain_rules:
+            signal = self._evaluate_brain_rules(brain_rules, price)
+        else:
+            signal = analysis.get("signal", "WAIT")
+
+        # Also check for SELL signal using mean-reversion when in brain mode
+        if signal == "HOLD" and brain_rules:
+            # Use sell_threshold from active strategy for profit-taking
+            sell_threshold = self.active_strategy.get("sell_threshold", 0.02)
+            if len(self._price_window) >= 10:
+                avg = sum(self._price_window[-10:]) / 10
+                if price > avg * (1 + sell_threshold):
+                    signal = "SELL"
 
         if signal == "BUY":
             # Use accumulation target to decide WHAT to buy
@@ -275,15 +363,15 @@ class StrategyAgent:
             sol_pct = accum.get("SOL", 0.6)
             btc_pct = accum.get("BTC", 0.4)
 
-            # Primary: buy what the accumulation agent recommends
             if rec == "BTC" and btc_pct >= 0.5:
                 return {
                     "action": "BUY",
                     "token_from": "SOL",
                     "token_to": "cbBTC",
+                    "token_from_mint": SOL,
                     "token_to_mint": "cbbtcf3aa214zXHbiAZQwf4122FBYbraNdFqgw4iMij",
                     "amount_sol": 0.05,
-                    "reason": f"Signal: {signal} @ ${price:.2f} | Accumulate BTC ({btc_pct:.0%})",
+                    "reason": f"Brain:{self.active_strategy['name']} @ ${price:.2f} | BTC ({btc_pct:.0%})",
                     "strategy": self.active_strategy["name"],
                     "accumulation": rec,
                 }
@@ -292,8 +380,10 @@ class StrategyAgent:
                     "action": "BUY",
                     "token_from": "USDC",
                     "token_to": "SOL",
+                    "token_from_mint": USDC,
+                    "token_to_mint": SOL,
                     "amount_sol": 0.05,
-                    "reason": f"Signal: {signal} @ ${price:.2f} | Accumulate SOL ({sol_pct:.0%})",
+                    "reason": f"Brain:{self.active_strategy['name']} @ ${price:.2f} | SOL ({sol_pct:.0%})",
                     "strategy": self.active_strategy["name"],
                     "accumulation": rec,
                 }
@@ -302,6 +392,8 @@ class StrategyAgent:
                 "action": "SELL",
                 "token_from": "SOL",
                 "token_to": "USDC",
+                "token_from_mint": SOL,
+                "token_to_mint": USDC,
                 "amount_sol": 0.05,
                 "reason": f"Signal: {signal} @ ${price:.2f}",
                 "strategy": self.active_strategy["name"]
@@ -404,13 +496,21 @@ class AgentCoordinator:
             if risk_check["approved"]:
                 self._log("Risk", "Approved", risk_check["reason"])
 
-                # 4. Get quote
+                # 4. Get quote - use mints from decision (supports BTC accumulation)
+                from_mint = decision.get("token_from_mint", SOL if action == "SELL" else USDC)
+                to_mint = decision.get("token_to_mint", USDC if action == "SELL" else SOL)
+
                 if action == "SELL":
                     lamports = int(amount * 1e9)
-                    quote = await self.trader.get_quote(SOL, USDC, lamports)
+                    quote = await self.trader.get_quote(from_mint, to_mint, lamports)
+                elif decision.get("token_from") == "SOL":
+                    # BTC accumulation: SOL -> cbBTC
+                    lamports = int(amount * 1e9)
+                    quote = await self.trader.get_quote(from_mint, to_mint, lamports)
                 else:
+                    # Default: USDC -> SOL
                     usdc_amount = int(amount * analysis["sol_price"] * 1e6)
-                    quote = await self.trader.get_quote(USDC, SOL, usdc_amount)
+                    quote = await self.trader.get_quote(from_mint, to_mint, usdc_amount)
 
                 if quote["status"] == "ok":
                     self._log("Trading", "Quote",

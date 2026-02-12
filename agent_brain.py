@@ -19,13 +19,13 @@ Usage:
 import os
 import sys
 import json
+import copy
 import asyncio
 import logging
 import signal
 import random
 import sqlite3
 import numpy as np
-import pandas as pd
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional
 from pathlib import Path
@@ -392,8 +392,8 @@ class OptimizerAgent:
         # Elite selection
         elite = evaluated[:self.elite_count]
 
-        # Create next generation
-        new_pop = [s.copy() for s in elite]
+        # Create next generation (deep copy elite to prevent mutation corruption)
+        new_pop = [copy.deepcopy(s) for s in elite]
 
         while len(new_pop) < self.pop_size:
             if random.random() < self.crossover_rate and len(elite) >= 2:
@@ -457,8 +457,9 @@ class OptimizerAgent:
 
     def _crossover(self, p1: Dict, p2: Dict) -> Dict:
         """Crossover two strategies."""
+        source = p1 if random.random() < 0.5 else p2
         child = {
-            "entry_rules": p1["entry_rules"][:] if random.random() < 0.5 else p2["entry_rules"][:],
+            "entry_rules": copy.deepcopy(source["entry_rules"]),
             "params": {},
         }
         # Mix params
