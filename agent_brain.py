@@ -66,72 +66,104 @@ KNOWLEDGE_DIR.mkdir(exist_ok=True)
 class TokenScoutAgent:
     """Scans and ranks tokens for trading opportunities."""
 
+    # Core Solana ecosystem tokens (always monitored)
+    # Addresses verified against Jupiter Search + Price V3 API
+    CORE_TOKENS = {
+        "SOL":   "So11111111111111111111111111111111111111112",
+        "ETH":   "7vfCXTUXx5WJV5JADk17DUJ4ksgau7utNKj4b963voxs",
+        "cbBTC": "cbbtcf3aa214zXHbiAZQwf4122FBYbraNdFqgw4iMij",
+        "JUP":   "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
+        "BONK":  "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263",
+        "JLP":   "27G8MtK7VtTcCHkpASjSDdkWWYfoqT6ggEuKidVJidD4",
+        "RAY":   "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R",
+        "JTO":   "jtojtomepa8beP8AuQc6eXt5FriJwfFMwQx2v2f9mCL",
+        "WIF":   "EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm",
+    }
+
+    # Stablecoins to exclude from trading candidates
+    STABLECOINS = {"USDC", "USDT", "USD1", "PYUSD", "DAI", "BUSD", "jlUSDC", "CASH"}
+
     def __init__(self, jupiter: JupiterClient):
         self.jupiter = jupiter
         self.last_watchlist: List[Dict] = []
 
     async def scout(self) -> List[Dict]:
-        """Scan trending tokens, filter, and rank."""
+        """Scan trending + core + search tokens, filter, and rank."""
         logger.info("[Scout] Scanning for tokens...")
+        seen_symbols = set()
         candidates = []
 
-        # Fetch trending from multiple timeframes
-        for interval in ["1h", "1d"]:
+        def _add(symbol, address, name, source):
+            if symbol in seen_symbols or symbol in self.STABLECOINS:
+                return
+            seen_symbols.add(symbol)
+            candidates.append({
+                "symbol": symbol, "address": address,
+                "name": name, "source": source,
+            })
+
+        # 1. Core ecosystem tokens (always included)
+        for symbol, address in self.CORE_TOKENS.items():
+            _add(symbol, address, symbol, "core")
+
+        # 2. Trending tokens from Jupiter (valid intervals: 1h, 6h, 24h)
+        for interval in ["1h", "6h", "24h"]:
             try:
                 trending = await self.jupiter.get_trending_tokens(interval)
                 if trending:
-                    for t in trending[:15]:
-                        addr = t.get("address", t.get("mint", ""))
+                    for t in trending[:20]:
+                        addr = t.get("id", t.get("address", t.get("mint", "")))
                         symbol = t.get("symbol", "?")
-                        if addr and symbol not in [c.get("symbol") for c in candidates]:
-                            candidates.append({
-                                "symbol": symbol,
-                                "address": addr,
-                                "name": t.get("name", symbol),
-                                "source": f"trending_{interval}",
-                            })
+                        name = t.get("name", symbol)
+                        if addr:
+                            _add(symbol, addr, name, f"trending_{interval}")
             except Exception as e:
                 logger.warning(f"[Scout] Trending {interval} error: {e}")
 
-        # Get prices for candidates
-        ranked = []
-        if candidates:
-            mints = [c["address"] for c in candidates[:20]]
+        # 3. Search for major crypto wrapped on Solana
+        for query in ["BTC", "ETH", "MATIC", "AVAX", "LINK"]:
             try:
-                prices = await self.jupiter.get_price(mints)
-                for c in candidates:
-                    price_data = prices.get(c["address"], {})
-                    price = float(price_data.get("price", 0)) if isinstance(price_data, dict) else 0
+                results = await self.jupiter.search_tokens(query)
+                if results:
+                    # Take first verified-looking result
+                    for t in results[:2]:
+                        addr = t.get("id", t.get("address", ""))
+                        symbol = t.get("symbol", "?")
+                        name = t.get("name", symbol)
+                        if addr and len(symbol) <= 10:
+                            _add(symbol, addr, name, "search")
+            except Exception:
+                pass
+
+        # 4. Get prices for ALL candidates
+        ranked = []
+        # Process in batches of 20 (API limit)
+        for i in range(0, len(candidates), 20):
+            batch = candidates[i:i+20]
+            mints = [c["address"] for c in batch]
+            try:
+                price_resp = await self.jupiter.get_price(mints)
+                for c in batch:
+                    price_data = price_resp.get(c["address"], {})
+                    if isinstance(price_data, dict):
+                        # Jupiter Price V3 uses "usdPrice"
+                        price = float(price_data.get("usdPrice", price_data.get("price", 0)))
+                    else:
+                        price = 0
                     if price > 0:
                         c["price"] = price
+                        c["price_change_24h"] = price_data.get("priceChange24h", 0) if isinstance(price_data, dict) else 0
                         c["timestamp"] = datetime.now().isoformat()
                         ranked.append(c)
             except Exception as e:
-                logger.warning(f"[Scout] Price fetch error: {e}")
+                logger.warning(f"[Scout] Price batch error: {e}")
 
-        # Always include SOL as base
-        try:
-            sol_price = await self.jupiter.get_token_price(SOL)
-            if sol_price > 0:
-                has_sol = any(c.get("symbol") == "SOL" for c in ranked)
-                if not has_sol:
-                    ranked.insert(0, {
-                        "symbol": "SOL",
-                        "address": SOL,
-                        "name": "Solana",
-                        "price": sol_price,
-                        "source": "core",
-                        "timestamp": datetime.now().isoformat(),
-                    })
-        except Exception:
-            pass
+        # Sort: core first, then trending_1h, then others
+        priority = {"core": 0, "trending_1h": 1, "trending_6h": 2, "trending_24h": 3, "search": 4}
+        ranked.sort(key=lambda x: (priority.get(x.get("source", ""), 9), -x.get("price", 0)))
 
-        # Sort by source priority (core first, then trending_1h, then trending_4h)
-        priority = {"core": 0, "trending_1h": 1, "trending_4h": 2}
-        ranked.sort(key=lambda x: priority.get(x.get("source", ""), 9))
-
-        # Keep top 10
-        ranked = ranked[:10]
+        # Keep top 25
+        ranked = ranked[:25]
         self.last_watchlist = ranked
 
         # Save watchlist
@@ -143,7 +175,7 @@ class TokenScoutAgent:
         with open(WATCHLIST_FILE, "w") as f:
             json.dump(watchlist_data, f, indent=2)
 
-        logger.info(f"[Scout] Found {len(ranked)} tokens: {[t['symbol'] for t in ranked]}")
+        logger.info(f"[Scout] Found {len(ranked)} tokens: {[t['symbol'] for t in ranked[:15]]}")
         return ranked
 
 

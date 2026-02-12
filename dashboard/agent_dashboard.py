@@ -1,410 +1,457 @@
 #!/usr/bin/env python3
 """
-Multi-Agent Dashboard - Agent Interaction Visualizer
-=============================================
-Real-time dashboard showing agent activities, communications, and workflows.
+Multi-Agent Dashboard - LIVE Agent Interaction Visualizer
+=========================================================
+Reads real-time data from agent_state.json and brain_state.json
+produced by agent_runner.py and agent_brain.py.
 
-Features:
-- Agent activity feed
-- Workflow status tracking
-- Inter-agent messaging visualization
-- Trading system monitoring
-- Real-time updates
-
-Streamlit-based dashboard for OpenClaw-inspired multi-agent system.
+Auto-refreshes every 5 seconds.
 """
 
 import os
 import sys
 import json
 import time
-import asyncio
-import logging
 from datetime import datetime
 from typing import Dict, List, Optional
 from pathlib import Path
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger("agent_dashboard")
+PROJECT_ROOT = Path(__file__).parent.parent
 
 # ============================================================================
-# STREAMLIT DASHBOARD
+# DATA LOADING
 # ============================================================================
+
+def load_json(path: Path) -> Dict:
+    """Safely load a JSON file."""
+    try:
+        if path.exists():
+            return json.loads(path.read_text())
+    except Exception:
+        pass
+    return {}
+
+
+def load_runner_state() -> Dict:
+    return load_json(PROJECT_ROOT / "agent_state.json")
+
+
+def load_brain_state() -> Dict:
+    return load_json(PROJECT_ROOT / "brain_state.json")
+
+
+def load_active_strategies() -> Dict:
+    return load_json(PROJECT_ROOT / "data" / "active_strategies.json")
+
+
+def load_knowledge() -> Dict:
+    return load_json(PROJECT_ROOT / "data" / "knowledge" / "strategy_performance.json")
+
+
+def load_watchlist() -> Dict:
+    return load_json(PROJECT_ROOT / "data" / "token_watchlist.json")
+
+
+def load_optimized() -> Dict:
+    return load_json(PROJECT_ROOT / "data" / "optimized_strategies.json")
+
+
+# ============================================================================
+# DASHBOARD
+# ============================================================================
+
 def create_dashboard():
-    """Create the multi-agent dashboard"""
     import streamlit as st
     import pandas as pd
-    
-    # Page config
+    import numpy as np
+
     st.set_page_config(
         page_title="Eko - Multi-Agent Dashboard",
-        page_icon="🦞",
+        page_icon="🤖",
         layout="wide",
         initial_sidebar_state="expanded"
     )
-    
-    # Custom CSS
+
     st.markdown("""
     <style>
     .agent-card {
         background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
         border-radius: 10px;
-        padding: 15px;
-        margin: 10px 0;
+        padding: 12px;
+        margin: 8px 0;
         border-left: 4px solid #00d4ff;
+        color: #e0e0e0;
     }
-    .agent-active {
-        border-left-color: #00ff88;
-    }
-    .agent-inactive {
-        border-left-color: #ff6b6b;
-    }
-    .activity-feed {
-        max-height: 400px;
-        overflow-y: auto;
-    }
-    .message-bubble {
+    .agent-active { border-left-color: #00ff88; }
+    .agent-error { border-left-color: #ff6b6b; }
+    .agent-idle { border-left-color: #ffd700; }
+    .feed-entry {
         background: #0f0f23;
-        border-radius: 10px;
-        padding: 10px;
-        margin: 5px 0;
+        border-radius: 8px;
+        padding: 10px 14px;
+        margin: 4px 0;
+        border-left: 3px solid #00d4ff;
+        color: #d0d0d0;
+        font-size: 0.9em;
     }
-    .workflow-step {
-        padding: 10px;
-        border-radius: 5px;
-        margin: 5px 0;
+    .feed-entry strong { color: #00d4ff; }
+    .feed-entry .action { color: #00ff88; }
+    .metric-card {
+        background: #16213e;
+        border-radius: 8px;
+        padding: 12px;
+        text-align: center;
     }
-    .step-success { background: #00ff88; color: #000; }
-    .step-processing { background: #ffd700; color: #000; }
-    .step-blocked { background: #ff6b6b; color: #fff; }
     </style>
     """, unsafe_allow_html=True)
-    
-    # Title
-    st.title("🦞 Eko - Multi-Agent Trading Dashboard")
-    st.markdown("**Real-time agent interaction visualization**")
-    
-    # Sidebar - Agent Status
+
+    # Load all state
+    runner = load_runner_state()
+    brain = load_brain_state()
+    strategies = load_active_strategies()
+    knowledge = load_knowledge()
+    watchlist = load_watchlist()
+    optimized = load_optimized()
+
+    runner_running = runner.get("running", False)
+    brain_running = brain.get("running", False)
+
+    # ======================== SIDEBAR ========================
     with st.sidebar:
-        st.header("🤖 Agent Status")
-        
-        agents = [
-            {"name": "Coordinator", "role": "Orchestrator", "status": "active", "icon": "🎯"},
-            {"name": "Trading", "role": "DEX Operations", "status": "active", "icon": "💰"},
-            {"name": "Analysis", "role": "Market Research", "status": "active", "icon": "📊"},
-            {"name": "Risk", "role": "Risk Management", "status": "active", "icon": "🛡️"},
-            {"name": "UX Manager", "role": "Dashboard", "status": "active", "icon": "🎨"},
-            {"name": "DevBot", "role": "Developer", "status": "standby", "icon": "👨‍💻"},
-            {"name": "Auditor", "role": "Security", "status": "standby", "icon": "🔐"}
-        ]
-        
-        for agent in agents:
-            color = "#00ff88" if agent["status"] == "active" else "#ffd700"
-            st.markdown(f"""
-            <div class="agent-card agent-{agent['status']}">
-                <strong>{agent['icon']} {agent['name']}</strong><br>
-                <small>{agent['role']}</small><br>
-                <span style="color: {color}">● {agent['status'].upper()}</span>
-            </div>
-            """, unsafe_allow_html=True)
-        
+        st.header("🤖 System Status")
+
+        # Runner status
+        r_color = "#00ff88" if runner_running else "#ff6b6b"
+        r_status = "RUNNING" if runner_running else "STOPPED"
+        st.markdown(f"**Agent Runner**: <span style='color:{r_color}'>{r_status}</span>", unsafe_allow_html=True)
+        if runner_running:
+            st.caption(f"Cycle: {runner.get('cycle', 0)} | Mode: {runner.get('mode', '?')}")
+
+        # Brain status
+        b_color = "#00ff88" if brain_running else "#ff6b6b"
+        b_status = "RUNNING" if brain_running else "STOPPED"
+        st.markdown(f"**Agent Brain**: <span style='color:{b_color}'>{b_status}</span>", unsafe_allow_html=True)
+        if brain_running:
+            opt = brain.get("optimizer", {})
+            st.caption(f"Cycle: {brain.get('cycle', 0)} | Gen: {opt.get('generation', 0)}")
+
         st.markdown("---")
-        
-        # Quick stats
-        st.subheader("📊 Quick Stats")
-        stats_cols = st.columns(2)
-        stats_cols[0].metric("Active Agents", "6")
-        stats_cols[1].metric("Tasks Today", "12")
-        
-        st.metric("Wallet Balance", "5.0000 SOL")
-        st.metric("SOL Price", "$80.76")
-    
-    # Main content
-    tab1, tab2, tab3, tab4 = st.tabs(["📡 Activity Feed", "🔄 Workflows", "💬 Agent Chat", "📈 Trading"])
-    
-    # Tab 1: Activity Feed
+
+        # Agent cards
+        st.subheader("Agents")
+
+        # Runner agents
+        runner_agents = [
+            ("🎯", "Coordinator", "active" if runner_running else "idle"),
+            ("📊", "Analysis", "active" if runner_running else "idle"),
+            ("🛡️", "Risk", "active" if runner_running else "idle"),
+            ("💰", "Trading", "active" if runner_running else "idle"),
+            ("📈", "Strategy", "active" if runner_running else "idle"),
+        ]
+
+        # Brain agents
+        last_cycle = brain.get("last_cycle", {}).get("agents", {})
+        brain_agents = [
+            ("🔍", "TokenScout", last_cycle.get("scout", {}).get("status", "idle")),
+            ("📥", "DataCollector", last_cycle.get("data_collector", {}).get("status", "idle")),
+            ("🧪", "Backtester", last_cycle.get("backtester", {}).get("status", "idle")),
+            ("🧬", "Optimizer", last_cycle.get("optimizer", {}).get("status", "idle")),
+            ("🧠", "Learner", last_cycle.get("learner", {}).get("status", "idle")),
+            ("🚀", "Deployer", last_cycle.get("deployer", {}).get("status", "idle")),
+        ]
+
+        for icon, name, status in runner_agents + brain_agents:
+            css = "agent-active" if status == "ok" or status == "active" else "agent-error" if status == "error" else "agent-idle"
+            color = "#00ff88" if status in ("ok", "active") else "#ff6b6b" if status == "error" else "#ffd700"
+            st.markdown(f"""<div class="agent-card {css}">
+                {icon} <strong>{name}</strong>
+                <span style="color:{color};float:right">● {status.upper()}</span>
+            </div>""", unsafe_allow_html=True)
+
+        st.markdown("---")
+
+        # Quick metrics
+        price_hist = runner.get("price_history", [])
+        current_price = price_hist[-1].get("price", 0) if price_hist else 0
+        st.metric("SOL Price", f"${current_price:.2f}" if current_price else "N/A")
+        st.metric("Wallet", runner.get("wallet", "N/A")[:12] + "...")
+
+        last_update = runner.get("last_update", brain.get("last_update", ""))
+        if last_update:
+            try:
+                dt = datetime.fromisoformat(last_update)
+                ago = (datetime.now() - dt).seconds
+                st.caption(f"Updated {ago}s ago")
+            except Exception:
+                pass
+
+    # ======================== MAIN TABS ========================
+    tab1, tab2, tab3, tab4, tab5 = st.tabs([
+        "📡 Activity Feed",
+        "🧬 Brain & Optimizer",
+        "📈 Trading & Strategies",
+        "🧠 Knowledge Base",
+        "🔍 Token Scout",
+    ])
+
+    # ======================== TAB 1: ACTIVITY FEED ========================
     with tab1:
-        st.header("📡 Agent Activity Feed")
-        st.markdown("*Real-time messages between agents*")
-        
-        # Simulated activity feed
-        activities = [
-            {"time": "00:30:15", "from": "Coordinator", "to": "Trading", "action": "Delegated task", "detail": "BUY 1 SOL"},
-            {"time": "00:30:14", "from": "Risk", "to": "Coordinator", "action": "Approved", "detail": "Trade validated - 10% limit"},
-            {"time": "00:30:12", "from": "Analysis", "to": "Coordinator", "action": "Completed research", "detail": "SOL trend: BULLISH"},
-            {"time": "00:30:10", "from": "Coordinator", "to": "Analysis", "action": "Requested research", "detail": "SOL/USD market analysis"},
-            {"time": "00:30:08", "from": "User", "to": "Coordinator", "action": "Received command", "detail": "Buy 1 SOL at market"},
-            {"time": "00:29:55", "from": "Trading", "to": "Jupiter", "action": "Got quote", "detail": "1 SOL → $80.76 USDC"},
-            {"time": "00:29:50", "from": "Trading", "to": "Solana RPC", "action": "Checked balance", "detail": "5.0000 SOL available"},
-        ]
-        
-        for activity in activities:
-            st.markdown(f"""
-            <div class="message-bubble">
-                <strong>{activity['time']}</strong> | 
-                <span style="color: #00d4ff">{activity['from']}</span> 
-                → 
-                <span style="color: #00ff88">{activity['to']}</span><br>
-                <em>{activity['action']}</em>: {activity['detail']}
-            </div>
-            """, unsafe_allow_html=True)
-        
-        # Auto-refresh
-        if st.button("🔄 Refresh Feed"):
-            st.rerun()
-    
-    # Tab 2: Workflows
-    with tab2:
-        st.header("🔄 Workflow Status")
-        st.markdown("*Current trading workflows and their progress*")
-        
-        # Current workflow
-        st.subheader("📋 Active Workflow")
-        
-        workflow = {
-            "id": "wf_20260211003045",
-            "command": "BUY 1 SOL",
-            "status": "processing",
-            "steps": [
-                {"name": "Portfolio Check", "status": "completed", "time": "00:30:01"},
-                {"name": "Get Quote", "status": "completed", "time": "00:30:02"},
-                {"name": "Risk Validation", "status": "completed", "time": "00:30:03"},
-                {"name": "Execute Trade", "status": "processing", "time": "00:30:04"},
-                {"name": "Notify User", "status": "pending", "time": "-"}
-            ]
-        }
-        
-        # Progress bar
-        completed = sum(1 for s in workflow["steps"] if s["status"] == "completed")
-        total = len(workflow["steps"])
-        progress = st.progress(completed / total)
-        st.write(f"Progress: {completed}/{total} steps completed")
-        
-        # Steps visualization
-        for step in workflow["steps"]:
-            if step["status"] == "completed":
-                css_class = "step-success"
-                icon = "✅"
-            elif step["status"] == "processing":
-                css_class = "step-processing"
-                icon = "🔄"
-            elif step["status"] == "blocked":
-                css_class = "step-blocked"
-                icon = "❌"
-            else:
-                css_class = ""
-                icon = "⏳"
-            
-            st.markdown(f"""
-            <div class="workflow-step {css_class}">
-                {icon} <strong>{step['name']}</strong> 
-                | Status: {step['status'].upper()}
-                | Time: {step['time']}
-            </div>
-            """, unsafe_allow_html=True)
-        
-        # Recent workflows
-        st.markdown("---")
-        st.subheader("📜 Recent Workflows")
-        
-        workflows = [
-            {"id": "wf_20260211002552", "command": "DRY RUN: 0.5 SOL", "status": "completed", "time": "00:25:52"},
-            {"id": "wf_20260211002015", "command": "BALANCE CHECK", "status": "completed", "time": "00:20:15"},
-            {"id": "wf_20260211001530", "command": "GET QUOTE", "status": "completed", "time": "00:15:30"},
-        ]
-        
-        for wf in workflows:
-            color = "#00ff88" if wf["status"] == "completed" else "#ffd700"
-            st.write(f"🔹 **{wf['id']}**: {wf['command']} - <span style='color: {color}'>{wf['status']}</span> @ {wf['time']}", unsafe_allow_html=True)
-    
-    # Tab 3: Agent Chat
-    with tab3:
-        st.header("💬 Inter-Agent Communication")
-        st.markdown("*Visualization of how agents communicate using sessions_send pattern*")
-        
-        # Communication pattern
-        st.subheader("📡 Communication Pattern")
-        
-        # Draw communication diagram
-        agents_chat = ["Coordinator", "Trading", "Risk", "Analysis", "UX Manager"]
-        
-        col1, col2, col3 = st.columns([1, 2, 1])
-        
-        with col1:
-            st.write("**Sending Agent**")
-        
-        with col2:
-            st.write("**Message**")
-        
-        with col3:
-            st.write("**Receiving Agent**")
-        
-        messages = [
-            {"from": "User", "to": "Coordinator", "msg": "Execute trade: BUY 1 SOL", "type": "command"},
-            {"from": "Coordinator", "to": "Analysis", "msg": "Research SOL market", "type": "request"},
-            {"from": "Analysis", "to": "Coordinator", "msg": "Trend: BULLISH (75% confidence)", "type": "response"},
-            {"from": "Coordinator", "to": "Risk", "msg": "Validate trade: BUY 1 SOL", "type": "request"},
-            {"from": "Risk", "to": "Coordinator", "msg": "APPROVED - Within limits", "type": "response"},
-            {"from": "Coordinator", "to": "Trading", "msg": "Execute: BUY 1 SOL @ market", "type": "command"},
-            {"from": "Trading", "to": "Coordinator", "msg": "Quote: 1 SOL = $80.76 USDC", "type": "info"},
-            {"from": "Trading", "to": "User", "msg": "Trade executed: 1 SOL @ $80.76", "type": "notification"},
-        ]
-        
-        for msg in messages:
-            c1, c2, c3 = st.columns([1, 2, 1])
-            with c1:
-                st.write(msg["from"])
-            with c2:
-                st.info(msg["msg"])
-            with c3:
-                st.write(f"→ {msg['to']}")
-        
-        # Stats
-        st.markdown("---")
-        stats = st.columns(4)
-        stats[0].metric("Messages Today", "24")
-        stats[1].metric("Avg Response", "0.3s")
-        stats[2].metric("Success Rate", "100%")
-        stats[3].metric("Active Sessions", "3")
-    
-    # Tab 4: Trading
-    with tab4:
-        st.header("📈 Trading Dashboard")
-        st.markdown("*Real-time trading operations and portfolio*")
-        
-        # Portfolio
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            st.subheader("💰 Portfolio")
-            portfolio = {
-                "SOL": {"amount": 5.0000, "value": 403.80},
-                "USDC": {"amount": 0.00, "value": 0.00},
-                "JUP": {"amount": 10.5, "value": 21.00},
-                "BONK": {"amount": 100000, "value": 5.00}
-            }
-            
-            total_value = sum(p["value"] for p in portfolio.values())
-            st.metric("Total Value", f"${total_value:.2f}")
-            
-            for token, data in portfolio.items():
-                pct = (data["value"] / total_value * 100) if total_value > 0 else 0
-                st.write(f"**{token}**: {data['amount']} (${data['value']:.2f} - {pct:.1f}%)")
-        
-        with col2:
-            st.subheader("📊 Recent Orders")
-            orders = [
-                {"id": "ORD-001", "type": "BUY", "token": "SOL", "amount": 1.0, "price": 80.76, "status": "completed"},
-                {"id": "ORD-002", "type": "BUY", "token": "JUP", "amount": 10.5, "price": 2.00, "status": "completed"},
-            ]
-            
-            for order in orders:
-                color = "#00ff88" if order["status"] == "completed" else "#ffd700"
-                st.write(f"""
-                **{order['id']}** | {order['type']} {order['amount']} {order['token']} @ ${order['price']}
-                → Status: <span style="color: {color}">{order['status']}</span>
-                """, unsafe_allow_html=True)
-        
-        # Price chart placeholder
-        st.markdown("---")
-        st.subheader("📉 SOL Price Chart")
-        
-        # Simple price simulation
-        import numpy as np
-        if st.button("📊 Generate Chart"):
-            dates = pd.date_range(end=datetime.now(), periods=30, freq="1H")
-            prices = 75 + np.cumsum(np.random.randn(30) * 0.5)
-            prices = np.clip(prices, 70, 90)
-            
-            chart_data = pd.DataFrame({
-                "Time": dates,
-                "Price": prices
+        st.header("📡 Live Activity Feed")
+
+        # Combine activities from runner and brain
+        activities = runner.get("recent_activity", [])
+        feed_items = []
+
+        for a in activities:
+            feed_items.append({
+                "time": a.get("time", ""),
+                "cycle": a.get("cycle", 0),
+                "agent": a.get("agent", "?"),
+                "action": a.get("action", ""),
+                "detail": a.get("detail", ""),
+                "source": "runner",
             })
-            st.line_chart(chart_data.set_index("Time"))
-    
-    # Footer
+
+        # Brain activities from last cycle
+        brain_cycle = brain.get("last_cycle", {})
+        brain_agents_data = brain_cycle.get("agents", {})
+        brain_time = brain_cycle.get("time", "")
+        for agent_name, info in brain_agents_data.items():
+            status = info.get("status", "?")
+            detail_parts = []
+            for k, v in info.items():
+                if k != "status":
+                    detail_parts.append(f"{k}={v}")
+            feed_items.append({
+                "time": brain_time[:19] if brain_time else "",
+                "cycle": brain.get("cycle", 0),
+                "agent": agent_name.replace("_", " ").title(),
+                "action": status.upper(),
+                "detail": ", ".join(detail_parts),
+                "source": "brain",
+            })
+
+        # Sort by time (newest first)
+        feed_items.sort(key=lambda x: x.get("time", ""), reverse=True)
+
+        if not feed_items:
+            st.info("No activity yet. Waiting for agents to produce data...")
+        else:
+            st.caption(f"Showing {len(feed_items)} entries")
+            for item in feed_items[:30]:
+                source_icon = "🔄" if item["source"] == "runner" else "🧠"
+                action_color = "#00ff88" if item["action"] in ("OK", "Complete", "Approved", "EXECUTING") else "#ffd700" if item["action"] in ("Starting", "Evaluating", "Validating") else "#ff6b6b" if "error" in item["action"].lower() or "Rejected" in item["action"] else "#00d4ff"
+                st.markdown(f"""<div class="feed-entry">
+                    {source_icon} <strong>[{item['time']}]</strong>
+                    Cycle {item['cycle']} |
+                    <strong>{item['agent']}</strong> →
+                    <span class="action" style="color:{action_color}">{item['action']}</span>:
+                    {item['detail']}
+                </div>""", unsafe_allow_html=True)
+
+    # ======================== TAB 2: BRAIN & OPTIMIZER ========================
+    with tab2:
+        st.header("🧬 Brain & Genetic Optimizer")
+
+        opt = brain.get("optimizer", {})
+        col1, col2, col3, col4 = st.columns(4)
+        col1.metric("Generation", opt.get("generation", 0))
+        col2.metric("Population", opt.get("population_size", 0))
+        best = opt.get("best_ever")
+        col3.metric("Best PnL", f"{best:.4f}" if best else "N/A")
+        col4.metric("Best Strategy", opt.get("best_strategy", "N/A"))
+
+        st.markdown("---")
+
+        # Optimized strategies
+        st.subheader("🏆 Top Optimized Strategies")
+        opt_strats = optimized.get("strategies", [])
+        if opt_strats:
+            rows = []
+            for s in opt_strats:
+                bt = s.get("backtest", {})
+                rows.append({
+                    "Name": s.get("name", "?"),
+                    "PnL": f"{bt.get('pnl', s.get('fitness', 0)):.4f}",
+                    "Win Rate": f"{bt.get('win_rate', 0):.0%}",
+                    "Trades": bt.get("trades", 0),
+                    "SL%": f"{s.get('params', {}).get('sl_pct', 0)*100:.1f}%",
+                    "TP%": f"{s.get('params', {}).get('tp_pct', 0)*100:.1f}%",
+                })
+            st.dataframe(pd.DataFrame(rows), use_container_width=True)
+        else:
+            st.info("Optimizer hasn't produced strategies yet...")
+
+        # Deployed strategies
+        st.subheader("🚀 Deployed to Live Trading")
+        deployed = strategies.get("strategies", [])
+        if deployed:
+            for s in deployed:
+                st.success(f"**{s.get('name', '?')}**: {s.get('description', '')}")
+        else:
+            st.warning("No strategies deployed yet")
+
+        # Deployment history
+        deploy_hist = brain.get("deployer", {}).get("history", [])
+        if deploy_hist:
+            st.subheader("📋 Deployment History")
+            for h in reversed(deploy_hist[-5:]):
+                st.write(f"- {h.get('time', '?')[:19]}: Deployed {h.get('count', 0)} strategies: {', '.join(h.get('names', []))}")
+
+    # ======================== TAB 3: TRADING & STRATEGIES ========================
+    with tab3:
+        st.header("📈 Trading & Strategy Performance")
+
+        # Runner strategy info
+        runner_strats = runner.get("strategies", {})
+        col1, col2, col3 = st.columns(3)
+        col1.metric("Active Strategy", runner_strats.get("active", "N/A"))
+        col2.metric("Total Strategies", runner_strats.get("total_strategies", 0))
+        col3.metric("Trades Today", runner.get("risk", {}).get("trades_today", 0))
+
+        st.markdown("---")
+
+        # Strategy details
+        st.subheader("📊 All Strategies")
+        strat_list = runner_strats.get("strategies", [])
+        if strat_list:
+            rows = []
+            for s in strat_list:
+                rows.append({
+                    "Name": s.get("name", "?"),
+                    "Score": s.get("score", 0),
+                    "Trades": s.get("trades", 0),
+                    "Wins": s.get("wins", 0),
+                    "Win Rate": f"{s['wins']/s['trades']:.0%}" if s.get("trades", 0) > 0 else "N/A",
+                })
+            st.dataframe(pd.DataFrame(rows), use_container_width=True)
+
+        # Price history chart
+        st.subheader("📉 SOL Price History")
+        price_hist = runner.get("price_history", [])
+        if price_hist and len(price_hist) > 1:
+            df = pd.DataFrame(price_hist)
+            df["time"] = pd.to_datetime(df["time"])
+            st.line_chart(df.set_index("time")["price"])
+        elif price_hist:
+            st.info(f"Collecting price data... ({len(price_hist)} points so far)")
+        else:
+            st.info("No price data yet. Runner needs a few cycles to collect data.")
+
+        # Order history
+        st.subheader("📋 Recent Orders")
+        orders = runner.get("order_history", [])
+        if orders:
+            for o in reversed(orders[-10:]):
+                mode = o.get("mode", "dry_run")
+                icon = "🟢" if mode == "live" else "🔵"
+                st.write(f"{icon} **{o.get('action', '?')}** {o.get('amount', 0)} SOL | "
+                        f"Mode: {mode} | {o.get('timestamp', '')[:19]}")
+        else:
+            st.info("No trades executed yet. Agents are building confidence...")
+
+    # ======================== TAB 4: KNOWLEDGE BASE ========================
+    with tab4:
+        st.header("🧠 Knowledge Base")
+
+        learner = brain.get("learner", {})
+        col1, col2 = st.columns(2)
+        col1.metric("Strategies Tracked", learner.get("strategies_tracked", 0))
+        col2.metric("Lessons Learned", learner.get("lessons_count", 0))
+
+        st.markdown("---")
+
+        # Strategy performance
+        st.subheader("📊 Strategy Performance History")
+        kn_strategies = knowledge.get("strategies", {})
+        if kn_strategies:
+            rows = []
+            for name, stats in kn_strategies.items():
+                rows.append({
+                    "Strategy": name,
+                    "Tests": stats.get("total_tests", 0),
+                    "Avg PnL": f"{stats.get('avg_pnl', 0):.4f}",
+                    "Best PnL": f"{stats.get('best_pnl', 0):.4f}",
+                    "Avg Win Rate": f"{stats.get('avg_win_rate', 0):.0%}",
+                })
+            df = pd.DataFrame(rows)
+            st.dataframe(df, use_container_width=True)
+
+            # Bar chart of avg PnL
+            chart_data = pd.DataFrame({
+                "Strategy": list(kn_strategies.keys()),
+                "Avg PnL": [s.get("avg_pnl", 0) for s in kn_strategies.values()],
+            })
+            st.bar_chart(chart_data.set_index("Strategy"))
+        else:
+            st.info("Knowledge base is empty. Brain needs a few cycles to gather data...")
+
+        # Lessons
+        st.subheader("📝 Lessons Learned")
+        lessons = learner.get("lessons", [])
+        if lessons:
+            for lesson in lessons:
+                st.write(f"- {lesson}")
+        else:
+            st.info("No lessons yet. The system learns as it accumulates more data...")
+
+        # Market patterns
+        patterns = knowledge.get("market_patterns", [])
+        if patterns:
+            st.subheader("📈 Optimizer Progress")
+            df = pd.DataFrame(patterns)
+            if "best_pnl" in df.columns and len(df) > 1:
+                st.line_chart(df.set_index("generation")["best_pnl"])
+
+    # ======================== TAB 5: TOKEN SCOUT ========================
+    with tab5:
+        st.header("🔍 Token Scout")
+
+        wl = watchlist.get("tokens", [])
+        st.caption(f"Last updated: {watchlist.get('updated', 'N/A')}")
+
+        if wl:
+            st.subheader(f"📋 Watchlist ({len(wl)} tokens)")
+            rows = []
+            for t in wl:
+                rows.append({
+                    "Symbol": t.get("symbol", "?"),
+                    "Name": t.get("name", "?"),
+                    "Price": f"${t.get('price', 0):.4f}" if t.get("price") else "N/A",
+                    "Source": t.get("source", "?"),
+                })
+            st.dataframe(pd.DataFrame(rows), use_container_width=True)
+        else:
+            st.info("Token Scout hasn't run yet...")
+
+        # Scout info from brain
+        scout = brain.get("scout", {})
+        if scout.get("watchlist"):
+            st.subheader("🎯 Active Watchlist")
+            for sym in scout["watchlist"]:
+                st.write(f"- {sym}")
+
+    # ======================== FOOTER & AUTO-REFRESH ========================
     st.markdown("---")
-    st.caption("🦞 Eko - Multi-Agent Trading System | Powered by OpenClaw-inspired architecture")
+
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.caption("🤖 Eko - Multi-Agent Trading System")
+    with col2:
+        now = datetime.now().strftime("%H:%M:%S")
+        st.caption(f"Dashboard refreshed: {now}")
+    with col3:
+        st.caption("Auto-refresh: 5s")
+
+    # Auto-refresh every 5 seconds
+    time.sleep(5)
+    st.rerun()
 
 
 # ============================================================================
-# AGENT MONITOR (Non-Streamlit)
-# ============================================================================
-class AgentMonitor:
-    """
-    Agent monitoring for non-Streamlit environments.
-    Prints agent activities to console.
-    """
-    
-    def __init__(self):
-        self.activities = []
-        self.workflows = []
-        self.messages = []
-    
-    def log_activity(self, from_agent: str, to_agent: str, action: str, detail: str):
-        """Log agent activity"""
-        timestamp = datetime.now().strftime("%H:%M:%S")
-        entry = {
-            "timestamp": timestamp,
-            "from": from_agent,
-            "to": to_agent,
-            "action": action,
-            "detail": detail
-        }
-        self.activities.append(entry)
-        
-        print(f"[{timestamp}] 📡 {from_agent} → {to_agent}: {action} - {detail}")
-    
-    def start_workflow(self, workflow_id: str, command: str):
-        """Start tracking a workflow"""
-        entry = {
-            "id": workflow_id,
-            "command": command,
-            "status": "processing",
-            "steps": [],
-            "start_time": datetime.now()
-        }
-        self.workflows.append(entry)
-        print(f"\n🔄 Workflow started: {workflow_id}")
-        print(f"   Command: {command}\n")
-    
-    def update_workflow(self, workflow_id: str, step: str, status: str):
-        """Update workflow progress"""
-        for wf in self.workflows:
-            if wf["id"] == workflow_id:
-                wf["steps"].append({"name": step, "status": status})
-                icon = "✅" if status == "completed" else "🔄" if status == "processing" else "❌"
-                print(f"   {icon} {step}: {status}")
-                break
-    
-    def complete_workflow(self, workflow_id: str):
-        """Mark workflow as complete"""
-        for wf in self.workflows:
-            if wf["id"] == workflow_id:
-                wf["status"] = "completed"
-                wf["end_time"] = datetime.now()
-                duration = wf["end_time"] - wf["start_time"]
-                print(f"\n✅ Workflow complete: {workflow_id}")
-                print(f"   Duration: {duration}\n")
-                break
-    
-    def print_summary(self):
-        """Print activity summary"""
-        print("\n" + "="*70)
-        print("📊 AGENT ACTIVITY SUMMARY")
-        print("="*70)
-        print(f"Total Activities: {len(self.activities)}")
-        print(f"Active Workflows: {len([w for w in self.workflows if w['status'] == 'processing'])}")
-        print(f"Completed Workflows: {len([w for w in self.workflows if w['status'] == 'completed'])}")
-        print("="*70)
-
-
-# ============================================================================
-# MAIN - Streamlit entry point
+# MAIN
 # ============================================================================
 
-# Detect if running under Streamlit
 _is_streamlit = False
 try:
     import streamlit.runtime.scriptrunner
@@ -417,34 +464,6 @@ except ImportError:
         pass
 
 if _is_streamlit or (os.environ.get("STREAMLIT_SERVER_PORT") or "streamlit" in sys.argv[0] if sys.argv else False):
-    # Running under Streamlit - render the dashboard
     create_dashboard()
-
 elif __name__ == "__main__":
-    import argparse
-
-    parser = argparse.ArgumentParser(description="Eko Multi-Agent Dashboard")
-    parser.add_argument("--monitor", "-m", action="store_true", help="Run agent monitor (non-Streamlit)")
-
-    args, _ = parser.parse_known_args()
-
-    if args.monitor:
-        print("🚀 Starting Agent Monitor...")
-        monitor = AgentMonitor()
-
-        monitor.log_activity("User", "Coordinator", "Received command", "BUY 1 SOL")
-        monitor.log_activity("Coordinator", "Risk", "Validate trade", "Position: 10%")
-        monitor.log_activity("Risk", "Coordinator", "Approved", "Within limits")
-        monitor.log_activity("Coordinator", "Trading", "Execute trade", "BUY 1 SOL @ market")
-
-        monitor.start_workflow("wf_001", "BUY 1 SOL")
-        monitor.update_workflow("wf_001", "Portfolio Check", "completed")
-        monitor.update_workflow("wf_001", "Get Quote", "completed")
-        monitor.update_workflow("wf_001", "Risk Validation", "completed")
-        monitor.update_workflow("wf_001", "Execute Trade", "processing")
-        monitor.complete_workflow("wf_001")
-
-        monitor.print_summary()
-    else:
-        # Default: just call the dashboard function (streamlit runs this)
-        create_dashboard()
+    create_dashboard()
