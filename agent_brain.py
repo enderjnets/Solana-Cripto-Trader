@@ -348,7 +348,7 @@ class OptimizerAgent:
 
         # Building blocks - wider ranges for aggressive trading
         self.indicators = ["RSI", "SMA", "EMA"]
-        self.periods = [5, 10, 14, 20, 50, 100]  # Added fast period 5
+        self.periods = [10, 14, 20, 50, 100]  # Must match backtester RSI/SMA/EMA_PERIODS
         self.rsi_thresholds = [15, 20, 25, 30, 35, 40, 60, 65, 70, 75, 80, 85]  # Wider range
 
     async def optimize(self, backtest_results: List[Dict]) -> Dict:
@@ -358,7 +358,7 @@ class OptimizerAgent:
         from data.historical_data import HistoricalDataManager
         from backtesting.solana_backtester import (
             precompute_indicators, evaluate_genome_python,
-            generate_sample_data, GENOME_SIZE
+            generate_sample_data,
         )
 
         # Get test data
@@ -468,8 +468,11 @@ class OptimizerAgent:
             threshold = random.choice(self.rsi_thresholds)
             operator = "<" if threshold < 50 else ">"
         else:
-            threshold = 0
-            operator = ">"
+            # SMA/EMA: threshold = % deviation from indicator
+            # "<" means buy when price is below SMA (buy the dip)
+            # ">" means buy when price is above SMA (trend follow)
+            threshold = round(random.uniform(0.5, 3.0), 1)
+            operator = random.choice(["<", ">"])
 
         return {
             "name": f"{ind}_{period}_{operator}{threshold}",
@@ -758,9 +761,10 @@ class DeploymentAgent:
             trades = bt.get("trades", 0)
 
             # Deployment criteria - aggressive but filtered
+            min_pnl = PROFIT_TARGETS["min_backtest_pnl"]
             reasons = []
-            if pnl <= 0:
-                reasons.append(f"Negative PnL ({pnl:.4f})")
+            if pnl < min_pnl:
+                reasons.append(f"PnL too low ({pnl:.4f}, need {min_pnl}+)")
             if win_rate < PROFIT_TARGETS["min_win_rate"]:
                 reasons.append(f"Low win rate ({win_rate:.0%})")
             if trades < PROFIT_TARGETS["min_trades_backtest"]:
@@ -1206,10 +1210,11 @@ class BrainCoordinator:
             try:
                 result = await self.run_cycle()
                 active = [k for k, v in result.get("agents", {}).items() if v.get("status") == "ok"]
+                best_str = f"{self.optimizer.best_ever.get('fitness', 0):.4f}" if self.optimizer.best_ever else "N/A"
                 print(f"\n--- Brain Cycle {result['cycle']} | "
                       f"Active: {', '.join(active)} | "
                       f"Gen: {self.optimizer.generation} | "
-                      f"Best: {self.optimizer.best_ever.get('fitness', 0):.4f} ---" if self.optimizer.best_ever else "Best: N/A ---")
+                      f"Best: {best_str} ---")
 
             except Exception as e:
                 logger.error(f"Brain cycle error: {e}")

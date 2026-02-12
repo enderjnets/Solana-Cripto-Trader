@@ -91,9 +91,9 @@ class DexScreenerClient:
     # Token pairs on Solana
     PAIRS = {
         "SOL-USDC": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
-        "SOL-USDT": "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYW",
+        "SOL-USDT": "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB",
         "JUP-SOL": "JUPyiwrYJFskUPiHa7hkeR8VUtkqjberbSOWd91pbT2",
-        "BONK-USDC": "DezXAZ8z7PnrnRJjz3wXBoZGVixqUi5iA2ztETHuJXJP",
+        "BONK-USDC": "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263",
         "WIF-SOL": "EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm",
     }
     
@@ -211,11 +211,11 @@ class HistoricalDataManager:
     TOKENS = {
         "SOL": "So11111111111111111111111111111111111111112",
         "USDC": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
-        "USDT": "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYW",
+        "USDT": "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB",
         "JUP": "JUPyiwrYJFskUPiHa7hkeR8VUtkqjberbSOWd91pbT2",
-        "BONK": "DezXAZ8z7PnrnRJjz3wXBoZGVixqUi5iA2ztETHuJXJP",
+        "BONK": "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263",
         "WIF": "EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm",
-        "PYTH": "HZ1JovNiBEgZ1W7E2hKQzF8Tz3G6fZ6K3jKGn1c3bY7V",
+        "PYTH": "HZ1JovNiVvGrGNiiYvEozEVgZ58xaU3RKwX8eACQBCt3",
         "WEN": "WENWENv2ykuwsLVnK4KbYQaN9UJqr4Yz7X6gYVfY8X",
     }
     

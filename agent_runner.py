@@ -23,7 +23,7 @@ import signal
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional
 from pathlib import Path
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 PROJECT_ROOT = Path(__file__).parent
 sys.path.insert(0, str(PROJECT_ROOT))
@@ -153,8 +153,8 @@ class RiskAgent:
 
         if amount > max_allowed:
             return {"approved": False, "reason": f"Amount {amount} exceeds max {max_allowed:.4f} SOL (30%)"}
-        if amount < 0.001:
-            return {"approved": False, "reason": "Amount too small (min 0.001 SOL)"}
+        if amount < min_allowed:
+            return {"approved": False, "reason": f"Amount {amount:.4f} below min {min_allowed:.4f} SOL (10%)"}
         if self.trades_today >= self.max_trades_day:
             return {"approved": False, "reason": f"Max {self.max_trades_day} trades/day reached"}
         if self.daily_pnl_pct < -self.daily_loss_limit:
@@ -195,8 +195,8 @@ class TradingAgent:
             )
             return {
                 "status": "ok",
-                "in_amount": int(order.in_amount) / 1e9 if from_token == SOL else int(order.in_amount) / 1e6,
-                "out_amount": int(order.out_amount) / 1e6 if to_token == USDC else int(order.out_amount) / 1e9,
+                "in_amount": int(order.in_amount) / (1e9 if from_token == SOL else 1e6),
+                "out_amount": int(order.out_amount) / (1e6 if to_token in (USDC, USDT) else 1e8 if "cbbtc" in to_token.lower() else 1e9),
                 "in_usd": order.in_usd_value,
                 "out_usd": order.out_usd_value,
                 "impact": order.price_impact_pct,
@@ -334,11 +334,15 @@ class StrategyAgent:
         """Evaluate brain strategy rules against current price data.
 
         Returns BUY/SELL/HOLD signal based on rule evaluation.
+        BUY: when all entry rules pass (e.g. RSI < 40)
+        SELL: when the inverse conditions are met (e.g. RSI > 60 for RSI < 40 rule)
+        HOLD: otherwise
         """
         if not rules or len(self._price_window) < 20:
             return "HOLD"
 
-        all_pass = True
+        buy_pass = True
+        sell_pass = True
         for rule in rules:
             ind = rule.get("indicator", "RSI")
             period = rule.get("period", 14)
@@ -350,22 +354,49 @@ class StrategyAgent:
                 value = self._compute_rsi(self._price_window, period)
             elif ind == "SMA":
                 value = self._compute_sma(self._price_window, period)
+                # For SMA/EMA: compare price vs indicator, threshold = % deviation
+                deviation = threshold / 100.0 if threshold < 50 else 0
+                if operator == "<":
+                    buy_pass = buy_pass and (price < value * (1 - deviation))
+                    sell_pass = sell_pass and (price > value * (1 + deviation))
+                else:
+                    buy_pass = buy_pass and (price > value * (1 + deviation))
+                    sell_pass = sell_pass and (price < value * (1 - deviation))
+                continue
             elif ind == "EMA":
                 value = self._compute_ema(self._price_window, period)
+                deviation = threshold / 100.0 if threshold < 50 else 0
+                if operator == "<":
+                    buy_pass = buy_pass and (price < value * (1 - deviation))
+                    sell_pass = sell_pass and (price > value * (1 + deviation))
+                else:
+                    buy_pass = buy_pass and (price > value * (1 + deviation))
+                    sell_pass = sell_pass and (price < value * (1 - deviation))
+                continue
             else:
                 continue
 
-            # Evaluate rule
-            if operator == ">":
-                if not (value > threshold):
-                    all_pass = False
-                    break
-            elif operator == "<":
+            # RSI: evaluate BUY rule and inverse SELL rule
+            if operator == "<":
+                # BUY: RSI < threshold (oversold)
                 if not (value < threshold):
-                    all_pass = False
-                    break
+                    buy_pass = False
+                # SELL: RSI > (100 - threshold) (overbought mirror)
+                sell_threshold = max(100 - threshold, 60)
+                if not (value > sell_threshold):
+                    sell_pass = False
+            elif operator == ">":
+                if not (value > threshold):
+                    buy_pass = False
+                sell_threshold = min(100 - threshold, 40)
+                if not (value < sell_threshold):
+                    sell_pass = False
 
-        return "BUY" if all_pass else "HOLD"
+        if buy_pass:
+            return "BUY"
+        elif sell_pass:
+            return "SELL"
+        return "HOLD"
 
     def evaluate(self, analysis: Dict) -> Optional[Dict]:
         """Evaluate current strategy against market data."""
@@ -397,19 +428,21 @@ class StrategyAgent:
         else:
             signal = analysis.get("signal", "WAIT")
 
-        # Also check for SELL signal using mean-reversion when in brain mode
+        # Also check for SELL via profit-taking when brain rules say HOLD
         if signal == "HOLD" and brain_rules:
-            # Tight sell threshold for frequent profit-taking (target 5%+ daily)
-            sell_threshold = self.active_strategy.get("sell_threshold", 0.005)
+            # Use brain TP parameter (typically 2-15%), NOT the old sell_threshold
+            brain_params = self.active_strategy.get("brain_params", {})
+            tp_pct = brain_params.get("tp_pct", 0.02)
             if len(self._price_window) >= 10:
                 avg = sum(self._price_window[-10:]) / 10
-                if price > avg * (1 + sell_threshold):
+                if price > avg * (1 + tp_pct):
                     signal = "SELL"
 
         if signal == "BUY":
-            # Dynamic position sizing: 15-25% of estimated portfolio
-            # Target: 5%+ daily via multiple trades with meaningful size
-            position_pct = 0.20  # 20% of portfolio per trade
+            # Dynamic position sizing based on confidence
+            min_pos = PROFIT_TARGETS["min_position_pct"]  # 10%
+            max_pos = PROFIT_TARGETS["max_position_pct"]  # 30%
+            position_pct = min_pos + (max_pos - min_pos) * min(confidence, 1.0)
             accum = analysis.get("accumulation", {})
             rec = accum.get("recommendation", "SOL")
             sol_pct = accum.get("SOL", 0.6)
@@ -446,7 +479,7 @@ class StrategyAgent:
                 "token_to": "USDC",
                 "token_from_mint": SOL,
                 "token_to_mint": USDC,
-                "position_pct": 0.20,
+                "position_pct": position_pct,
                 "reason": f"Signal: {signal} @ ${price:.2f}",
                 "strategy": self.active_strategy["name"]
             }
@@ -573,10 +606,13 @@ class AgentCoordinator:
                               f"In: {quote['in_amount']:.4f} -> Out: {quote['out_amount']:.4f} "
                               f"Impact: {quote['impact']}%")
 
+                    # Estimate PnL from quote for daily tracking
+                    est_pnl = (quote.get("out_amount", 0) - quote.get("in_amount", 0))
+                    if action == "SELL":
+                        est_pnl = quote.get("out_amount", 0) * quote.get("impact", 0) / -100.0
+
                     if self.live and quote.get("has_tx"):
                         self._log("Trading", "EXECUTING", "Live trade on devnet!")
-                        # NOTE: actual signing requires wallet private key
-                        # For now log as dry run even in live mode
                         self.trader.log_trade({
                             "action": action,
                             "amount": amount,
@@ -584,7 +620,8 @@ class AgentCoordinator:
                             "mode": "devnet",
                             "executed": False
                         })
-                        self._log("Trading", "Logged", "Trade recorded (signing not implemented yet)")
+                        self.risk.record_trade_pnl(est_pnl)
+                        self._log("Trading", "Logged", f"Trade recorded | Est PnL: {est_pnl:+.4f}")
                     else:
                         self.trader.log_trade({
                             "action": action,
@@ -592,7 +629,8 @@ class AgentCoordinator:
                             "quote": quote,
                             "mode": "dry_run"
                         })
-                        self._log("Trading", "DryRun", f"Would {action} {amount} SOL")
+                        self.risk.record_trade_pnl(est_pnl)
+                        self._log("Trading", "DryRun", f"Would {action} {amount:.4f} SOL | Est PnL: {est_pnl:+.4f}")
                 else:
                     self._log("Trading", "QuoteFailed", quote.get("error", "Unknown"))
             else:

@@ -391,14 +391,27 @@ def evaluate_genome_python(
                     all_rules_pass = False
                     break
 
-                if operator == OP_GT:  # >
-                    if not (ind_val > threshold):
-                        all_rules_pass = False
-                        break
-                else:  # <
-                    if not (ind_val < threshold):
-                        all_rules_pass = False
-                        break
+                # SMA/EMA: compare close price vs indicator (threshold = % deviation)
+                if ind_idx >= IND_SMA_BASE:
+                    deviation = threshold / 100.0
+                    if operator == OP_GT:  # price > SMA * (1 + deviation)
+                        if not (close > ind_val * (1 + deviation)):
+                            all_rules_pass = False
+                            break
+                    else:  # price < SMA * (1 - deviation)
+                        if not (close < ind_val * (1 - deviation)):
+                            all_rules_pass = False
+                            break
+                else:
+                    # RSI: compare indicator value vs threshold directly
+                    if operator == OP_GT:  # >
+                        if not (ind_val > threshold):
+                            all_rules_pass = False
+                            break
+                    else:  # <
+                        if not (ind_val < threshold):
+                            all_rules_pass = False
+                            break
 
             if all_rules_pass:
                 position = 1

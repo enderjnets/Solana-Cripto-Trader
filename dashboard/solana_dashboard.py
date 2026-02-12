@@ -605,39 +605,30 @@ with tab4:
     st.subheader("🔄 Manual Swap (DEVNET)")
 
         # All popular tokens on Solana
+    # Verified token addresses (confirmed via Jupiter Price V3 API)
     ALL_TOKENS = {
         # Top by Market Cap
         "SOL": ("So11111111111111111111111111111111111111112", 9),
         "USDC": ("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", 6),
-        "USDT": ("Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYW", 6),
+        "USDT": ("Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB", 6),
 
         # DeFi / Infrastructure
-        "JUP": ("JUPyiwrYJFskUPiHa7hkeR8VUtkqjberbSOWd91pbT2", 6),
-        "RAY": ("4jNcW4C4m6TnB8e9pWpB7Yq4Yq4Yq4Yq4Yq4Yq4Yq4Y", 6),
-        "MNGO": ("MangoV3Maint8S4XKJB7hqFDJWsp8PxcYqBtkBxF9V", 6),
-        "SRM": ("SRMuApVNdxXokE5vYV5M4kE8V9nV5M4kE8V9nV5M4k", 6),
-        "ORCA": ("orcaEKTmK8nd7G6q8f4Yq4Yq4Yq4Yq4Yq4Yq4Yq4Y", 6),
+        "JUP": ("JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN", 6),
+        "RAY": ("4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R", 6),
+        "ORCA": ("orcaEKTdK7LKz57vaAYr9QeNsVEPfiu6QeMU1kektZE", 6),
 
         # Memecoins Populares
-        "BONK": ("DezXAZ8z7PnrnRJjz3wXBoZGVixqUi5iA2ztETHuJXJP", 5),
+        "BONK": ("DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263", 5),
         "WIF": ("EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm", 6),
-        "WEN": ("WENWENv2ykuwsLVnK4KbYQaN9UJqr4Yz7X6gYVfY8X", 5),
-        "POPCAT": ("7GCihgDB8dfS1XbY9Hb86h7V9Y4vNPQp1dz1Yyj4FU", 9),
-        "MEW": ("MEW1gQWJ3nEXg2uoERb2YbR1w6G3Yq4Yq4Yq4Yq4Yq4", 5),
-        "FLOKI": ("FLuxi2vNLG4JLc1K8p9w9Yq4Yq4Yq4Yq4Yq4Yq4Yq", 9),
+        "PYTH": ("HZ1JovNiVvGrGNiiYvEozEVgZ58xaU3RKwX8eACQBCt3", 6),
 
-        # AI / Gaming
-        "PYTH": ("HZ1JovNiBEgZ1W7E2hKQzF8Tz3G6fZ6K3jKGn1c3bY7V", 6),
-        "ATLAS": ("ATLASXmbVVx9CPvCxgqHXa1CU9G4yr7V6Wf9Y7Yq1z", 8),
-        "STARL": ("STARLr4x1oZvi1b7Y9gX7ZVG3V7Zq7Z7Zq7Zq7Zq7Zq", 8),
-        "COPE": ("CPEz5niaEVfD3vKKB7xHVDqs1K1L4V7K7K7K7K7K7K7K7", 6),
-        "HNT": ("HNT Token address here", 8),
-        "AUDIO": ("AUDIO Token address here", 8),
-        "MNDE": ("MNDE Token address here", 6),
+        # Wrapped
+        "cbBTC": ("cbbtcf3aa214zXHbiAZQwf4122FBYbraNdFqgw4iMij", 8),
+        "ETH": ("7vfCXTUXx5WJV5JADk17DUJ4ksgau7utNKj4b963voxs", 8),
     }
 
     # Tokens con precio en tiempo real
-    PRICE_TOKENS = ["SOL", "USDC", "USDT", "JUP", "BONK", "WIF", "PYTH", "WEN", "MNGO"]
+    PRICE_TOKENS = ["SOL", "USDC", "USDT", "JUP", "BONK", "WIF", "PYTH"]
 
     col_swap1, col_swap2 = st.columns(2)
 
@@ -712,14 +703,7 @@ with tab4:
                     st.metric(token, f"${price:.4f}")
                 i += 1
     except Exception as e:
-        st.error(f"Error: {e}")
-        for i, (addr, info) in enumerate(data.items()):
-            symbol = addr[:8]
-            price = info.get("usdPrice", 0)
-            with [col_p1, col_p2, col_p3][i]:
-                st.metric(symbol, f"${price:.4f}")
-    except Exception as e:
-        st.error(f"Error: {e}")
+        st.error(f"Error fetching prices: {e}")
 
 
 # ============================================================================
