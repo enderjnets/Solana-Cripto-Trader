@@ -185,7 +185,7 @@ def create_dashboard():
         if last_update:
             try:
                 dt = datetime.fromisoformat(last_update)
-                ago = (datetime.now() - dt).seconds
+                ago = int((datetime.now() - dt).total_seconds())
                 st.caption(f"Updated {ago}s ago")
             except Exception:
                 pass

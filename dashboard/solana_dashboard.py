@@ -620,7 +620,7 @@ with tab4:
 
         # Memecoins Populares
         "BONK": ("DezXAZ8z7PnrnRJjz3wXBoZGVixqUi5iA2ztETHuJXJP", 5),
-        "WIF": ("EKpQGSJtjMFqKZ9KQanSqWJcNSPWfqHYJQD7i阜eLJ", 6),
+        "WIF": ("EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm", 6),
         "WEN": ("WENWENv2ykuwsLVnK4KbYQaN9UJqr4Yz7X6gYVfY8X", 5),
         "POPCAT": ("7GCihgDB8dfS1XbY9Hb86h7V9Y4vNPQp1dz1Yyj4FU", 9),
         "MEW": ("MEW1gQWJ3nEXg2uoERb2YbR1w6G3Yq4Yq4Yq4Yq4Yq4", 5),

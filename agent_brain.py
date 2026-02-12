@@ -472,9 +472,10 @@ class OptimizerAgent:
         return child
 
     def _mutate(self, strat: Dict) -> Dict:
-        """Mutate a strategy."""
+        """Mutate a strategy (deep copies to avoid corrupting source)."""
         if random.random() > self.mutation_rate:
             return strat
+        strat = copy.deepcopy(strat)
 
         params = strat.get("params", {})
         if random.random() < 0.5:
@@ -514,27 +515,26 @@ class OptimizerAgent:
     def _save_generation(self, evaluated: List[Dict]):
         """Save generation results to SQLite."""
         try:
-            conn = sqlite3.connect(self.db_path)
-            c = conn.cursor()
-            c.execute("""CREATE TABLE IF NOT EXISTS brain_generations (
-                id INTEGER PRIMARY KEY,
-                generation INTEGER,
-                timestamp TEXT,
-                best_pnl REAL,
-                best_strategy TEXT,
-                population_size INTEGER,
-                avg_fitness REAL
-            )""")
+            with sqlite3.connect(self.db_path) as conn:
+                c = conn.cursor()
+                c.execute("""CREATE TABLE IF NOT EXISTS brain_generations (
+                    id INTEGER PRIMARY KEY,
+                    generation INTEGER,
+                    timestamp TEXT,
+                    best_pnl REAL,
+                    best_strategy TEXT,
+                    population_size INTEGER,
+                    avg_fitness REAL
+                )""")
 
-            best = evaluated[0] if evaluated else {}
-            avg_fit = sum(s.get("fitness", 0) for s in evaluated) / max(len(evaluated), 1)
+                best = evaluated[0] if evaluated else {}
+                avg_fit = sum(s.get("fitness", 0) for s in evaluated) / max(len(evaluated), 1)
 
-            c.execute("INSERT INTO brain_generations VALUES (NULL, ?, ?, ?, ?, ?, ?)",
-                      (self.generation, datetime.now().isoformat(),
-                       best.get("fitness", 0), json.dumps(best, default=str),
-                       len(evaluated), avg_fit))
-            conn.commit()
-            conn.close()
+                c.execute("INSERT INTO brain_generations VALUES (NULL, ?, ?, ?, ?, ?, ?)",
+                          (self.generation, datetime.now().isoformat(),
+                           best.get("fitness", 0), json.dumps(best, default=str),
+                           len(evaluated), avg_fit))
+                conn.commit()
         except Exception as e:
             logger.warning(f"[Optimizer] DB save error: {e}")
 

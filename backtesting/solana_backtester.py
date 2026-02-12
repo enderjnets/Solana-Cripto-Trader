@@ -372,13 +372,6 @@ def evaluate_genome_python(
                 position = 0
                 trade_pnls.append(pnl)
 
-            # Track drawdown
-            if balance > max_balance:
-                max_balance = balance
-            dd = (max_balance - balance) / max_balance if max_balance > 0 else 0
-            if dd > max_drawdown:
-                max_drawdown = dd
-
         else:
             # Evaluate genome entry rules
             all_rules_pass = True
@@ -411,6 +404,13 @@ def evaluate_genome_python(
                 position = 1
                 entry_price = close
 
+        # Track drawdown (every candle, not just between trades)
+        if balance > max_balance:
+            max_balance = balance
+        dd = (max_balance - balance) / max_balance if max_balance > 0 else 0
+        if dd > max_drawdown:
+            max_drawdown = dd
+
     win_rate = wins / trades if trades > 0 else 0.0
 
     # Sharpe ratio
@@ -438,11 +438,12 @@ def evaluate_genome(
     initial_balance: float = 1.0,
     fees: JupiterFees = None
 ) -> Dict[str, float]:
-    """Evaluate a single genome (strategy)"""
-    if HAS_NUMBA:
-        return evaluate_genome_jit(indicators, genome, initial_balance, fees)
-    else:
-        return evaluate_genome_python(indicators, genome, initial_balance)
+    """Evaluate a single genome (strategy).
+
+    Always uses the Python version which correctly reads genome entry rules.
+    The JIT version is legacy and hardcodes RSI < 30.
+    """
+    return evaluate_genome_python(indicators, genome, initial_balance)
 
 
 def evaluate_population(

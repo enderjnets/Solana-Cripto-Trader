@@ -94,7 +94,7 @@ class DexScreenerClient:
         "SOL-USDT": "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYW",
         "JUP-SOL": "JUPyiwrYJFskUPiHa7hkeR8VUtkqjberbSOWd91pbT2",
         "BONK-USDC": "DezXAZ8z7PnrnRJjz3wXBoZGVixqUi5iA2ztETHuJXJP",
-        "WIF-SOL": "EKpQGSJtjMFqKZ9KQanSqWJcNSPWfqHYJQD7i阜eLJ",
+        "WIF-SOL": "EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm",
     }
     
     def get_price(self, token_address: str) -> Optional[Dict]:
@@ -214,7 +214,7 @@ class HistoricalDataManager:
         "USDT": "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYW",
         "JUP": "JUPyiwrYJFskUPiHa7hkeR8VUtkqjberbSOWd91pbT2",
         "BONK": "DezXAZ8z7PnrnRJjz3wXBoZGVixqUi5iA2ztETHuJXJP",
-        "WIF": "EKpQGSJtjMFqKZ9KQanSqWJcNSPWfqHYJQD7i阜eLJ",
+        "WIF": "EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm",
         "PYTH": "HZ1JovNiBEgZ1W7E2hKQzF8Tz3G6fZ6K3jKGn1c3bY7V",
         "WEN": "WENWENv2ykuwsLVnK4KbYQaN9UJqr4Yz7X6gYVfY8X",
     }

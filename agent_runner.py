@@ -433,6 +433,7 @@ class AgentCoordinator:
         self.trader = TradingAgent(self.jupiter, wallet_address)
         self.strategist = StrategyAgent()
         self.accumulation = AccumulationReader()
+        self.sol_client = None  # Lazy init async Solana RPC client
 
         self.activity_log: List[Dict] = []
 
@@ -483,11 +484,12 @@ class AgentCoordinator:
         if action in ("BUY", "SELL"):
             amount = decision.get("amount_sol", 0.05)
 
-            # Get current balance
-            from solana.rpc.api import Client as SolClient
+            # Get current balance (async, persistent client)
+            from solana.rpc.async_api import AsyncClient
             from solders.pubkey import Pubkey
-            sol_client = SolClient("https://api.devnet.solana.com")
-            balance_resp = sol_client.get_balance(Pubkey.from_string(self.wallet))
+            if self.sol_client is None:
+                self.sol_client = AsyncClient("https://api.devnet.solana.com")
+            balance_resp = await self.sol_client.get_balance(Pubkey.from_string(self.wallet))
             sol_balance = balance_resp.value / 1e9
 
             self._log("Risk", "Validating", f"{action} {amount} SOL (balance: {sol_balance:.4f})")
@@ -593,6 +595,8 @@ class AgentCoordinator:
                 await asyncio.sleep(1)
 
         await self.jupiter.close()
+        if self.sol_client:
+            await self.sol_client.close()
         print("\nAgents stopped.")
 
     def _write_state(self):
