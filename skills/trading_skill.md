@@ -5,8 +5,36 @@ Esta skill define las estrategias de trading para el bot de Jupiter en Solana, i
 
 ## Objetivos
 - Maximizar PnL mientras se limita drawdown
+- Acumular SOL y BTC consistentemente  
+- Mantener reserva en USDT para oportunidades de mercado
 - Diversificar entre major pairs y altcoins
-- Adaptar estrategia según condiciones de mercado
+
+---
+
+## 🎯 ESTRATEGIA PRINCIPAL: SOL + BTC + USDT
+
+### Asignación Target
+| Activo | Target | Mín | Máx | Función |
+|--------|--------|-----|-----|---------|
+| **SOL** | 40% | 30% | 60% | Accumulation |
+| **BTC** | 40% | 30% | 60% | Accumulation |
+| **USDT** | 20% | 10% | 40% | Reserva para dips |
+
+### Reglas de Rebalance
+```
+- Rebalancear cuando desviación > 5%
+- Comprar USDT cuando portafolio baje 10%
+- Comprar SOL/BTC en dips > 15%
+- Tomar ganancias en +15%
+```
+
+### Lógica USDT
+```
+SI mercado_cae > 10% → Aumentar USDT a 30%
+SI mercado_cae > 5% → Mantener USDT en 25%
+SI mercado_sube > 10% → Reducir USDT a 10%
+SI mercado_normal → Mantener USDT en 20%
+```
 
 ---
 
@@ -104,12 +132,19 @@ Ejemplo:
 - Position = 1 SOL / 0.03 = 33.33 SOL max
 ```
 
-### Diversificación
+### Diversificación (SOL + BTC + USDT)
 ```
-Majors (SOL-USDC): Máximo 40% del capital
-Altcoins (JUP-SOL): Máximo 30% del capital
-Stablecoins: Mínimo 20% del capital
-Reservado: 10% para oportunidades
+SOL (Major): 30-60% del capital
+BTC (Major): 30-60% del capital  
+USDT (Reserve): 10-40% del capital (para dips y oportunidades)
+```
+
+### Reserva USDT - Estrategia de Compra
+```
+1. Portafolio baja 10% → Comprar más USDT (reserva)
+2. Mercado flash crash (>15% caída) → Comprar SOL/BTC con reserva USDT
+3. Oportunidad clara (RSI < 30) → Convertir USDT a SOL/BTC
+4. Toma de ganancias en +15% → Aumentar USDT
 ```
 
 ---
@@ -196,13 +231,34 @@ max_slippage_pct: 0.02
 priority_fee_auto: true
 jito_tip_auto: true
 
+# Asignación SOL + BTC + USDT
+target_allocation:
+  SOL: 0.40
+  BTC: 0.40
+  USDT: 0.20
+
+min_allocation:
+  SOL: 0.30
+  BTC: 0.30
+  USDT: 0.10
+
+max_allocation:
+  SOL: 0.60
+  BTC: 0.60
+  USDT: 0.40
+
 # Timeframes
 analysis_timeframe: 1h
 confirmation_timeframe: 15m
 
 # Rebalance
-rebalance_threshold: 0.10  # 10% drift
+rebalance_threshold: 0.05  # 5% drift (más estricto para proteger USDT)
 rebalance_interval: 24h
+
+# USDT Strategy
+usdt_buy_trigger: -0.10  # Comprar USDT cuando portafolio baje 10%
+dip_buy_threshold: -0.15  # Comprar SOL/BTC en dips > 15%
+take_profit_target: 0.15  # Tomar ganancias en +15%
 ```
 
 ---
@@ -215,6 +271,25 @@ Analiza condiciones de mercado para un símbolo.
 ### calculate_position_size(symbol, account_balance, stop_loss_pct)
 Calcula tamaño óptimo de posición.
 
+### check_portfolio_allocation()
+```
+Retorna: {
+  "SOL": 0.45,
+  "BTC": 0.35,
+  "USDT": 0.20
+}
+Acción: Rebalancear si desviación > 5%
+```
+
+### execute_rebalance(target_allocation)
+```
+1. Calcular desviación actual vs target
+2. Si SOL > target → Vender SOL, comprar USDT
+3. Si BTC > target → Vender BTC, comprar USDT
+4. Si USDT > target → Comprar SOL/BTC
+5. Ejecutar swaps via Jupiter API
+```
+
 ### check_entry_conditions(symbol)
 Evalúa si hay condiciones para entrada.
 
@@ -224,7 +299,15 @@ Ejecuta trade según estrategia.
 ### monitor_position(position)
 Monitorea posición abierta y gestiona salida.
 
+### check_usdt_opportunity()
+```
+1. Ver precio SOL/BTC
+2. Si RSI < 30 → Comprar SOL/BTC con reserva USDT
+3. Si precio cambió > -15% en 24h → Comprar dip
+4. Si toma de ganancias (+15%) → Aumentar USDT
+```
+
 ---
 
-*Skill Version: 1.0*
-*Last Updated: 2026-02-09*
+*Skill Version: 1.1 - USDT Integration*
+*Last Updated: 2026-02-13*

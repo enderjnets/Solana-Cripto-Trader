@@ -852,12 +852,14 @@ class AccumulationAgent:
     # cbBTC mint on Solana
     BTC_MINT = "cbbtcf3aa214zXHbiAZQwf4122FBYbraNdFqgw4iMij"
     SOL_MINT = "So11111111111111111111111111111111111111112"
+    USDT_MINT = "Es9vMFrzaCERmkhfr9WMq8i5icD4Qwpq6xS5VUUSbmE1"
 
     def __init__(self, jupiter: JupiterClient):
         self.jupiter = jupiter
         self.history: List[Dict] = []
         self.price_snapshots: List[Dict] = []  # Rolling price window
-        self.current_target: Dict = {"SOL": 0.60, "BTC": 0.40}
+        # Target allocation: SOL 40%, BTC 40%, USDT 20% (reserve for dips)
+        self.current_target: Dict = {"SOL": 0.40, "BTC": 0.40, "USDT": 0.20}
 
     async def decide(self, watchlist: List[Dict], knowledge: Dict = None) -> Dict:
         """Analyze BTC vs SOL and decide accumulation allocation."""
@@ -994,9 +996,29 @@ class AccumulationAgent:
             sol_pct = sol_score / total
             btc_pct = btc_score / total
 
-        # Enforce bounds: minimum 20% each, maximum 80%
-        sol_pct = max(0.20, min(0.80, sol_pct))
-        btc_pct = 1.0 - sol_pct
+        # Enforce bounds: minimum 20% SOL/BTC, maximum 60% each
+        sol_pct = max(0.20, min(0.60, sol_pct))
+        btc_pct = max(0.20, min(0.60, btc_pct))
+        
+        # Calculate USDT allocation (reserve for market opportunities)
+        # USDT increases when market is volatile/down, decreases when clear trend up
+        market_change = (sol_change + btc_change) / 2
+        if market_change < -5:
+            # Flash crash - increase USDT reserve
+            usdt_pct = 0.30
+        elif market_change < -2:
+            usdt_pct = 0.25
+        elif market_change > 5:
+            # Strong rally - reduce USDT, more exposure
+            usdt_pct = 0.10
+        else:
+            # Normal - maintain 20% reserve
+            usdt_pct = 0.20
+        
+        # Normalize SOL + BTC to 100% of (1 - USDT)
+        total_crypto = sol_pct + btc_pct
+        sol_pct = (sol_pct / total_crypto) * (1.0 - usdt_pct)
+        btc_pct = (btc_pct / total_crypto) * (1.0 - usdt_pct)
 
         recommendation = "SOL" if sol_pct > btc_pct else "BTC"
         confidence = abs(sol_pct - btc_pct) / 0.60  # 0-1 scale (0.60 max spread)
@@ -1004,6 +1026,7 @@ class AccumulationAgent:
         target = {
             "SOL": round(sol_pct, 2),
             "BTC": round(btc_pct, 2),
+            "USDT": round(usdt_pct, 2),
             "recommendation": recommendation,
             "confidence": round(min(confidence, 1.0), 2),
             "reasoning": {
@@ -1011,6 +1034,8 @@ class AccumulationAgent:
                 "btc_price": round(btc_price, 2),
                 "sol_24h_change": round(sol_change, 2),
                 "btc_24h_change": round(btc_change, 2),
+                "market_change": round(market_change, 2),
+                "usdt_reserve": round(usdt_pct, 2),
                 "sol_score": round(sol_score, 1),
                 "btc_score": round(btc_score, 1),
                 "factors": reasons,
@@ -1023,6 +1048,7 @@ class AccumulationAgent:
             "time": datetime.now().isoformat(),
             "sol_pct": sol_pct,
             "btc_pct": btc_pct,
+            "usdt_pct": usdt_pct,
             "rec": recommendation,
         })
         self.history = self.history[-100:]
@@ -1031,7 +1057,7 @@ class AccumulationAgent:
         with open(ACCUMULATION_FILE, "w") as f:
             json.dump(target, f, indent=2)
 
-        logger.info(f"[Accumulator] Target: SOL={sol_pct:.0%} BTC={btc_pct:.0%} "
+        logger.info(f"[Accumulator] Target: SOL={sol_pct:.0%} BTC={btc_pct:.0%} USDT={usdt_pct:.0%} "
                     f"| Recommend: {recommendation} "
                     f"| Conf: {confidence:.0%} "
                     f"| {'; '.join(reasons[:3])}")
