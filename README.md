@@ -1,6 +1,26 @@
-# 🚀 Jupiter Solana Trading Bot
+# 🚀 Jupiter Solana Trading Bot 🦞
 
 Bot de trading automatizado para Solana usando Jupiter DEX Aggregator, MiniMax M2.1 y arquitectura distribuida.
+
+## 🎯 Estrategia: SOL + BTC + USDT
+
+**Objetivo:** Acumular SOL y BTC, mantener USDT para oportunidades de mercado.
+
+| Activo | Target | Min | Max |
+|--------|--------|-----|-----|
+| SOL | 40% | 30% | 60% |
+| BTC | 40% | 30% | 60% |
+| USDT | 20% | 10% | 40% |
+
+**Reglas:**
+- Rebalancear cuando desviación > 5%
+- Comprar USDT cuando portafolio baje 10%
+- Comprar SOL/BTC en dips > 15%
+- Tomar ganancias en +15%
+
+**Archivos USDT:**
+- `usdt_config.py` - Configuración de estrategia
+- `check_portfolio.py` - Verificar portafolio completo
 
 ## 🏗️ Arquitectura
 
@@ -202,10 +222,30 @@ python coordinator_port5001.py
 
 ## 🧪 Testing
 
-### Test de API
+### Verificar Portafolio (SOL + BTC + USDT)
 
 ```bash
-python tools/jupiter_client.py
+python3 check_portfolio.py
+```
+
+Expected output:
+```
+==================================================
+  🦞 SOLANA PORTFOLIO (SOL + BTC + USDT)
+==================================================
+  Wallet: H9GF6t5hd...
+  
+  💰 SOL:  5.0000 x $80.00 = $400.00
+  ₿ BTC:   0.00001250 x $42000.00 = $525.00
+  ₮ USDT:  200.00 x $1.00 = $200.00
+  
+  📊 TOTAL: $1,125.00
+  
+  Allocation:
+    SOL:  35.6%
+    BTC:  46.7%
+    USDT: 17.8%
+==================================================
 ```
 
 ### Test de Backtester
