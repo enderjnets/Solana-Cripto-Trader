@@ -276,7 +276,7 @@ if trades:
                       else 'color: #7f1d1d' if v and str(v).startswith('$-') else '' 
                       for v in x], axis=0
         ),
-        use_container_width=True
+        width="stretch"
     )
 else:
     st.info("No trades executed yet.")

@@ -10,6 +10,12 @@ Features:
 - SQLite persistence for results
 - Automatic best strategy selection
 
+IMPORTANT: Uses SAME indicator indices as solana_backtester.py:
+- IND_OPEN = 0, IND_HIGH = 1, IND_LOW = 2, IND_CLOSE = 3
+- IND_RSI_BASE = 5 (RSI_7=5, RSI_14=6, RSI_21=7, RSI_50=8, RSI_100=9, RSI_200=10)
+- IND_SMA_BASE = 11 (SMA_7=11, SMA_14=12, etc.)
+- IND_EMA_BASE = 17 (EMA_7=17, EMA_14=18, etc.)
+
 Usage:
     miner = StrategyMiner(df, population_size=50, generations=20)
     results = miner.evolve()
@@ -34,6 +40,75 @@ DB_PATH = "data/genetic_results.db"
 DEFAULT_POPULATION = 20
 DEFAULT_GENERATIONS = 10
 
+# ============================================================================
+# INDICATOR INDICES (MUST MATCH solana_backtester.py)
+# ============================================================================
+IND_OPEN = 0
+IND_HIGH = 1
+IND_LOW = 2
+IND_CLOSE = 3
+IND_VOLUME = 4
+
+# RSI indices (IND_RSI_BASE = 5)
+IND_RSI_7 = 5
+IND_RSI_14 = 6
+IND_RSI_21 = 7
+IND_RSI_50 = 8
+IND_RSI_100 = 9
+IND_RSI_200 = 10
+
+# SMA indices (IND_SMA_BASE = 11)
+IND_SMA_7 = 11
+IND_SMA_14 = 12
+IND_SMA_21 = 13
+IND_SMA_50 = 14
+IND_SMA_100 = 15
+IND_SMA_200 = 16
+
+# EMA indices (IND_EMA_BASE = 17)
+IND_EMA_7 = 17
+IND_EMA_14 = 18
+IND_EMA_21 = 19
+IND_EMA_50 = 20
+IND_EMA_100 = 21
+IND_EMA_200 = 22
+
+# WMA indices (IND_WMA_BASE = 23)
+IND_WMA_14 = 23
+IND_WMA_50 = 24
+IND_WMA_100 = 25
+IND_WMA_200 = 26
+
+# Indicator name to index mapping
+INDICATOR_MAP = {
+    "OPEN": IND_OPEN,
+    "HIGH": IND_HIGH,
+    "LOW": IND_LOW,
+    "CLOSE": IND_CLOSE,
+    "VOLUME": IND_VOLUME,
+    "RSI_7": IND_RSI_7,
+    "RSI_14": IND_RSI_14,
+    "RSI_21": IND_RSI_21,
+    "RSI_50": IND_RSI_50,
+    "RSI_100": IND_RSI_100,
+    "RSI_200": IND_RSI_200,
+    "SMA_7": IND_SMA_7,
+    "SMA_14": IND_SMA_14,
+    "SMA_21": IND_SMA_21,
+    "SMA_50": IND_SMA_50,
+    "SMA_100": IND_SMA_100,
+    "SMA_200": IND_SMA_200,
+    "EMA_7": IND_EMA_7,
+    "EMA_14": IND_EMA_14,
+    "EMA_21": IND_EMA_21,
+    "EMA_50": IND_EMA_50,
+    "EMA_100": IND_EMA_100,
+    "EMA_200": IND_EMA_200,
+    "WMA_14": IND_WMA_14,
+    "WMA_50": IND_WMA_50,
+    "WMA_100": IND_WMA_100,
+    "WMA_200": IND_WMA_200,
+}
 
 # ============================================================================
 # GENOME DEFINITIONS
@@ -62,20 +137,15 @@ class Genome:
 
 
 class GenomeEncoder:
-    """Encode genomes for Numba JIT backtesting"""
+    """Encode genomes for Numba JIT backtesting.
     
-    IND_CLOSE = 0
-    IND_HIGH = 1
-    IND_LOW = 2
-    IND_RSI = 3
-    IND_SMA = 4
-    IND_EMA = 5
-    IND_BB_HIGH = 6
-    IND_BB_LOW = 7
-    IND_BB_MID = 8
+    IMPORTANT: Uses indicator indices from solana_backtester.py
+    to ensure compatibility between miner and backtester.
+    """
     
     OP_GT = 0  # >
     OP_LT = 1  # <
+    OP_EQ = 2  # ==
     
     MAX_RULES = 3
     GENOME_SIZE = 20  # [sl_pct, tp_pct, size, num_entry, num_exit, rules...]
@@ -92,30 +162,67 @@ class GenomeEncoder:
         arr[3] = len(genome.entry_rules)
         arr[4] = len(genome.exit_rules)
         
-        # Encode entry rules (6 values each: indicator, period, operator, threshold)
+        # Encode entry rules (5 values each: indicator_idx, period, operator, threshold, compare_type)
         for i, rule in enumerate(genome.entry_rules[:cls.MAX_RULES]):
             base = 5 + i * 5
-            arr[base] = cls._encode_indicator(rule.get("indicator", "RSI"))
+            ind_name = rule.get("indicator", "RSI_14")
+            
+            # Get indicator index from solana_backtester mapping
+            ind_idx = INDICATOR_MAP.get(ind_name, IND_RSI_14)
+            
+            arr[base] = ind_idx
             arr[base + 1] = rule.get("period", 14)
             arr[base + 2] = cls._encode_operator(rule.get("operator", ">"))
             arr[base + 3] = rule.get("threshold", 30)
-            arr[base + 4] = cls._encode_indicator(rule.get("compare_to", "constant"))
+            arr[base + 4] = cls._encode_compare_type(rule.get("compare_to", "constant"))
         
         return arr
     
     @classmethod
-    def _encode_indicator(cls, name: str) -> float:
-        mapping = {
-            "close": cls.IND_CLOSE, "high": cls.IND_HIGH, "low": cls.IND_LOW,
-            "RSI": cls.IND_RSI, "SMA": cls.IND_SMA, "EMA": cls.IND_EMA,
-            "BB_HIGH": cls.IND_BB_HIGH, "BB_LOW": cls.IND_BB_LOW, "BB_MID": cls.IND_BB_MID,
-            "constant": 99
-        }
-        return mapping.get(name, cls.IND_RSI)
+    def _encode_operator(cls, op: str) -> float:
+        """Encode comparison operator"""
+        return cls.OP_GT if op == ">" else cls.OP_LT if op == "<" else cls.OP_EQ
     
     @classmethod
-    def _encode_operator(cls, op: str) -> float:
-        return cls.OP_GT if op == ">" else cls.OP_LT
+    def _encode_compare_type(cls, compare_to: str) -> float:
+        """Encode comparison type: constant=0, price=1, indicator=2"""
+        mapping = {"constant": 0, "price": 1, "indicator": 2}
+        return mapping.get(compare_to, 0)
+    
+    @classmethod
+    def decode_rule(cls, ind_idx: float, threshold: float, operator: float, compare_type: float) -> Dict:
+        """Decode a rule from genome values to human-readable format"""
+        # Find indicator name from index
+        ind_name = "CLOSE"
+        for name, idx in INDICATOR_MAP.items():
+            if idx == int(ind_idx):
+                ind_name = name
+                break
+        
+        op_str = ">" if operator == cls.OP_GT else "<" if operator == cls.OP_LT else "=="
+        compare_str = "constant"
+        
+        return {
+            "indicator": ind_name,
+            "threshold": threshold,
+            "operator": op_str,
+            "compare_to": compare_str
+        }
+    
+    @classmethod
+    def get_indicator_index(cls, indicator_name: str) -> int:
+        """Get the index for an indicator name (matches solana_backtester.py)"""
+        return INDICATOR_MAP.get(indicator_name, IND_RSI_14)
+    
+    @classmethod
+    def get_available_indicators(cls) -> List[str]:
+        """List all available indicator names"""
+        return list(INDICATOR_MAP.keys())
+    
+    @classmethod
+    def get_genome_size(cls) -> int:
+        """Get the size of encoded genome"""
+        return cls.GENOME_SIZE
 
 
 # ============================================================================
@@ -139,17 +246,14 @@ class StrategyMiner:
         self.generations = generations
         self.db_path = db_path
         
-        # Available building blocks
-        self.indicators = ["RSI", "SMA", "EMA", "BB"]
-        self.periods = [7, 14, 20, 50, 100]
+        # Available building blocks (use names that map to INDICATOR_MAP)
+        self.indicators = ["RSI_7", "RSI_14", "RSI_21", "SMA_14", "EMA_14"]
+        self.periods = [7, 14, 21, 50, 100]
         self.operators = [">", "<"]
         
         # RSI thresholds
         self.rsi_oversold = [20, 25, 30, 35]
         self.rsi_overbought = [65, 70, 75, 80]
-        
-        # BB thresholds
-        self.bb_thresholds = [0.0, 1.0, 2.0, 3.0]  # Standard deviations
         
         self._init_db()
     
@@ -189,39 +293,31 @@ class StrategyMiner:
         # Random indicator for entry
         ind = random.choice(self.indicators)
         
-        if ind == "RSI":
+        # Build rule with proper indicator name
+        if ind.startswith("RSI"):
             # RSI oversold/overbought
             rule = {
-                "indicator": "RSI",
-                "period": random.choice(self.periods),
-                "operator": random.choice([">", "<"]),
+                "indicator": ind,  # e.g., "RSI_14"
+                "period": int(ind.split("_")[1]) if "_" in ind else 14,
+                "operator": random.choice(self.operators),
                 "threshold": random.choice(
                     self.rsi_oversold if random.random() < 0.5 else self.rsi_overbought
                 )
             }
-        elif ind == "SMA":
+        elif ind.startswith("SMA"):
             # Price vs SMA crossover
             rule = {
-                "indicator": "SMA",
-                "period": random.choice(self.periods),
+                "indicator": ind,
+                "period": int(ind.split("_")[1]) if "_" in ind else 14,
                 "operator": ">",
                 "compare_to": "price"
             }
-        elif ind == "EMA":
-            # EMA crossover
+        else:  # EMA
             rule = {
-                "indicator": "EMA",
-                "period": random.choice(self.periods),
+                "indicator": ind,
+                "period": int(ind.split("_")[1]) if "_" in ind else 14,
                 "operator": ">",
-                "compare_to": "SMA"
-            }
-        else:  # BB
-            rule = {
-                "indicator": "BB",
-                "period": random.choice([14, 20]),
-                "operator": "<",
-                "threshold": random.choice(self.bb_thresholds),
-                "compare_to": "BB_LOW"
+                "compare_to": "price"
             }
         
         return Genome(
@@ -236,7 +332,6 @@ class StrategyMiner:
     
     def crossover(self, parent1: Genome, parent2: Genome) -> Genome:
         """Combine two genomes"""
-        # Single-point crossover on params
         child_params = parent1.params.copy() if random.random() < 0.5 else parent2.params
         
         return Genome(
@@ -259,11 +354,9 @@ class StrategyMiner:
             if attr == "period":
                 rule["period"] = random.choice(self.periods)
             elif attr == "threshold":
-                if rule.get("indicator") == "RSI":
+                if rule.get("indicator", "").startswith("RSI"):
                     all_thresh = self.rsi_oversold + self.rsi_overbought
                     rule["threshold"] = random.choice(all_thresh)
-                else:
-                    rule["threshold"] = random.choice(self.bb_thresholds)
             elif attr == "operator":
                 rule["operator"] = ">" if rule["operator"] == "<" else "<"
             
@@ -281,7 +374,6 @@ class StrategyMiner:
     
     def evaluate(self, genome: Genome) -> Tuple[float, float, float]:
         """Evaluate a genome's fitness (PnL, Win Rate, Sharpe)"""
-        # Simple backtest with TP/SL
         sl_pct = genome.params.get("sl_pct", 0.03)
         tp_pct = genome.params.get("tp_pct", 0.05)
         
@@ -289,20 +381,23 @@ class StrategyMiner:
             return 0.0, 0.0, 0.0
         
         rule = genome.entry_rules[0]
-        ind_name = rule.get("indicator", "RSI")
+        ind_name = rule.get("indicator", "RSI_14")
         period = rule.get("period", 14)
         threshold = rule.get("threshold", 30)
         operator = rule.get("operator", ">")
         
-        # Calculate indicator
-        if ind_name == "RSI":
+        # Calculate indicator using GenomeEncoder index
+        ind_idx = GenomeEncoder.get_indicator_index(ind_name)
+        
+        # Calculate indicator based on index
+        if "RSI" in ind_name:
             series = self._calculate_rsi(period)
-        elif ind_name == "SMA":
+        elif "SMA" in ind_name:
             series = self._calculate_sma(period)
-        elif ind_name == "EMA":
+        elif "EMA" in ind_name:
             series = self._calculate_ema(period)
         else:
-            series = self._calculate_bb(period)
+            series = self._calculate_sma(14)
         
         # Generate signals
         if operator == ">":
@@ -333,7 +428,6 @@ class StrategyMiner:
         total = len(pnls)
         win_rate = wins / total if total > 0 else 0
         
-        # Sharpe ratio approximation
         mean_pnl = pnls.mean()
         std_pnl = pnls.std() if len(pnls) > 1 else 0.01
         sharpe = (mean_pnl / std_pnl) * np.sqrt(total) if std_pnl > 0 else 0
@@ -356,19 +450,8 @@ class StrategyMiner:
         """Calculate EMA"""
         return self.df['close'].ewm(span=period, adjust=False).mean()
     
-    def _calculate_bb(self, period: int) -> pd.Series:
-        """Calculate Bollinger Band position (std devs from middle)"""
-        sma = self.df['close'].rolling(period).mean()
-        std = self.df['close'].rolling(period).std()
-        return (self.df['close'] - sma) / std.replace(0, 0.001)
-    
     def evolve(self, verbose: bool = True) -> Dict:
-        """
-        Run the genetic algorithm.
-        
-        Returns:
-            Dictionary with best genome and statistics
-        """
+        """Run the genetic algorithm."""
         import time
         start_time = time.time()
         
@@ -401,20 +484,13 @@ class StrategyMiner:
             new_population = elite.copy()
             
             while len(new_population) < self.pop_size:
-                # Tournament selection
                 parent1 = random.choice(elite)
                 parent2 = random.choice(elite)
-                
-                # Crossover
                 child = self.crossover(parent1, parent2)
-                
-                # Mutation
                 child = self.mutate(child)
-                
                 new_population.append(child)
             
             population = new_population
-            
             gen_time = time.time() - gen_start
             
             if verbose and gen % 5 == 0:
@@ -423,11 +499,8 @@ class StrategyMiner:
                 print(f"  Gen {gen}: Best PnL={top_pnl:.4f}, Win Rate={top_wr:.1%}, Time={gen_time:.2f}s")
         
         total_time = time.time() - start_time
-        
-        # Final evaluation
         final_pnl, final_wr, final_sharpe = self.evaluate(best_genome)
         
-        # Save to database
         self._save_run(best_genome, final_pnl, final_wr, total_time)
         
         result = {
@@ -465,8 +538,7 @@ class StrategyMiner:
         
         run_id = c.lastrowid
         
-        # Save population stats
-        for genome in [genome]:  # Save best
+        for genome in [genome]:
             c.execute('''INSERT INTO population 
                 (run_id, genome, pnl, win_rate, generation) VALUES (?, ?, ?, ?, ?)''',
                 (run_id, json.dumps(genome.to_dict()), pnl, win_rate, self.generations)
@@ -500,6 +572,22 @@ class StrategyMiner:
 
 
 # ============================================================================
+# COMPATIBILITY FUNCTIONS
+# ============================================================================
+def encode_genome_for_backtester(genome: Genome) -> np.ndarray:
+    """Encode genome for use with solana_backtester.py.
+    
+    This ensures compatibility between genetic_miner and solana_backtester.
+    """
+    return GenomeEncoder.encode(genome)
+
+
+def get_backtester_indicator_index(indicator_name: str) -> int:
+    """Get the indicator index that matches solana_backtester.py"""
+    return GenomeEncoder.get_indicator_index(indicator_name)
+
+
+# ============================================================================
 # MAIN
 # ============================================================================
 if __name__ == "__main__":
@@ -525,3 +613,10 @@ if __name__ == "__main__":
     
     print(f"\n✅ Miner complete!")
     print(f"   Best PnL: {result['best_pnl']*100:.2f}%")
+    
+    # Show encoded genome
+    genome = Genome.from_dict(result['best_genome'])
+    encoded = encode_genome_for_backtester(genome)
+    print(f"\n📦 Encoded genome (for solana_backtester):")
+    print(f"   {encoded}")
+    print(f"   Size: {len(encoded)} floats")

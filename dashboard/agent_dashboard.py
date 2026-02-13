@@ -284,7 +284,7 @@ def create_dashboard():
                     "SL%": f"{s.get('params', {}).get('sl_pct', 0)*100:.1f}%",
                     "TP%": f"{s.get('params', {}).get('tp_pct', 0)*100:.1f}%",
                 })
-            st.dataframe(pd.DataFrame(rows), use_container_width=True)
+            st.dataframe(pd.DataFrame(rows), width="stretch")
         else:
             st.info("Optimizer hasn't produced strategies yet...")
 
@@ -369,7 +369,7 @@ def create_dashboard():
                     "Wins": s.get("wins", 0),
                     "Win Rate": f"{s['wins']/s['trades']:.0%}" if s.get("trades", 0) > 0 else "N/A",
                 })
-            st.dataframe(pd.DataFrame(rows), use_container_width=True)
+            st.dataframe(pd.DataFrame(rows), width="stretch")
 
         # Price history chart
         st.subheader("📉 SOL Price History")
@@ -420,7 +420,7 @@ def create_dashboard():
                     "Avg Win Rate": f"{stats.get('avg_win_rate', 0):.0%}",
                 })
             df = pd.DataFrame(rows)
-            st.dataframe(df, use_container_width=True)
+            st.dataframe(df, width="stretch")
 
             # Bar chart of avg PnL
             chart_data = pd.DataFrame({
@@ -465,7 +465,7 @@ def create_dashboard():
                     "Price": f"${t.get('price', 0):.4f}" if t.get("price") else "N/A",
                     "Source": t.get("source", "?"),
                 })
-            st.dataframe(pd.DataFrame(rows), use_container_width=True)
+            st.dataframe(pd.DataFrame(rows), width="stretch")
         else:
             st.info("Token Scout hasn't run yet...")
 
@@ -572,7 +572,7 @@ def create_dashboard():
             with c1:
                 st.dataframe(pnl_df.style.format({"PnL": "${:.2f}"}).apply(
                     lambda x: ['background-color: #1b4332' if v > 0 else '#7f1d1d' for v in x], subset=['PnL']
-                ), use_container_width=True)
+                ), width="stretch")
             with c2:
                 st.bar_chart(pnl_df.set_index("Token")["PnL"], height=150)
         
@@ -584,7 +584,7 @@ def create_dashboard():
             display_df = df_trades[['timestamp', 'token', 'side', 'amount', 'price', 'pnl', 'status']].copy()
             display_df['price'] = display_df['price'].apply(lambda x: f"${x:,.2f}" if isinstance(x, (int, float)) else x)
             display_df['pnl'] = display_df['pnl'].apply(lambda x: f"${x:.2f}" if isinstance(x, (int, float)) else x)
-            st.dataframe(display_df, use_container_width=True)
+            st.dataframe(display_df, width="stretch")
         else:
             st.info("No trades executed yet.")
         
