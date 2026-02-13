@@ -63,12 +63,12 @@ KNOWLEDGE_DIR.mkdir(exist_ok=True)
 # PROFIT TARGETS - Brain optimizes strategies to hit these
 # ============================================================================
 PROFIT_TARGETS = {
-    "daily_min_pct": 5.0,        # 5% daily minimum
-    "weekly_target_pct": 100.0,  # Double every week (ideal)
-    "monthly_min_pct": 100.0,    # Double every month (minimum)
-    "min_backtest_pnl": 0.05,    # 5% PnL in backtest to deploy
-    "min_trades_backtest": 5,    # Enough trades to be statistically meaningful
-    "min_win_rate": 0.45,        # 45% win rate with good R:R
+    "daily_target_pct": 5.0,     # 5% daily target (primary objective)
+    "weekly_target_pct": 40.0,    # ~40% weekly (compounded from daily)
+    "monthly_target_pct": 100.0,  # 100% monthly (DOUBLE - secondary objective)
+    "min_backtest_pnl": 0.05,     # 5% PnL in backtest to deploy
+    "min_trades_backtest": 5,     # Enough trades to be statistically meaningful
+    "min_win_rate": 0.55,        # 55% win rate (higher for aggressive targets)
 }
 
 

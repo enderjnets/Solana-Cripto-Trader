@@ -1,13 +1,27 @@
 # Skill: Trading Puro - Active Trading Strategy v1.0
 
+## 🚨 MISIÓN CLARA DEL SISTEMA 🚨
+
+```
+╔═══════════════════════════════════════════════════════════╗
+║                                                           ║
+║   🎯 OBJETIVO #1: +5% DIARIO (compuesto = 171%/mes)      ║
+║   🎯 OBJETIVO #2: DOBLAR CUENTA CADA MES (+100%/mes)     ║
+║                                                           ║
+║   TODO EL SISTEMA DEBE ENFOCARSE EN ESTOS 2 OBJETIVOS     ║
+║                                                           ║
+╚═══════════════════════════════════════════════════════════╝
+```
+
 ## Descripción
 Estrategia de trading puro para hacer crecer $500 mediante operaciones activas en Jupiter DEX.
 
 ## Objetivos
-- Convertir capital inicial en más mediante trading
+- **Objetivo primario:** +5% diario (compuesto = 171%/mes)
+- **Objetivo secundario:** Doblar la cuenta cada mes (100%/mes)
+- Todo el sistema debe enfocarse en estos 2 objetivos
 - Buscar oportunidades 24/7
 - Reinvertir ganancias automáticamente
-- Mantener reserva USDT para oportunidades
 
 ---
 
@@ -16,11 +30,32 @@ Estrategia de trading puro para hacer crecer $500 mediante operaciones activas e
 | Parámetro | Valor | Descripción |
 |-----------|-------|-------------|
 | **Capital inicial** | $500 | USD equivalente |
+| **OBJETIVO DIARIO** | **+5%** | Compuesto = 171%/mes |
+| **OBJETIVO MENSUAL** | **+100%** | Doblar cuenta cada mes |
 | **Riesgo por trade** | 5% | $25 máximo por operación |
-| **Stop loss** | -10% | Cerrar posición en -10% |
-| **Take profit** | +20% | Cerrar posición en +20% |
-| **Límite diario** | -15% | No perder más del 15% diario |
-| **Meta mensual** | +50% | Crecimiento objetivo |
+| **Stop loss** | -8% | Cerrar posición en -8% |
+| **Take profit** | +10% | Cerrar posición en +10% (2:1 ratio) |
+| **Límite diario** | -10% | No perder más del 10% diario |
+| **Trades por día** | 5-10 | Mínimo para alcanzar +5% diario |
+
+---
+
+## 🎯 METAS CLARAS
+
+### Diario
+```
+Target: +5% cada día
+Cómo: 1 trade +5% O 2 trades +2.5% cada uno
+Mínimo aceptable: +2% diario
+No aceptable: Menos de +2% → Revisar estrategia
+```
+
+### Mensual
+```
+Target: +100% (doblar)
+Cómo: 5% diario compuesto
+Mínimo aceptable: +50% mensual
+Warning: +30% → Ajustar estrategia
 
 ---
 
@@ -226,13 +261,41 @@ Return: {total_value, reinvested, reserved}
 
 ## 📊 KPIs DE ÉXITO
 
-| Métrica | Objetivo | Mínimo aceptable |
-|---------|----------|------------------|
-| Win rate | 60% | 50% |
-| Avg PnL per trade | +8% | +5% |
-| Monthly growth | +50% | +20% |
-| Max drawdown | -15% | -25% |
-| Sharpe ratio | >1.5 | >1.0 |
+| Métrica | Objetivo | Mínimo | Warning |
+|---------|----------|--------|---------|
+| **Daily PnL** | +5% | +2% | <+2% |
+| **Monthly PnL** | +100% | +50% | <+50% |
+| Win rate | 65% | 55% | <55% |
+| Avg PnL per trade | +6% | +4% | <+4% |
+| Risk/Reward | 2:1 | 1.5:1 | <1.5:1 |
+| Max drawdown | -10% | -15% | >-15% |
+
+---
+
+## 🎯 PROGRESS TRACKER
+
+### Diario
+```
+Target: +5%
+Check: Cada 4 horas
+Si < +2% → Aumentar agresividad
+Si > +5% → Tomar profits parciales
+```
+
+### Mensual
+```
+Target: +100%
+Check: Cada semana
+Si < +25% semana 2 → Revisar estrategia
+Si < +50% semana 3 → Alertar usuario
+```
+
+### Alertas
+```
+✅ +5% diario alcanzado
+⚠️ Menos de +2% diario por 3 días seguidos
+🚨 Pérdida de -10% diario
+📢 Doblar cuenta chaque mes alcanzado
 
 ---
 
