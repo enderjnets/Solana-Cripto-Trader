@@ -4,10 +4,11 @@
 USDT_TOKEN_ADDRESS = "Es9vMFrzaCERmkhfr9WMq8i5icD4Qwpq6xS5VUUSbmE1"  # USDT on Solana
 SOL_TOKEN_ADDRESS = "So11111111111111111111111111111111111111111112"
 
+# TARGET ALLOCATION: 50% SOL / 30% BTC / 20% USDT (optimal for +5% daily)
 PORTFOLIO_ALLOCATION = {
-    "BTC": {"target": 0.40, "min": 0.30, "max": 0.60},  # 40% target
-    "SOL": {"target": 0.40, "min": 0.30, "max": 0.60},  # 40% target  
-    "USDT": {"target": 0.20, "min": 0.10, "max": 0.40},  # 20% reserve
+    "SOL": {"target": 0.50, "min": 0.35, "max": 0.65},  # 50% target - more SOL = more trading
+    "BTC": {"target": 0.30, "min": 0.20, "max": 0.50},  # 30% target - stability
+    "USDT": {"target": 0.20, "min": 0.10, "max": 0.35},  # 20% reserve - buy dips
 }
 
 TRADING_RULES = {

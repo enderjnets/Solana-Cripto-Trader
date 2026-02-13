@@ -858,8 +858,8 @@ class AccumulationAgent:
         self.jupiter = jupiter
         self.history: List[Dict] = []
         self.price_snapshots: List[Dict] = []  # Rolling price window
-        # Target allocation: SOL 40%, BTC 40%, USDT 20% (reserve for dips)
-        self.current_target: Dict = {"SOL": 0.40, "BTC": 0.40, "USDT": 0.20}
+        # Target allocation: SOL 50%, BTC 30%, USDT 20% (optimal for +5% daily)
+        self.current_target: Dict = {"SOL": 0.50, "BTC": 0.30, "USDT": 0.20}
 
     async def decide(self, watchlist: List[Dict], knowledge: Dict = None) -> Dict:
         """Analyze BTC vs SOL and decide accumulation allocation."""

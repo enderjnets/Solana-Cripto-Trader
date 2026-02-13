@@ -19,9 +19,12 @@ pubkey = Pubkey.from_string(wallet_address)
 # Token addresses
 TOKENS = {
     "SOL": "So11111111111111111111111111111111111111111112",
-    "BTC": "9n4nbM75f5Ui33ZbPYXn59EwSgE8CGsHtAeTH5YFeJ9E",
+    "BTC": "cbbtcf3aa214zXHbiAZQwf4122FBYbraNdFqgw4iMij",  # cbBTC on Solana
     "USDT": "Es9vMFrzaCERmkhfr9WMq8i5icD4Qwpq6xS5VUUSbmE1",
 }
+
+# TARGET ALLOCATION: 50% SOL / 30% BTC / 20% USDT (optimal for +5% daily)
+TARGET_ALLOCATION = {"SOL": 0.50, "BTC": 0.30, "USDT": 0.20}
 
 # Get SOL price (mock - in production use Jupiter API)
 SOL_PRICE_USD = 80.0  # Placeholder

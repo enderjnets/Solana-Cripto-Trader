@@ -217,7 +217,8 @@ class AccumulationReader:
 
     def __init__(self):
         self.target_file = PROJECT_ROOT / "data" / "accumulation_target.json"
-        self.current: Dict = {"SOL": 0.60, "BTC": 0.40, "recommendation": "SOL"}
+        # Default: 50% SOL / 30% BTC / 20% USDT (optimal for +5% daily)
+        self.current: Dict = {"SOL": 0.50, "BTC": 0.30, "USDT": 0.20, "recommendation": "SOL"}
         self._last_read = None
 
     def get_target(self) -> Dict:
@@ -445,8 +446,8 @@ class StrategyAgent:
             position_pct = min_pos + (max_pos - min_pos) * min(confidence, 1.0)
             accum = analysis.get("accumulation", {})
             rec = accum.get("recommendation", "SOL")
-            sol_pct = accum.get("SOL", 0.6)
-            btc_pct = accum.get("BTC", 0.4)
+            sol_pct = accum.get("SOL", 0.5)
+            btc_pct = accum.get("BTC", 0.3)
 
             if rec == "BTC" and btc_pct >= 0.5:
                 return {
@@ -553,7 +554,8 @@ class AgentCoordinator:
         analysis["accumulation"] = accum
         cycle_result["accumulation"] = {
             "SOL": accum.get("SOL", 0.5),
-            "BTC": accum.get("BTC", 0.5),
+            "BTC": accum.get("BTC", 0.3),
+            "USDT": accum.get("USDT", 0.2),
             "recommendation": accum.get("recommendation", "SOL"),
         }
 
