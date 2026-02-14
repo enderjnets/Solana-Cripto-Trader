@@ -10,12 +10,12 @@
     "scout": true,
     "optimizer": true
   },
-  "timestamp": "2026-02-14T08:44:21.982032",
+  "timestamp": "2026-02-14T10:50:38.712872",
   "stats": {
-    "cycles": 8,
+    "cycles": 1,
     "trades_today": 0,
     "daily_pnl_pct": 0,
     "total_pnl": 0,
-    "iterations": 8
+    "iterations": 1
   }
 }
