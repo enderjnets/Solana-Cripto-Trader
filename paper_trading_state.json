@@ -6,14 +6,14 @@
     "jito": true,
     "database": true
   },
-  "timestamp": "2026-02-14T08:10:31.873241",
+  "timestamp": "2026-02-14T08:20:41.634707",
   "trader": {
-    "trades_today": 2,
+    "trades_today": 15,
     "daily_pnl_pct": 0,
-    "open_positions": 2
+    "open_positions": 15
   },
   "optimizer": {
-    "iterations": 1,
+    "iterations": 20,
     "total_pnl": 0,
     "best_strategy": "momentum"
   }

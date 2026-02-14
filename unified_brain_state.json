@@ -1,0 +1,19 @@
+{
+  "brain": "unified",
+  "version": "1.0",
+  "modules": {
+    "websocket": true,
+    "jito": true,
+    "database": true,
+    "scout": true,
+    "optimizer": true
+  },
+  "timestamp": "2026-02-14T08:20:54.224874",
+  "stats": {
+    "cycles": 1,
+    "trades_today": 3,
+    "daily_pnl_pct": 0,
+    "total_pnl": 0,
+    "iterations": 1
+  }
+}

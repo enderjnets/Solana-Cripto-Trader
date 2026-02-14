@@ -1,0 +1,45 @@
+{
+  "trades": [
+    {
+      "id": "trade_082054",
+      "symbol": "JUP",
+      "direction": "BUY",
+      "entry_price": 0.1603,
+      "exit_price": null,
+      "size": 20,
+      "pnl": null,
+      "pnl_pct": null,
+      "status": "open",
+      "timestamp": "08:20:54",
+      "strategy": "momentum"
+    },
+    {
+      "id": "trade_082054",
+      "symbol": "RAY",
+      "direction": "BUY",
+      "entry_price": 0.6398,
+      "exit_price": null,
+      "size": 20,
+      "pnl": null,
+      "pnl_pct": null,
+      "status": "open",
+      "timestamp": "08:20:54",
+      "strategy": "momentum"
+    },
+    {
+      "id": "trade_082054",
+      "symbol": "BONK",
+      "direction": "BUY",
+      "entry_price": 6.589e-06,
+      "exit_price": null,
+      "size": 20,
+      "pnl": null,
+      "pnl_pct": null,
+      "status": "open",
+      "timestamp": "08:20:54",
+      "strategy": "momentum"
+    }
+  ],
+  "tokens": {},
+  "last_update": "2026-02-14T08:20:54.224165"
+}
