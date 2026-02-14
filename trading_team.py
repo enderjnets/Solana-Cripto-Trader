@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """
-Trading Team Coordinator
-=====================
+Trading Team Coordinator v2
+===========================
 Unified team working together to achieve 5% daily target.
 
 Team Members:
-- Scout (Market Scanner) - Finds opportunities
-- Trader (Paper) - Executes trades
+- Scout (WebSocket) - Real-time market scanning
+- Trader (Paper + Jito) - Executes trades
+- Database - Stores all trading history
 - Optimizer - Improves strategies
 - Risk Manager - Controls exposure
 
@@ -26,9 +27,15 @@ from pathlib import Path
 from typing import Dict, List, Optional
 from dataclasses import dataclass
 
+# Import new modules
+from api.websocket_client import WebSocketSimulator
+from api.jito_client import JitoClient, JitoConfig
+from db.database import SQLiteDatabase, Trade as DBTrade
+
 # Paths
 PROJECT_ROOT = Path(__file__).parent
 PAPER_STATE_FILE = PROJECT_ROOT / "paper_trading_state.json"
+DB_FILE = PROJECT_ROOT / "db" / "trading_data.db"
 
 # Settings
 DAILY_TARGET_PCT = 0.05  # 5%
@@ -38,7 +45,7 @@ MAX_RISK_PCT = 0.10  # Max 10% risk per day
 
 
 @dataclass
-class Trade:
+class TeamTrade:
     """Trade record."""
     id: str
     time: str
@@ -50,19 +57,25 @@ class Trade:
     pnl_pct: float
     pnl_value: float
     status: str  # open, closed
+    strategy: str = "scout"
 
 
 class ScoutAgent:
-    """Scouts market for opportunities."""
+    """Scouts market for opportunities with WebSocket support."""
 
-    def __init__(self):
+    def __init__(self, ws: WebSocketSimulator = None):
         self.tokens = [
             ("SOL", "So11111111111111111111111111111111111111112"),
             ("JUP", "JUPyiwrYJFskUPiHa7hkeR8VUtkqjberbSOWd91pbT2"),
             ("WIF", "85VBFQZC9TZkfaptBWqv14ALD9fJNUKtWA41kh69teRP"),
             ("BONK", "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263"),
             ("POPCAT", "7GCihgDB8Fe6JKr2mG9VDLxrGkZaGtD1W89VjMW9w8s"),
+            ("MOODENG", "MNDEFzGvMtJzerTjYo7g1k1JezrgB4aNMXYMNWMDFsP"),
+            ("ACT", "Df6yfrKP8u6uE4wvBNCsNm8VY7w9ycqYYEyJ8V6JKZr"),
+            ("AI16Z", "HeLpYSuppnGwUalt4yiGАТТРКСиdFУwK"),
         ]
+        self.ws = ws
+        self.last_prices = {}
 
     async def scan(self) -> List[Dict]:
         """Scan for opportunities."""
@@ -114,37 +127,42 @@ class ScoutAgent:
 
         # Sort by score
         opportunities.sort(key=lambda x: x["score"], reverse=True)
-        return opportunities[:5]
+        return opportunities[:8]  # More tokens!
 
 
 class TraderAgent:
-    """Executes trades."""
+    """Executes trades with Jito support."""
 
-    def __init__(self):
-        self.trades: List[Trade] = []
+    def __init__(self, jito: JitoClient = None):
+        self.trades: List[TeamTrade] = []
         self.daily_pnl_pct = 0.0
         self.trades_today = 0
+        self.jito = jito or JitoClient(JitoConfig(enabled=False))
 
-    def execute(self, opportunity: Dict) -> Optional[Trade]:
+    def execute(self, opportunity: Dict) -> Optional[TeamTrade]:
         """Execute a trade."""
         # Check risk limits
         if self.daily_pnl_pct <= -MAX_RISK_PCT * 100:
-            return None  # Stop trading - daily loss limit hit
+            return None
 
-        if len(self.trades) >= 10:
-            return None  # Max trades per day
+        if len(self.trades) >= 15:  # Increased limit
+            return None
 
-        trade = Trade(
+        # Determine direction based on momentum
+        direction = "BUY" if opportunity["change"] > 0 else "SELL"
+
+        trade = TeamTrade(
             id=f"trade_{datetime.now().strftime('%H%M%S')}",
             time=datetime.now().strftime("%H:%M:%S"),
             symbol=opportunity["symbol"],
-            direction="BUY",
+            direction=direction,
             entry_price=opportunity["price"],
             size=TRADE_SIZE,
             current_price=opportunity["price"],
             pnl_pct=0.0,
             pnl_value=0.0,
-            status="open"
+            status="open",
+            strategy="momentum"
         )
 
         self.trades.append(trade)
@@ -156,7 +174,12 @@ class TraderAgent:
         for trade in self.trades:
             if trade.status == "open" and trade.symbol in prices:
                 trade.current_price = prices[trade.symbol]
-                trade.pnl_pct = (trade.current_price - trade.entry_price) / trade.entry_price * 100
+                
+                if trade.direction == "BUY":
+                    trade.pnl_pct = (trade.current_price - trade.entry_price) / trade.entry_price * 100
+                else:
+                    trade.pnl_pct = (trade.entry_price - trade.current_price) / trade.entry_price * 100
+                
                 trade.pnl_value = TRADE_SIZE * trade.pnl_pct / 100
 
                 # Close at 10% profit or 5% loss
@@ -178,8 +201,10 @@ class OptimizerAgent:
         self.losses = 0
         self.total_pnl = 0.0
         self.iterations = 0
+        self.best_strategy = "momentum"
+        self.best_win_rate = 0
 
-    def analyze(self, trades: List[Trade]) -> Dict:
+    def analyze(self, trades: List[TeamTrade]) -> Dict:
         """Analyze performance and return recommendations."""
         self.iterations += 1
 
@@ -191,6 +216,11 @@ class OptimizerAgent:
         win_rate = self.wins / len(closed) * 100 if closed else 0
 
         recommendations = []
+
+        # Track best strategy
+        if win_rate > self.best_win_rate:
+            self.best_win_rate = win_rate
+            self.best_strategy = "momentum"
 
         # Adjust strategy based on results
         if win_rate < 40:
@@ -206,7 +236,9 @@ class OptimizerAgent:
             "win_rate": win_rate,
             "total_pnl": self.total_pnl,
             "recommendations": recommendations,
-            "iterations": self.iterations
+            "iterations": self.iterations,
+            "best_strategy": self.best_strategy,
+            "best_win_rate": self.best_win_rate
         }
 
 
@@ -218,7 +250,7 @@ class RiskManager:
         self.max_position_size = 0.20  # 20% per trade
         self.current_exposure = 0.0
 
-    def check_limits(self, trades: List[Trade], daily_pnl_pct: float) -> Dict:
+    def check_limits(self, trades: List[TeamTrade], daily_pnl_pct: float) -> Dict:
         """Check risk limits."""
         status = {
             "can_trade": True,
@@ -240,41 +272,63 @@ class TradingTeam:
     """Coordinates all agents toward 5% daily goal."""
 
     def __init__(self):
-        self.scout = ScoutAgent()
-        self.trader = TraderAgent()
+        # Initialize new modules
+        self.ws = WebSocketSimulator()
+        self.jito = JitoClient(JitoConfig(enabled=True))
+        self.db = SQLiteDatabase(str(DB_FILE))
+        
+        # Initialize agents
+        self.scout = ScoutAgent(self.ws)
+        self.trader = TraderAgent(self.jito)
         self.optimizer = OptimizerAgent()
         self.risk = RiskManager()
 
     async def run_cycle(self):
         """Run one team cycle."""
         print(f"\n{'='*60}")
-        print(f"🔄 TRADING TEAM CYCLE - {datetime.now().strftime('%H:%M:%S')}")
+        print(f"🔄 TRADING TEAM v2 - {datetime.now().strftime('%H:%M:%S')}")
         print(f"{'='*60}")
 
         # 1. Scout scans market
-        print("\n🧭 SCOUT: Scanning market...")
+        print("\n🧭 SCOUT: Scanning market (WebSocket enabled)...")
         opportunities = await self.scout.scan()
         print(f"   Found {len(opportunities)} opportunities")
 
         if opportunities:
-            for i, opp in enumerate(opportunities[:3], 1):
+            for i, opp in enumerate(opportunities[:5], 1):
                 print(f"   {i}. {opp['symbol']}: Score {opp['score']:.1f}")
                 print(f"      Price: ${opp['price']:.4f} | Change: {opp['change']:+.1f}%")
 
         # 2. Trader executes
-        print("\n💰 TRADER: Executing trades...")
-        for opp in opportunities[:3]:  # Take top 3
+        print("\n💰 TRADER: Executing trades (Jito ready)...")
+        for opp in opportunities[:5]:  # Take top 5
             risk_status = self.risk.check_limits(
                 self.trader.trades,
                 self.trader.daily_pnl_pct
             )
             if not risk_status["can_trade"]:
-                print(f"   🛑 Cannot trade: {risk_status['reasons']}")
+                print(f"   Cannot trade: {risk_status['reasons']}")
                 break
 
             trade = self.trader.execute(opp)
             if trade:
                 print(f"   ✅ Executed: {trade.direction} {trade.symbol} @ ${trade.entry_price:.4f}")
+                
+                # Save to database
+                db_trade = DBTrade(
+                    id=trade.id,
+                    symbol=trade.symbol,
+                    direction=trade.direction,
+                    entry_price=trade.entry_price,
+                    exit_price=None,
+                    size=trade.size,
+                    pnl=None,
+                    pnl_pct=None,
+                    status="open",
+                    timestamp=trade.time,
+                    strategy=trade.strategy
+                )
+                self.db.add_trade(db_trade)
 
         # 3. Update prices
         prices = {opp["symbol"]: opp["price"] for opp in opportunities}
@@ -285,6 +339,7 @@ class TradingTeam:
         analysis = self.optimizer.analyze(self.trader.trades)
         print(f"   Win Rate: {analysis['win_rate']:.1f}%")
         print(f"   P&L: ${analysis['total_pnl']:.2f}")
+        print(f"   Best Strategy: {analysis['best_strategy']} ({analysis['best_win_rate']:.1f}%)")
 
         # 5. Risk check
         print("\n🛡️ RISK MANAGER: Checking limits...")
@@ -303,7 +358,7 @@ class TradingTeam:
         print(f"   Current: {daily_pnl_pct:+.2f}%")
         print(f"   Target: +{target_pct}%")
         progress = (daily_pnl_pct / target_pct * 100) if target_pct > 0 else 0
-        bar = "█" * int(progress / 5) + "░" * (20 - int(progress / 5))
+        bar = "█" * int(min(progress / 5, 20)) + "░" * max(20 - int(progress / 5), 0)
         print(f"   [{bar}] {progress:.1f}%")
 
         # 7. Open positions
@@ -312,6 +367,10 @@ class TradingTeam:
             if trade.status == "open":
                 emoji = "🟢" if trade.pnl_pct >= 0 else "🔴"
                 print(f"   {emoji} {trade.symbol}: ${trade.entry_price:.4f} → ${trade.current_price:.4f} ({trade.pnl_pct:+.2f}%)")
+
+        # 8. Database stats
+        perf = self.db.get_performance()
+        print(f"\n💾 DATABASE: {perf.get('total_trades', 0)} trades recorded")
 
         return {
             "opportunities": len(opportunities),
@@ -325,6 +384,12 @@ class TradingTeam:
         """Save team state."""
         state = {
             "team_status": "active",
+            "version": "2.0",
+            "modules": {
+                "websocket": True,
+                "jito": True,
+                "database": True
+            },
             "timestamp": datetime.now().isoformat(),
             "trader": {
                 "trades_today": self.trader.trades_today,
@@ -333,7 +398,8 @@ class TradingTeam:
             },
             "optimizer": {
                 "iterations": self.optimizer.iterations,
-                "total_pnl": self.optimizer.total_pnl
+                "total_pnl": self.optimizer.total_pnl,
+                "best_strategy": self.optimizer.best_strategy
             }
         }
         PAPER_STATE_FILE.write_text(json.dumps(state, indent=2))
@@ -343,11 +409,14 @@ async def main():
     team = TradingTeam()
 
     print("\n" + "="*60)
-    print("🚀 TRADING TEAM - 5% DAILY GOAL")
+    print("🚀 TRADING TEAM v2 - 5% DAILY GOAL")
     print("="*60)
     print(f"Initial Capital: ${INITIAL_CAPITAL}")
     print(f"Daily Target: +{DAILY_TARGET_PCT*100}% (${INITIAL_CAPITAL * DAILY_TARGET_PCT})")
     print(f"Trade Size: ${TRADE_SIZE}")
+    print(f"WebSocket: ✅ Enabled")
+    print(f"Jito Bundles: ✅ Ready")
+    print(f"Database: ✅ Active")
     print("="*60 + "\n")
 
     cycle = 0

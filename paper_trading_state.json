@@ -1,13 +1,20 @@
 {
   "team_status": "active",
-  "timestamp": "2026-02-14T08:06:42.084506",
+  "version": "2.0",
+  "modules": {
+    "websocket": true,
+    "jito": true,
+    "database": true
+  },
+  "timestamp": "2026-02-14T08:10:31.873241",
   "trader": {
-    "trades_today": 10,
+    "trades_today": 2,
     "daily_pnl_pct": 0,
-    "open_positions": 10
+    "open_positions": 2
   },
   "optimizer": {
-    "iterations": 38,
-    "total_pnl": 0
+    "iterations": 1,
+    "total_pnl": 0,
+    "best_strategy": "momentum"
   }
 }

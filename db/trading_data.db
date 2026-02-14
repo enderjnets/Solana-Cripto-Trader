@@ -1,0 +1,84 @@
+{
+  "trades": [
+    {
+      "id": "trade_080953",
+      "symbol": "BONK",
+      "direction": "BUY",
+      "entry_price": 6.598e-06,
+      "exit_price": null,
+      "size": 20,
+      "pnl": null,
+      "pnl_pct": null,
+      "status": "open",
+      "timestamp": "08:09:53",
+      "strategy": "momentum"
+    },
+    {
+      "id": "trade_080953",
+      "symbol": "SOL",
+      "direction": "BUY",
+      "entry_price": 0.02323,
+      "exit_price": null,
+      "size": 20,
+      "pnl": null,
+      "pnl_pct": null,
+      "status": "open",
+      "timestamp": "08:09:53",
+      "strategy": "momentum"
+    },
+    {
+      "id": "trade_081001",
+      "symbol": "BONK",
+      "direction": "BUY",
+      "entry_price": 6.598e-06,
+      "exit_price": null,
+      "size": 20,
+      "pnl": null,
+      "pnl_pct": null,
+      "status": "open",
+      "timestamp": "08:10:01",
+      "strategy": "momentum"
+    },
+    {
+      "id": "trade_081001",
+      "symbol": "SOL",
+      "direction": "BUY",
+      "entry_price": 0.02323,
+      "exit_price": null,
+      "size": 20,
+      "pnl": null,
+      "pnl_pct": null,
+      "status": "open",
+      "timestamp": "08:10:01",
+      "strategy": "momentum"
+    },
+    {
+      "id": "trade_081031",
+      "symbol": "BONK",
+      "direction": "BUY",
+      "entry_price": 6.596e-06,
+      "exit_price": null,
+      "size": 20,
+      "pnl": null,
+      "pnl_pct": null,
+      "status": "open",
+      "timestamp": "08:10:31",
+      "strategy": "momentum"
+    },
+    {
+      "id": "trade_081031",
+      "symbol": "SOL",
+      "direction": "BUY",
+      "entry_price": 0.02323,
+      "exit_price": null,
+      "size": 20,
+      "pnl": null,
+      "pnl_pct": null,
+      "status": "open",
+      "timestamp": "08:10:31",
+      "strategy": "momentum"
+    }
+  ],
+  "tokens": {},
+  "last_update": "2026-02-14T08:10:31.872568"
+}
