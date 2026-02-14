@@ -35,6 +35,7 @@ from api.websocket_client import WebSocketSimulator
 from api.jito_client import JitoClient, JitoConfig
 from db.database import SQLiteDatabase, Trade as DBTrade
 from ml.ml_signals import MLSignalGenerator, MarketData
+from cache.redis_manager import RedisSimulator, PriceCache, TradeStateManager
 
 # Configure logging
 logging.basicConfig(
@@ -365,6 +366,11 @@ class UnifiedBrain:
         self.db = SQLiteDatabase(str(DB_FILE))
         self.ml = MLSignalGenerator()
 
+        # Initialize Redis cache
+        self.redis = RedisSimulator()
+        self.price_cache = PriceCache(self.redis)
+        self.trade_state = TradeStateManager(self.redis)
+
         # Initialize agents
         self.scout = TokenScout()
         self.optimizer = StrategyOptimizer()
@@ -467,13 +473,14 @@ class UnifiedBrain:
     def save_state(self):
         """Save brain state."""
         state = {
-            "brain": "unified_v2",
-            "version": "2.0",
+            "brain": "unified_v3",
+            "version": "3.0",
             "modules": {
                 "websocket": True,
                 "jito": True,
                 "database": True,
                 "ml_signals": True,
+                "redis_cache": True,
                 "scout": True,
                 "optimizer": True
             },
@@ -491,12 +498,13 @@ class UnifiedBrain:
     async def run(self):
         """Main loop."""
         logger.info("\n" + "="*60)
-        logger.info("🧠 UNIFIED BRAIN v2 - ML POWERED TRADING")
+        logger.info("🧠 UNIFIED BRAIN v3 - ML + REDIS POWERED")
         logger.info("="*60)
         logger.info(f"   Initial Capital: ${INITIAL_CAPITAL}")
         logger.info(f"   Daily Target: +{DAILY_TARGET_PCT*100}%")
         logger.info(f"   Trade Size: ${TRADE_SIZE}")
         logger.info(f"   ML Signals: ✅ Enabled")
+        logger.info(f"   Redis Cache: ✅ Enabled")
         logger.info("="*60)
 
         self.running = True
@@ -515,7 +523,7 @@ class UnifiedBrain:
 
 def main():
     import argparse
-    parser = argparse.ArgumentParser(description="Unified Brain v2")
+    parser = argparse.ArgumentParser(description="Unified Brain v3")
     parser.add_argument("--fast", action="store_true", help="Fast mode (30s cycles)")
     args = parser.parse_args()
 

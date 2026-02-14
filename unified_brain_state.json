@@ -1,15 +1,16 @@
 {
-  "brain": "unified_v2",
-  "version": "2.0",
+  "brain": "unified_v3",
+  "version": "3.0",
   "modules": {
     "websocket": true,
     "jito": true,
     "database": true,
     "ml_signals": true,
+    "redis_cache": true,
     "scout": true,
     "optimizer": true
   },
-  "timestamp": "2026-02-14T08:27:53.703601",
+  "timestamp": "2026-02-14T08:35:31.875345",
   "stats": {
     "cycles": 1,
     "trades_today": 0,
