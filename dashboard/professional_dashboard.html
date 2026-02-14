@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="refresh" content="15">
+<title>Eko Trading System - Professional Dashboard</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+    font-family: 'Segoe UI', -apple-system, sans-serif;
+    background: #0a0a0a;
+    color: #fff;
+    min-height: 100vh;
+    padding: 20px;
+}
+.header {
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+    padding: 25px;
+    border-radius: 15px;
+    margin-bottom: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border: 1px solid #2a2a4a;
+}
+.logo {
+    font-size: 24px;
+    font-weight: bold;
+    background: linear-gradient(90deg, #00d4ff, #7b2cbf);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+.status-badge {
+    background: #00cc96;
+    color: #000;
+    padding: 5px 15px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: bold;
+}
+.metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 15px;
+    margin-bottom: 20px;
+}
+.metric-card {
+    background: linear-gradient(135deg, #1e1e1e 0%, #2d2d2d 100%);
+    border-radius: 12px;
+    padding: 20px;
+    text-align: center;
+    border: 1px solid #3a3a3a;
+}
+.metric-value {
+    font-size: 32px;
+    font-weight: bold;
+    margin-bottom: 5px;
+}
+.metric-label {
+    font-size: 11px;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+.positive { color: #00cc96; }
+.negative { color: #ef553b; }
+.neutral { color: #fff; }
+
+.progress-section {
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+    border-radius: 15px;
+    padding: 25px;
+    margin-bottom: 20px;
+    border: 1px solid #2a2a4a;
+}
+.progress-header {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 15px;
+}
+.progress-bar {
+    height: 12px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 6px;
+    overflow: hidden;
+}
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #00cc96, #00d4ff);
+    border-radius: 6px;
+    transition: width 0.5s;
+}
+.section {
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+    border-radius: 15px;
+    padding: 20px;
+    margin-bottom: 20px;
+    border: 1px solid #2a2a4a;
+}
+.section h3 {
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #2a2a4a;
+    font-size: 16px;
+}
+.modules-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: 10px;
+}
+.module {
+    background: rgba(255,255,255,0.03);
+    padding: 12px;
+    border-radius: 8px;
+    text-align: center;
+    font-size: 12px;
+}
+.module.active { border-left: 3px solid #00cc96; }
+.module.inactive { border-left: 3px solid #ef553b; opacity: 0.5; }
+
+table { width: 100%; border-collapse: collapse; }
+th { text-align: left; padding: 10px; color: #888; font-size: 11px; text-transform: uppercase; border-bottom: 1px solid #2a2a4a; }
+td { padding: 12px 10px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+tr:hover { background: rgba(255,255,255,0.02); }
+.direction { padding: 3px 10px; border-radius: 4px; font-size: 11px; font-weight: bold; }
+.direction.BUY { background: #00cc96; color: #000; }
+.direction.SELL { background: #ef553b; color: #fff; }
+
+.charts-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 20px;
+    margin-bottom: 20px;
+}
+.chart-box {
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+    border-radius: 15px;
+    padding: 20px;
+    border: 1px solid #2a2a4a;
+}
+.chart-placeholder {
+    height: 150px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #666;
+    font-size: 14px;
+}
+
+.footer {
+    text-align: center;
+    padding: 20px;
+    color: #666;
+    font-size: 12px;
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+    <div class="logo">🧠 Eko Trading System</div>
+    <div class="status-badge">● ONLINE</div>
+</div>
+
+METRICS_PLACEHOLDER
+
+<div class="progress-section">
+    <div class="progress-header">
+        <span>📊 Progress - Daily Target: +5%</span>
+        <span>PROGRESS_PCT%</span>
+    </div>
+    <div class="progress-bar">
+        <div class="progress-fill" style="width: PROGRESS_PCT%;"></div>
+    </div>
+</div>
+
+<div class="charts-row">
+    <div class="chart-box">
+        <h3>📈 Cumulative P&L</h3>
+        <div class="chart-placeholder">
+            [Chart: P&L over time]<br>
+            Current: TOTAL_PNL
+        </div>
+    </div>
+    <div class="chart-box">
+        <h3>🎯 Win Rate</h3>
+        <div class="chart-placeholder">
+            [Chart: Win/Loss]<br>
+            WIN_RATE% Win Rate
+        </div>
+    </div>
+</div>
+
+<div class="section">
+    <h3>⚙️ System Modules</h3>
+    <div class="modules-grid">
+MODULES_PLACEHOLDER
+    </div>
+</div>
+
+<div class="section">
+    <h3>💰 Recent Trades (Last 15)</h3>
+    <table>
+        <tr><th>Symbol</th><th>Direction</th><th>P&L</th><th>Status</th><th>Time</th></tr>
+TRADES_PLACEHOLDER
+    </table>
+</div>
+
+<div class="footer">
+    <p>Last Updated: TIMESTAMP</p>
+    <p>Eko Trading System v3.0 | Professional Dashboard</p>
+</div>
+
+</body>
+</html>
