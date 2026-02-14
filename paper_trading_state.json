@@ -1,0 +1,19 @@
+{
+  "enabled": true,
+  "start_time": "2026-02-14T07:13:34.723492",
+  "balance_usd": 500.0,
+  "initial_balance": 500.0,
+  "trades": [],
+  "stats": {
+    "total_trades": 0,
+    "winning_trades": 0,
+    "losing_trades": 0,
+    "total_pnl": 0.0,
+    "win_rate": 0.0,
+    "max_drawdown": 0.0,
+    "current_streak": 0,
+    "best_streak": 0,
+    "worst_streak": 0
+  },
+  "signals": []
+}

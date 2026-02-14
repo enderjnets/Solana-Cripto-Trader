@@ -1,0 +1,310 @@
+#!/usr/bin/env python3
+"""
+Paper Trading Engine
+===================
+Simulates trades without executing them on blockchain.
+
+Usage:
+    python3 paper_trading_engine.py --start     # Start paper trading
+    python3 paper_trading_engine.py --status    # Check status
+    python3 paper_trading_engine.py --reset     # Reset balance
+"""
+
+import json
+import argparse
+from pathlib import Path
+from datetime import datetime
+from typing import Dict, List, Optional
+from dataclasses import dataclass, field
+
+# Storage
+PAPER_STATE_FILE = Path(__file__).parent / "paper_trading_state.json"
+
+
+@dataclass
+class PaperTrade:
+    """Simulated trade."""
+    id: str
+    entry_time: datetime
+    entry_price: float
+    direction: str  # long, short
+    size: float
+    symbol: str
+    status: str = "open"  # open, closed
+    exit_time: Optional[datetime] = None
+    exit_price: Optional[float] = None
+    pnl: float = 0.0
+    pnl_pct: float = 0.0
+    reason: str = ""
+
+
+@dataclass
+class PaperTradingState:
+    """Paper trading state."""
+    enabled: bool = False
+    start_time: Optional[datetime] = None
+    balance_usd: float = 500.0  # Start with $500
+    initial_balance: float = 500.0
+    trades: List[Dict] = field(default_factory=list)
+    stats: Dict = field(default_factory=lambda: {
+        "total_trades": 0,
+        "winning_trades": 0,
+        "losing_trades": 0,
+        "total_pnl": 0.0,
+        "win_rate": 0.0,
+        "max_drawdown": 0.0,
+        "current_streak": 0,
+        "best_streak": 0,
+        "worst_streak": 0,
+    })
+    signals: List[Dict] = field(default_factory=list)
+
+
+class PaperTradingEngine:
+    """Simulates trades without real execution."""
+
+    def __init__(self):
+        self.state = self._load_state()
+
+    def _load_state(self) -> PaperTradingState:
+        """Load state from file."""
+        if PAPER_STATE_FILE.exists():
+            data = json.loads(PAPER_STATE_FILE.read_text())
+            # Convert datetime strings back
+            if data.get("start_time"):
+                data["start_time"] = datetime.fromisoformat(data["start_time"])
+            for trade in data.get("trades", []):
+                if trade.get("entry_time"):
+                    trade["entry_time"] = datetime.fromisoformat(trade["entry_time"])
+                if trade.get("exit_time"):
+                    trade["exit_time"] = datetime.fromisoformat(trade["exit_time"])
+            return PaperTradingState(**data)
+        return PaperTradingState()
+
+    def _save_state(self):
+        """Save state to file."""
+        data = {
+            "enabled": self.state.enabled,
+            "start_time": self.state.start_time.isoformat() if self.state.start_time else None,
+            "balance_usd": self.state.balance_usd,
+            "initial_balance": self.state.initial_balance,
+            "trades": self.state.trades,
+            "stats": self.state.stats,
+            "signals": self.state.signals[-100:]  # Keep last 100
+        }
+        PAPER_STATE_FILE.write_text(json.dumps(data, indent=2))
+
+    def start(self):
+        """Start paper trading."""
+        if not self.state.enabled:
+            self.state.enabled = True
+            self.state.start_time = datetime.now()
+            self._save_state()
+            print(f"\n✅ PAPER TRADING STARTED")
+            print(f"   Start Time: {self.state.start_time}")
+            print(f"   Initial Balance: ${self.state.initial_balance:,.2f}")
+            print(f"   Current Balance: ${self.state.balance_usd:,.2f}")
+        else:
+            print(f"\n⚠️ Paper trading already running")
+            self.status()
+
+    def stop(self):
+        """Stop paper trading."""
+        self.state.enabled = False
+        self._save_state()
+        print(f"\n🛑 PAPER TRADING STOPPED")
+
+    def reset(self):
+        """Reset paper trading state."""
+        self.state = PaperTradingState()
+        self._save_state()
+        print(f"\n🔄 PAPER TRADING RESET")
+        print(f"   Balance: ${self.state.balance_usd:,.2f}")
+
+    def status(self):
+        """Show current status."""
+        print(f"\n📊 PAPER TRADING STATUS")
+        print(f"{'='*50}")
+        print(f"   Status: {'🟢 RUNNING' if self.state.enabled else '🔴 STOPPED'}")
+        if self.state.start_time:
+            elapsed = datetime.now() - self.state.start_time
+            print(f"   Runtime: {elapsed}")
+        print(f"   Balance: ${self.state.balance_usd:,.2f}")
+        print(f"   P&L: ${self.state.stats['total_pnl']:,.2f} ({self._get_pnl_pct():.2f}%)")
+        print(f"{'='*50}")
+        print(f"   Total Trades: {self.state.stats['total_trades']}")
+        print(f"   Win Rate: {self.state.stats['win_rate']:.1f}%")
+        print(f"   Streak: {self.state.stats['current_streak']} (+/-)")
+        print(f"{'='*50}")
+
+    def _get_pnl_pct(self) -> float:
+        """Calculate P&L percentage."""
+        if self.state.initial_balance == 0:
+            return 0
+        return (self.state.balance_usd - self.state.initial_balance) / self.state.initial_balance * 100
+
+    def execute_signal(self, signal: Dict) -> Optional[PaperTrade]:
+        """
+        Execute a trading signal (paper).
+
+        Args:
+            signal: Dict with 'symbol', 'direction', 'price', 'size', 'reason'
+
+        Returns:
+            PaperTrade if executed, None otherwise
+        """
+        if not self.state.enabled:
+            return None
+
+        symbol = signal.get("symbol", "SOL")
+        direction = signal.get("direction", "long")
+        price = signal.get("price", 86.0)
+        size_usd = signal.get("size", self.state.balance_usd * 0.1)  # 10% of balance
+        reason = signal.get("reason", "Signal")
+
+        # Check if we can trade
+        if size_usd > self.state.balance_usd:
+            return None
+
+        # Create trade
+        trade = PaperTrade(
+            id=f"paper_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
+            entry_time=datetime.now(),
+            entry_price=price,
+            direction=direction,
+            size=size_usd,
+            symbol=symbol
+        )
+
+        # Log signal
+        self.state.signals.append({
+            "time": trade.entry_time.isoformat(),
+            "symbol": symbol,
+            "direction": direction,
+            "price": price,
+            "size": size_usd,
+            "reason": reason,
+            "trade_id": trade.id
+        })
+
+        # Add trade to list
+        self.state.trades.append({
+            "id": trade.id,
+            "entry_time": trade.entry_time.isoformat(),
+            "entry_price": trade.entry_price,
+            "direction": trade.direction,
+            "size": trade.size,
+            "symbol": trade.symbol,
+            "status": trade.status,
+            "exit_time": None,
+            "exit_price": None,
+            "pnl": 0.0,
+            "pnl_pct": 0.0,
+            "reason": reason
+        })
+
+        self._save_state()
+        return trade
+
+    def close_trade(self, trade_id: str, exit_price: float, reason: str = "Close"):
+        """Close an open trade."""
+        # Find trade
+        for trade_data in self.state.trades:
+            if trade_data["id"] == trade_id and trade_data["status"] == "open":
+                # Calculate P&L
+                entry_price = trade_data["entry_price"]
+                direction = trade_data["direction"]
+                size = trade_data["size"]
+
+                if direction == "long":
+                    pnl_pct = (exit_price - entry_price) / entry_price
+                else:  # short
+                    pnl_pct = (entry_price - exit_price) / entry_price
+
+                pnl = size * pnl_pct
+
+                # Update trade
+                trade_data["status"] = "closed"
+                trade_data["exit_time"] = datetime.now().isoformat()
+                trade_data["exit_price"] = exit_price
+                trade_data["pnl"] = pnl
+                trade_data["pnl_pct"] = pnl_pct * 100
+                trade_data["reason"] = reason
+
+                # Update balance
+                self.state.balance_usd += pnl
+                self.state.stats["total_trades"] += 1
+                self.state.stats["total_pnl"] += pnl
+
+                if pnl > 0:
+                    self.state.stats["winning_trades"] += 1
+                    self.state.stats["current_streak"] += 1
+                    if self.state.stats["current_streak"] > self.state.stats["best_streak"]:
+                        self.state.stats["best_streak"] = self.state.stats["current_streak"]
+                else:
+                    self.state.stats["losing_trades"] += 1
+                    self.state.stats["current_streak"] = 0
+                    if abs(self.state.stats["current_streak"]) > self.state.stats["worst_streak"]:
+                        self.state.stats["worst_streak"] = abs(self.state.stats["current_streak"])
+
+                # Update win rate
+                if self.state.stats["total_trades"] > 0:
+                    self.state.stats["win_rate"] = (
+                        self.state.stats["winning_trades"] /
+                        self.state.stats["total_trades"] * 100
+                    )
+
+                self._save_state()
+
+                print(f"\n📝 PAPER TRADE CLOSED")
+                print(f"   ID: {trade_id}")
+                print(f"   P&L: ${pnl:.2f} ({pnl_pct*100:.2f}%)")
+                print(f"   New Balance: ${self.state.balance_usd:,.2f}")
+
+                return trade_data
+
+        return None
+
+    def get_open_trades(self) -> List[Dict]:
+        """Get list of open trades."""
+        return [t for t in self.state.trades if t["status"] == "open"]
+
+    def get_recent_trades(self, count: int = 10) -> List[Dict]:
+        """Get recent closed trades."""
+        closed = [t for t in self.state.trades if t["status"] == "closed"]
+        return sorted(closed, key=lambda x: x.get("exit_time", ""), reverse=True)[:count]
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Paper Trading Engine")
+    parser.add_argument("--start", action="store_true", help="Start paper trading")
+    parser.add_argument("--stop", action="store_true", help="Stop paper trading")
+    parser.add_argument("--reset", action="store_true", help="Reset paper trading state")
+    parser.add_argument("--status", action="store_true", help="Show current status")
+    parser.add_argument("--trades", action="store_true", help="Show recent trades")
+
+    args = parser.parse_args()
+
+    engine = PaperTradingEngine()
+
+    if args.start:
+        engine.start()
+    elif args.stop:
+        engine.stop()
+    elif args.reset:
+        engine.reset()
+    elif args.status:
+        engine.status()
+    elif args.trades:
+        print(f"\n📋 OPEN TRADES: {len(engine.get_open_trades())}")
+        for trade in engine.get_open_trades():
+            print(f"   {trade['symbol']} {trade['direction']} @ ${trade['entry_price']:.2f}")
+        print(f"\n📋 RECENT CLOSED: {len(engine.get_recent_trades())}")
+        for trade in engine.get_recent_trades():
+            print(f"   {trade['symbol']} {trade['direction']} {trade['pnl_pct']:.2f}%")
+    else:
+        engine.status()
+
+
+if __name__ == "__main__":
+    main()
