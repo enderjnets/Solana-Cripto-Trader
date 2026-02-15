@@ -36,8 +36,10 @@ from strategies.genetic_miner import (
     DB_PATH as GENETIC_DB_PATH
 )
 from backtesting.solana_backtester import (
-    precompute_indicators, run_backtest, NUM_INDICATORS, INDICATOR_NAMES
+    calculate_sma, calculate_ema, calculate_rsi, calculate_bollinger_bands,
+    calculate_atr, MomentumStrategy, BreakoutStrategy, ScalpingStrategy
 )
+from backtesting.solana_backtester import BacktestResult
 
 import logging
 logger = logging.getLogger("strategy_agent")
@@ -46,6 +48,39 @@ logger = logging.getLogger("strategy_agent")
 # ============================================================================
 # CONFIGURATION
 # ============================================================================
+
+# Indicator count from genetic_miner
+NUM_INDICATORS = len(INDICATOR_MAP) if 'INDICATOR_MAP' in dir() else 8
+INDICATOR_NAMES = {
+    0: "RSI", 1: "SMA", 2: "EMA", 3: "MACD", 
+    4: "BB", 5: "ATR", 6: "STOCH", 7: "MOMENTUM"
+}
+
+def precompute_indicators(df: pd.DataFrame) -> Dict[str, np.ndarray]:
+    """Pre-compute technical indicators for backtesting"""
+    from backtesting.solana_backtester import (
+        calculate_sma, calculate_ema, calculate_rsi, calculate_bollinger_bands,
+        calculate_atr
+    )
+    
+    close = df['close'].values
+    high = df['high'].values
+    low = df['low'].values
+    
+    indicators = {
+        'rsi': calculate_rsi(close, 14),
+        'sma_20': calculate_sma(close, 20),
+        'sma_50': calculate_sma(close, 50),
+        'ema_12': calculate_ema(close, 12),
+        'ema_26': calculate_ema(close, 26),
+        'bb_upper': calculate_bollinger_bands(close, 20)[0],
+        'bb_mid': calculate_bollinger_bands(close, 20)[1],
+        'bb_lower': calculate_bollinger_bands(close, 20)[2],
+        'atr': calculate_atr(high, low, close, 14),
+    }
+    
+    return indicators
+
 @dataclass
 class StrategyConfig:
     """Strategy agent configuration"""

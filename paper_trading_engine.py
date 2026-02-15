@@ -14,6 +14,15 @@ import json
 import argparse
 from pathlib import Path
 from datetime import datetime
+
+class DateTimeEncoder(json.JSONEncoder):
+    """Handle datetime serialization."""
+    def default(self, obj):
+        if isinstance(obj, datetime):
+            return obj.isoformat()
+        return super().default(obj)
+
+
 from typing import Dict, List, Optional
 from dataclasses import dataclass, field
 
@@ -83,16 +92,50 @@ class PaperTradingEngine:
 
     def _save_state(self):
         """Save state to file."""
+        # Build data dict manually to avoid datetime serialization issues
         data = {
             "enabled": self.state.enabled,
             "start_time": self.state.start_time.isoformat() if self.state.start_time else None,
             "balance_usd": self.state.balance_usd,
             "initial_balance": self.state.initial_balance,
-            "trades": self.state.trades,
-            "stats": self.state.stats,
-            "signals": self.state.signals[-100:]  # Keep last 100
+            "trades": [],
+            "stats": self.state.stats.copy(),
+            "signals": []
         }
-        PAPER_STATE_FILE.write_text(json.dumps(data, indent=2))
+        
+        # Convert trades manually
+        for trade in self.state.trades:
+            trade_data = {
+                "id": trade["id"],
+                "entry_time": trade["entry_time"].isoformat() if hasattr(trade["entry_time"], 'isoformat') else str(trade["entry_time"]),
+                "entry_price": trade["entry_price"],
+                "direction": trade["direction"],
+                "size": trade["size"],
+                "symbol": trade["symbol"],
+                "status": trade["status"],
+                "exit_time": trade["exit_time"].isoformat() if trade["exit_time"] and hasattr(trade["exit_time"], 'isoformat') else (str(trade["exit_time"]) if trade["exit_time"] else None),
+                "exit_price": trade["exit_price"],
+                "pnl": trade["pnl"],
+                "pnl_pct": trade["pnl_pct"],
+                "reason": trade["reason"]
+            }
+            data["trades"].append(trade_data)
+        
+        # Convert signals manually
+        for sig in self.state.signals[-100:]:
+            sig_data = {
+                "time": sig["time"].isoformat() if hasattr(sig["time"], 'isoformat') else str(sig["time"]),
+                "symbol": sig["symbol"],
+                "direction": sig["direction"],
+                "price": sig["price"],
+                "size": sig["size"],
+                "reason": sig["reason"],
+                "trade_id": sig["trade_id"]
+            }
+            data["signals"].append(sig_data)
+        
+        # Save with custom encoder
+        PAPER_STATE_FILE.write_text(json.dumps(data, indent=2, default=str))
 
     def start(self):
         """Start paper trading."""
@@ -166,6 +209,16 @@ class PaperTradingEngine:
         if size_usd > self.state.balance_usd:
             return None
 
+        # Count open trades
+        open_trades = [t for t in self.state.trades if t["status"] == "open"]
+        max_concurrent = 5  # Maximum concurrent trades
+        
+        if len(open_trades) >= max_concurrent:
+            return None  # Max concurrent trades reached
+
+        # DESCONTAR del balance al abrir trade
+        self.state.balance_usd -= size_usd
+
         # Create trade
         trade = PaperTrade(
             id=f"paper_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
@@ -231,8 +284,8 @@ class PaperTradingEngine:
                 trade_data["pnl_pct"] = pnl_pct * 100
                 trade_data["reason"] = reason
 
-                # Update balance
-                self.state.balance_usd += pnl
+                # Update balance: return original size + PNL
+                self.state.balance_usd += size + pnl
                 self.state.stats["total_trades"] += 1
                 self.state.stats["total_pnl"] += pnl
 

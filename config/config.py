@@ -148,10 +148,10 @@ class TelegramConfig:
 
 @dataclass
 class MiniMaxConfig:
-    """MiniMax M2.1 configuration"""
+    """MiniMax M2.5 configuration"""
     api_url: str = os.environ.get("MINIMAX_API_URL", "http://localhost:8090/v1")
     api_key: str = os.environ.get("MINIMAX_API_KEY", "")
-    model: str = "MiniMax-M2.1"
+    model: str = "MiniMax-M2.5"
     max_tokens: int = 4096
     temperature: float = 0.7
     timeout_seconds: int = 60

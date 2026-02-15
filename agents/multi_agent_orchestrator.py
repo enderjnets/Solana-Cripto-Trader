@@ -44,7 +44,7 @@ class AgentProfile:
     role: str
     specialty: str
     capabilities: List[str]
-    model: str = "minimax/MiniMax-M2.1"
+    model: str = "minimax/MiniMax-M2.5"
     status: str = "available"
     current_task: str = None
     last_active: str = None
@@ -115,6 +115,13 @@ class AgentRegistry:
                 role="Risk Specialist",
                 specialty="Risk assessment",
                 capabilities=["risk_assessment", "limit_check", "validation"]
+            ),
+            AgentProfile(
+                agent_id="market_scanner",
+                name="Eko Market Scanner",
+                role="Market Scanner",
+                specialty="Opportunity detection",
+                capabilities=["volume_scan", "trend_detection", "pattern_recognition", "token_screening"]
             )
         ]
         
@@ -274,7 +281,7 @@ class SubAgentSpawner:
         parent_agent: str,
         task: str,
         task_id: str = None,
-        model: str = "minimax/MiniMax-M2.1-lightning"
+        model: str = "minimax/MiniMax-M2.5-lightning"
     ) -> Dict:
         """
         Spawn a sub-agent for parallel task execution.
