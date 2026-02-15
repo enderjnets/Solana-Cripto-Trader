@@ -1,6 +1,6 @@
 {
-  "daily_pnl": 3.2281302910808813,
-  "daily_trades": 35,
+  "daily_pnl": 37.34926378331089,
+  "daily_trades": 77,
   "daily_start_balance": 500.0,
   "open_trades": [
     {
@@ -212,7 +212,259 @@
       "symbol": "UNTIL",
       "size": 23.480529582301624,
       "direction": "bullish"
+    },
+    {
+      "id": "trade_20260215_084652",
+      "symbol": "TRUMP",
+      "size": 23.754721261010705,
+      "direction": "bearish"
+    },
+    {
+      "id": "trade_20260215_084653",
+      "symbol": "RENDER",
+      "size": 22.741199138488128,
+      "direction": "bullish"
+    },
+    {
+      "id": "trade_20260215_084853",
+      "symbol": "pippin",
+      "size": 28.98060984722684,
+      "direction": "bearish"
+    },
+    {
+      "id": "trade_20260215_084853",
+      "symbol": "PUMPID",
+      "size": 26.770884620162683,
+      "direction": "bullish"
+    },
+    {
+      "id": "trade_20260215_084853",
+      "symbol": "EPJUICE",
+      "size": 28.728399714892873,
+      "direction": "bullish"
+    },
+    {
+      "id": "trade_20260215_085054",
+      "symbol": "pippin",
+      "size": 26.35092195822747,
+      "direction": "bearish"
+    },
+    {
+      "id": "trade_20260215_085054",
+      "symbol": "PUMPID",
+      "size": 26.99583687957571,
+      "direction": "bullish"
+    },
+    {
+      "id": "trade_20260215_085355",
+      "symbol": "PUMPID",
+      "size": 27.175642624694987,
+      "direction": "bullish"
+    },
+    {
+      "id": "trade_20260215_085355",
+      "symbol": "EPJUICE",
+      "size": 25.618213946647852,
+      "direction": "bullish"
+    },
+    {
+      "id": "trade_20260215_085455",
+      "symbol": "DECOUPLING",
+      "size": 26.872757474215145,
+      "direction": "bearish"
+    },
+    {
+      "id": "trade_20260215_085556",
+      "symbol": "PUMPID",
+      "size": 25.76029195904435,
+      "direction": "bullish"
+    },
+    {
+      "id": "trade_20260215_085556",
+      "symbol": "DECOUPLING",
+      "size": 28.63785972503118,
+      "direction": "bullish"
+    },
+    {
+      "id": "trade_20260215_085656",
+      "symbol": "pippin",
+      "size": 25.592213722653227,
+      "direction": "bullish"
+    },
+    {
+      "id": "trade_20260215_085656",
+      "symbol": "DECOUPLING",
+      "size": 24.96278157982943,
+      "direction": "bearish"
+    },
+    {
+      "id": "trade_20260215_085756",
+      "symbol": "PUMPID",
+      "size": 24.485616388942958,
+      "direction": "bullish"
+    },
+    {
+      "id": "trade_20260215_090057",
+      "symbol": "PUMPID",
+      "size": 32.566418445252445,
+      "direction": "bullish"
+    },
+    {
+      "id": "trade_20260215_090158",
+      "symbol": "pippin",
+      "size": 33.81249610298141,
+      "direction": "bearish"
+    },
+    {
+      "id": "trade_20260215_090158",
+      "symbol": "UNTIL",
+      "size": 31.164381484818087,
+      "direction": "bullish"
+    },
+    {
+      "id": "trade_20260215_090158",
+      "symbol": "crust",
+      "size": 29.80204634974633,
+      "direction": "bullish"
+    },
+    {
+      "id": "trade_20260215_090258",
+      "symbol": "ZBCN",
+      "size": 30.90467710580586,
+      "direction": "bearish"
+    },
+    {
+      "id": "trade_20260215_090459",
+      "symbol": "neet",
+      "size": 27.28779204623995,
+      "direction": "bearish"
+    },
+    {
+      "id": "trade_20260215_090559",
+      "symbol": "pippin",
+      "size": 28.455938316669087,
+      "direction": "bearish"
+    },
+    {
+      "id": "trade_20260215_090800",
+      "symbol": "pippin",
+      "size": 36.39470084684597,
+      "direction": "bearish"
+    },
+    {
+      "id": "trade_20260215_090800",
+      "symbol": "PUMPID",
+      "size": 29.874143280401462,
+      "direction": "bearish"
+    },
+    {
+      "id": "trade_20260215_090800",
+      "symbol": "UNTIL",
+      "size": 28.729136331311405,
+      "direction": "bullish"
+    },
+    {
+      "id": "trade_20260215_090901",
+      "symbol": "pippin",
+      "size": 28.77001888118956,
+      "direction": "bearish"
+    },
+    {
+      "id": "trade_20260215_091101",
+      "symbol": "PUMPID",
+      "size": 39.50547202615056,
+      "direction": "bearish"
+    },
+    {
+      "id": "trade_20260215_091101",
+      "symbol": "UNTIL",
+      "size": 34.94432127079926,
+      "direction": "bearish"
+    },
+    {
+      "id": "trade_20260215_091101",
+      "symbol": "neet",
+      "size": 29.90480816024403,
+      "direction": "bullish"
+    },
+    {
+      "id": "trade_20260215_091102",
+      "symbol": "ZBCN",
+      "size": 27.356315862084724,
+      "direction": "bearish"
+    },
+    {
+      "id": "trade_20260215_091302",
+      "symbol": "pippin",
+      "size": 28.517166999033652,
+      "direction": "bullish"
+    },
+    {
+      "id": "trade_20260215_091403",
+      "symbol": "pippin",
+      "size": 33.89701957729126,
+      "direction": "bearish"
+    },
+    {
+      "id": "trade_20260215_091403",
+      "symbol": "PUMPID",
+      "size": 33.65453149948978,
+      "direction": "bullish"
+    },
+    {
+      "id": "trade_20260215_091403",
+      "symbol": "neet",
+      "size": 29.796283247727835,
+      "direction": "bearish"
+    },
+    {
+      "id": "trade_20260215_091503",
+      "symbol": "PUMPID",
+      "size": 29.88164199555144,
+      "direction": "bullish"
+    },
+    {
+      "id": "trade_20260215_091922",
+      "symbol": "pippin",
+      "size": 30.69,
+      "direction": "bearish"
+    },
+    {
+      "id": "trade_20260215_091922",
+      "symbol": "PUMPID",
+      "size": 27.86997435,
+      "direction": "bearish"
+    },
+    {
+      "id": "trade_20260215_091922",
+      "symbol": "UNTIL",
+      "size": 27.929910422875494,
+      "direction": "bearish"
+    },
+    {
+      "id": "trade_20260215_091923",
+      "symbol": "ZBCN",
+      "size": 21.169650349052638,
+      "direction": "bearish"
+    },
+    {
+      "id": "trade_20260215_092023",
+      "symbol": "pippin",
+      "size": 35.78513980925469,
+      "direction": "bearish"
+    },
+    {
+      "id": "trade_20260215_092023",
+      "symbol": "ELON",
+      "size": 32.76953615023463,
+      "direction": "bullish"
+    },
+    {
+      "id": "trade_20260215_092023",
+      "symbol": "ZBCN",
+      "size": 30.76443598920119,
+      "direction": "bearish"
     }
   ],
-  "last_update": "2026-02-15T08:45:52.731816"
+  "last_update": "2026-02-15T09:20:24.379404"
 }

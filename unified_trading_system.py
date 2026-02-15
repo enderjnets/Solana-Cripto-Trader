@@ -50,6 +50,7 @@ from config.hardbit_schedule import HARDBIT_CONFIG, is_night_time, get_active_pr
 from agents.risk_agent import RiskAgent, RiskLimits
 from agents.market_scanner_agent import MarketScannerAgent, Opportunity
 from paper_trading_engine import PaperTradingEngine
+from api.kraken_price import get_kraken_price
 
 # =============================================================================
 # CONFIGURATION
@@ -1202,7 +1203,7 @@ class UnifiedTradingSystem:
             self._send_trade_notification(trade, "CLOSED", reason)
     
     def _get_current_price(self, trade_id: str) -> float:
-        """Get current price for a trade with simulated volatility"""
+        """Get current price for a trade - uses REAL prices from Kraken when available"""
         import time
         import random
         
@@ -1211,12 +1212,21 @@ class UnifiedTradingSystem:
             if trade["id"] == trade_id:
                 symbol = trade["symbol"]
                 
+                # Try REAL price from Kraken first
+                try:
+                    kraken = get_kraken_price()
+                    real_price = kraken.get_price(symbol)
+                    if real_price > 0:
+                        return real_price
+                except:
+                    pass
+                
                 # Try cache first
                 cached = self.cache.get_price(symbol)
                 if cached and cached.get("price", 0) > 0:
                     return cached["price"]
                 
-                # Simulate price movement for paper trading
+                # Fallback: simulate price movement for paper trading
                 # This creates realistic price action to trigger SL/TP
                 entry_price = trade["entry_price"]
                 if entry_price <= 0:
