@@ -1538,13 +1538,13 @@ class UnifiedTradingSystem:
         
         # Don't call self.start() here - it's already called in main()
         
-        try:
-            while self.running:
+        while self.running:
+            try:
                 self.run_cycle()
                 time_module.sleep(self.scan_interval)
-        except KeyboardInterrupt:
-            logger.info("Interrupted by user")
-            self.stop()
+            except Exception as e:
+                logger.error(f"Error in trading cycle: {e}")
+                time_module.sleep(5)  # Wait before retry
 
 
 # =============================================================================
