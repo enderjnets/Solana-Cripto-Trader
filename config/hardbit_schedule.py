@@ -68,7 +68,7 @@ HARDBIT_CONFIG = {
     "night_profile": {
         "risk_level": "HIGH",
         "max_position_pct": 0.15,
-        "stop_loss_pct": 0.02,
+        "stop_loss_pct": 0.01,
         "take_profit_pct": 0.02,
         "max_daily_loss_pct": 0.08,
         "max_daily_trades": 10,
@@ -79,8 +79,8 @@ HARDBIT_CONFIG = {
     "day_profile": {
         "risk_level": "MEDIUM",
         "max_position_pct": 0.10,
-        "stop_loss_pct": 0.03,
-        "take_profit_pct": 0.06,
+        "stop_loss_pct": 0.01,
+        "take_profit_pct": 0.02,
         "max_daily_loss_pct": 0.10,
         "max_daily_trades": 20,
         "max_concurrent_positions": 5,

@@ -53,6 +53,7 @@ from config.hardbit_schedule import HARDBIT_CONFIG, is_night_time, get_active_pr
 from agents.risk_agent import RiskAgent, RiskLimits
 from agents.market_scanner_agent import MarketScannerAgent, Opportunity
 from paper_trading_engine import PaperTradingEngine
+from self_improver import SelfImprover
 from api.kraken_price import get_kraken_price
 from api.price_feed import get_price_feed
 
@@ -792,6 +793,7 @@ class UnifiedTradingSystem:
         self.paper_engine = PaperTradingEngine()
         self.db = TradesDatabase()
         self.ml_signal = MLSignalGenerator(self.cache)
+        self.self_improver = SelfImprover()
         
         # Initialize Strategy Optimizer - DISABLED due to memory leak
         # try:
@@ -1220,6 +1222,13 @@ class UnifiedTradingSystem:
             # Update risk agent
             self.risk_agent.close_trade(trade_id, trade["pnl"])
             
+            # Record for self-improvement
+            self.self_improver.record_trade(
+                trade["symbol"],
+                trade["direction"],
+                trade.get("pnl_pct", 0)
+            )
+            
             logger.info(f"📝 Trade closed: {trade_id} P&L: ${trade['pnl']:.2f}")
             
             # Send notification
@@ -1318,9 +1327,12 @@ class UnifiedTradingSystem:
         signals = self.generate_ml_signals(opportunities)
         
         # 3. Process high-confidence signals
+        # Get dynamic threshold based on recent win rate
+        min_confidence = self.self_improver.get_adjusted_confidence_threshold(10)
+        
         for signal in signals:
-            # Skip low confidence (reduced from 30% to 5% for aggressive trading)
-            if signal["confidence"] < 10:  # Minimum 10% confidence
+            # Skip low confidence (adjusted based on self-improvement)
+            if signal["confidence"] < min_confidence:
                 continue
             
             # Trade both bullish and bearish signals (for more opportunities)
@@ -1360,6 +1372,11 @@ class UnifiedTradingSystem:
         
         # 5. Run strategy optimizer periodically (every hour)
         self._run_optimizer_if_needed()
+        
+        # Log self-improvement stats
+        stats = self.self_improver.get_stats()
+        if stats["total_trades"] > 0:
+            logger.info(f"🧠 Self-Improvement: Win Rate: {stats['overall_win_rate']*100:.1f}%, Trades: {stats['total_trades']}")
         
         logger.info("✅ Trading cycle complete")
         
