@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 """
-Multi-Agent Trading - MAX TOKENS + AUTO DISCOVERY
+Multi-Agent Trading - MAX TOKENS + AUTO DISCOVERY + AI ANALYSIS
 """
 import asyncio
 import json
 import random
 import requests
+import os
+import time
 from pathlib import Path
 from datetime import datetime
 from solana.rpc.api import Client
@@ -14,6 +16,11 @@ from solders.pubkey import Pubkey
 WALLET_ADDRESS = "H9GF6t5hdypfH5PsDhS42sb9ybFWEh5zD5Nht9rQX19a"
 RPC_URL = "https://api.devnet.solana.com"
 STATE_FILE = Path("~/.config/solana-jupiter-bot/multi_agent_state.json").expanduser()
+
+# MiniMax config
+MINIMAX_API_URL = os.getenv("MINIMAX_API_URL", "http://localhost:8090/v1")
+MINIMAX_API_KEY = os.getenv("MINIMAX_API_KEY", "")
+MINIMAX_GROUP_ID = os.getenv("MINIMAX_GROUP_ID", "")
 
 # MAX TOKENS - All major + meme
 TOKENS = {
@@ -117,11 +124,18 @@ class MarketScanner:
 class Analyst:
     """Finds opportunities on MAX tokens"""
     
+    # Exclude stablecoins from trading
+    STABLECOINS = {"USDC", "USDT", "DAI", "FRAX", "UST", "BUSD"}
+    
     def analyze(self, prices):
         opps = []
         
         for sym, d in prices.items():
             if not isinstance(d, dict):
+                continue
+            
+            # Skip stablecoins - they're not for trading
+            if sym in self.STABLECOINS:
                 continue
             
             ch = d.get("change", 0)
@@ -140,18 +154,265 @@ class Analyst:
         
         return sorted(opps, key=lambda x: x["strength"], reverse=True)
 
-class RiskManager:
+
+class AIAnalyzer:
+    """Analiza oportunidades con IA (MiniMax)"""
+    
     def __init__(self):
-        self.max_pos = 8
-        self.tp = 1.5
-        self.sl = 1.0
+        self.api_url = MINIMAX_API_URL
+        self.api_key = MINIMAX_API_KEY
+        self.group_id = MINIMAX_GROUP_ID
+        self.enabled = bool(self.api_key and self.api_key != "your-api-key-here")
+        self.cache = {}  # Cache de análisis por símbolo
+        self.cache_duration = 300  # 5 minutos
+    
+    def analyze_opportunity(self, opp, prices, state):
+        """Analiza una oportunidad de trade con IA"""
+        if not self.enabled:
+            return {"approved": True, "confidence": 0.5, "reason": "AI disabled"}
+        
+        sym = opp["symbol"]
+        
+        # Cache check
+        if sym in self.cache:
+            cached = self.cache[sym]
+            if time.time() - cached["time"] < self.cache_duration:
+                return cached["result"]
+        
+        # Preparar contexto
+        price_data = prices.get(sym, {})
+        current_price = price_data.get("price", 0)
+        change_24h = price_data.get("change", 0)
+        
+        # Estado del portfolio
+        capital = state.get("capital_usd", 500)
+        positions = state.get("positions", {})
+        position_value = sum(
+            p.get("amount", 0) * prices.get(s, {}).get("price", 0)
+            for s, p in positions.items()
+        )
+        
+        # Construir prompt
+        prompt = self._build_prompt({
+            "symbol": sym,
+            "current_price": current_price,
+            "change_24h": change_24h,
+            "momentum": opp.get("strength", 0),
+            "capital": capital,
+            "position_value": position_value,
+            "num_positions": len(positions),
+            "total_trades": len(state.get("trades", [])),
+        })
+        
+        # Llamar a MiniMax
+        result = self._call_minimax(prompt)
+        
+        # Cache resultado
+        self.cache[sym] = {
+            "result": result,
+            "time": time.time()
+        }
+        
+        return result
+    
+    def _build_prompt(self, data):
+        return f"""Eres un experto en trading de criptomonedas. Analiza esta oportunidad de compra:
+
+Símbolo: {data['symbol']}
+Precio actual: ${data['current_price']:.4f}
+Cambio 24h: {data['change_24h']:+.2f}%
+Momentum: {data['momentum']:.2f}
+
+Tu capital: ${data['capital']:.2f}
+Valor en posiciones: ${data['position_value']:.2f}
+Posiciones abiertas: {data['num_positions']}
+Total trades: {data['total_trades']}
+
+Responde en JSON:
+{{
+  "approved": true/false,
+  "confidence": 0.0-1.0,
+  "reason": "explicación breve",
+  "suggested_size": 0.1-0.2 (porcentaje del capital),
+  "stop_loss": 0.5-2.0 (%),
+  "take_profit": 1.0-3.0 (%)
+}}"""
+
+    def _call_minimax(self, prompt):
+        """Llama a la API de MiniMax"""
+        try:
+            headers = {
+                "Authorization": f"Bearer {self.api_key}",
+                "Content-Type": "application/json"
+            }
+            
+            payload = {
+                "model": "MiniMax-M2.1",
+                "messages": [
+                    {"role": "system", "content": "Eres un experto en trading de criptomonedas. Respondes siempre en JSON válido."},
+                    {"role": "user", "content": prompt}
+                ],
+                "temperature": 0.3,
+                "max_tokens": 500
+            }
+            
+            response = requests.post(
+                f"{self.api_url}/chat/completions",
+                headers=headers,
+                json=payload,
+                timeout=10
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                content = result["choices"][0]["message"]["content"]
+                
+                # Parse JSON de la respuesta
+                import re
+                json_match = re.search(r'\{.*\}', content, re.DOTALL)
+                if json_match:
+                    return json.loads(json_match.group())
+            
+            return {"approved": True, "confidence": 0.5, "reason": "API error, default approval"}
+        
+        except Exception as e:
+            print(f"   ⚠️ AI Error: {e}")
+            return {"approved": True, "confidence": 0.5, "reason": f"Error: {str(e)[:20]}"}
+
+
+class AdaptiveRiskManager:
+    """RiskManager con autoaprendizaje"""
+    def __init__(self):
+        self.max_pos = 6
+        self.max_pos_per_cycle = 2
+        self.min_momentum = 0.8
+        self.max_capital_pct = 0.20
+        self.tp = 2.0  # 2% take profit
+        self.sl = 1.0  # 1% stop loss (risk)
+        self.last_entry_time = {}
+        self.cooldown_minutes = 3
+        
+        # Autoaprendizaje
+        self.trade_history = []  # [ {"symbol": "SOL", "result": "TP" | "SL", "pnl": 1.5, "time": timestamp}]
+        self.learn_cycle = 10  # Analizar cada 10 trades
+        self.token_stats = {}  # { "SOL": {"wins": 3, "losses": 2, "avg_pnl": 1.2} }
+        self.best_params = {"tp": 1.5, "sl": 1.0}
+        self.adaptive_enabled = True
+    
+    def record_trade_result(self, symbol, result, pnl):
+        """Registra resultado de un trade para aprendizaje"""
+        self.trade_history.append({
+            "symbol": symbol,
+            "result": result,  # "TP" o "SL"
+            "pnl": pnl,
+            "time": import_time()
+        })
+        
+        # Actualizar stats por token
+        if symbol not in self.token_stats:
+            self.token_stats[symbol] = {"wins": 0, "losses": 0, "total_pnl": 0}
+        
+        if result == "TP":
+            self.token_stats[symbol]["wins"] += 1
+            self.token_stats[symbol]["total_pnl"] += pnl
+        else:
+            self.token_stats[symbol]["losses"] += 1
+            self.token_stats[symbol]["total_pnl"] += pnl
+        
+        # Feedback loop: analizar cada N trades
+        if len(self.trade_history) % self.learn_cycle == 0:
+            self.analyze_and_adapt()
+    
+    def analyze_and_adapt(self):
+        """Analiza rendimiento y ajusta parámetros"""
+        print(f"\n🧠 [ADAPTIVE] Analizando últimos {len(self.trade_history)} trades...")
+        
+        # Calcular win rate global
+        wins = sum(1 for t in self.trade_history[-self.learn_cycle:] if t["result"] == "TP")
+        total = self.learn_cycle
+        win_rate = wins / total * 100
+        
+        # Calcular PnL promedio
+        recent_pnl = sum(t["pnl"] for t in self.trade_history[-self.learn_cycle:])
+        
+        print(f"   Win Rate: {win_rate:.1f}% | PnL: ${recent_pnl:.2f}")
+        
+        # AJUSTE 1: Si win rate < 40%, aumentar SL y reducir TP
+        if win_rate < 40:
+            self.sl = max(0.5, self.sl - 0.1)  # Más ajustado
+            self.tp = min(3.0, self.tp + 0.2)  # Necesita más recompensa
+            print(f"   📉 Ajustando: SL={self.sl}% (más ajustado), TP={self.tp}% (mayor)")
+        
+        # AJUSTE 2: Si win rate > 70%, ser más agresivo
+        elif win_rate > 70:
+            self.sl = min(1.5, self.sl + 0.1)
+            self.tp = max(1.0, self.tp - 0.1)
+            print(f"   📈 Ajustando: SL={self.sl}%, TP={self.tp}% (más agresivo)")
+        
+        # AJUSTE 3: Analizar tokens específicos
+        for sym, stats in self.token_stats.items():
+            if stats["wins"] + stats["losses"] >= 3:
+                sym_wr = stats["wins"] / (stats["wins"] + stats["losses"]) * 100
+                if sym_wr < 30:
+                    print(f"   ⚠️ {sym} tiene {sym_wr:.0f}% win rate - evitar trades")
+                    # No hacer nada, el validate_entry ya tiene momentum check
+        
+        # Guardar mejores parámetros
+        if recent_pnl > 0:
+            self.best_params = {"tp": self.tp, "sl": self.sl}
+            print(f"   ✅ Mejores parámetros: TP={self.best_params['tp']}%, SL={self.best_params['sl']}%")
+        
+        return {"win_rate": win_rate, "pnl": recent_pnl, "tp": self.tp, "sl": self.sl}
+    
+    def get_token_confidence(self, symbol):
+        """Retorna confianza para tradear un token específico"""
+        if symbol not in self.token_stats:
+            return 0.5  # Neutral
+        
+        stats = self.token_stats[symbol]
+        total = stats["wins"] + stats["losses"]
+        if total < 3:
+            return 0.5  # No hay suficientes datos
+        
+        return stats["wins"] / total
     
     def validate_entry(self, opp, state):
-        if len(state.get("positions", {})) >= self.max_pos:
-            return False, "Max"
-        if opp["symbol"] in state.get("positions", {}):
-            return False, "Has it"
+        positions = state.get("positions", {})
+        capital = state.get("capital_usd", 500)
+        
+        # Check max positions
+        if len(positions) >= self.max_pos:
+            return False, "Max positions"
+        
+        # Check if already has this token
+        if opp["symbol"] in positions:
+            return False, "Already has"
+        
+        # Check momentum strength
+        strength = opp.get("strength", 0)
+        if strength < self.min_momentum:
+            return False, f"Weak momentum ({strength:.1f})"
+        
+        # Check capital per position
+        max_per_position = capital * self.max_capital_pct
+        if opp.get("cost", 50) > max_per_position:
+            return False, "Exceeds cap"
+        
+        # Check cooldown
+        last_time = self.last_entry_time.get(opp["symbol"], 0)
+        if import_time() - last_time < self.cooldown_minutes * 60:
+            return False, "Cooldown"
+        
+        # AJUSTE 3: Feedback loop - no entrar si token tiene mal historial
+        if self.adaptive_enabled:
+            confidence = self.get_token_confidence(opp["symbol"])
+            if confidence < 0.25 and self.token_stats.get(opp["symbol"], {}).get("wins", 0) + self.token_stats.get(opp["symbol"], {}).get("losses", 0) >= 3:
+                return False, f"Low confidence ({confidence:.0%})"
+        
         return True, "OK"
+    
+    def record_entry(self, symbol):
+        self.last_entry_time[symbol] = import_time()
     
     def check_exits(self, positions, prices):
         exits = []
@@ -181,11 +442,21 @@ class RiskManager:
                                  "price": current, "pnl": pnl})
         return exits
 
+
+def import_time():
+    import time
+    return time.time()
+
+
+# Alias para compatibilidad
+RiskManager = AdaptiveRiskManager
+
+
 class Trader:
     def __init__(self):
         self.client = Client(RPC_URL)
         self.wallet = Pubkey.from_string(WALLET_ADDRESS)
-        self.trade_size_pct = 0.15
+        self.trade_size_pct = 0.01  # 1% del capital por trade
     
     def get_wallet(self):
         return self.client.get_balance(self.wallet).value / 1e9
@@ -240,10 +511,17 @@ class Orchestrator:
     def __init__(self):
         self.scanner = MarketScanner()
         self.analyst = Analyst()
+        self.ai_analyzer = AIAnalyzer()  # 🤖 IA para análisis profundo
         self.risk = RiskManager()
         self.trader = Trader()
         self.ceo = CEO()
         self.load_state()
+        
+        # Estado del AI
+        if self.ai_analyzer.enabled:
+            print(f"\n🤖 AI Analyzer: ACTIVADO (MiniMax)")
+        else:
+            print(f"\n🤖 AI Analyzer: DESACTIVADO (configura MINIMAX_API_KEY)")
     
     def load_state(self):
         if STATE_FILE.exists():
@@ -275,6 +553,11 @@ class Orchestrator:
         exits = self.risk.check_exits(self.state["positions"], prices)
         for ex in exits:
             self.trader.execute_exit(ex, self.state)
+            
+            # Autoaprendizaje: registrar resultado
+            result = "TP" if ex["action"] == "TAKE_PROFIT" else "SL"
+            self.risk.record_trade_result(ex["symbol"], result, ex.get("pnl", 0))
+            
             emoji = "🎯" if ex["action"] == "TAKE_PROFIT" else "🛑"
             print(f"   {emoji} {ex['action']} {ex['symbol']}: {ex['reason']}")
         
@@ -282,17 +565,38 @@ class Orchestrator:
         if opps:
             trades_made = 0
             for o in opps:
-                if trades_made >= 5:
+                if trades_made >= self.risk.max_pos_per_cycle:  # Max 2 per cycle
                     break
                     
                 if o["action"] == "BUY":
                     ok, msg = self.risk.validate_entry(o, self.state)
+                    
+                    if not ok:
+                        print(f"   ❌ {o['symbol']}: {msg}")
+                        continue
+                    
                     price_info = prices.get(o["symbol"])
                     
-                    if ok and price_info and isinstance(price_info, dict):
-                        self.trader.execute_entry(o["symbol"], price_info.get("price", 0), self.state)
-                        print(f"   ✅ BUY {o['symbol']} @ ${price_info.get('price', 0):.4f} - {o['reason']}")
-                        trades_made += 1
+                    if not (price_info and isinstance(price_info, dict)):
+                        continue
+                    
+                    # 🤖 ANÁLISIS IA antes de ejecutar
+                    if self.ai_analyzer.enabled:
+                        ai_result = self.ai_analyzer.analyze_opportunity(o, prices, self.state)
+                        print(f"   🧠 AI Analysis {o['symbol']}: confidence={ai_result.get('confidence', 0):.0%} - {ai_result.get('reason', '')}")
+                        
+                        if not ai_result.get("approved", True):
+                            print(f"   ❌ AI REJECTED {o['symbol']}: {ai_result.get('reason', 'No reason')}")
+                            continue
+                        
+                        # Usar sugerencias de IA si están disponibles
+                        if "suggested_size" in ai_result:
+                            o["ai_size"] = ai_result["suggested_size"]
+                    
+                    self.trader.execute_entry(o["symbol"], price_info.get("price", 0), self.state)
+                    self.risk.record_entry(o["symbol"])  # Record for cooldown
+                    print(f"   ✅ BUY {o['symbol']} @ ${price_info.get('price', 0):.4f} - {o['reason']}")
+                    trades_made += 1
         
         # Summary
         sol_price = prices.get("SOL", {}).get("price", 0) if isinstance(prices.get("SOL"), dict) else 0
