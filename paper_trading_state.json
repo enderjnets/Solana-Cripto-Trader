@@ -1,80 +1,9 @@
 {
   "enabled": true,
   "start_time": "2026-02-15T14:55:00",
-  "balance_usd": 369.21562107438893,
+  "balance_usd": 500.0,
   "initial_balance": 500.0,
-  "trades": [
-    {
-      "id": "trade_20260215_145335_41e7",
-      "entry_time": "2026-02-15T14:53:35.992837",
-      "entry_price": 0.9999,
-      "direction": "bullish",
-      "size": 27.96,
-      "symbol": "USDC",
-      "status": "open",
-      "exit_time": null,
-      "exit_price": null,
-      "pnl": 0.0,
-      "pnl_pct": 0.0,
-      "reason": "High volume: 1.5x normal; ML Score: 10%"
-    },
-    {
-      "id": "trade_20260215_145336_46f3",
-      "entry_time": "2026-02-15T14:53:36.043610",
-      "entry_price": 1,
-      "direction": "bullish",
-      "size": 26.19822,
-      "symbol": "USDT",
-      "status": "open",
-      "exit_time": null,
-      "exit_price": null,
-      "pnl": 0.0,
-      "pnl_pct": 0.0,
-      "reason": "High volume: 1.5x normal; ML Score: 10%"
-    },
-    {
-      "id": "trade_20260215_145336_b823",
-      "entry_time": "2026-02-15T14:53:36.088898",
-      "entry_price": 0.002211,
-      "direction": "bullish",
-      "size": 26.9912613612,
-      "symbol": "PUMP",
-      "status": "open",
-      "exit_time": null,
-      "exit_price": null,
-      "pnl": 0.0,
-      "pnl_pct": 0.0,
-      "reason": "High volume: 1.5x normal; ML Score: 15%"
-    },
-    {
-      "id": "trade_20260215_145336_e656",
-      "entry_time": "2026-02-15T14:53:36.133535",
-      "entry_price": 1.283,
-      "direction": "bullish",
-      "size": 24.873438049365138,
-      "symbol": "HNT",
-      "status": "open",
-      "exit_time": null,
-      "exit_price": null,
-      "pnl": 0.0,
-      "pnl_pct": 0.0,
-      "reason": "High volume: 1.5x normal; ML Score: 14%"
-    },
-    {
-      "id": "trade_20260215_145516_76ba",
-      "entry_time": "2026-02-15T14:55:16.656365",
-      "entry_price": 0.9999,
-      "direction": "bullish",
-      "size": 24.761459515045985,
-      "symbol": "USDC",
-      "status": "open",
-      "exit_time": null,
-      "exit_price": null,
-      "pnl": 0.0,
-      "pnl_pct": 0.0,
-      "reason": "High volume: 1.5x normal; ML Score: 17%"
-    }
-  ],
+  "trades": [],
   "stats": {
     "total_trades": 0,
     "winning_trades": 0,
@@ -132,5 +61,6 @@
       "reason": "High volume: 1.5x normal; ML Score: 17%",
       "trade_id": "trade_20260215_145516_76ba"
     }
-  ]
+  ],
+  "closed_trades": []
 }

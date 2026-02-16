@@ -156,7 +156,7 @@ class MarketScannerAgent:
     def _get_top_tokens(self) -> List[Dict]:
         """Get list of tokens to scan"""
         # Use CryptoCompare-supported tokens for price fetching
-        # Helius integration would require mint->symbol mapping
+        # Reduced to top 15 tokens to reduce memory usage
         default_tokens = [
             # Major
             {"symbol": "SOL", "name": "Solana"},
@@ -175,25 +175,6 @@ class MarketScannerAgent:
             {"symbol": "MEW", "name": "Mew"},
             {"symbol": "BOME", "name": "Book of Meme"},
             {"symbol": "PNUT", "name": "Peanut"},
-            {"symbol": "SLERF", "name": "Slerf"},
-            {"symbol": "HNT", "name": "Helium"},
-            {"symbol": "TRUMP", "name": "Trump"},
-            {"symbol": "JLP", "name": "JLP"},
-            # More tokens
-            {"symbol": "SOLI", "name": "Solana"},
-            {"symbol": "CATO", "name": "Cato"},
-            {"symbol": "DYOR", "name": "Dyor"},
-            {"symbol": "MOON", "name": "Moon"},
-            {"symbol": "MER", "name": "Mer"},
-            {"symbol": "GRASS", "name": "Grass"},
-            {"symbol": "HAWK", "name": "Hawk"},
-            {"symbol": "FORM", "name": "Form"},
-            {"symbol": "STSOL", "name": "Lido Staked SOL"},
-            {"symbol": "MSOL", "name": "Marinade Staked SOL"},
-            {"symbol": "LDO", "name": "Lido DAO"},
-            {"symbol": "GME", "name": "GME"},
-            {"symbol": "BOOK", "name": "Book"},
-            {"symbol": "AI16Z", "name": "ai16z"},
         ]
         
         return default_tokens

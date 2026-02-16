@@ -789,29 +789,27 @@ class UnifiedTradingSystem:
         self.scanner = MarketScannerAgent()
         self.paper_engine = PaperTradingEngine()
         self.db = TradesDatabase()
-        self.ml_signal = MLSignalGenerator(self.cache)
+        # self.ml_signal = MLSignalGenerator(self.cache) # Disabled
         
-        # Initialize Strategy Optimizer
-        try:
-            from strategy_optimizer_agent import StrategyOptimizer
-            self.optimizer = StrategyOptimizer()
-            logger.info("✅ Strategy Optimizer initialized")
-        except Exception as e:
-            logger.warning(f"⚠️ Strategy Optimizer not available: {e}")
-            self.optimizer = None
+        # Initialize Strategy Optimizer - DISABLED due to memory leak
+        # try:
+        #     from strategy_optimizer_agent import StrategyOptimizer
+        #     self.optimizer = StrategyOptimizer()
+        #     logger.info("✅ Strategy Optimizer initialized")
+        # except Exception as e:
+        #     logger.warning(f"⚠️ Strategy Optimizer not available: {e}")
+        self.optimizer = None
         
-        # Trading tokens (10 tokens from original v3)
-        self.trading_tokens = [
-            "SOL", "ETH", "cbBTC", "JUP", "BONK", "WIF", "RAY", "JTO"
-        ]
+        # Trading tokens (reduced to 5)
+        self.trading_tokens = ["SOL", "BTC", "ETH", "WIF", "PUMP"]
         
         # Seed price data for initial ML signals
-        self._seed_initial_prices()
+        # self._seed_initial_prices() # Disabled
         
         # State
         self.running = False
         self.last_scan_time = None
-        self.scan_interval = 60  # seconds
+        self.scan_interval = 180  # seconds (reduced from 60 to save memory)
         self.last_optimization = None
         self.optimization_interval = 3600  # Run optimizer every hour
         
@@ -1306,7 +1304,7 @@ class UnifiedTradingSystem:
         opportunities = self.scan_market()
         
         # 2. Generate ML signals
-        signals = self.generate_ml_signals(opportunities)
+        signals = []  # Disabled
         
         # 3. Process high-confidence signals
         for signal in signals:

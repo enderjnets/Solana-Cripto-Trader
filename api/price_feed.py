@@ -90,7 +90,7 @@ class PriceFeed:
     def __init__(self):
         self._cache: Dict[str, float] = {}
         self._cache_time: Dict[str, float] = {}
-        self._cache_ttl = 30  # 30 seconds cache
+        self._cache_ttl = 300  # 5 minutes cache to reduce memory
     
     async def get_price(self, symbol: str) -> float:
         """Get price for a single token"""
