@@ -2,64 +2,64 @@
   "opportunities": [
     {
       "symbol": "SOL",
-      "price": 84.27,
+      "price": 84.26,
       "score": 70,
-      "timestamp": "2026-02-16T07:38:41.584270"
+      "timestamp": "2026-02-16T07:39:27.557819"
     },
     {
       "symbol": "BTC",
-      "price": 68539.59,
+      "price": 68523.1,
       "score": 70,
-      "timestamp": "2026-02-16T07:38:42.406248"
+      "timestamp": "2026-02-16T07:39:28.463796"
     },
     {
       "symbol": "ETH",
-      "price": 1971.34,
+      "price": 1970.17,
       "score": 70,
-      "timestamp": "2026-02-16T07:38:43.224935"
+      "timestamp": "2026-02-16T07:39:29.306132"
     },
     {
       "symbol": "WIF",
       "price": 0.2329,
       "score": 70,
-      "timestamp": "2026-02-16T07:38:44.041648"
+      "timestamp": "2026-02-16T07:39:30.122199"
     },
     {
       "symbol": "BONK",
       "price": 6.59e-06,
       "score": 70,
-      "timestamp": "2026-02-16T07:38:44.782842"
+      "timestamp": "2026-02-16T07:39:30.838752"
     },
     {
       "symbol": "PUMP",
-      "price": 0.002213,
+      "price": 0.002216,
       "score": 70,
-      "timestamp": "2026-02-16T07:38:45.563977"
+      "timestamp": "2026-02-16T07:39:31.667176"
     },
     {
       "symbol": "JTO",
       "price": 0.2679,
       "score": 70,
-      "timestamp": "2026-02-16T07:38:46.395561"
+      "timestamp": "2026-02-16T07:39:32.480456"
     },
     {
       "symbol": "JUP",
       "price": 0.1608,
       "score": 70,
-      "timestamp": "2026-02-16T07:38:47.219061"
+      "timestamp": "2026-02-16T07:39:33.296434"
     },
     {
       "symbol": "RAY",
       "price": 0.6228,
       "score": 70,
-      "timestamp": "2026-02-16T07:38:48.005326"
+      "timestamp": "2026-02-16T07:39:34.014272"
     },
     {
       "symbol": "ORCA",
-      "price": 0.7881,
+      "price": 0.7903,
       "score": 70,
-      "timestamp": "2026-02-16T07:38:48.858873"
+      "timestamp": "2026-02-16T07:39:34.733195"
     }
   ],
-  "last_scan": "2026-02-16T07:38:52.540612"
+  "last_scan": "2026-02-16T07:39:39.343159"
 }

@@ -1,6 +1,6 @@
 {
   "daily_pnl": 0.0,
-  "daily_trades": 14,
+  "daily_trades": 15,
   "daily_start_balance": 500.0,
   "open_trades": [
     {
@@ -86,7 +86,13 @@
       "symbol": "ORCA",
       "size": 24.325513353661552,
       "direction": "bullish"
+    },
+    {
+      "id": "trade_20260216_073939_3695",
+      "symbol": "WIF",
+      "size": 20.133615036958652,
+      "direction": "bearish"
     }
   ],
-  "last_update": "2026-02-16T07:38:52.924744"
+  "last_update": "2026-02-16T07:39:39.671114"
 }

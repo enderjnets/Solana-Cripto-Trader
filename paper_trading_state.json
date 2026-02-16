@@ -1,7 +1,7 @@
 {
   "enabled": true,
   "start_time": "2026-02-15T14:55:00",
-  "balance_usd": 400.0479859513323,
+  "balance_usd": 379.91437091437365,
   "initial_balance": 500.0,
   "trades": [
     {
@@ -59,6 +59,20 @@
       "pnl": 0.0,
       "pnl_pct": 0.0,
       "reason": "High volume: 1.5x normal; ML Score: 18%"
+    },
+    {
+      "id": "trade_20260216_073939_dd40",
+      "entry_time": "2026-02-16T07:39:39.670854",
+      "entry_price": 0.2329,
+      "direction": "bearish",
+      "size": 20.133615036958652,
+      "symbol": "WIF",
+      "status": "open",
+      "exit_time": null,
+      "exit_price": null,
+      "pnl": 0.0,
+      "pnl_pct": 0.0,
+      "reason": "High volume: 1.5x normal; ML Score: 10%"
     }
   ],
   "stats": {
@@ -198,6 +212,15 @@
       "size": 24.325513353661552,
       "reason": "High volume: 1.5x normal; ML Score: 18%",
       "trade_id": "trade_20260216_073852_dc78"
+    },
+    {
+      "time": "2026-02-16T07:39:39.670854",
+      "symbol": "WIF",
+      "direction": "bearish",
+      "price": 0.2329,
+      "size": 20.133615036958652,
+      "reason": "High volume: 1.5x normal; ML Score: 10%",
+      "trade_id": "trade_20260216_073939_dd40"
     }
   ]
 }

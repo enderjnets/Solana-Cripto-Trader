@@ -1614,6 +1614,7 @@ def main():
         system.stop()
     
     elif args.continuous:
+        system.start()
         system.run_continuous()
     
     elif args.paper_status:
