@@ -1,7 +1,7 @@
 {
   "enabled": true,
   "start_time": "2026-02-15T14:55:00",
-  "balance_usd": 446.68543687700003,
+  "balance_usd": 400.0479859513323,
   "initial_balance": 500.0,
   "trades": [
     {
@@ -31,6 +31,34 @@
       "pnl": 0.0,
       "pnl_pct": 0.0,
       "reason": "High volume: 1.5x normal; ML Score: 14%"
+    },
+    {
+      "id": "trade_20260216_073852_c98e",
+      "entry_time": "2026-02-16T07:38:52.873212",
+      "entry_price": 0.1608,
+      "direction": "bullish",
+      "size": 22.31193757200615,
+      "symbol": "JUP",
+      "status": "open",
+      "exit_time": null,
+      "exit_price": null,
+      "pnl": 0.0,
+      "pnl_pct": 0.0,
+      "reason": "High volume: 1.5x normal; ML Score: 10%"
+    },
+    {
+      "id": "trade_20260216_073852_dc78",
+      "entry_time": "2026-02-16T07:38:52.923832",
+      "entry_price": 0.7881,
+      "direction": "bullish",
+      "size": 24.325513353661552,
+      "symbol": "ORCA",
+      "status": "open",
+      "exit_time": null,
+      "exit_price": null,
+      "pnl": 0.0,
+      "pnl_pct": 0.0,
+      "reason": "High volume: 1.5x normal; ML Score: 18%"
     }
   ],
   "stats": {
@@ -152,6 +180,24 @@
       "size": 25.551813123,
       "reason": "High volume: 1.5x normal; ML Score: 14%",
       "trade_id": "trade_20260216_073758_d39c"
+    },
+    {
+      "time": "2026-02-16T07:38:52.873212",
+      "symbol": "JUP",
+      "direction": "bullish",
+      "price": 0.1608,
+      "size": 22.31193757200615,
+      "reason": "High volume: 1.5x normal; ML Score: 10%",
+      "trade_id": "trade_20260216_073852_c98e"
+    },
+    {
+      "time": "2026-02-16T07:38:52.923832",
+      "symbol": "ORCA",
+      "direction": "bullish",
+      "price": 0.7881,
+      "size": 24.325513353661552,
+      "reason": "High volume: 1.5x normal; ML Score: 18%",
+      "trade_id": "trade_20260216_073852_dc78"
     }
   ]
 }

@@ -830,7 +830,21 @@ class UnifiedTradingSystem:
             for price in prices:
                 self.ml_signal.update_price(symbol, price)
         
-        logger.info(f"🌱 Seeded {len(seed_data)} tokens with price history")
+        logger.info(f"🌱 Seeded {len(seed_data)} tokens with price_history")
+    
+    def _save_state(self):
+        """Save trading system state to file"""
+        try:
+            state = {
+                "last_scan_time": self.last_scan_time.isoformat() if self.last_scan_time else None,
+                "last_optimization": self.last_optimization.isoformat() if self.last_optimization else None,
+                "trading_tokens": self.trading_tokens,
+            }
+            state_file = PROJECT_ROOT / "data" / "system_state.json"
+            state_file.parent.mkdir(parents=True, exist_ok=True)
+            state_file.write_text(json.dumps(state, indent=2))
+        except Exception as e:
+            logger.warning(f"⚠️ Failed to save system state: {e}")
     
     def get_hardbit_profile(self) -> Dict:
         """
