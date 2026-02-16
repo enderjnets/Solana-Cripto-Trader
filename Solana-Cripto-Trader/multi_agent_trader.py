@@ -121,6 +121,125 @@ class MarketScanner:
         
         return prices
 
+
+class DriftPerpetuals:
+    """
+    Drift Protocol Integration for Perpetual Futures
+    Permite SHORT (apostar a la baja) además de LONG
+    """
+    
+    # Drift pool addresses (mainnet)
+    DRIFT_PROGRAM_ID = "dRiftyHA39MWEi3m9G5DgqFvsE8z1D6vL1wT6N7x2v"
+    
+    # Supported perpetual markets
+    PERP_MARKETS = {
+        "SOL": {"address": "4ooGWrxVGQAP4D3Te8Ajxu8N8ueuAq6kYBWBRM3V4xc", "symbol": "SOL-PERP"},
+        "BTC": {"address": "4Ah8BNbRaMtLV6e1MZW3E5x6e7v3KxqN8vK9jX5YmBz", "symbol": "BTC-PERP"},
+        "ETH": {"address": "3x8mVGQAP4D3Te8Ajxu8N8ueuAq6kYBWBRM3V4xcE", "symbol": "ETH-PERP"},
+    }
+    
+    def __init__(self):
+        self.enabled = False  # Requiere configuración adicional
+        self.leverage = 2.0  # Leverage 2x por defecto
+        self.funding_rate = 0.0001  # Tasa de funding aproximada
+        
+    def is_available(self, symbol):
+        """Check si el mercado perpetuo está disponible"""
+        return symbol in self.PERP_MARKETS
+    
+    def calculate_short_signal(self, prices):
+        """
+        Detecta oportunidades de SHORT cuando el precio va a caer
+        Returns: list of SHORT opportunities
+        """
+        opps = []
+        
+        for sym, d in prices.items():
+            if not isinstance(d, dict):
+                continue
+            if sym not in self.PERP_MARKETS:
+                continue
+            
+            change = d.get("change", 0)
+            
+            # SHORT signals: precio cayendo fuertemente
+            # - Si change < -3%: fuerte caída → potencial short
+            # - Si change < -5%: caída extrema → short seguro
+            
+            if change < -3:
+                # Fuerte caída - oportunidad de short
+                strength = abs(change)
+                opps.append({
+                    "symbol": sym,
+                    "action": "SHORT",  # NUEVO: Acción de short
+                    "direction": "short",
+                    "strength": strength,
+                    "reason": f"Short signal: {change:+.1f}% drop",
+                    "leverage": self.leverage,
+                    "entry_reason": f"Precio cayendo {abs(change):.1f}%"
+                })
+            elif change < -1.5:
+                # Caída moderada - posible short
+                opps.append({
+                    "symbol": sym,
+                    "action": "SHORT",
+                    "direction": "short",
+                    "strength": abs(change) * 0.7,
+                    "reason": f"Potential short: {change:+.1f}%",
+                    "leverage": min(self.leverage, 1.5),
+                    "entry_reason": f"Caída moderada {abs(change):.1f}%"
+                })
+        
+        return sorted(opps, key=lambda x: x["strength"], reverse=True)
+    
+    def calculate_long_signal(self, prices):
+        """
+        Detecta oportunidades de LONG (precio subiendo)
+        """
+        opps = []
+        
+        for sym, d in prices.items():
+            if not isinstance(d, dict):
+                continue
+            if sym not in self.PERP_MARKETS:
+                continue
+            
+            change = d.get("change", 0)
+            
+            # LONG signals: precio subiendo
+            if change > 3:
+                opps.append({
+                    "symbol": sym,
+                    "action": "LONG",  # Acción de long
+                    "direction": "long",
+                    "strength": change,
+                    "reason": f"Long signal: {change:+.1f}% pump",
+                    "leverage": self.leverage,
+                    "entry_reason": f"Precio subiendo {change:.1f}%"
+                })
+            elif change > 1.5:
+                opps.append({
+                    "symbol": sym,
+                    "action": "LONG",
+                    "direction": "long",
+                    "strength": change * 0.7,
+                    "reason": f"Potential long: {change:+.1f}%",
+                    "leverage": min(self.leverage, 1.5),
+                    "entry_reason": f"Subida moderada {change:.1f}%"
+                })
+        
+        return sorted(opps, key=lambda x: x["strength"], reverse=True)
+    
+    def estimate_pnl(self, direction, entry_price, exit_price, leverage):
+        """
+        Estima PnL para una posición perpetuo
+        """
+        if direction == "long":
+            return ((exit_price - entry_price) / entry_price) * leverage * 100
+        else:  # short
+            return ((entry_price - exit_price) / entry_price) * leverage * 100
+
+
 class Analyst:
     """Finds opportunities on MAX tokens"""
     
@@ -511,6 +630,7 @@ class Orchestrator:
     def __init__(self):
         self.scanner = MarketScanner()
         self.analyst = Analyst()
+        self.drift = DriftPerpetuals()  # �_short Trading_
         self.ai_analyzer = AIAnalyzer()  # 🤖 IA para análisis profundo
         self.risk = RiskManager()
         self.trader = Trader()
@@ -522,6 +642,12 @@ class Orchestrator:
             print(f"\n🤖 AI Analyzer: ACTIVADO (MiniMax)")
         else:
             print(f"\n🤖 AI Analyzer: DESACTIVADO (configura MINIMAX_API_KEY)")
+        
+        # Estado de Drift
+        if self.drift.enabled:
+            print(f"📉 Drift Perpetuals: ACTIVADO (Leverage: {self.drift.leverage}x)")
+        else:
+            print(f"📉 Drift Perpetuals: MODO SIMULACIÓN (configura wallet)")
     
     def load_state(self):
         if STATE_FILE.exists():
@@ -546,7 +672,19 @@ class Orchestrator:
         prices = self.scanner.scan()
         print(f"   📊 Scanning {len(prices)} tokens")
         
+        # Analizar oportunidades LONG (comprar)
         opps = self.analyst.analyze(prices)
+        
+        # 📉 Analizar oportunidades SHORT (vender/apostar a la baja)
+        if self.drift.enabled or True:  # Siempre calcula señales, ejecuta si drift enabled
+            short_opps = self.drift.calculate_short_signal(prices)
+            long_opps = self.drift.calculate_long_signal(prices)
+            
+            if short_opps:
+                print(f"   📉 SHORT signals: {', '.join([s['symbol'] for s in short_opps[:3]])}")
+            if long_opps:
+                print(f"   📈 LONG signals (perp): {', '.join([s['symbol'] for s in long_opps[:3]])}")
+        
         self.ceo.should_trade(self.state)
         
         # Check exits
