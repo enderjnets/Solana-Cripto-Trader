@@ -298,6 +298,7 @@ HOT_WALLET_ADDRESS=
 COLD_WALLET_ADDRESS=
 
 # Jupiter API (optional - uses public API by default)
+HELIUS_API_KEY=ba0a0eca-227d-4a1c-a6e2-c80c6bb9c98d
 JUPITER_API_KEY=
 
 # MiniMax M2.1

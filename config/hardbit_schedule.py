@@ -25,13 +25,13 @@ class HardbitRiskProfile:
     """Perfil de riesgo hardbit para horario nocturno"""
     
     # Tamaño de posición
-    max_position_pct: float = 0.15      # 15% del capital (más agresivo)
+    max_position_pct: float = 0.10      # 10% del capital (conservative)
     
     # Stop Loss ajustado (más estricto)
     stop_loss_pct: float = 0.02         # 2% SL
     
     # Take Profit conservador
-    take_profit_pct: float = 0.04       # 4% TP
+    take_profit_pct: float = 0.02       # 2% TP
     
     # Límites diarios
     max_daily_loss_pct: float = 0.08    # 8% daily loss limit
@@ -69,7 +69,7 @@ HARDBIT_CONFIG = {
         "risk_level": "HIGH",
         "max_position_pct": 0.15,
         "stop_loss_pct": 0.02,
-        "take_profit_pct": 0.04,
+        "take_profit_pct": 0.02,
         "max_daily_loss_pct": 0.08,
         "max_daily_trades": 10,
         "max_concurrent_positions": 3,

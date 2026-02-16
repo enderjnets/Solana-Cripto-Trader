@@ -31,6 +31,7 @@ import json
 import logging
 import asyncio
 import argparse
+import uuid
 from datetime import datetime, time
 from pathlib import Path
 from typing import Dict, List, Optional, Any
@@ -51,6 +52,7 @@ from agents.risk_agent import RiskAgent, RiskLimits
 from agents.market_scanner_agent import MarketScannerAgent, Opportunity
 from paper_trading_engine import PaperTradingEngine
 from api.kraken_price import get_kraken_price
+from api.price_feed import get_price_feed
 
 # =============================================================================
 # CONFIGURATION
@@ -680,9 +682,10 @@ class TradesDatabase:
                    "exit_time", "created_at"]
         trade = dict(zip(columns, row))
         
-        if trade["direction"] == "long":
+        # Direction: bullish = long, bearish = short
+        if trade["direction"] in ["bullish", "long"]:
             pnl_pct = (exit_price - trade["entry_price"]) / trade["entry_price"]
-        else:
+        else:  # bearish or short
             pnl_pct = (trade["entry_price"] - exit_price) / trade["entry_price"]
         
         pnl = trade["size"] * pnl_pct
@@ -788,6 +791,15 @@ class UnifiedTradingSystem:
         self.db = TradesDatabase()
         self.ml_signal = MLSignalGenerator(self.cache)
         
+        # Initialize Strategy Optimizer
+        try:
+            from strategy_optimizer_agent import StrategyOptimizer
+            self.optimizer = StrategyOptimizer()
+            logger.info("✅ Strategy Optimizer initialized")
+        except Exception as e:
+            logger.warning(f"⚠️ Strategy Optimizer not available: {e}")
+            self.optimizer = None
+        
         # Trading tokens (10 tokens from original v3)
         self.trading_tokens = [
             "SOL", "ETH", "cbBTC", "JUP", "BONK", "WIF", "RAY", "JTO"
@@ -800,6 +812,8 @@ class UnifiedTradingSystem:
         self.running = False
         self.last_scan_time = None
         self.scan_interval = 60  # seconds
+        self.last_optimization = None
+        self.optimization_interval = 3600  # Run optimizer every hour
         
         logger.info("✅ Unified Trading System initialized")
     
@@ -1090,7 +1104,7 @@ class UnifiedTradingSystem:
         size = self.calculate_position_size(balance, risk_pct, confidence, is_night)
         
         # Check minimum size
-        if size < 10:  # Minimum $10
+        if size < 5:  # Minimum $5
             logger.warning(f"⚠️ Position too small: ${size:.2f}")
             return None
         
@@ -1105,7 +1119,7 @@ class UnifiedTradingSystem:
             confidence=confidence,
             source=source,
             reasons=reasons,
-            trade_id=f"trade_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+            trade_id=f"trade_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:4]}"
         )
         
         return signal
@@ -1203,7 +1217,7 @@ class UnifiedTradingSystem:
             self._send_trade_notification(trade, "CLOSED", reason)
     
     def _get_current_price(self, trade_id: str) -> float:
-        """Get current price for a trade - uses REAL prices from Kraken when available"""
+        """Get current price for a trade - uses REAL prices from CryptoCompare when available"""
         import time
         import random
         
@@ -1212,57 +1226,55 @@ class UnifiedTradingSystem:
             if trade["id"] == trade_id:
                 symbol = trade["symbol"]
                 
-                # Try REAL price from Kraken first
+                # Try CryptoCompare (our primary price source)
+                try:
+                    pf = get_price_feed()
+                    real_price = pf.get_price_sync(symbol)
+                    if real_price > 0:
+                        logger.info(f"💰 Close price for {symbol}: ${real_price} (from CryptoCompare)")
+                        return real_price
+                except Exception as e:
+                    logger.warning(f"CryptoCompare price failed for {symbol}: {e}")
+                
+                # Try Kraken as backup
                 try:
                     kraken = get_kraken_price()
                     real_price = kraken.get_price(symbol)
                     if real_price > 0:
+                        logger.info(f"💰 Close price for {symbol}: ${real_price} (from Kraken)")
                         return real_price
-                except:
-                    pass
+                except Exception as e:
+                    logger.warning(f"Kraken price failed for {symbol}: {e}")
                 
                 # Try cache first
-                cached = self.cache.get_price(symbol)
-                if cached and cached.get("price", 0) > 0:
-                    return cached["price"]
-                
-                # Fallback: simulate price movement for paper trading
-                # This creates realistic price action to trigger SL/TP
-                entry_price = trade["entry_price"]
-                if entry_price <= 0:
-                    entry_price = 100  # Fallback
-                
-                # Calculate time since entry
                 try:
-                    entry_time = datetime.fromisoformat(trade["entry_time"])
-                    seconds_held = (datetime.now() - entry_time).total_seconds()
-                except:
-                    seconds_held = 60  # Default 1 minute
+                    cached = self.cache.get_price(symbol)
+                    if cached and cached.get("price", 0) > 0:
+                        logger.info(f"💰 Close price for {symbol}: ${cached['price']} (from cache)")
+                        return cached["price"]
+                except Exception as e:
+                    logger.warning(f"Cache price failed for {symbol}: {e}")
                 
-                # Add price movement based on time held
-                # More time = more movement potential
-                movement_factor = min(seconds_held / 300, 1.0)  # Max 5 min for full movement
+                # Last resort: fetch directly from CryptoCompare API (bypass singleton issues)
+                try:
+                    import requests
+                    resp = requests.get(
+                        "https://min-api.cryptocompare.com/data/pricemulti",
+                        params={"fsyms": symbol, "tsyms": "USD"},
+                        timeout=5
+                    )
+                    data = resp.json()
+                    if symbol in data and "USD" in data[symbol]:
+                        price = data[symbol]["USD"]
+                        logger.info(f"💰 Close price for {symbol}: ${price} (direct API)")
+                        return price
+                except Exception as e:
+                    logger.warning(f"Direct CryptoCompare failed for {symbol}: {e}")
                 
-                # Seed randomness based on trade and time
-                random.seed(hash(f"{trade_id}{int(time.time() / 30)}"))  # Changes every 30s
-                
-                # For bullish trades, 60% chance of going up (realistic)
-                # For bearish trades, 60% chance of going down
-                direction = trade.get("direction", "bullish")
-                if direction == "bullish":
-                    # 60% chance of upward movement
-                    move_up = random.random() < 0.60
-                    price_direction = 1 if move_up else -1
-                else:
-                    # 60% chance of downward movement
-                    move_down = random.random() < 0.60
-                    price_direction = -1 if move_down else 1
-                
-                magnitude = random.uniform(0.01, 0.10) * movement_factor
-                
-                current_price = entry_price * (1 + price_direction * magnitude)
-                
-                return current_price
+                # BUG FIX: Never fallback to entry_price - that causes P&L=0 bug!
+                # Instead, log error and return 0 (will prevent closing with wrong price)
+                logger.error(f"🚨 CRITICAL: Could not get price for {symbol}, trade {trade_id} will not close!")
+                return 0
         
         return 0
     
@@ -1299,7 +1311,7 @@ class UnifiedTradingSystem:
         # 3. Process high-confidence signals
         for signal in signals:
             # Skip low confidence (reduced from 30% to 5% for aggressive trading)
-            if signal["confidence"] < 5:
+            if signal["confidence"] < 10:  # Minimum 10% confidence
                 continue
             
             # Trade both bullish and bearish signals (for more opportunities)
@@ -1337,19 +1349,42 @@ class UnifiedTradingSystem:
         # 4. Check open positions for SL/TP
         self._check_open_positions()
         
+        # 5. Run strategy optimizer periodically (every hour)
+        self._run_optimizer_if_needed()
+        
         logger.info("✅ Trading cycle complete")
     
     def _check_open_positions(self):
         """Check open positions for stop loss / take profit"""
-        for trade in self.paper_engine.get_open_trades():
+        open_trades = self.paper_engine.get_open_trades()
+        logger.info(f"🔍 Checking {len(open_trades)} open positions for SL/TP...")
+        
+        for trade in open_trades:
             symbol = trade["symbol"]
             entry_price = trade["entry_price"]
             direction = trade["direction"]
             
+            # Skip if trade was just opened (less than 30 seconds ago)
+            try:
+                entry_time = trade["entry_time"]
+                # Handle both string and datetime object
+                if isinstance(entry_time, str):
+                    entry_time = datetime.fromisoformat(entry_time)
+                seconds_held = (datetime.now() - entry_time).total_seconds()
+                logger.info(f"   {symbol}: held {seconds_held:.0f}s (min 30s)")
+                if seconds_held < 30:  # Minimum 30 seconds hold
+                    continue
+            except Exception as e:
+                logger.error(f"   ERROR checking {symbol}: {e}")
+                continue
+            
             # Get current price
             current_price = self._get_current_price(trade["id"])
             
+            logger.info(f"📊 Checking {symbol}: entry=${entry_price}, current=${current_price}, dir={direction}")
+            
             if current_price == 0:
+                logger.warning(f"⚠️ No price for {symbol}, skipping")
                 continue
             
             # Calculate P&L (bullish = long, bearish = short)
@@ -1370,6 +1405,37 @@ class UnifiedTradingSystem:
                 self.close_position(trade["id"], "STOP_LOSS")
             elif pnl_pct >= take_profit:
                 self.close_position(trade["id"], "TAKE_PROFIT")
+    
+    def _run_optimizer_if_needed(self):
+        """Run strategy optimizer periodically"""
+        from datetime import datetime, timedelta
+        
+        # Check if optimizer is available
+        if not self.optimizer:
+            return
+        
+        # Check if it's time to run optimizer
+        now = datetime.now()
+        if self.last_optimization is None:
+            self.last_optimization = now
+        
+        # Run optimizer every hour
+        if (now - self.last_optimization).total_seconds() >= self.optimization_interval:
+            logger.info("🧬 Running strategy optimizer...")
+            try:
+                # Analyze performance
+                analysis = self.optimizer.analyze_performance()
+                logger.info(f"📊 Strategy Analysis: {analysis.get('win_rate', 0):.1f}% win rate")
+                
+                # Run optimization
+                results = self.optimizer.optimize()
+                if results:
+                    best = results[0]
+                    logger.info(f"🆕 Best strategy: {best.get('name', 'unknown')} - Score: {best.get('score', 0):.2f}")
+                
+                self.last_optimization = now
+            except Exception as e:
+                logger.warning(f"⚠️ Optimizer error: {e}")
     
     def start(self):
         """Start the trading system"""
@@ -1451,7 +1517,7 @@ class UnifiedTradingSystem:
         """Run continuous trading cycles"""
         import time
         
-        self.start()
+        # Don't call self.start() here - it's already called in main()
         
         try:
             while self.running:

@@ -219,9 +219,10 @@ class PaperTradingEngine:
         # DESCONTAR del balance al abrir trade
         self.state.balance_usd -= size_usd
 
-        # Create trade
+        # Create trade - use consistent "trade_" prefix
+        import uuid
         trade = PaperTrade(
-            id=f"paper_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
+            id=f"trade_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:4]}",
             entry_time=datetime.now(),
             entry_price=price,
             direction=direction,
@@ -269,9 +270,10 @@ class PaperTradingEngine:
                 direction = trade_data["direction"]
                 size = trade_data["size"]
 
-                if direction == "long":
+                # Calculate P&L - handle both "bullish/bearish" and "long/short"
+                if direction in ["bullish", "long"]:
                     pnl_pct = (exit_price - entry_price) / entry_price
-                else:  # short
+                else:  # bearish or short
                     pnl_pct = (entry_price - exit_price) / entry_price
 
                 pnl = size * pnl_pct

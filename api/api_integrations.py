@@ -29,6 +29,15 @@ SOL = "So11111111111111111111111111111111111111112"
 USDC = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
 USDT = "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB"
 
+# Mint to symbol mapping for CryptoCompare fallback
+MINT_TO_SYMBOL = {
+    SOL: "SOL",
+    USDC: "USDC",
+    USDT: "USDT",
+    "btc": "BTC",
+    "eth": "ETH",
+}
+
 
 @dataclass
 class OrderResponse:
@@ -96,9 +105,29 @@ class JupiterClient:
             return await resp.json()
     
     async def get_token_price(self, mint: str) -> float:
-        """Get single token price"""
-        data = await self.get_price([mint])
-        return float(data.get(mint, {}).get("usdPrice", 0))
+        """Get single token price - tries Jupiter first, then CryptoCompare"""
+        try:
+            data = await self.get_price([mint])
+            price = float(data.get(mint, {}).get("usdPrice", 0))
+            if price > 0:
+                return price
+        except Exception as e:
+            print(f"Jupiter price failed: {e}")
+        
+        # Fallback to CryptoCompare
+        try:
+            import aiohttp
+            symbol = MINT_TO_SYMBOL.get(mint, mint[:8])
+            url = f"https://min-api.cryptocompare.com/data/pricemulti?fsyms={symbol}&tsyms=USD"
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url, timeout=aiohttp.ClientTimeout(total=5)) as resp:
+                    if resp.status == 200:
+                        data = await resp.json()
+                        return float(data.get(symbol, {}).get("USD", 0))
+        except Exception as e:
+            print(f"CryptoCompare fallback failed: {e}")
+        
+        return 0
     
     # ==================== TOKENS API (FREE) ====================
     

@@ -1,8 +1,10 @@
-"""Real-time price feed from CoinGecko"""
+"""Real-time price feed from CryptoCompare (primary) + CoinGecko (fallback)"""
 import aiohttp
 import asyncio
+import json
 from typing import Dict, Optional
 
+CRYPTOCOMPARE_API = "https://min-api.cryptocompare.com/data/pricemulti"
 COINGECKO_API = "https://api.coingecko.com/api/v3"
 
 # Token ID mapping (CoinGecko uses different IDs)
@@ -21,52 +23,109 @@ TOKEN_IDS = {
     'USDT': 'tether',
 }
 
+# CryptoCompare symbols (different from token names)
+CC_SYMBOLS = {
+    # Major
+    'SOL': 'SOL',
+    'BTC': 'BTC',
+    'ETH': 'ETH',
+    # Stablecoins (not traded but needed for reference)
+    'USDC': 'USDC',
+    'USDT': 'USDT',
+    # Top Solana tokens
+    'WIF': 'WIF',
+    'BONK': 'BONK',
+    'PUMP': 'PUMP',
+    'JTO': 'JTO',
+    'JUP': 'JUP',
+    'RAY': 'RAY',
+    'ORCA': 'ORCA',
+    'HNT': 'HNT',
+    'WEN': 'WEN',
+    'POPCAT': 'POPCAT',
+    'MEW': 'MEW',
+    'BOME': 'BOME',
+    'PNUT': 'PNUT',
+    'JLP': 'JLP',
+    'TRUMP': 'TRUMP',
+    # More tokens
+    'SOLI': 'SOLI',
+    'SLERF': 'SLERF',
+    'CATO': 'CATO',
+    'DYOR': 'DYOR',
+    'GME': 'GME',
+    'BOOK': 'BOOK',
+    'AI16Z': 'AI16Z',
+    # Additional popular tokens
+    'MOON': 'MOON',
+    'MER': 'MER',
+    'BLZE': 'BLZE',
+    'REAL': 'REAL',
+    'DEXI': 'DEXI',
+    'UXD': 'UXD',
+    'STSOL': 'STSOL',
+    'MSOL': 'MSOL',
+    'LDO': 'LDO',
+    'SBR': 'SBR',
+    'STEP': 'STEP',
+    'FIDA': 'FIDA',
+    'PORT': 'PORT',
+    'MAP': 'MAP',
+    'ATLAS': 'ATLAS',
+    'POLIS': 'POLIS',
+    'RUN': 'RUN',
+    'GRASS': 'GRASS',
+    'KVNX': 'KVNX',
+    'HAWK': 'HAWK',
+    'FORM': 'FORM',
+    'CHRIS': 'CHRIS',
+    'ZERU': 'ZERU',
+    'NAS': 'NAS',
+    'PAAL': 'PAAL',
+}
+
 class PriceFeed:
-    """Real-time price feed"""
+    """Real-time price feed using CryptoCompare"""
     
     def __init__(self):
         self._cache: Dict[str, float] = {}
         self._cache_time: Dict[str, float] = {}
-        self._cache_ttl = 60  # 60 seconds cache
+        self._cache_ttl = 30  # 30 seconds cache
     
     async def get_price(self, symbol: str) -> float:
         """Get price for a single token"""
-        # Check cache first
-        if symbol.upper() in self._cache:
-            if (asyncio.get_event_loop().time() - self._cache_time.get(symbol.upper(), 0)) < self._cache_ttl:
-                return self._cache[symbol.upper()]
+        symbol = symbol.upper()
         
-        # Get from API
-        token_id = TOKEN_IDS.get(symbol.upper(), symbol.lower())
-        url = f"{COINGECKO_API}/simple/price?ids={token_id}&vs_currencies=usd"
+        # Check cache first
+        if symbol in self._cache:
+            if (asyncio.get_event_loop().time() - self._cache_time.get(symbol, 0)) < self._cache_ttl:
+                return self._cache[symbol]
+        
+        # Get from CryptoCompare
+        cc_symbol = CC_SYMBOLS.get(symbol, symbol)
+        url = f"{CRYPTOCOMPARE_API}?fsyms={cc_symbol}&tsyms=USD"
         
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.get(url, timeout=aiohttp.ClientTimeout(total=5)) as resp:
                     if resp.status == 200:
                         data = await resp.json()
-                        price = data.get(token_id, {}).get('usd', 0)
+                        price = data.get(cc_symbol, {}).get('USD', 0)
                         if price:
-                            self._cache[symbol.upper()] = price
-                            self._cache_time[symbol.upper()] = asyncio.get_event_loop().time()
+                            self._cache[symbol] = price
+                            self._cache_time[symbol] = asyncio.get_event_loop().time()
+                            print(f"💹 {symbol}: \${price}")
                             return price
         except Exception as e:
             print(f"Price fetch error: {e}")
         
-        return self._cache.get(symbol.upper(), 0)
+        return self._cache.get(symbol, 0)
     
     async def get_prices(self, symbols: list) -> Dict[str, float]:
         """Get prices for multiple tokens"""
-        # Get unique token IDs
-        token_ids = []
-        symbol_map = {}
-        for s in symbols:
-            tid = TOKEN_IDS.get(s.upper(), s.lower())
-            token_ids.append(tid)
-            symbol_map[tid] = s.upper()
-        
-        ids_str = ",".join(set(token_ids))
-        url = f"{COINGECKO_API}/simple/price?ids={ids_str}&vs_currencies=usd"
+        cc_symbols = [CC_SYMBOLS.get(s.upper(), s.upper()) for s in symbols]
+        fsyms = ",".join(set(cc_symbols))
+        url = f"{CRYPTOCOMPARE_API}?fsyms={fsyms}&tsyms=USD"
         
         try:
             async with aiohttp.ClientSession() as session:
@@ -74,12 +133,13 @@ class PriceFeed:
                     if resp.status == 200:
                         data = await resp.json()
                         result = {}
-                        for tid, symbol in symbol_map.items():
-                            price = data.get(tid, {}).get('usd', 0)
-                            result[symbol] = price
+                        for s in symbols:
+                            cc_s = CC_SYMBOLS.get(s.upper(), s.upper())
+                            price = data.get(cc_s, {}).get('USD', 0)
+                            result[s.upper()] = price
                             if price:
-                                self._cache[symbol] = price
-                                self._cache_time[symbol] = asyncio.get_event_loop().time()
+                                self._cache[s.upper()] = price
+                                self._cache_time[s.upper()] = asyncio.get_event_loop().time()
                         return result
         except Exception as e:
             print(f"Price fetch error: {e}")
