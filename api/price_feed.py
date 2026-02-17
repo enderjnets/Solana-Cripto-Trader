@@ -4,7 +4,7 @@ import asyncio
 import json
 from typing import Dict, Optional
 
-CRYPTOCOMPARE_API = "https://min-api.cryptocompare.com/data/pricemulti"
+CRYPTOCOMPARE_API = "https://min-api.cryptocompare.com/data/pricemultifull"
 COINGECKO_API = "https://api.coingecko.com/api/v3"
 
 # Token ID mapping (CoinGecko uses different IDs)
@@ -110,13 +110,19 @@ class PriceFeed:
                 async with session.get(url, timeout=aiohttp.ClientTimeout(total=5)) as resp:
                     if resp.status == 200:
                         data = await resp.json()
-                        price = data.get(cc_symbol, {}).get('USD', 0)
-                        change_24h = data.get(cc_symbol, {}).get('CHANGEPCT24HOUR', 0)
+                        # Handle pricemultifull format (nested in RAW)
+                        raw_data = data.get('RAW', {})
+                        symbol_data = raw_data.get(cc_symbol, {})
+                        usd_data = symbol_data.get('USD', {})
+                        
+                        price = usd_data.get('PRICE', 0)
+                        change_24h = usd_data.get('CHANGEPCT24HOUR', 0)
+                        
                         if price:
                             # Store as dict with price and change
                             self._cache[symbol] = {'price': price, 'change_24h': change_24h}
                             self._cache_time[symbol] = asyncio.get_event_loop().time()
-                            print(f"💹 {symbol}: \${price} ({change_24h:+.1f}%)")
+                            print(f"💹 {symbol}: ${price} ({change_24h:+.1f}%)")
                             return price
         except Exception as e:
             print(f"Price fetch error: {e}")
