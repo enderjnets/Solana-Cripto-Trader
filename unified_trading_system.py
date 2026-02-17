@@ -765,6 +765,7 @@ class TradingSignal:
     source: str  # ml_scanner, manual, etc.
     reasons: List[str] = field(default_factory=list)
     trade_id: str = ""
+    leverage: int = 1  # Default 1x, supports up to 20x like Drift
 
 
 # =============================================================================
@@ -1214,16 +1215,23 @@ class UnifiedTradingSystem:
                 return None
         
         # Calculate position size - use auto-tuner risk if available
-        tuner_risk = self.auto_tuner.get_parameters()["risk_per_trade"]
+        tuner_params = self.auto_tuner.get_parameters()
+        tuner_risk = tuner_params.get("risk_per_trade", 10) if tuner_params else 10
         risk_pct = min(profile["max_position_pct"], tuner_risk)  # Use lower of both
-        size = self.calculate_position_size(balance, risk_pct, confidence, is_night)
         
-        # Check minimum size
-        if size < 5:  # Minimum $5
-            logger.warning(f"⚠️ Position too small: ${size:.2f}")
+        # Get leverage from auto-tuner (automatic based on win rate)
+        leverage = tuner_params.get("leverage", 1) if tuner_params else 1
+        
+        # Safeguard: ensure confidence is never None
+        safe_confidence = confidence if confidence is not None else 10.0
+        size = self.calculate_position_size(balance, risk_pct, safe_confidence, is_night)
+        
+        # Check minimum size (guard against None)
+        if size is None or size < 5:  # Minimum $5
+            logger.warning(f"⚠️ Position too small: ${size if size else 0:.2f}")
             return None
         
-        # Create signal
+        # Create signal with leverage
         signal = TradingSignal(
             symbol=symbol,
             direction=direction,
@@ -1234,7 +1242,8 @@ class UnifiedTradingSystem:
             confidence=confidence,
             source=source,
             reasons=reasons,
-            trade_id=f"trade_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:4]}"
+            trade_id=f"trade_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:4]}",
+            leverage=leverage
         )
         
         return signal
@@ -1271,13 +1280,14 @@ class UnifiedTradingSystem:
             logger.warning(f"⚠️ Max concurrent trades reached: {len(open_trades)}")
             return False
         
-        # Execute via paper engine
+        # Execute via paper engine with leverage
         trade = self.paper_engine.execute_signal({
             "symbol": signal.symbol,
             "direction": signal.direction,
             "price": signal.entry_price,
             "size": signal.size_usd,
-            "reason": "; ".join(signal.reasons)
+            "reason": "; ".join(signal.reasons),
+            "leverage": signal.leverage  # Pass leverage to paper engine
         })
         
         if trade:
@@ -1286,7 +1296,8 @@ class UnifiedTradingSystem:
                 "id": signal.trade_id,
                 "symbol": signal.symbol,
                 "size": signal.size_usd,
-                "direction": signal.direction
+                "direction": signal.direction,
+                "leverage": signal.leverage
             })
             
             # Save to database
@@ -1317,7 +1328,15 @@ class UnifiedTradingSystem:
     
     def close_position(self, trade_id: str, reason: str = "Close"):
         """Close an open position"""
-        trade = self.paper_engine.close_trade(trade_id, self._get_current_price(trade_id), reason)
+        # Get leverage from the trade
+        open_trades = self.paper_engine.get_open_trades()
+        leverage = 1
+        for t in open_trades:
+            if t.get("id") == trade_id:
+                leverage = t.get("leverage", 1)
+                break
+        
+        trade = self.paper_engine.close_trade(trade_id, self._get_current_price(trade_id), reason, leverage)
         
         if trade:
             # Update database

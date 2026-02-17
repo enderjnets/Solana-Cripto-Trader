@@ -54,12 +54,19 @@ class PaperTradingState:
     start_time: Optional[datetime] = None
     balance_usd: float = 500.0  # Start with $500
     initial_balance: float = 500.0
+    leverage: int = 1  # Default 1x (like spot), supports up to 20x like Drift
+    margin_used: float = 0.0  # Total margin locked
+    liquidation_threshold: float = 0.005  # 0.5% maintenance margin (like Drift)
+    maker_fee: float = 0.0002  # 0.02% maker fee (like Drift)
+    taker_fee: float = 0.0005  # 0.05% taker fee (like Drift)
     trades: List[Dict] = field(default_factory=list)
     stats: Dict = field(default_factory=lambda: {
         "total_trades": 0,
         "winning_trades": 0,
         "losing_trades": 0,
         "total_pnl": 0.0,
+        "total_fees": 0.0,
+        "liquidations": 0,
         "win_rate": 0.0,
         "max_drawdown": 0.0,
         "current_streak": 0,
@@ -186,12 +193,36 @@ class PaperTradingEngine:
             return 0
         return (self.state.balance_usd - self.state.initial_balance) / self.state.initial_balance * 100
 
+    def set_leverage(self, leverage: int) -> bool:
+        """Set leverage (1-20x like Drift)."""
+        if leverage < 1 or leverage > 20:
+            return False
+        self.state.leverage = leverage
+        self._save_state()
+        return True
+    
+    def get_leverage_info(self) -> Dict:
+        """Get current leverage info (Drift-like)."""
+        return {
+            "leverage": self.state.leverage,
+            "margin_used": self.state.margin_used,
+            "available_leverage": [1, 2, 5, 10, 20],
+            "effective_exposure": self.state.margin_used * self.state.leverage if self.state.margin_used else 0,
+            "liquidation_threshold": self.state.liquidation_threshold,
+            "maker_fee": self.state.maker_fee,
+            "taker_fee": self.state.taker_fee,
+            "total_fees": self.state.stats.get("total_fees", 0),
+            "liquidations": self.state.stats.get("liquidations", 0)
+        }
+
     def execute_signal(self, signal: Dict) -> Optional[PaperTrade]:
         """
-        Execute a trading signal (paper).
+        Execute a trading signal (paper) with leverage support.
+        
+        Like Drift Protocol: up to 20x leverage.
 
         Args:
-            signal: Dict with 'symbol', 'direction', 'price', 'size', 'reason'
+            signal: Dict with 'symbol', 'direction', 'price', 'size', 'reason', 'leverage'
 
         Returns:
             PaperTrade if executed, None otherwise
@@ -203,11 +234,20 @@ class PaperTradingEngine:
         direction = signal.get("direction", "long")
         price = signal.get("price", 86.0)
         size_usd = signal.get("size", self.state.balance_usd * 0.1)  # 10% of balance
+        leverage = signal.get("leverage", self.state.leverage)  # Use configured leverage
         reason = signal.get("reason", "Signal")
 
-        # Check if we can trade
-        if size_usd > self.state.balance_usd:
-            return None
+        # Apply leverage: position size = size_usd * leverage
+        leveraged_size = size_usd * leverage
+        
+        # Margin required = leveraged_size / leverage = size_usd
+        # But we limit by available margin
+        margin_required = size_usd  # Base margin
+        
+        # Check if we have enough balance for margin
+        available_margin = self.state.balance_usd - self.state.margin_used
+        if margin_required > available_margin:
+            return None  # Not enough margin
 
         # Count open trades
         open_trades = [t for t in self.state.trades if t["status"] == "open"]
@@ -216,9 +256,13 @@ class PaperTradingEngine:
         if len(open_trades) >= max_concurrent:
             return None  # Max concurrent trades reached
 
-        # DESCONTAR del balance al abrir trade
-        self.state.balance_usd -= size_usd
+        # DEDUCIR MARGIN del balance (no el tamaño completo)
+        self.state.margin_used += margin_required
 
+        # Deduct entry fee (taker fee like Drift)
+        entry_fee = leveraged_size * self.state.taker_fee
+        self.state.balance_usd -= entry_fee
+        
         # Create trade - use consistent "trade_" prefix
         import uuid
         trade = PaperTrade(
@@ -247,7 +291,10 @@ class PaperTradingEngine:
             "entry_time": trade.entry_time.isoformat(),
             "entry_price": trade.entry_price,
             "direction": trade.direction,
-            "size": trade.size,
+            "size": leveraged_size,  # Notional size with leverage
+            "margin": margin_required,  # Actual margin used
+            "leverage": leverage,
+            "entry_fee": entry_fee,  # Fee paid on entry
             "symbol": trade.symbol,
             "status": trade.status,
             "exit_time": None,
@@ -260,36 +307,60 @@ class PaperTradingEngine:
         self._save_state()
         return trade
 
-    def close_trade(self, trade_id: str, exit_price: float, reason: str = "Close"):
-        """Close an open trade."""
+    def close_trade(self, trade_id: str, exit_price: float, reason: str = "Close", leverage: int = 1):
+        """Close an open trade with leverage."""
         # Find trade
         for trade_data in self.state.trades:
             if trade_data["id"] == trade_id and trade_data["status"] == "open":
                 # Calculate P&L
                 entry_price = trade_data["entry_price"]
                 direction = trade_data["direction"]
-                size = trade_data["size"]
+                size = trade_data["size"]  # This is the NOTIONAL size (with leverage applied)
+                margin = trade_data.get("margin", size / leverage)  # Original margin
+                entry_fee = trade_data.get("entry_fee", 0)  # Fee paid on entry
 
-                # Calculate P&L - handle both "bullish/bearish" and "long/short"
+                # Calculate P&L with leverage effect
+                # P&L = notional * price_change%
                 if direction in ["bullish", "long"]:
                     pnl_pct = (exit_price - entry_price) / entry_price
                 else:  # bearish or short
                     pnl_pct = (entry_price - exit_price) / entry_price
 
+                # Apply leverage to P&L
                 pnl = size * pnl_pct
+                
+                # Deduct exit fee (taker fee like Drift)
+                exit_fee = size * self.state.taker_fee
+                pnl -= exit_fee
+                
+                # Check for liquidation (like Drift)
+                # Liquidation happens when position loses > (1 - maintenance_margin) * margin
+                maintenance_margin = self.state.liquidation_threshold * 100  # 50% of margin
+                loss_threshold = margin * (1 - maintenance_margin/100)
+                
+                if pnl < -loss_threshold:
+                    # Liquidated!
+                    pnl = -margin  # Lose entire margin
+                    reason = "LIQUIDATION"
+                    self.state.stats["liquidations"] = self.state.stats.get("liquidations", 0) + 1
+                    logger.warning(f"⚠️ LIQUIDATION: {trade_id} lost \${margin:.2f}")
 
                 # Update trade
                 trade_data["status"] = "closed"
                 trade_data["exit_time"] = datetime.now().isoformat()
                 trade_data["exit_price"] = exit_price
                 trade_data["pnl"] = pnl
-                trade_data["pnl_pct"] = pnl_pct * 100
+                trade_data["pnl_pct"] = pnl_pct * leverage * 100  # Show leverage-adjusted %
+                trade_data["leverage"] = leverage
+                trade_data["exit_fee"] = exit_fee
                 trade_data["reason"] = reason
 
-                # Update balance: return original size + PNL
-                self.state.balance_usd += size + pnl
+                # Update balance: return margin + PnL (minus fees)
+                self.state.balance_usd += margin + pnl
+                self.state.margin_used -= margin
                 self.state.stats["total_trades"] += 1
                 self.state.stats["total_pnl"] += pnl
+                self.state.stats["total_fees"] = self.state.stats.get("total_fees", 0) + entry_fee + exit_fee
 
                 if pnl > 0:
                     self.state.stats["winning_trades"] += 1

@@ -65,6 +65,7 @@ class AutoTuner:
             "confidence_threshold": 10,
             "risk_per_trade": 0.10,
             "max_trades_per_day": 20,
+            "leverage": 1,  # Default 1x, supports up to 20x like Drift
             "daily_profit_target": 0.05,
             "adjustments_today": 0,
             "last_adjustment_date": None,
@@ -84,7 +85,8 @@ class AutoTuner:
         return {
             "confidence_threshold": self.state["confidence_threshold"],
             "risk_per_trade": self.state["risk_per_trade"],
-            "max_trades_per_day": self.state["max_trades_per_day"]
+            "max_trades_per_day": self.state["max_trades_per_day"],
+            "leverage": self.state.get("leverage", 1)
         }
     
     def reset_daily(self):
@@ -136,8 +138,6 @@ class AutoTuner:
             daily_pnl_pct = 0.0
         if win_rate is None:
             win_rate = 0.5
-        if target is None:
-            target = 0.05
         if trades_today is None:
             trades_today = 0
         
@@ -192,6 +192,28 @@ class AutoTuner:
                 adjustment_made = True
                 reason = f"moderate_wr_{win_rate:.0%}_slight_risk_increase"
                 logger.info(f"🎚️ Auto-Tuner: WR {win_rate:.0%} moderate → Slight risk increase to {new_risk:.0%}")
+        
+        # === AUTOMATIC LEVERAGE ADJUSTMENT (Like Drift) ===
+        # Leverage based on win rate and mode
+        current_leverage = self.state.get("leverage", 1)
+        
+        # High win rate (>60%) + good profit → increase leverage
+        if win_rate and win_rate > 0.6 and daily_pnl_pct and daily_pnl_pct > 0.02:
+            if current_leverage < 10:  # Max 10x for safety
+                new_leverage = min(current_leverage + 1, 10)
+                self.state["leverage"] = new_leverage
+                adjustment_made = True
+                reason = f"high_wr_increasing_leverage_{new_leverage}x"
+                logger.info(f"🎚️ Auto-Tuner: WR {win_rate:.0%} → Increasing leverage to {new_leverage}x")
+        
+        # Low win rate (<40%) or loss → decrease leverage
+        elif win_rate and win_rate < 0.4:
+            if current_leverage > 1:
+                new_leverage = max(current_leverage - 1, 1)
+                self.state["leverage"] = new_leverage
+                adjustment_made = True
+                reason = f"low_wr_decreasing_leverage_{new_leverage}x"
+                logger.info(f"🎚️ Auto-Tuner: WR {win_rate:.0%} → Decreasing leverage to {new_leverage}x")
         
         if adjustment_made:
             self.state["adjustments_today"] += 1
