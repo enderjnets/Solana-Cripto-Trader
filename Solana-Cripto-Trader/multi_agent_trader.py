@@ -259,17 +259,20 @@ class Analyst:
             
             ch = d.get("change", 0)
             
-            # Trade on ANY movement
-            if ch < -1:
+            # STRICTER entry criteria - solo entradas de calidad
+            # BUY solo en dips significativos (>2%)
+            if ch < -2:
                 opps.append({"symbol": sym, "action": "BUY", "strength": abs(ch) * 2, 
-                            "reason": f"Dip {ch:+.1f}%"})
-            elif ch < -0.3:
-                opps.append({"symbol": sym, "action": "BUY", "strength": abs(ch), 
-                            "reason": f"Tiny dip {ch:+.1f}%"})
+                            "reason": f"Strong dip {ch:+.1f}%"})
+            # BUY en dips moderados (>1%) solo si no hay muchas posiciones
+            elif ch < -1:
+                opps.append({"symbol": sym, "action": "BUY", "strength": abs(ch) * 1.5, 
+                            "reason": f"Moderate dip {ch:+.1f}%"})
             
-            if ch > 0.5:
+            # SELL solo en ganancias significativas (>3%)
+            if ch > 3:
                 opps.append({"symbol": sym, "action": "SELL", "strength": ch,
-                            "reason": f"Pump {ch:+.1f}%"})
+                            "reason": f"Strong pump {ch:+.1f}%"})
         
         return sorted(opps, key=lambda x: x["strength"], reverse=True)
 
@@ -408,7 +411,7 @@ class AdaptiveRiskManager:
         # Límites
         self.max_pos = 4  # Reducido para más control
         self.max_pos_per_cycle = 2
-        self.min_momentum = 1.0  # Más estricto
+        self.min_momentum = 1.5  # Más estricto - solo entradas fuertes
         self.max_capital_pct = 0.15  # 15% max en posiciones
         
         # Parámetros base
@@ -418,7 +421,7 @@ class AdaptiveRiskManager:
         
         # Autoaprendizaje avanzado
         self.trade_history = []
-        self.learn_cycle = 5  # Analizar cada 5 trades (más frecuente)
+        self.learn_cycle = 3  # Analizar cada 3 trades (más rápido)
         self.token_stats = {}
         
         # Objetivos
@@ -922,8 +925,20 @@ class Orchestrator:
             n += 1
             try:
                 await self.cycle(n)
+            except KeyboardInterrupt:
+                print("🛑 Bot detenido por usuario")
+                break
             except Exception as e:
-                print(f"❌ {e}")
+                import traceback
+                print(f"❌ Error en ciclo {n}: {e}")
+                print(f"   Trace: {traceback.format_exc(limit=3)}")
+                # No reiniciar, continuar
             await asyncio.sleep(20)
+        
+        print("🏁 Bot terminado")
 
-asyncio.run(Orchestrator().run())
+if __name__ == "__main__":
+    try:
+        asyncio.run(Orchestrator().run())
+    except KeyboardInterrupt:
+        print("🛑 Bot detenido")
