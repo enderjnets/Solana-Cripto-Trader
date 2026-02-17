@@ -1,86 +1,68 @@
 #!/usr/bin/env python3
 """
-Trading System Watchdog
+Watchdog for unified_trading_system.py
 Automatically restarts the trading system if it crashes
 """
-import subprocess
-import time
-import sys
 import os
+import sys
+import time
+import subprocess
 import signal
 
 SCRIPT_PATH = "/home/enderj/.openclaw/workspace/solana-jupiter-bot/unified_trading_system.py"
-LOG_FILE = "/home/enderj/.openclaw/workspace/solana-jupiter-bot/watchdog.log"
-CHECK_INTERVAL = 30  # Check every 30 seconds
+LOG_PATH = "/home/enderj/.openclaw/workspace/solana-jupiter-bot/unified_trading_system.log"
+PID_FILE = "/home/enderj/.openclaw/workspace/solana-jupiter-bot/watchdog.pid"
+CHECK_INTERVAL = 60  # seconds
 
-def log(msg):
-    """Log message with timestamp"""
-    timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
-    log_msg = f"[{timestamp}] {msg}\n"
-    with open(LOG_FILE, "a") as f:
-        f.write(log_msg)
-    print(log_msg.strip())
-
-def is_process_running():
-    """Check if trading system is running"""
+def is_running():
+    """Check if the trading system is running"""
     try:
-        result = subprocess.run(
-            ["pgrep", "-f", "python3 unified_trading"],
-            capture_output=True,
-            text=True
-        )
-        # Filter out watchdog process
-        pids = [p for p in result.stdout.strip().split('\n') if p and int(p) != os.getpid()]
-        return len(pids) > 0
+        result = subprocess.run(["pgrep", "-f", "unified_trading_system.py"], 
+                              capture_output=True, text=True)
+        return result.returncode == 0
     except:
         return False
 
 def start_system():
     """Start the trading system"""
-    log("🚀 Starting trading system...")
+    print(f"[WATCHDOG] Starting trading system...")
+    log_file = open(LOG_PATH, "a")
     subprocess.Popen(
-        ["python3", SCRIPT_PATH, "--start"],
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
+        ["python3", "-u", SCRIPT_PATH, "--continuous"],
+        stdout=log_file,
+        stderr=subprocess.STDOUT,
+        cwd=os.path.dirname(SCRIPT_PATH),
         start_new_session=True
     )
-    time.sleep(5)  # Wait for system to initialize
-    
-def stop_system():
-    """Stop the trading system"""
-    log("🛑 Stopping trading system...")
-    subprocess.run(["pkill", "-f", "unified_trading_system.py"], capture_output=True)
+    log_file.close()
+    print(f"[WATCHDOG] Trading system started at {time.strftime('%Y-%m-%d %H:%M:%S')}")
 
 def main():
-    log("🐕 Trading System Watchdog STARTED")
-    log(f"Checking every {CHECK_INTERVAL} seconds")
+    print(f"[WATCHDOG] Starting watchdog...")
+    print(f"[WATCHDOG] Monitoring: {SCRIPT_PATH}")
+    print(f"[WATCHDOG] Check interval: {CHECK_INTERVAL}s")
     
     consecutive_failures = 0
     max_failures = 3
     
     while True:
-        try:
-            if not is_process_running():
-                consecutive_failures += 1
-                log(f"⚠️ System not running! Failure #{consecutive_failures}")
-                
-                if consecutive_failures >= max_failures:
-                    log("🔄 Restarting system...")
-                    start_system()
-                    consecutive_failures = 0
-            else:
-                if consecutive_failures > 0:
-                    log("✅ System is running")
+        if not is_running():
+            consecutive_failures += 1
+            print(f"[WATCHDOG] System not running! Failure #{consecutive_failures}")
+            
+            if consecutive_failures >= max_failures:
+                print(f"[WATCHDOG] Multiple failures detected, restarting...")
+                start_system()
                 consecutive_failures = 0
-            
-            time.sleep(CHECK_INTERVAL)
-            
-        except KeyboardInterrupt:
-            log("🛑 Watchdog stopped by user")
-            break
-        except Exception as e:
-            log(f"❌ Watchdog error: {e}")
-            time.sleep(CHECK_INTERVAL)
+            else:
+                print(f"[WATCHDOG] Waiting {CHECK_INTERVAL}s before restart...")
+                time.sleep(CHECK_INTERVAL)
+        else:
+            if consecutive_failures > 0:
+                print(f"[WATCHDOG] System is healthy")
+            consecutive_failures = 0
+        
+        time.sleep(CHECK_INTERVAL)
 
 if __name__ == "__main__":
     main()

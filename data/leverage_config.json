@@ -1,0 +1,12 @@
+{
+  "leverage": 1,
+  "available_leverage": [
+    1,
+    2,
+    5,
+    10,
+    20
+  ],
+  "margin_used": 0,
+  "total_exposure": 0
+}
