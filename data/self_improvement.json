@@ -3,8 +3,24 @@
     "ORCA_bearish": {
       "wins": 0,
       "losses": 1
+    },
+    "BONK_bullish": {
+      "wins": 1,
+      "losses": 0
+    },
+    "WIF_bullish": {
+      "wins": 1,
+      "losses": 0
+    },
+    "JTO_bearish": {
+      "wins": 0,
+      "losses": 1
+    },
+    "JUP_bullish": {
+      "wins": 1,
+      "losses": 0
     }
   },
-  "total_trades": 1,
-  "last_update": "2026-02-16T17:06:12.640386"
+  "total_trades": 5,
+  "last_update": "2026-02-16T19:47:31.283576"
 }

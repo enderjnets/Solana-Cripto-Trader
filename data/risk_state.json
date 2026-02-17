@@ -1,5 +1,5 @@
 {
-  "daily_pnl": -1.9962086799519976,
+  "daily_pnl": 430072883.4387521,
   "daily_trades": 30,
   "daily_start_balance": 500.0,
   "open_trades": [
@@ -184,5 +184,5 @@
       "direction": "bullish"
     }
   ],
-  "last_update": "2026-02-16T17:06:12.640121"
+  "last_update": "2026-02-16T19:47:31.283283"
 }

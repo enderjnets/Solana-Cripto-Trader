@@ -111,10 +111,12 @@ class PriceFeed:
                     if resp.status == 200:
                         data = await resp.json()
                         price = data.get(cc_symbol, {}).get('USD', 0)
+                        change_24h = data.get(cc_symbol, {}).get('CHANGEPCT24HOUR', 0)
                         if price:
-                            self._cache[symbol] = price
+                            # Store as dict with price and change
+                            self._cache[symbol] = {'price': price, 'change_24h': change_24h}
                             self._cache_time[symbol] = asyncio.get_event_loop().time()
-                            print(f"💹 {symbol}: \${price}")
+                            print(f"💹 {symbol}: \${price} ({change_24h:+.1f}%)")
                             return price
         except Exception as e:
             print(f"Price fetch error: {e}")
@@ -151,7 +153,22 @@ class PriceFeed:
         try:
             return asyncio.run(self.get_price(symbol))
         except:
-            return self._cache.get(symbol.upper(), 0)
+            data = self._cache.get(symbol.upper(), 0)
+            if isinstance(data, dict):
+                return data.get('price', 0)
+            return data
+    
+    def get_price_change_24h(self, symbol: str) -> float:
+        """
+        Get 24h price change percentage for a symbol.
+        Returns change as percentage (e.g., 2.5 for +2.5%, -3.0 for -3%)
+        """
+        symbol = symbol.upper()
+        if symbol in self._cache:
+            data = self._cache[symbol]
+            if isinstance(data, dict):
+                return data.get('change_24h', 0)
+        return 0
 
 # Singleton instance
 _price_feed: Optional[PriceFeed] = None

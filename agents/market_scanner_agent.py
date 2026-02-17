@@ -253,8 +253,33 @@ class MarketScannerAgent:
             volume_24h = 0
             liquidity = 1000000  # Default high liquidity
             volume_multiplier = 1.5  # Default to trigger high volume
-            trend = "neutral"
-            trend_strength = 0.5
+            
+            # Detect trend based on price change (for SHORT signals)
+            # Get price change from price feed if available
+            try:
+                from api.price_feed import get_price_feed
+                pf = get_price_feed()
+                change_24h = pf.get_price_change_24h(symbol)
+            except:
+                change_24h = 0
+            
+            # Generate trend based on price change (SHORT trading logic)
+            # Price UP = bullish/long, Price DOWN = bearish/short
+            if change_24h > 3:
+                trend = "bullish"
+                trend_strength = min(abs(change_24h) / 10, 1.0)
+            elif change_24h < -3:
+                trend = "bearish"
+                trend_strength = min(abs(change_24h) / 10, 1.0)
+            elif change_24h > 1.5:
+                trend = "bullish"
+                trend_strength = 0.4
+            elif change_24h < -1.5:
+                trend = "bearish"
+                trend_strength = 0.4
+            else:
+                trend = "neutral"
+                trend_strength = 0.3
             
             if price <= 0:
                 return None

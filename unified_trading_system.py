@@ -1349,7 +1349,12 @@ class UnifiedTradingSystem:
                 # Try CryptoCompare (our primary price source)
                 try:
                     pf = get_price_feed()
-                    real_price = pf.get_price_sync(symbol)
+                    price_data = pf.get_price_sync(symbol)
+                    # Handle both dict and float formats
+                    if isinstance(price_data, dict):
+                        real_price = price_data.get('price', 0)
+                    else:
+                        real_price = price_data
                     if real_price > 0:
                         logger.info(f"💰 Close price for {symbol}: ${real_price} (from CryptoCompare)")
                         return real_price

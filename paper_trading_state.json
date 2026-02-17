@@ -1,7 +1,7 @@
 {
   "enabled": true,
   "start_time": "2026-02-16T07:49:24.368944",
-  "balance_usd": 390.056684638767,
+  "balance_usd": 430073383.4387521,
   "initial_balance": 500.0,
   "trades": [
     {
@@ -11,12 +11,12 @@
       "direction": "bullish",
       "size": 32.055,
       "symbol": "BONK",
-      "status": "open",
-      "exit_time": null,
-      "exit_price": null,
-      "pnl": 0.0,
-      "pnl_pct": 0.0,
-      "reason": "High volume: 1.5x normal; ML Score: 18%"
+      "status": "closed",
+      "exit_time": "2026-02-16T19:47:30.431486",
+      "exit_price": 87.34,
+      "pnl": 430058908.0371659,
+      "pnl_pct": 1341628164.2089093,
+      "reason": "TAKE_PROFIT"
     },
     {
       "id": "trade_20260216_125618_0d6f",
@@ -39,12 +39,12 @@
       "direction": "bullish",
       "size": 24.3468542980875,
       "symbol": "WIF",
-      "status": "open",
-      "exit_time": null,
-      "exit_price": null,
-      "pnl": 0.0,
-      "pnl_pct": 0.0,
-      "reason": "High volume: 1.5x normal; ML Score: 10%"
+      "status": "closed",
+      "exit_time": "2026-02-16T19:47:30.854255",
+      "exit_price": 87.34,
+      "pnl": 9090.330618462145,
+      "pnl_pct": 37336.7766823832,
+      "reason": "TAKE_PROFIT"
     },
     {
       "id": "trade_20260216_130233_630e",
@@ -53,12 +53,12 @@
       "direction": "bearish",
       "size": 26.693545590301333,
       "symbol": "JTO",
-      "status": "open",
-      "exit_time": null,
-      "exit_price": null,
-      "pnl": 0.0,
-      "pnl_pct": 0.0,
-      "reason": "High volume: 1.5x normal; ML Score: 18%"
+      "status": "closed",
+      "exit_time": "2026-02-16T19:47:31.067065",
+      "exit_price": 87.34,
+      "pnl": -8747.917940510259,
+      "pnl_pct": -32771.65976665413,
+      "reason": "STOP_LOSS"
     },
     {
       "id": "trade_20260216_130233_0c30",
@@ -67,23 +67,23 @@
       "direction": "bullish",
       "size": 24.851706792892138,
       "symbol": "JUP",
-      "status": "open",
-      "exit_time": null,
-      "exit_price": null,
-      "pnl": 0.0,
-      "pnl_pct": 0.0,
-      "reason": "High volume: 1.5x normal; ML Score: 18%"
+      "status": "closed",
+      "exit_time": "2026-02-16T19:47:31.282798",
+      "exit_price": 87.34,
+      "pnl": 13634.98511694027,
+      "pnl_pct": 54865.387035871616,
+      "reason": "TAKE_PROFIT"
     }
   ],
   "stats": {
-    "total_trades": 1,
-    "winning_trades": 0,
-    "losing_trades": 1,
-    "total_pnl": -1.9962086799519976,
-    "win_rate": 0.0,
+    "total_trades": 5,
+    "winning_trades": 3,
+    "losing_trades": 2,
+    "total_pnl": 430072883.4387521,
+    "win_rate": 60.0,
     "max_drawdown": 0.0,
-    "current_streak": 0,
-    "best_streak": 0,
+    "current_streak": 1,
+    "best_streak": 2,
     "worst_streak": 0
   },
   "signals": [
