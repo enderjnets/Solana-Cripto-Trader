@@ -919,6 +919,8 @@ class UnifiedTradingSystem:
         # Night time: reduce position slightly
         if is_night:
             conf_multiplier *= 0.9
+        
+        return base_size * conf_multiplier
     
     def get_direction_adjustment(self) -> Dict[str, float]:
         """
@@ -1491,15 +1493,19 @@ class UnifiedTradingSystem:
             logger.info(f"🧠 Self-Improvement: Win Rate: {stats['overall_win_rate']*100:.1f}%, Trades: {stats['total_trades']}")
         
         # Auto-tuner: Adjust parameters based on daily performance
-        daily_pnl = self.paper_engine.state.stats.get("total_pnl_pct", 0)
-        win_rate = stats.get("overall_win_rate", 0.5)
-        trades_today = stats.get("total_trades", 0)
-        
-        tuner_result = self.auto_tuner.analyze_and_adjust(
-            daily_pnl_pct=daily_pnl,
-            win_rate=win_rate,
-            trades_today=trades_today
-        )
+        try:
+            daily_pnl = self.paper_engine.state.stats.get("total_pnl_pct", 0) if self.paper_engine.state.stats else 0
+            win_rate = stats.get("overall_win_rate", 0.5)
+            trades_today = stats.get("total_trades", 0)
+            
+            tuner_result = self.auto_tuner.analyze_and_adjust(
+                daily_pnl_pct=daily_pnl,
+                win_rate=win_rate,
+                trades_today=trades_today
+            )
+        except Exception as e:
+            logger.warning(f"Auto-Tuner error: {e}")
+            tuner_result = {"adjusted": False, "reason": "error", "parameters": self.auto_tuner.get_parameters()}
         
         if tuner_result["adjusted"]:
             logger.info(f"🎚️ Auto-Tuner: {tuner_result['reason']} → Conf: {tuner_result['parameters']['confidence_threshold']}%, Risk: {tuner_result['parameters']['risk_per_trade']*100:.0f}%")
@@ -1693,7 +1699,9 @@ class UnifiedTradingSystem:
                 logger.info(f"Cycle {loop_count} complete, sleeping {self.scan_interval}s...")
                 time_module.sleep(self.scan_interval)
             except Exception as e:
+                import traceback
                 logger.error(f"Error in trading cycle: {e}")
+                logger.error(f"Traceback: {traceback.format_exc()}")
                 time_module.sleep(5)  # Wait before retry
         
         logger.info("🛑 Exiting continuous loop")

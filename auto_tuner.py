@@ -131,7 +131,17 @@ class AutoTuner:
                 "parameters": self.get_parameters()
             }
         
-        target = self.state["daily_profit_target"]
+        # Handle None values safely
+        if daily_pnl_pct is None:
+            daily_pnl_pct = 0.0
+        if win_rate is None:
+            win_rate = 0.5
+        if target is None:
+            target = 0.05
+        if trades_today is None:
+            trades_today = 0
+        
+        target = self.state.get("daily_profit_target", 0.05)
         adjustment_made = False
         reason = "no_change"
         
