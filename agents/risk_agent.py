@@ -144,12 +144,15 @@ class RiskAgent:
             risk_score += 0.2
             suggestions.append("Close or wait for existing trades")
         
-        # Check daily loss limit
-        daily_loss_pct = abs(self.daily_pnl) / self.daily_start_balance if self.daily_start_balance > 0 else 0
-        if daily_loss_pct >= self.limits.max_daily_loss_pct:
-            reasons.append(f"Daily loss limit reached: {daily_loss_pct:.1%}")
-            risk_score += 0.3
-            suggestions.append("Stop trading for today")
+        # Check daily loss limit - ONLY reject if actually losing money
+        if self.daily_pnl < 0:
+            daily_loss_pct = abs(self.daily_pnl) / self.daily_start_balance if self.daily_start_balance > 0 else 0
+            if daily_loss_pct >= self.limits.max_daily_loss_pct:
+                reasons.append(f"Daily loss limit reached: {daily_loss_pct:.1%}")
+                risk_score += 0.3
+                suggestions.append("Stop trading for today")
+        elif self.daily_pnl > 0:
+            logger.info(f"✅ Profitable day: +${self.daily_pnl:.2f} ({self.daily_pnl/self.daily_start_balance*100:.1f}%)")
         
         # Calculate risk/reward ratio
         sl_pct = abs(trade_signal.get("stop_loss_pct", 0.03))

@@ -1206,13 +1206,19 @@ class UnifiedTradingSystem:
         # Get balance
         balance = self.paper_engine.state.balance_usd
         
-        # Check daily loss limit
+        # Check daily loss limit - ONLY reject if actually losing money
         daily_stats = self.db.get_daily_stats()
-        if daily_stats["total_pnl"] < 0:
-            loss_pct = abs(daily_stats["total_pnl"]) / balance
-            if loss_pct >= profile["max_daily_loss_pct"]:
-                logger.warning(f"⚠️ Daily loss limit reached: {loss_pct:.1%}")
+        total_pnl = daily_stats.get("total_pnl", 0)
+        max_loss_pct = profile.get("max_daily_loss_pct", 0.10)
+        
+        # Only reject if we have ACTUAL losses exceeding the limit
+        if total_pnl < 0:
+            loss_pct = abs(total_pnl) / balance if balance > 0 else 0
+            if loss_pct >= max_loss_pct:
+                logger.warning(f"⚠️ Daily loss limit reached: {loss_pct:.1%} (PnL: ${total_pnl:.2f})")
                 return None
+        elif total_pnl > 0:
+            logger.info(f"✅ Profitable day: +${total_pnl:.2f} ({total_pnl/balance*100:.1f}%)")
         
         # Calculate position size - use auto-tuner risk if available
         tuner_params = self.auto_tuner.get_parameters()
@@ -1477,13 +1483,19 @@ class UnifiedTradingSystem:
                         entry_price = opp.price
                         break
                 
-                # Fallback to price history if not found or zero
+                # Skip trade if no valid price available (avoid fake 100.0 entry bug)
                 if not entry_price or entry_price == 0:
                     prices = self.ml_signal.price_history.get(signal["symbol"], [])
                     if prices:
                         entry_price = prices[-1]
                     else:
-                        entry_price = 100  # Ultimate fallback
+                        logger.warning(f"⚠️ Skipping {signal['symbol']}: No valid price available")
+                        continue  # Skip this trade
+                
+                # Skip trades with invalid placeholder prices
+                if entry_price >= 50:  # No crypto is this expensive
+                    logger.warning(f"⚠️ Skipping {signal['symbol']}: Invalid entry price ${entry_price}")
+                    continue
                 
                 # Create trading signal
                 trade_signal = self.create_trading_signal(

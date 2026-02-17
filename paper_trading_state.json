@@ -1,7 +1,7 @@
 {
   "enabled": true,
   "start_time": "2026-02-17T07:52:47.410466",
-  "balance_usd": 767.3433253186082,
+  "balance_usd": 767.295097790612,
   "initial_balance": 500.0,
   "trades": [
     {
@@ -115,6 +115,20 @@
       "pnl": 0.0,
       "pnl_pct": 0.0,
       "reason": "High volume: 1.5x normal; Bullish trend: 40% strength; ML Score: 16%"
+    },
+    {
+      "id": "trade_20260217_120840_446d",
+      "entry_time": "2026-02-17T12:08:40.147474",
+      "entry_price": 0.00228495411995053,
+      "direction": "bearish",
+      "size": 96.45505599254906,
+      "symbol": "PUMP",
+      "status": "open",
+      "exit_time": null,
+      "exit_price": null,
+      "pnl": 0.0,
+      "pnl_pct": 0.0,
+      "reason": "High volume: 1.5x normal; Bullish trend: 52% strength; Strong rally: +5.2% 24h; ML Score: 17%"
     }
   ],
   "stats": {
@@ -202,6 +216,15 @@
       "size": 27.48180937541865,
       "reason": "High volume: 1.5x normal; Bullish trend: 40% strength; ML Score: 16%",
       "trade_id": "trade_20260217_091556_957a"
+    },
+    {
+      "time": "2026-02-17T12:08:40.147474",
+      "symbol": "PUMP",
+      "direction": "bearish",
+      "price": 0.00228495411995053,
+      "size": 32.15168533084969,
+      "reason": "High volume: 1.5x normal; Bullish trend: 52% strength; Strong rally: +5.2% 24h; ML Score: 17%",
+      "trade_id": "trade_20260217_120840_446d"
     }
   ]
 }
