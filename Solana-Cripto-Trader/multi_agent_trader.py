@@ -428,6 +428,27 @@ class AdaptiveRiskManager:
         # Métricas
         self.best_params = {"tp": 2.5, "sl": 1.0}
         self.adaptive_enabled = True
+        
+        # Cooldowns por token
+        self.last_entry_time = {}
+    
+    def load_from_state(self, state):
+        """Cargar historial de trades desde state"""
+        risk_data = state.get("risk_data", {})
+        self.trade_history = risk_data.get("trade_history", [])
+        self.token_stats = risk_data.get("token_stats", {})
+        self.tp = risk_data.get("tp", self.tp)
+        self.sl = risk_data.get("sl", self.sl)
+        print(f"   🧠 Auto-learn: {len(self.trade_history)} trades cargados, TP={self.tp}%, SL={self.sl}%")
+    
+    def save_to_state(self, state):
+        """Guardar historial de trades al state"""
+        state["risk_data"] = {
+            "trade_history": self.trade_history[-50:],  # Ultimos 50
+            "token_stats": self.token_stats,
+            "tp": self.tp,
+            "sl": self.sl
+        }
     
     def calculate_required_win_rate(self):
         """
@@ -697,7 +718,9 @@ class CEO:
         total = state.get("capital_usd", 500)
         positions = state.get("positions", {})
         
-        current_total = total + len(positions) * 20
+        # Calcular valor real de posiciones (asimiendo ~$5 c/u)
+        positions_value = sum(pos.get("amount", 0) * pos.get("entry_price", 0) for pos in positions.values())
+        current_total = total + positions_value
         pnl_pct = ((current_total - 500) / 500) * 100
         
         print(f"\n👑 [CEO] Progress: {pnl_pct:+.2f}% / {self.daily_target}%")
@@ -741,8 +764,13 @@ class Orchestrator:
         if last_date != today:
             self.state["today_pnl"] = 0
             self.state["last_date"] = today
+        
+        # Cargar datos del risk manager
+        self.risk.load_from_state(self.state)
     
     def save_state(self):
+        # Guardar datos del risk manager
+        self.risk.save_to_state(self.state)
         with open(STATE_FILE, 'w') as f:
             json.dump(self.state, f, indent=2)
     
@@ -862,11 +890,19 @@ class Orchestrator:
         for sym, d in self.state["positions"].items():
             if not isinstance(d, dict):
                 continue
-            cur = prices.get(sym, {}).get("price", 0) if isinstance(prices.get(sym), dict) else 0
+            price_data = prices.get(sym)
+            if isinstance(price_data, dict):
+                cur = price_data.get("price", 0)
+            else:
+                cur = 0
             val = d.get("amount", 0) * cur
-            pnl = ((cur - d.get("entry_price", 0)) / d.get("entry_price", 1) * 100) if d.get("entry_price", 0) > 0 else 0
+            if d.get("entry_price", 0) > 0 and cur > 0:
+                pnl = ((cur - d.get("entry_price", 0)) / d.get("entry_price", 1) * 100)
+            else:
+                pnl = 0  # No hay precio actual
             emoji = "🟢" if pnl >= 0 else "🔴"
-            print(f"   📈 {sym}: {emoji} {pnl:+.1f}%")
+            status = "📊" if cur > 0 else "⚠️"
+            print(f"   {status} {sym}: {emoji} {pnl:+.1f}%")
             total_pos += val
         
         total = self.state["capital_usd"] + total_pos
