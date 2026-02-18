@@ -14,8 +14,8 @@ from datetime import datetime, time
 
 
 # ============ HORARIO HARDBIT ============
-HARDBIT_NIGHT_START = time(22, 0)    # 10:00 PM MST
-HARDBIT_NIGHT_END = time(9, 0)      # 9:00 AM MST
+HARDBIT_NIGHT_START = time(23, 0)    # 11:00 PM MST
+HARDBIT_NIGHT_END = time(5, 0)       # 5:00 AM MST
 TIMEZONE = "America/Denver"         # MST
 
 
@@ -61,8 +61,8 @@ class DayTimeProfile:
 # ============ CONFIGURACIÓN ACTIVA ============
 HARDBIT_CONFIG = {
     "enabled": True,
-    "night_start": "22:00 MST",   # 10 PM
-    "night_end": "09:00 MST",    # 9 AM
+    "night_start": "23:00 MST",   # 11 PM
+    "night_end": "05:00 MST",    # 5 AM
     "timezone": "America/Denver",
     
     "night_profile": {
@@ -111,8 +111,8 @@ def is_night_time() -> bool:
     # Convertir a hora local
     local_hour = now.hour
     
-    # Hardbit night: 22:00 - 09:00
-    return local_hour >= 22 or local_hour < 9
+    # Hardbit night: 23:00 - 05:00
+    return local_hour >= 23 or local_hour < 5
 
 
 def get_active_profile() -> Dict:

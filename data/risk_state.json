@@ -1,6 +1,6 @@
 {
-  "daily_pnl": 119.72559124937735,
-  "daily_trades": 9,
+  "daily_pnl": 64.01935077487826,
+  "daily_trades": 23,
   "daily_start_balance": 500.0,
   "open_trades": [
     {
@@ -30,28 +30,7 @@
       "size": 16.993799025228647,
       "direction": "bearish",
       "leverage": 3
-    },
-    {
-      "id": "trade_20260217_091556_24bb",
-      "symbol": "JTO",
-      "size": 28.699726749753157,
-      "direction": "bearish",
-      "leverage": 3
-    },
-    {
-      "id": "trade_20260217_091556_65a2",
-      "symbol": "WIF",
-      "size": 27.48180937541865,
-      "direction": "bearish",
-      "leverage": 3
-    },
-    {
-      "id": "trade_20260217_120840_59fd",
-      "symbol": "PUMP",
-      "size": 32.15168533084969,
-      "direction": "bearish",
-      "leverage": 3
     }
   ],
-  "last_update": "2026-02-17T12:08:40.147834"
+  "last_update": "2026-02-18T08:03:25.353803"
 }

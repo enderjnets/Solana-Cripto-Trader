@@ -155,14 +155,21 @@ class PriceFeed:
         return {s.upper(): self._cache.get(s.upper(), 0) for s in symbols}
     
     def get_price_sync(self, symbol: str) -> float:
-        """Synchronous price getter"""
+        """Synchronous price getter - always returns float"""
         try:
-            return asyncio.run(self.get_price(symbol))
-        except:
-            data = self._cache.get(symbol.upper(), 0)
+            result = asyncio.run(self.get_price(symbol))
+            # Always return float
+            if isinstance(result, dict):
+                return float(result.get('price', 0))
+            return float(result) if result else 0.0
+        except Exception as e:
+            # Fallback: try cache
+            data = self._cache.get(symbol.upper(), {})
             if isinstance(data, dict):
-                return data.get('price', 0)
-            return data
+                price = data.get('price', 0)
+                if isinstance(price, (int, float)):
+                    return float(price)
+            return 0.0
     
     def get_price_change_24h(self, symbol: str) -> float:
         """
