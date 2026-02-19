@@ -1,36 +1,78 @@
 {
   "enabled": true,
-  "start_time": "2026-02-17T02:10:00",
-  "balance_usd": 548.6974772281088,
+  "start_time": "2026-02-19T00:14:23.226945",
+  "balance_usd": 548.6194299474538,
   "initial_balance": 500.0,
   "trades": [
     {
-      "id": "trade_20260217_083120_8568",
-      "symbol": "ORCA",
-      "size": 17.122500000000002,
+      "id": "trade_20260219_003613_eb6c",
+      "entry_time": "2026-02-19T00:36:13.345277",
+      "entry_price": 0.1543922522430564,
       "direction": "bullish",
-      "leverage": 3
-    },
-    {
-      "id": "trade_20260217_083121_8dd0",
-      "symbol": "PUMP",
-      "size": 17.3421091334475,
-      "direction": "bullish",
-      "leverage": 3
-    },
-    {
-      "id": "trade_20260217_083121_c76d",
+      "size": 32.98488102,
       "symbol": "JUP",
-      "size": 18.506586335345563,
-      "direction": "bearish",
-      "leverage": 3
+      "status": "open",
+      "exit_time": null,
+      "exit_price": null,
+      "pnl": 0.0,
+      "pnl_pct": 0.0,
+      "reason": "High volume: 1.5x normal; Bearish trend: 59% strength; Drop detected: -5.9% 24h; RSI oversold: 18.1 < 35; ML Score: 25%"
     },
     {
-      "id": "trade_20260217_083121_5f26",
-      "symbol": "POPCAT",
-      "size": 16.993799025228647,
+      "id": "trade_20260219_003613_19be",
+      "entry_time": "2026-02-19T00:36:13.426088",
+      "entry_price": 7.227447905039989e-06,
       "direction": "bearish",
-      "leverage": 3
+      "size": 31.09652805423259,
+      "symbol": "WEN",
+      "status": "open",
+      "exit_time": null,
+      "exit_price": null,
+      "pnl": 0.0,
+      "pnl_pct": 0.0,
+      "reason": "High volume: 1.5x normal; Bearish trend: 100% strength; Drop detected: -10.6% 24h; RSI overbought: 79.3 > 65; ML Score: 21%"
+    },
+    {
+      "id": "trade_20260219_003924_766d",
+      "entry_time": "2026-02-19T00:39:24.118574",
+      "entry_price": 0.1541702379229912,
+      "direction": "bullish",
+      "size": 32.982954905863046,
+      "symbol": "JUP",
+      "status": "open",
+      "exit_time": null,
+      "exit_price": null,
+      "pnl": 0.0,
+      "pnl_pct": 0.0,
+      "reason": "High volume: 1.5x normal; Bearish trend: 60% strength; Drop detected: -6.0% 24h; RSI oversold: 18.1 < 35; ML Score: 25%"
+    },
+    {
+      "id": "trade_20260219_003924_9ea3",
+      "entry_time": "2026-02-19T00:39:24.207838",
+      "entry_price": 7.277871376507158e-06,
+      "direction": "bearish",
+      "size": 31.09471220829216,
+      "symbol": "WEN",
+      "status": "open",
+      "exit_time": null,
+      "exit_price": null,
+      "pnl": 0.0,
+      "pnl_pct": 0.0,
+      "reason": "High volume: 1.5x normal; Bearish trend: 100% strength; Drop detected: -10.0% 24h; RSI overbought: 79.3 > 65; ML Score: 21%"
+    },
+    {
+      "id": "trade_20260219_004224_8b94",
+      "entry_time": "2026-02-19T00:42:24.672930",
+      "entry_price": 0.1541702379229912,
+      "direction": "bullish",
+      "size": 32.98102890419929,
+      "symbol": "JUP",
+      "status": "open",
+      "exit_time": null,
+      "exit_price": null,
+      "pnl": 0.0,
+      "pnl_pct": 0.0,
+      "reason": "High volume: 1.5x normal; Bearish trend: 60% strength; Drop detected: -6.0% 24h; RSI oversold: 18.1 < 35; ML Score: 25%"
     }
   ],
   "stats": {
@@ -38,11 +80,59 @@
     "winning_trades": 0,
     "losing_trades": 0,
     "total_pnl": 0.0,
+    "total_fees": 0.0,
+    "liquidations": 0,
     "win_rate": 0.0,
     "max_drawdown": 0.0,
     "current_streak": 0,
     "best_streak": 0,
     "worst_streak": 0
   },
-  "signals": []
+  "signals": [
+    {
+      "time": "2026-02-19T00:36:13.345277",
+      "symbol": "JUP",
+      "direction": "bullish",
+      "price": 0.1543922522430564,
+      "size": 32.98488102,
+      "reason": "High volume: 1.5x normal; Bearish trend: 59% strength; Drop detected: -5.9% 24h; RSI oversold: 18.1 < 35; ML Score: 25%",
+      "trade_id": "trade_20260219_003613_eb6c"
+    },
+    {
+      "time": "2026-02-19T00:36:13.426088",
+      "symbol": "WEN",
+      "direction": "bearish",
+      "price": 7.227447905039989e-06,
+      "size": 31.09652805423259,
+      "reason": "High volume: 1.5x normal; Bearish trend: 100% strength; Drop detected: -10.6% 24h; RSI overbought: 79.3 > 65; ML Score: 21%",
+      "trade_id": "trade_20260219_003613_19be"
+    },
+    {
+      "time": "2026-02-19T00:39:24.118574",
+      "symbol": "JUP",
+      "direction": "bullish",
+      "price": 0.1541702379229912,
+      "size": 32.982954905863046,
+      "reason": "High volume: 1.5x normal; Bearish trend: 60% strength; Drop detected: -6.0% 24h; RSI oversold: 18.1 < 35; ML Score: 25%",
+      "trade_id": "trade_20260219_003924_766d"
+    },
+    {
+      "time": "2026-02-19T00:39:24.207838",
+      "symbol": "WEN",
+      "direction": "bearish",
+      "price": 7.277871376507158e-06,
+      "size": 31.09471220829216,
+      "reason": "High volume: 1.5x normal; Bearish trend: 100% strength; Drop detected: -10.0% 24h; RSI overbought: 79.3 > 65; ML Score: 21%",
+      "trade_id": "trade_20260219_003924_9ea3"
+    },
+    {
+      "time": "2026-02-19T00:42:24.672930",
+      "symbol": "JUP",
+      "direction": "bullish",
+      "price": 0.1541702379229912,
+      "size": 32.98102890419929,
+      "reason": "High volume: 1.5x normal; Bearish trend: 60% strength; Drop detected: -6.0% 24h; RSI oversold: 18.1 < 35; ML Score: 25%",
+      "trade_id": "trade_20260219_004224_8b94"
+    }
+  ]
 }

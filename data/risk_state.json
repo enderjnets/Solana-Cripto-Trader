@@ -1,36 +1,43 @@
 {
-  "daily_pnl": 64.01935077487826,
-  "daily_trades": 23,
+  "daily_pnl": 0.0,
+  "daily_trades": 5,
   "daily_start_balance": 500.0,
   "open_trades": [
     {
-      "id": "trade_20260217_083120_8568",
-      "symbol": "ORCA",
-      "size": 17.122500000000002,
-      "direction": "bullish",
-      "leverage": 3
-    },
-    {
-      "id": "trade_20260217_083121_8dd0",
-      "symbol": "PUMP",
-      "size": 17.3421091334475,
-      "direction": "bullish",
-      "leverage": 3
-    },
-    {
-      "id": "trade_20260217_083121_c76d",
+      "id": "trade_20260219_003613_165a",
       "symbol": "JUP",
-      "size": 18.506586335345563,
-      "direction": "bearish",
-      "leverage": 3
+      "size": 32.98488102,
+      "direction": "bullish",
+      "leverage": 1
     },
     {
-      "id": "trade_20260217_083121_5f26",
-      "symbol": "POPCAT",
-      "size": 16.993799025228647,
+      "id": "trade_20260219_003613_e781",
+      "symbol": "WEN",
+      "size": 31.09652805423259,
       "direction": "bearish",
-      "leverage": 3
+      "leverage": 1
+    },
+    {
+      "id": "trade_20260219_003924_4163",
+      "symbol": "JUP",
+      "size": 32.982954905863046,
+      "direction": "bullish",
+      "leverage": 1
+    },
+    {
+      "id": "trade_20260219_003924_150c",
+      "symbol": "WEN",
+      "size": 31.09471220829216,
+      "direction": "bearish",
+      "leverage": 1
+    },
+    {
+      "id": "trade_20260219_004224_0577",
+      "symbol": "JUP",
+      "size": 32.98102890419929,
+      "direction": "bullish",
+      "leverage": 1
     }
   ],
-  "last_update": "2026-02-18T08:03:25.353803"
+  "last_update": "2026-02-19T00:42:24.673668"
 }
