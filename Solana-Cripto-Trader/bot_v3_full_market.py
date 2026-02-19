@@ -30,6 +30,25 @@ class MarketScanner:
         """Obtiene precios de múltiples fuentes"""
         prices = {}
         
+        # 0. Binance - PRIMERO (más confiable)
+        try:
+            resp = requests.get("https://api.binance.com/api/v3/ticker/24hr", timeout=10)
+            if resp.status_code == 200:
+                for coin in resp.json()[:50]:
+                    sym = coin.get("symbol", "")
+                    if sym.endswith("USDT"):
+                        base = sym.replace("USDT", "")
+                        prices[base] = {
+                            "price": float(coin.get("lastPrice", 0)),
+                            "change": float(coin.get("priceChangePercent", 0)),
+                            "volume": float(coin.get("volume", 0)),
+                            "market_cap": 0,
+                            "source": "binance"
+                        }
+                print(f"   ✅ Binance: {len(prices)} tokens")
+        except Exception as e:
+            print(f"   ⚠️ Binance error: {e}")
+        
         # 1. CoinGecko - Top cryptos
         try:
             resp = requests.get(
