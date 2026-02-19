@@ -19,6 +19,9 @@ from pathlib import Path
 from dataclasses import dataclass
 from typing import Dict, List, Optional
 
+# Alerts module
+from alerts import alerts
+
 # ============================================================================
 # CONFIGURATION
 # ============================================================================
@@ -343,6 +346,10 @@ class TradingEngine:
         }
         
         self.save_state()
+        
+        # Send Telegram alert
+        asyncio.create_task(alerts.position_opened(symbol, direction, leverage, price))
+        
         return f"✅ {direction.upper()} {symbol} @ ${price:.2f} ({leverage}x)"
     
     def close_position(self, symbol, current_price, reason="MANUAL"):
@@ -366,6 +373,9 @@ class TradingEngine:
         
         del self.state["positions"][symbol]
         self.save_state()
+        
+        # Send Telegram alert
+        asyncio.create_task(alerts.position_closed(symbol, pos["direction"], pnl_usd, reason))
         
         return f"{'✅' if pnl_usd >= 0 else '❌'} {symbol} | PnL: {pnl_pct:+.2f}%"
     
