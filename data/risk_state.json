@@ -1,5 +1,5 @@
 {
-  "daily_pnl": 0.0,
+  "daily_pnl": -1.069614081507819,
   "daily_trades": 5,
   "daily_start_balance": 500.0,
   "open_trades": [
@@ -39,5 +39,5 @@
       "leverage": 1
     }
   ],
-  "last_update": "2026-02-19T00:42:24.673668"
+  "last_update": "2026-02-19T08:14:44.356530"
 }

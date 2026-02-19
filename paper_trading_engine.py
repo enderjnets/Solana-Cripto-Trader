@@ -94,6 +94,9 @@ class PaperTradingEngine:
                     trade["entry_time"] = datetime.fromisoformat(trade["entry_time"])
                 if trade.get("exit_time"):
                     trade["exit_time"] = datetime.fromisoformat(trade["exit_time"])
+            # FIX: Set initial_balance to current balance when loading (reset tracking point)
+            if data.get("trades"):
+                data["initial_balance"] = data.get("balance_usd", 500.0)
             return PaperTradingState(**data)
         return PaperTradingState()
 

@@ -1,7 +1,7 @@
 {
   "enabled": true,
   "start_time": "2026-02-19T00:14:23.226945",
-  "balance_usd": 548.6194299474538,
+  "balance_usd": 580.534696885946,
   "initial_balance": 500.0,
   "trades": [
     {
@@ -11,12 +11,12 @@
       "direction": "bullish",
       "size": 32.98488102,
       "symbol": "JUP",
-      "status": "open",
-      "exit_time": null,
-      "exit_price": null,
-      "pnl": 0.0,
-      "pnl_pct": 0.0,
-      "reason": "High volume: 1.5x normal; Bearish trend: 59% strength; Drop detected: -5.9% 24h; RSI oversold: 18.1 < 35; ML Score: 25%"
+      "status": "closed",
+      "exit_time": "2026-02-19T08:14:44.356171",
+      "exit_price": 0.1494629083433173,
+      "pnl": -1.069614081507819,
+      "pnl_pct": -3.192740456936227,
+      "reason": "STOP_LOSS"
     },
     {
       "id": "trade_20260219_003613_19be",
@@ -76,11 +76,11 @@
     }
   ],
   "stats": {
-    "total_trades": 0,
+    "total_trades": 1,
     "winning_trades": 0,
-    "losing_trades": 0,
-    "total_pnl": 0.0,
-    "total_fees": 0.0,
+    "losing_trades": 1,
+    "total_pnl": -1.069614081507819,
+    "total_fees": 0.01649244051,
     "liquidations": 0,
     "win_rate": 0.0,
     "max_drawdown": 0.0,
