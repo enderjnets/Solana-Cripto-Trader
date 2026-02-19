@@ -27,7 +27,7 @@ from typing import Dict, List, Optional
 from dataclasses import dataclass, field
 
 # Storage
-PAPER_STATE_FILE = Path(__file__).parent / "paper_trading_state.json"
+PAPER_STATE_FILE = Path(__file__).parent / "data" / "paper_trading_state.json"
 
 
 @dataclass

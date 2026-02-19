@@ -33,13 +33,37 @@ OPTIMIZER_STATE_FILE = PROJECT_ROOT / "optimizer_state.json"
 
 @dataclass
 class StrategyParams:
-    """Strategy parameters."""
+    """Strategy parameters - Extended with 13 optimization parameters."""
     name: str
+    
+    # Original parameters
     range_threshold: float = 0.25  # Buy when < 25% of range
     ma_period: int = 5
     volatility_threshold: float = 0.005
     stop_loss: float = 0.05
     take_profit: float = 0.10
+    
+    # NEW: RSI parameters
+    rsi_period: int = 14
+    rsi_oversold: float = 30.0
+    rsi_overbought: float = 70.0
+    
+    # NEW: Bollinger Bands
+    bb_period: int = 20
+    bb_std: float = 2.0
+    
+    # NEW: EMA crossover
+    ema_fast: int = 12
+    ema_slow: int = 26
+    
+    # NEW: Position & risk management
+    position_size: float = 0.10  # 10% of balance
+    leverage: int = 3
+    max_hold_time: int = 60  # minutes
+    trailing_stop: bool = True
+    trailing_distance: float = 0.02  # 2%
+    
+    # Performance tracking
     score: float = 0.0
     trades: int = 0
     wins: int = 0
@@ -80,12 +104,96 @@ class StrategyOptimizer:
         OPTIMIZER_STATE_FILE.write_text(json.dumps(data, indent=2))
 
     def _init_strategies(self) -> List[StrategyParams]:
-        """Initialize default strategies."""
+        """Initialize default strategies with extended parameters."""
         return [
-            StrategyParams(name="range_aggressive", range_threshold=0.25, ma_period=5, score=0.6),
-            StrategyParams(name="range_conservative", range_threshold=0.15, ma_period=10, score=0.5),
-            StrategyParams(name="ma_crossover", ma_period=5, score=0.55),
-            StrategyParams(name="volatility_breakout", volatility_threshold=0.01, score=0.45),
+            StrategyParams(
+                name="range_aggressive",
+                range_threshold=0.25,
+                ma_period=5,
+                rsi_period=7,
+                rsi_oversold=30,
+                rsi_overbought=70,
+                bb_period=20,
+                bb_std=2.0,
+                ema_fast=12,
+                ema_slow=26,
+                position_size=0.15,
+                leverage=3,
+                max_hold_time=60,
+                trailing_stop=True,
+                trailing_distance=0.02,
+                score=0.6
+            ),
+            StrategyParams(
+                name="range_conservative",
+                range_threshold=0.15,
+                ma_period=10,
+                rsi_period=14,
+                rsi_oversold=25,
+                rsi_overbought=75,
+                bb_period=30,
+                bb_std=2.5,
+                ema_fast=20,
+                ema_slow=50,
+                position_size=0.08,
+                leverage=2,
+                max_hold_time=120,
+                trailing_stop=True,
+                trailing_distance=0.015,
+                score=0.5
+            ),
+            StrategyParams(
+                name="rsi_momentum",
+                rsi_period=7,
+                rsi_oversold=35,
+                rsi_overbought=65,
+                position_size=0.12,
+                leverage=3,
+                max_hold_time=45,
+                trailing_stop=True,
+                trailing_distance=0.025,
+                score=0.55
+            ),
+            StrategyParams(
+                name="bb_breakout",
+                bb_period=20,
+                bb_std=2.0,
+                volatility_threshold=0.01,
+                position_size=0.10,
+                leverage=4,
+                max_hold_time=30,
+                trailing_stop=False,
+                score=0.45
+            ),
+            StrategyParams(
+                name="ema_crossover",
+                ema_fast=12,
+                ema_slow=26,
+                position_size=0.10,
+                leverage=3,
+                max_hold_time=90,
+                trailing_stop=True,
+                trailing_distance=0.02,
+                score=0.50
+            ),
+            StrategyParams(
+                name="hybrid_advanced",
+                range_threshold=0.20,
+                ma_period=8,
+                rsi_period=10,
+                rsi_oversold=32,
+                rsi_overbought=68,
+                bb_period=25,
+                bb_std=2.0,
+                ema_fast=15,
+                ema_slow=40,
+                position_size=0.12,
+                leverage=3,
+                max_hold_time=60,
+                trailing_stop=True,
+                trailing_distance=0.022,
+                score=0.52
+            ),
         ]
 
     def _load_paper_trades(self) -> List[Dict]:
@@ -132,14 +240,36 @@ class StrategyOptimizer:
         }
 
     def _mutate_params(self, params: StrategyParams) -> StrategyParams:
-        """Create mutated version of strategy."""
+        """Create mutated version of strategy with all parameters."""
         mutation = StrategyParams(
             name=f"{params.name}_v{random.randint(1, 100)}",
+            
+            # Original parameters
             range_threshold=params.range_threshold * random.uniform(0.8, 1.2),
             ma_period=max(2, params.ma_period + random.randint(-2, 2)),
             volatility_threshold=max(0.001, params.volatility_threshold * random.uniform(0.7, 1.3)),
             stop_loss=max(0.02, params.stop_loss * random.uniform(0.8, 1.2)),
-            take_profit=max(0.05, params.take_profit * random.uniform(0.8, 1.2))
+            take_profit=max(0.05, params.take_profit * random.uniform(0.8, 1.2)),
+            
+            # NEW: RSI parameters
+            rsi_period=max(5, min(21, params.rsi_period + random.randint(-3, 3))),
+            rsi_oversold=max(20, min(40, params.rsi_oversold + random.uniform(-3, 3))),
+            rsi_overbought=max(60, min(80, params.rsi_overbought + random.uniform(-3, 3))),
+            
+            # NEW: Bollinger Bands
+            bb_period=max(10, min(40, params.bb_period + random.randint(-3, 3))),
+            bb_std=max(1.5, min(3.0, params.bb_std * random.uniform(0.8, 1.2))),
+            
+            # NEW: EMA
+            ema_fast=max(5, min(20, params.ema_fast + random.randint(-2, 2))),
+            ema_slow=max(15, min(60, params.ema_slow + random.randint(-5, 5))),
+            
+            # NEW: Position & risk
+            position_size=max(0.05, min(0.25, params.position_size * random.uniform(0.8, 1.2))),
+            leverage=max(1, min(10, params.leverage + random.randint(-1, 1))),
+            max_hold_time=max(15, min(180, params.max_hold_time + random.randint(-15, 15))),
+            trailing_stop=params.trailing_stop,
+            trailing_distance=max(0.01, min(0.05, params.trailing_distance * random.uniform(0.8, 1.2))),
         )
         return mutation
 

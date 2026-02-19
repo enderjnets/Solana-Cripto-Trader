@@ -2,6 +2,139 @@
   "running": false,
   "start_time": null,
   "strategies": [],
-  "improvements": [],
-  "total_iterations": 29
+  "improvements": [
+    {
+      "time": "2026-02-18T23:25:32.072475",
+      "strategy": "ma_crossover",
+      "improvement": "Score: 0.40 \u2192 0.45",
+      "new_params": {
+        "range_threshold": 0.23402807221611416,
+        "ma_period": 6,
+        "stop_loss": 0.045936308626065445,
+        "take_profit": 0.09111390727381548
+      }
+    },
+    {
+      "time": "2026-02-18T23:26:32.128687",
+      "strategy": "range_aggressive",
+      "improvement": "Score: 0.40 \u2192 0.50",
+      "new_params": {
+        "range_threshold": 0.2093230292168484,
+        "ma_period": 4,
+        "stop_loss": 0.04733105137537072,
+        "take_profit": 0.1099271434124471
+      }
+    },
+    {
+      "time": "2026-02-18T23:26:32.128812",
+      "strategy": "range_conservative",
+      "improvement": "Score: 0.40 \u2192 0.50",
+      "new_params": {
+        "range_threshold": 0.15537400010195865,
+        "ma_period": 10,
+        "stop_loss": 0.04290849867543219,
+        "take_profit": 0.09956990329694622
+      }
+    },
+    {
+      "time": "2026-02-18T23:26:32.128873",
+      "strategy": "ma_crossover",
+      "improvement": "Score: 0.45 \u2192 0.50",
+      "new_params": {
+        "range_threshold": 0.20469525628614307,
+        "ma_period": 4,
+        "stop_loss": 0.042222053510968284,
+        "take_profit": 0.09611166376592614
+      }
+    },
+    {
+      "time": "2026-02-18T23:26:32.128926",
+      "strategy": "volatility_breakout",
+      "improvement": "Score: 0.40 \u2192 0.50",
+      "new_params": {
+        "range_threshold": 0.28987288651160886,
+        "ma_period": 7,
+        "stop_loss": 0.042019803345878196,
+        "take_profit": 0.11416529940010278
+      }
+    },
+    {
+      "time": "2026-02-18T23:39:35.412086",
+      "strategy": "range_aggressive",
+      "improvement": "Score: 0.40 \u2192 0.50",
+      "new_params": {
+        "range_threshold": 0.2620629995769015,
+        "ma_period": 3,
+        "stop_loss": 0.04737139387745011,
+        "take_profit": 0.11180353196248723
+      }
+    },
+    {
+      "time": "2026-02-18T23:39:35.412234",
+      "strategy": "ema_crossover",
+      "improvement": "Score: 0.40 \u2192 0.50",
+      "new_params": {
+        "range_threshold": 0.2171865804735484,
+        "ma_period": 4,
+        "stop_loss": 0.0403416575202582,
+        "take_profit": 0.10270514148987303
+      }
+    },
+    {
+      "time": "2026-02-18T23:39:35.412271",
+      "strategy": "hybrid_advanced",
+      "improvement": "Score: 0.40 \u2192 0.50",
+      "new_params": {
+        "range_threshold": 0.1780835487719143,
+        "ma_period": 10,
+        "stop_loss": 0.049410372367117664,
+        "take_profit": 0.10580671686767769
+      }
+    },
+    {
+      "time": "2026-02-18T23:40:35.475665",
+      "strategy": "bb_breakout",
+      "improvement": "Score: 0.40 \u2192 0.45",
+      "new_params": {
+        "range_threshold": 0.28592935801300745,
+        "ma_period": 6,
+        "stop_loss": 0.050989786768640605,
+        "take_profit": 0.11129737025356222
+      }
+    },
+    {
+      "time": "2026-02-18T23:41:35.523595",
+      "strategy": "range_conservative",
+      "improvement": "Score: 0.40 \u2192 0.50",
+      "new_params": {
+        "range_threshold": 0.15602524410423105,
+        "ma_period": 12,
+        "stop_loss": 0.04631406971948376,
+        "take_profit": 0.09593502018926363
+      }
+    },
+    {
+      "time": "2026-02-18T23:41:35.523715",
+      "strategy": "rsi_momentum",
+      "improvement": "Score: 0.40 \u2192 0.50",
+      "new_params": {
+        "range_threshold": 0.23655356987365558,
+        "ma_period": 6,
+        "stop_loss": 0.04536004628880445,
+        "take_profit": 0.1025692287181293
+      }
+    },
+    {
+      "time": "2026-02-18T23:41:35.523797",
+      "strategy": "bb_breakout",
+      "improvement": "Score: 0.45 \u2192 0.50",
+      "new_params": {
+        "range_threshold": 0.317083979436342,
+        "ma_period": 4,
+        "stop_loss": 0.04388490705055662,
+        "take_profit": 0.12712781639217066
+      }
+    }
+  ],
+  "total_iterations": 61
 }
