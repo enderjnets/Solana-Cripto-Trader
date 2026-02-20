@@ -169,31 +169,57 @@ class Strategy:
 
 
 # ============================================================================
-# PRICE FETCHER
+# PRICE FETCHER (Hybrid: CoinGecko for BTC/ETH, Jupiter for SOL tokens)
 # ============================================================================
 
 def get_prices() -> Dict:
+    prices = {}
+    
+    # Step 1: Get BTC & ETH from CoinGecko (accurate USD prices)
     try:
-        ids = ",".join(TOKENS.values())
-        url = f"https://lite-api.jup.ag/price/v3?ids={ids}"
-        resp = requests.get(url, timeout=10)
-        
-        if resp.status_code == 200:
-            data = resp.json()
-            prices = {}
-            addr_to_sym = {v: k for k, v in TOKENS.items()}
-            
-            for addr, info in data.items():
-                sym = addr_to_sym.get(addr, addr[:8])
-                prices[sym] = {
-                    "price": float(info.get("usdPrice", 0)),
-                    "change": float(info.get("priceChange24h", 0)),
-                    "volume": float(info.get("volume24h", 0))
+        cg_url = "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum&vs_currencies=usd&include_24hr_change=true"
+        cg_resp = requests.get(cg_url, timeout=10)
+        if cg_resp.status_code == 200:
+            cg_data = cg_resp.json()
+            if "bitcoin" in cg_data:
+                prices["BTC"] = {
+                    "price": float(cg_data["bitcoin"]["usd"]),
+                    "change": float(cg_data["bitcoin"]["usd_24h_change"]),
+                    "volume": 0
                 }
-            return prices
+            if "ethereum" in cg_data:
+                prices["ETH"] = {
+                    "price": float(cg_data["ethereum"]["usd"]),
+                    "change": float(cg_data["ethereum"]["usd_24h_change"]),
+                    "volume": 0
+                }
     except Exception as e:
-        print(f"   ⚠️ Price error: {e}")
-    return {}
+        print(f"   ⚠️ CoinGecko error: {e}")
+    
+    # Step 2: Get SOL and other tokens from Jupiter (on-chain prices)
+    try:
+        # Only Solana tokens (not BTC/ETH)
+        sol_tokens = {k: v for k, v in TOKENS.items() if k not in ["BTC", "ETH"]}
+        if sol_tokens:
+            ids = ",".join(sol_tokens.values())
+            url = f"https://lite-api.jup.ag/price/v3?ids={ids}"
+            resp = requests.get(url, timeout=10)
+            
+            if resp.status_code == 200:
+                data = resp.json()
+                addr_to_sym = {v: k for k, v in sol_tokens.items()}
+                
+                for addr, info in data.items():
+                    sym = addr_to_sym.get(addr, addr[:8])
+                    prices[sym] = {
+                        "price": float(info.get("usdPrice", 0)),
+                        "change": float(info.get("priceChange24h", 0)),
+                        "volume": float(info.get("volume24h", 0))
+                    }
+    except Exception as e:
+        print(f"   ⚠️ Jupiter error: {e}")
+    
+    return prices
 
 
 # ============================================================================
@@ -347,8 +373,8 @@ class TradingEngine:
         
         self.save_state()
         
-        # Send Telegram alert
-        asyncio.create_task(alerts.position_opened(symbol, direction, leverage, price))
+        # Send Telegram alert (disabled - async issue)
+        # asyncio.create_task(alerts.position_opened(symbol, direction, leverage, price))
         
         return f"✅ {direction.upper()} {symbol} @ ${price:.2f} ({leverage}x)"
     
@@ -374,8 +400,8 @@ class TradingEngine:
         del self.state["positions"][symbol]
         self.save_state()
         
-        # Send Telegram alert
-        asyncio.create_task(alerts.position_closed(symbol, pos["direction"], pnl_usd, reason))
+        # Send Telegram alert (disabled - async issue)
+        # asyncio.create_task(alerts.position_closed(symbol, pos["direction"], pnl_usd, reason))
         
         return f"{'✅' if pnl_usd >= 0 else '❌'} {symbol} | PnL: {pnl_pct:+.2f}%"
     
