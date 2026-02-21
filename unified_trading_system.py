@@ -1294,63 +1294,69 @@ class UnifiedTradingSystem:
             logger.debug(f"Could not send notification: {e}")
     
     def run_cycle(self):
-        """Run one trading cycle"""
+        """Run one trading cycle with error handling"""
         if not self.running:
             return
         
-        logger.info("🔄 Running trading cycle...")
-        
-        # 1. Scan market
-        opportunities = self.scan_market()
-        
-        # 2. Generate ML signals
-        signals = self.generate_ml_signals(opportunities)
-        
-        # 3. Process high-confidence signals
-        for signal in signals:
-            # Skip low confidence (reduced from 30% to 5% for aggressive trading)
-            if signal["confidence"] < 10:  # Minimum 10% confidence
-                continue
+        try:
+            logger.info("🔄 Running trading cycle...")
             
-            # Trade both bullish and bearish signals (for more opportunities)
-            if signal["direction"] in ["bullish", "bearish"]:
-                # Get entry price from opportunities or price history
-                entry_price = None
-                for opp in opportunities:
-                    if opp.symbol == signal["symbol"]:
-                        entry_price = opp.price
-                        break
+            # 1. Scan market
+            opportunities = self.scan_market()
+            
+            # 2. Generate ML signals
+            signals = self.generate_ml_signals(opportunities)
+            
+            # 3. Process high-confidence signals
+            for signal in signals:
+                # Skip low confidence (reduced from 30% to 5% for aggressive trading)
+                if signal["confidence"] < 10:  # Minimum 10% confidence
+                    continue
                 
-                # Fallback to price history if not found or zero
-                if not entry_price or entry_price == 0:
-                    prices = self.ml_signal.price_history.get(signal["symbol"], [])
-                    if prices:
-                        entry_price = prices[-1]
-                    else:
-                        entry_price = 100  # Ultimate fallback
-                
-                # Create trading signal
-                trade_signal = self.create_trading_signal(
-                    symbol=signal["symbol"],
-                    direction=signal["direction"],
-                    entry_price=entry_price,
-                    confidence=signal["confidence"],
-                    reasons=signal.get("reasons", []) + [f"ML Score: {signal['confidence']:.0f}%"]
-                )
-                
-                if trade_signal:
-                    # Validate with risk agent
-                    if self.validate_with_risk_agent(trade_signal):
-                        # Execute trade
-                        self.execute_trade(trade_signal)
-        
-        # 4. Check open positions for SL/TP
-        self._check_open_positions()
-        
-        # 5. Run strategy optimizer periodically (every hour)
-        self._run_optimizer_if_needed()
-        
-        logger.info("✅ Trading cycle complete")
+                # Trade both bullish and bearish signals (for more opportunities)
+                if signal["direction"] in ["bullish", "bearish"]:
+                    # Get entry price from opportunities or price history
+                    entry_price = None
+                    for opp in opportunities:
+                        if opp.symbol == signal["symbol"]:
+                            entry_price = opp.price
+                            break
+                    
+                    # Fallback to price history if not found or zero
+                    if not entry_price or entry_price == 0:
+                        prices = self.ml_signal.price_history.get(signal["symbol"], [])
+                        if prices:
+                            entry_price = prices[-1]
+                        else:
+                            entry_price = 100  # Ultimate fallback
+                    
+                    # Create trading signal
+                    trade_signal = self.create_trading_signal(
+                        symbol=signal["symbol"],
+                        direction=signal["direction"],
+                        entry_price=entry_price,
+                        confidence=signal["confidence"],
+                        reasons=signal.get("reasons", []) + [f"ML Score: {signal['confidence']:.0f}%"]
+                    )
+                    
+                    if trade_signal:
+                        # Validate with risk agent
+                        if self.validate_with_risk_agent(trade_signal):
+                            # Execute trade
+                            self.execute_trade(trade_signal)
+            
+            # 4. Check open positions for SL/TP
+            self._check_open_positions()
+            
+            # 5. Run strategy optimizer periodically (every hour)
+            self._run_optimizer_if_needed()
+            
+            logger.info("✅ Trading cycle complete")
+            
+        except Exception as e:
+            import traceback
+            logger.error(f"❌ ERROR in cycle: {e}")
+            logger.error(f"Traceback: {traceback.format_exc()}")
     
     def _check_open_positions(self):
         """Check open positions for stop loss / take profit"""
@@ -1605,13 +1611,9 @@ class UnifiedTradingSystem:
         
         # Don't call self.start() here - it's already called in main()
         
-        try:
-            while self.running:
-                self.run_cycle()
-                time_module.sleep(self.scan_interval)
-        except KeyboardInterrupt:
-            logger.info("Interrupted by user")
-            self.stop()
+        while self.running:
+            self.run_cycle()
+            time_module.sleep(self.scan_interval)
 
 
 # =============================================================================
