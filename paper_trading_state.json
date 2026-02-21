@@ -1,7 +1,7 @@
 {
   "enabled": true,
   "start_time": "2026-02-21T07:02:58.066047",
-  "balance_usd": 436.7828520905,
+  "balance_usd": 359.54615220280857,
   "initial_balance": 500.0,
   "trades": [
     {
@@ -31,6 +31,48 @@
       "pnl": 0.0,
       "pnl_pct": 0.0,
       "reason": "High volume: 1.5x normal; ML Score: 12%"
+    },
+    {
+      "id": "trade_20260221_070616_d177",
+      "entry_time": "2026-02-21T07:06:16.038587",
+      "entry_price": 6.43e-06,
+      "direction": "bullish",
+      "size": 24.1287583151834,
+      "symbol": "BONK",
+      "status": "open",
+      "exit_time": null,
+      "exit_price": null,
+      "pnl": 0.0,
+      "pnl_pct": 0.0,
+      "reason": "High volume: 1.5x normal; RSI oversold: 29.8 < 35; ML Score: 16%"
+    },
+    {
+      "id": "trade_20260221_070616_3659",
+      "entry_time": "2026-02-21T07:06:16.081499",
+      "entry_price": 0.002111,
+      "direction": "bearish",
+      "size": 22.4838709534419,
+      "symbol": "PUMP",
+      "status": "open",
+      "exit_time": null,
+      "exit_price": null,
+      "pnl": 0.0,
+      "pnl_pct": 0.0,
+      "reason": "High volume: 1.5x normal; ML Score: 15%"
+    },
+    {
+      "id": "trade_20260221_070616_d9f6",
+      "entry_time": "2026-02-21T07:06:16.126604",
+      "entry_price": 0.3107,
+      "direction": "bullish",
+      "size": 30.62407061906612,
+      "symbol": "JTO",
+      "status": "open",
+      "exit_time": null,
+      "exit_price": null,
+      "pnl": 0.0,
+      "pnl_pct": 0.0,
+      "reason": "High volume: 1.5x normal; RSI oversold: 21.6 < 35; ML Score: 40%"
     }
   ],
   "stats": {
@@ -62,6 +104,33 @@
       "size": 23.972647909499997,
       "reason": "High volume: 1.5x normal; ML Score: 12%",
       "trade_id": "trade_20260221_070315_2869"
+    },
+    {
+      "time": "2026-02-21T07:06:16.038587",
+      "symbol": "BONK",
+      "direction": "bullish",
+      "price": 6.43e-06,
+      "size": 24.1287583151834,
+      "reason": "High volume: 1.5x normal; RSI oversold: 29.8 < 35; ML Score: 16%",
+      "trade_id": "trade_20260221_070616_d177"
+    },
+    {
+      "time": "2026-02-21T07:06:16.081499",
+      "symbol": "PUMP",
+      "direction": "bearish",
+      "price": 0.002111,
+      "size": 22.4838709534419,
+      "reason": "High volume: 1.5x normal; ML Score: 15%",
+      "trade_id": "trade_20260221_070616_3659"
+    },
+    {
+      "time": "2026-02-21T07:06:16.126604",
+      "symbol": "JTO",
+      "direction": "bullish",
+      "price": 0.3107,
+      "size": 30.62407061906612,
+      "reason": "High volume: 1.5x normal; RSI oversold: 21.6 < 35; ML Score: 40%",
+      "trade_id": "trade_20260221_070616_d9f6"
     }
   ]
 }

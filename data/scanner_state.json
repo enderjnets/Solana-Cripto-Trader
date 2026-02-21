@@ -4,62 +4,62 @@
       "symbol": "SOL",
       "price": 85.71,
       "score": 70,
-      "timestamp": "2026-02-21T07:02:58.767046"
+      "timestamp": "2026-02-21T07:06:15.717014"
     },
     {
       "symbol": "BTC",
       "price": 68204.51,
       "score": 70,
-      "timestamp": "2026-02-21T07:02:59.790427"
+      "timestamp": "2026-02-21T07:06:15.717905"
     },
     {
       "symbol": "ETH",
       "price": 1979,
       "score": 70,
-      "timestamp": "2026-02-21T07:03:01.774182"
+      "timestamp": "2026-02-21T07:06:15.718754"
     },
     {
       "symbol": "WIF",
       "price": 0.227,
       "score": 70,
-      "timestamp": "2026-02-21T07:03:02.769530"
+      "timestamp": "2026-02-21T07:06:15.719586"
     },
     {
       "symbol": "BONK",
       "price": 6.43e-06,
       "score": 70,
-      "timestamp": "2026-02-21T07:03:03.802245"
+      "timestamp": "2026-02-21T07:06:15.720418"
     },
     {
       "symbol": "PUMP",
       "price": 0.002111,
       "score": 70,
-      "timestamp": "2026-02-21T07:03:05.116206"
+      "timestamp": "2026-02-21T07:06:15.720682"
     },
     {
       "symbol": "JTO",
       "price": 0.3107,
       "score": 70,
-      "timestamp": "2026-02-21T07:03:06.242870"
+      "timestamp": "2026-02-21T07:06:15.720945"
     },
     {
       "symbol": "JUP",
       "price": 0.1592,
       "score": 70,
-      "timestamp": "2026-02-21T07:03:07.477781"
+      "timestamp": "2026-02-21T07:06:15.721225"
     },
     {
       "symbol": "RAY",
       "price": 0.6553,
       "score": 70,
-      "timestamp": "2026-02-21T07:03:08.465818"
+      "timestamp": "2026-02-21T07:06:15.721503"
     },
     {
       "symbol": "ORCA",
       "price": 1.085,
       "score": 70,
-      "timestamp": "2026-02-21T07:03:09.299996"
+      "timestamp": "2026-02-21T07:06:15.721766"
     }
   ],
-  "last_scan": "2026-02-21T07:03:15.006997"
+  "last_scan": "2026-02-21T07:06:15.723086"
 }
