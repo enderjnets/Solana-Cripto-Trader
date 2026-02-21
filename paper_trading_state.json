@@ -1,66 +1,67 @@
 {
   "enabled": true,
-  "start_time": "2026-02-15T14:55:00",
-  "balance_usd": 500.0,
+  "start_time": "2026-02-21T07:02:58.066047",
+  "balance_usd": 436.7828520905,
   "initial_balance": 500.0,
-  "trades": [],
+  "trades": [
+    {
+      "id": "trade_20260221_070315_7092",
+      "entry_time": "2026-02-21T07:03:15.613606",
+      "entry_price": 0.3107,
+      "direction": "bullish",
+      "size": 39.244499999999995,
+      "symbol": "JTO",
+      "status": "open",
+      "exit_time": null,
+      "exit_price": null,
+      "pnl": 0.0,
+      "pnl_pct": 0.0,
+      "reason": "High volume: 1.5x normal; RSI oversold: 21.6 < 35; ML Score: 40%"
+    },
+    {
+      "id": "trade_20260221_070315_2869",
+      "entry_time": "2026-02-21T07:03:15.667348",
+      "entry_price": 1.085,
+      "direction": "bearish",
+      "size": 23.972647909499997,
+      "symbol": "ORCA",
+      "status": "open",
+      "exit_time": null,
+      "exit_price": null,
+      "pnl": 0.0,
+      "pnl_pct": 0.0,
+      "reason": "High volume: 1.5x normal; ML Score: 12%"
+    }
+  ],
   "stats": {
     "total_trades": 0,
     "winning_trades": 0,
     "losing_trades": 0,
     "total_pnl": 0.0,
     "win_rate": 0.0,
-    "max_drawdown": 0,
+    "max_drawdown": 0.0,
     "current_streak": 0,
     "best_streak": 0,
     "worst_streak": 0
   },
   "signals": [
     {
-      "time": "2026-02-15T14:53:35.992837",
-      "symbol": "USDC",
+      "time": "2026-02-21T07:03:15.613606",
+      "symbol": "JTO",
       "direction": "bullish",
-      "price": 0.9999,
-      "size": 27.96,
-      "reason": "High volume: 1.5x normal; ML Score: 10%",
-      "trade_id": "trade_20260215_145335_41e7"
+      "price": 0.3107,
+      "size": 39.244499999999995,
+      "reason": "High volume: 1.5x normal; RSI oversold: 21.6 < 35; ML Score: 40%",
+      "trade_id": "trade_20260221_070315_7092"
     },
     {
-      "time": "2026-02-15T14:53:36.043610",
-      "symbol": "USDT",
-      "direction": "bullish",
-      "price": 1,
-      "size": 26.19822,
-      "reason": "High volume: 1.5x normal; ML Score: 10%",
-      "trade_id": "trade_20260215_145336_46f3"
-    },
-    {
-      "time": "2026-02-15T14:53:36.088898",
-      "symbol": "PUMP",
-      "direction": "bullish",
-      "price": 0.002211,
-      "size": 26.9912613612,
-      "reason": "High volume: 1.5x normal; ML Score: 15%",
-      "trade_id": "trade_20260215_145336_b823"
-    },
-    {
-      "time": "2026-02-15T14:53:36.133535",
-      "symbol": "HNT",
-      "direction": "bullish",
-      "price": 1.283,
-      "size": 24.873438049365138,
-      "reason": "High volume: 1.5x normal; ML Score: 14%",
-      "trade_id": "trade_20260215_145336_e656"
-    },
-    {
-      "time": "2026-02-15T14:55:16.656365",
-      "symbol": "USDC",
-      "direction": "bullish",
-      "price": 0.9999,
-      "size": 24.761459515045985,
-      "reason": "High volume: 1.5x normal; ML Score: 17%",
-      "trade_id": "trade_20260215_145516_76ba"
+      "time": "2026-02-21T07:03:15.667348",
+      "symbol": "ORCA",
+      "direction": "bearish",
+      "price": 1.085,
+      "size": 23.972647909499997,
+      "reason": "High volume: 1.5x normal; ML Score: 12%",
+      "trade_id": "trade_20260221_070315_2869"
     }
-  ],
-  "closed_trades": []
+  ]
 }

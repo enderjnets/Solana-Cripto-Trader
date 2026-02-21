@@ -1,6 +1,6 @@
 {
-  "daily_pnl": 0.0,
-  "daily_trades": 5,
+  "daily_pnl": 3.891609391221007,
+  "daily_trades": 17,
   "daily_start_balance": 500.0,
   "open_trades": [
     {
@@ -32,7 +32,79 @@
       "symbol": "USDC",
       "size": 24.761459515045985,
       "direction": "bullish"
+    },
+    {
+      "id": "trade_20260215_184929_f390",
+      "symbol": "BONK",
+      "size": 30.69,
+      "direction": "bearish"
+    },
+    {
+      "id": "trade_20260215_184929_37fd",
+      "symbol": "PUMP",
+      "size": 29.15119065,
+      "direction": "bearish"
+    },
+    {
+      "id": "trade_20260215_184929_cc39",
+      "symbol": "JTO",
+      "size": 39.3105832630485,
+      "direction": "bullish"
+    },
+    {
+      "id": "trade_20260215_185115_5208",
+      "symbol": "JTO",
+      "size": 35.799755071825636,
+      "direction": "bullish"
+    },
+    {
+      "id": "trade_20260215_185115_223a",
+      "symbol": "ORCA",
+      "size": 22.25335479308207,
+      "direction": "bearish"
+    },
+    {
+      "id": "trade_20260221_051406_0d32",
+      "symbol": "PUMP",
+      "size": 32.392289870282546,
+      "direction": "bullish"
+    },
+    {
+      "id": "trade_20260221_051406_5ec6",
+      "symbol": "JTO",
+      "size": 41.96925679431448,
+      "direction": "bullish"
+    },
+    {
+      "id": "trade_20260221_051706_79ab",
+      "symbol": "BONK",
+      "size": 26.408517384726608,
+      "direction": "bullish"
+    },
+    {
+      "id": "trade_20260221_052218_f3e6",
+      "symbol": "BONK",
+      "size": 28.900489048264973,
+      "direction": "bullish"
+    },
+    {
+      "id": "trade_20260221_052218_9c92",
+      "symbol": "JTO",
+      "size": 38.27585354719153,
+      "direction": "bullish"
+    },
+    {
+      "id": "trade_20260221_070315_d3ea",
+      "symbol": "JTO",
+      "size": 39.244499999999995,
+      "direction": "bullish"
+    },
+    {
+      "id": "trade_20260221_070315_a105",
+      "symbol": "ORCA",
+      "size": 23.972647909499997,
+      "direction": "bearish"
     }
   ],
-  "last_update": "2026-02-15T14:55:16.657043"
+  "last_update": "2026-02-21T07:03:15.667950"
 }

@@ -789,7 +789,7 @@ class UnifiedTradingSystem:
         self.scanner = MarketScannerAgent()
         self.paper_engine = PaperTradingEngine()
         self.db = TradesDatabase()
-        # self.ml_signal = MLSignalGenerator(self.cache) # Disabled
+        self.ml_signal = MLSignalGenerator(self.cache)
         
         # Initialize Strategy Optimizer - DISABLED due to memory leak
         # try:
@@ -804,7 +804,7 @@ class UnifiedTradingSystem:
         self.trading_tokens = ["SOL", "BTC", "ETH", "WIF", "PUMP"]
         
         # Seed price data for initial ML signals
-        # self._seed_initial_prices() # Disabled
+        self._seed_initial_prices()
         
         # State
         self.running = False
@@ -1304,7 +1304,7 @@ class UnifiedTradingSystem:
         opportunities = self.scan_market()
         
         # 2. Generate ML signals
-        signals = []  # Disabled
+        signals = self.generate_ml_signals(opportunities)
         
         # 3. Process high-confidence signals
         for signal in signals:
@@ -1403,6 +1403,94 @@ class UnifiedTradingSystem:
                 self.close_position(trade["id"], "STOP_LOSS")
             elif pnl_pct >= take_profit:
                 self.close_position(trade["id"], "TAKE_PROFIT")
+            
+            # ========== 24H TIME LIMIT ==========
+            # Close positions open > 24h (unless in big loss)
+            if seconds_held >= 86400:  # 24 hours
+                if pnl_pct > -0.05:  # Not losing more than 5%
+                    self.close_position(trade["id"], "24H_TIMEOUT")
+                    logger.info(f"⏰ Closed {symbol} after 24h (PnL: {pnl_pct*100:+.2f}%)")
+        
+        # ========== PORTFOLIO TAKE PROFIT ==========
+        # Close ALL positions if total portfolio P&L is in target range
+        self._check_portfolio_take_profit()
+    
+    def _check_portfolio_take_profit(self):
+        """Check if total portfolio P&L is in profit target range and close all"""
+        open_trades = self.paper_engine.get_open_trades()
+        if len(open_trades) < 1:
+            return  # No positions to check
+        
+        # Calculate total P&L across all positions
+        total_pnl = 0
+        total_invested = 0
+        
+        for trade in open_trades:
+            entry_price = trade["entry_price"]
+            direction = trade["direction"]
+            size = trade.get("size", 0)
+            
+            # Get current price
+            current_price = self._get_current_price(trade["id"])
+            if current_price == 0:
+                continue
+            
+            # Calculate position P&L
+            if direction == "bullish":
+                pnl_pct = (current_price - entry_price) / entry_price
+            else:  # bearish = short
+                pnl_pct = (entry_price - current_price) / entry_price
+            
+            position_value = size * entry_price
+            total_pnl += position_value * pnl_pct
+            total_invested += position_value
+        
+        if total_invested == 0:
+            return
+        
+        portfolio_pnl_pct = (total_pnl / total_invested) * 100
+        
+        logger.info(f"💼 Portfolio P&L: {portfolio_pnl_pct:+.2f}% ({len(open_trades)} positions)")
+        
+        # Dynamic thresholds based on risk agent
+        profile = self.get_hardbit_profile()
+        
+        # Risk agent decides thresholds: conservative (1-3%), normal (2-5%), aggressive (3-7%)
+        # Calculate win_rate from recent trades
+        try:
+            recent = self.paper_engine.get_recent_trades(20)
+            if recent:
+                wins = sum(1 for t in recent if t.get("pnl", 0) > 0)
+                win_rate = (wins / len(recent)) * 100 if recent else 0
+            else:
+                win_rate = 0
+        except:
+            win_rate = 50  # Default
+        
+        if win_rate >= 70:
+            # Good win rate = more aggressive
+            min_profit = 2.0
+            max_profit = 5.0
+        elif win_rate >= 50:
+            min_profit = 1.5
+            max_profit = 4.0
+        else:
+            # Poor win rate = conservative
+            min_profit = 1.0
+            max_profit = 3.0
+        
+        # Close all if in profit range
+        if min_profit <= portfolio_pnl_pct <= max_profit:
+            logger.info(f"🎯 PORTFOLIO TAKE PROFIT! Closing all positions at {portfolio_pnl_pct:+.2f}%")
+            for trade in open_trades:
+                self.close_position(trade["id"], "PORTFOLIO_TAKE_PROFIT")
+            # Reset balance for fresh start
+            logger.info(f"🔄 Resetting portfolio for new trades")
+        elif portfolio_pnl_pct < -5.0:
+            # Emergency: close all if losing more than 5%
+            logger.warning(f"🛑 EMERGENCY: Portfolio down {portfolio_pnl_pct:.2f}%, closing all!")
+            for trade in open_trades:
+                self.close_position(trade["id"], "PORTFOLIO_STOP_LOSS")
     
     def _run_optimizer_if_needed(self):
         """Run strategy optimizer periodically"""
