@@ -308,7 +308,7 @@ class PaperTradingAgent:
             
             # Calculate P&L (assuming long positions)
             pnl_pct = ((current - entry) / entry) * 100
-            pnl_value = (current - entry) * 10  # Assume 10 units per trade
+            pnl_value = (current - entry) / entry * 500  # Proportional to $500 capital
             
             pos["current_price"] = current
             pos["pnl_pct"] = pnl_pct
