@@ -1,11 +1,11 @@
 {
-  "confidence_threshold": 10,
-  "risk_per_trade": 0.14,
+  "confidence_threshold": 40,
+  "risk_per_trade": 0.2,
   "max_trades_per_day": 20,
   "leverage": 1,
   "daily_profit_target": 0.05,
   "adjustments_today": 3,
-  "last_adjustment_date": "2026-02-19",
-  "total_adjustments": 4,
+  "last_adjustment_date": "2026-02-21",
+  "total_adjustments": 10,
   "current_mode": "normal"
 }

@@ -1,6 +1,6 @@
 {
-  "daily_pnl": -1.069614081507819,
-  "daily_trades": 5,
+  "daily_pnl": -3.6755308424752466,
+  "daily_trades": 23,
   "daily_start_balance": 500.0,
   "open_trades": [
     {
@@ -37,7 +37,115 @@
       "size": 32.98102890419929,
       "direction": "bullish",
       "leverage": 1
+    },
+    {
+      "id": "trade_20260221_193813_56db",
+      "symbol": "BOME",
+      "size": 59.01646068141419,
+      "direction": "bullish"
+    },
+    {
+      "id": "trade_20260221_193813_5d59",
+      "symbol": "BONK",
+      "size": 57.45735946710344,
+      "direction": "bullish"
+    },
+    {
+      "id": "trade_20260221_194131_bfdd",
+      "symbol": "ORCA",
+      "size": 55.02286344028362,
+      "direction": "bullish"
+    },
+    {
+      "id": "trade_20260221_194131_9821",
+      "symbol": "JTO",
+      "size": 80.898137126956,
+      "direction": "bullish"
+    },
+    {
+      "id": "trade_20260221_194131_cfd9",
+      "symbol": "BONK",
+      "size": 57.44956506223471,
+      "direction": "bullish"
+    },
+    {
+      "id": "trade_20260221_231014_0b8a",
+      "symbol": "JTO",
+      "size": 80.5986902576426,
+      "direction": "bullish"
+    },
+    {
+      "id": "trade_20260221_232250_eeaa",
+      "symbol": "JTO",
+      "size": 88.52902370647206,
+      "direction": "bullish"
+    },
+    {
+      "id": "trade_20260222_002323_6e60",
+      "symbol": "JTO",
+      "size": 97.83196458241407,
+      "direction": "bullish"
+    },
+    {
+      "id": "trade_20260222_045044_155e",
+      "symbol": "BONK",
+      "size": 77.06858256738072,
+      "direction": "bullish"
+    },
+    {
+      "id": "trade_20260222_053007_db58",
+      "symbol": "BOME",
+      "size": 88.47450158048288,
+      "direction": "bearish"
+    },
+    {
+      "id": "trade_20260222_061319_5dbb",
+      "symbol": "BONK",
+      "size": 95.00689713250435,
+      "direction": "bullish"
+    },
+    {
+      "id": "trade_20260222_064842_c9eb",
+      "symbol": "BONK",
+      "size": 99.35907952940836,
+      "direction": "bullish"
+    },
+    {
+      "id": "trade_20260222_074925_65f7",
+      "symbol": "BONK",
+      "size": 104.08609406211637,
+      "direction": "bullish"
+    },
+    {
+      "id": "trade_20260222_081952_b052",
+      "symbol": "MEW",
+      "size": 134.8200831775661,
+      "direction": "bearish"
+    },
+    {
+      "id": "trade_20260222_081952_6686",
+      "symbol": "PNUT",
+      "size": 143.63454407575838,
+      "direction": "bullish"
+    },
+    {
+      "id": "trade_20260222_082311_f347",
+      "symbol": "POPCAT",
+      "size": 130.51886338281182,
+      "direction": "bullish"
+    },
+    {
+      "id": "trade_20260222_082311_d709",
+      "symbol": "PNUT",
+      "size": 140.04801018471247,
+      "direction": "bearish"
+    },
+    {
+      "id": "trade_20260222_082611_b435",
+      "symbol": "ORCA",
+      "size": 134.79889081037902,
+      "direction": "bullish"
     }
   ],
-  "last_update": "2026-02-19T08:14:44.356530"
+  "last_update": "2026-02-22T08:26:11.616984"
 }

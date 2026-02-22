@@ -168,6 +168,69 @@ class LoggingConfig:
 
 
 @dataclass
+class WebSocketConfig:
+    """WebSocket real-time price configuration"""
+    enabled: bool = False
+    provider: str = "binance"  # binance, jupiter
+    
+    # Connection
+    reconnect_delay: int = 5  # seconds
+    max_reconnect_attempts: int = 10
+    ping_interval: int = 30
+    
+    # Buffer
+    price_buffer_size: int = 100
+    
+    # Trading pairs to track
+    tracked_pairs: list = field(default_factory=lambda: ["SOL/USDT", "SOL/USDC"])
+
+
+@dataclass
+class JitoConfig:
+    """Jito bundle configuration for MEV protection"""
+    enabled: bool = False
+    
+    # Block Engine
+    block_engine_url: str = "https://mainnet.block-engine.jito.ai"
+    auth_key: str = ""  # Your Jito auth key
+    
+    # Tip settings (in lamports)
+    tip_amount: int = 1000  # 0.001 SOL - minimum recommended
+    tip_amount_max: int = 5000  # 0.005 SOL
+    
+    # Bundle settings
+    max_bundle_size: int = 5
+    bundle_timeout_ms: int = 10000
+    
+    # Fallback
+    fallback_to_regular: bool = True
+
+
+@dataclass
+class MonteCarloConfig:
+    """Monte Carlo analysis configuration"""
+    enabled: bool = False
+    
+    # Simulation parameters
+    initial_balance: float = 10000.0
+    num_simulations: int = 10000
+    random_seed: int = 42
+    
+    # When to run
+    run_on_trade: bool = False  # After each trade
+    run_on_schedule: bool = True  # On schedule
+    schedule_interval_minutes: int = 60
+    
+    # Risk thresholds
+    max_risk_of_ruin: float = 0.05  # 5% max
+    min_confidence_level: float = 0.95  # 95%
+    
+    # Save results
+    save_results: bool = True
+    results_dir: str = "data/monte_carlo"
+
+
+@dataclass
 class SecurityConfig:
     """Security configuration"""
     encryption_key_path: str = "~/.config/solana-jupiter-bot/encryption.key"
@@ -194,6 +257,11 @@ class Config:
         self.minimax = MiniMaxConfig()
         self.logging = LoggingConfig()
         self.security = SecurityConfig()
+        
+        # NEW: Advanced trading features
+        self.websocket = WebSocketConfig()
+        self.jito = JitoConfig()
+        self.monte_carlo = MonteCarloConfig()
         
         # Load from file if provided
         if config_file:

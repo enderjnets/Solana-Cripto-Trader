@@ -1,0 +1,28 @@
+{
+  "simulations": 500,
+  "initial_balance": 10000.0,
+  "mean_balance": 11502.672289616165,
+  "median_balance": 11453.615992356708,
+  "std_balance": 792.3192494958062,
+  "p10_balance": 10495.942992611117,
+  "p50_balance": 11453.615992356708,
+  "p90_balance": 12563.328546778803,
+  "p95_balance": 12769.412758694403,
+  "p99_balance": 13242.809942609561,
+  "mean_drawdown": 2.9962313088207635,
+  "p95_drawdown": 6.055501220960013,
+  "p99_drawdown": 7.784461184514152,
+  "risk_of_ruin": {
+    "probability_ruin": 6.580612223279984e-23,
+    "probability_survival": 1.0,
+    "expected_trades_to_ruin": Infinity,
+    "mean_return": 1.0285714285714287,
+    "std_return": 1.9039164790461987,
+    "risk_per_trade_percent": 4.836404386663826,
+    "recommendation": "\ud83d\udfe2 EXCELENTE: Riesgo de ruina muy bajo (<1%)"
+  },
+  "profit_factor_expected": 1.1502672289616165,
+  "timestamp": "2026-02-20T08:43:30.212529",
+  "num_trades": 14,
+  "method": "bootstrap"
+}
