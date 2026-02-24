@@ -1,6 +1,6 @@
 {
   "daily_pnl": -4.882938512762182,
-  "daily_trades": 50,
+  "daily_trades": 53,
   "daily_start_balance": 500.0,
   "open_trades": [
     {
@@ -307,7 +307,25 @@
       "symbol": "BONK",
       "size": 22.023012089959707,
       "direction": "bullish"
+    },
+    {
+      "id": "trade_20260224_100250_717e",
+      "symbol": "BONK",
+      "size": 19.981924133071058,
+      "direction": "bullish"
+    },
+    {
+      "id": "trade_20260224_100250_c05d",
+      "symbol": "JTO",
+      "size": 27.23067268709742,
+      "direction": "bullish"
+    },
+    {
+      "id": "trade_20260224_100250_e0fd",
+      "symbol": "ORCA",
+      "size": 17.750478616013744,
+      "direction": "bullish"
     }
   ],
-  "last_update": "2026-02-24T09:53:45.229919"
+  "last_update": "2026-02-24T10:02:50.840043"
 }

@@ -33,7 +33,6 @@ def reset_paper_trading():
         "balance_usd": current_balance,
         "trades": [],  # Cerrar todas las posiciones
         "stats": current_stats,  # Mantener estadísticas
-        "last_trade_time": None,
         "daily_stats": {
             "total_pnl": 0,
             "trades_closed": 0,
