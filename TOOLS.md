@@ -1,0 +1,233 @@
+# TOOLS.md - Configuración Local y Herramientas Específicas
+
+## Configuración Personal del Sistema
+
+### Información del Hardware
+- **Hostname**: ender-rog
+- **OS**: Ubuntu/Debian 25.10
+- **Kernel**: Linux 6.17.0-14-generic
+- **Arquitectura**: x64
+
+### Recursos del Sistema
+- **CPU**: [Verificar con `lscpu`]
+- **RAM**: [Verificar con `free -h`]
+- **Almacenamiento**: [Verificar con `df -h`]
+
+## Herramientas de Desarrollo
+
+### Python
+- **Versión**: Python 3.x
+- **Entornos Virtuales**:
+  - `~/mt5_env/` - Para automatización MT5
+  - Ubicación de scripts: `~/mt5_automation/`
+- **Paquetes Principales**: [Ver requirements.txt]
+
+### Node.js
+- **Versión**: v22.22.0
+- **NPM**: Disponible globalmente
+- **OpenClaw**: Instalado en `/usr/lib/node_modules/openclaw/`
+
+### Git
+- **Usuario**: enderjnets
+- **Repositorios**: GitHub configurado
+- **Flujo**: Pull → Work → Commit → Push
+
+### Docker
+- **Estado**: Disponible
+- **Comandos**: `docker`, `docker-compose`
+- **Uso**: Contenedores cuando sea necesario
+
+## Configuración de Red
+
+### SSH
+- **Servicio**: Habilitado
+- **Configuración**: ~/.ssh/
+- **Hosts Conocidos**: [Agregar según necesidad]
+
+### Conexiones Activas
+- **API MiniMax**: Conectada
+- **Brave Search**: Configurada
+- **MT5 (Alpari)**: Demo account 52786589
+
+## Herramientas de Trading
+
+### MetaTrader 5 (MT5)
+- **Instalación**: Wine → Xvfb (headless)
+- **Estado**: Limitado (Wine inestable)
+- **Cuenta Demo**: 52786589
+- **Broker**: Alpari
+- **Símbolos**: NAS100, NY200, cripto
+- **Automatización**: Esperando VM Windows
+
+### Scripts de Automatización
+- **Backtester Nativo**: Python (funcionando)
+- **Optimizer**: `ftmo_optimizer_v2.py`
+- **Download Scripts**: En RESEARCH/
+
+## Virtualización
+
+### VirtualBox
+- **Versión**: 7.2.2
+- **Estado**: Instalado pero bloqueado
+- **Problema**: Secure Boot impide cargar vboxdrv
+- **ISO**: `~/Downloads/Win11_25H2_English_x64.iso` (7.7 GB)
+
+### Estado de VM
+- **Windows 11**: Creada pero no operativa
+- **Próximo Paso**: Firmar módulo o deshabilitar Secure Boot
+
+## Preferencias de Terminal
+
+### Shell
+- **Default**: bash
+- **Prompt**: Personalizado según sistema
+- **History**: Habilitado
+
+### Editores
+- **Edición Rápida**: vim/nano
+- **Proyectos Grandes**: VS Code
+- **Configuración**: ~/.vimrc, ~/.nanorc
+
+### Utilidades Útiles
+- **ls, cd, cp, mv, rm**: Comandos básicos
+- **grep, find, awk, sed**: Procesamiento de texto
+- **jq, yq**: JSON/YAML parsing
+- **curl, wget**: Descargas HTTP
+- **rsync**: Sincronización
+
+## Integraciones de Mensajería
+
+### Telegram
+- **Cuenta**: @Enderjh
+- **ID**: 771213858
+- **Capacidades**: 
+  - Mensajes de texto
+  - Reacciones
+  - Comandos
+  - Media (imágenes, documentos)
+
+### Canales Potenciales
+- **WhatsApp**: Pendiente configuración
+- **Discord**: Pendiente configuración
+- **Signal**: Pendiente configuración
+
+## Configuración de APIs
+
+### APIs Configuradas
+- **MiniMax**: API_KEY en config
+- **Brave Search**: API_KEY en config
+- **MT5**: Credenciales en ~/.mt5/
+
+### APIs Pendientes
+- ⏳ X (Twitter) API
+- ⏳ Exchanges de criptomonedas
+- ⏳ APIs de clima (opcional)
+
+## Habilidades y Skills
+
+### Skills Instaladas
+- **coding-agent**: Control de agentes de código
+- **healthcheck**: Auditoría de seguridad
+- **skill-creator**: Creación de nuevas skills
+- **video-frames**: Extracción de video
+- **weather**: Información meteorológica
+
+### Skills Personalizadas
+- [Agregar según desarrollo]
+
+## Monitoreo y Logs
+
+### Logs del Sistema
+- **OpenClaw**: ~/.openclaw/logs/
+- **MT5**: ~/.mt5/logs/
+- **Docker**: `docker logs` si aplicable
+
+### Comandos de Monitoreo
+```bash
+# Sistema
+htop          # CPU y RAM
+iotop         # I/O de disco
+nethtop       # Uso de red
+
+# OpenClaw
+openclaw status    # Estado general
+openclaw gateway   # Gestión de gateway
+
+# Docker
+docker ps          # Contenedores activos
+docker stats       # Métricas
+```
+
+## Audio y Multimedia
+
+### TTS (Text-to-Speech)
+- **Habilitado**: Sí
+- **Proveedor**: ElevenLabs (sag)
+- **Voz Preferida**: Nova (cálida, ligeramente británica)
+- **Speaker Default**: [Por determinar]
+
+### Reproducción
+- **Comando**: afplay (macOS) o mplayer (Linux)
+- **Ubicación**: ~/.openclaw/media/
+
+## Accesos Directos y Alias
+
+### Alias de Bash Útiles
+```bash
+# OpenClaw
+alias ocs='openclaw status'
+alias ocg='openclaw gateway'
+
+# Sistema
+alias ll='ls -la'
+alias grep='grep --color=auto'
+
+# Python
+alias ve='source ~/mt5_env/bin/activate'
+
+# Git
+alias gs='git status'
+alias gl='git log --oneline'
+```
+
+## Notas de Seguridad
+
+### Archivos Sensibles
+- ~/.mt5/ - Credenciales MT5
+- ~/.ssh/ - Keys SSH
+- ~/.openclaw/config/ - Configuraciones con API keys
+
+### Permisos
+- Scripts ejecutables: Verificar antes de ejecutar
+- Downloads: Escanear antes de abrir
+- Ejecutables: Solo de fuentes confiables
+
+## Calendario y Recordatorios
+
+### Eventos Regulares
+- [Por configurar]
+
+### Días Festivos (Denver)
+- [Por agregar al calendario]
+
+## Contactos de Emergencia
+
+### Auto-diagnóstico
+- **Comando**: `openclaw status`
+- **Logs**: ~/.openclaw/logs/
+
+### Reinicio de Servicios
+- **Gateway**: `openclaw gateway restart`
+- **Sistema**: `systemctl restart openclaw` (si instalado)
+
+## Changelog de Configuración
+
+### Actualizaciones Recientes
+- **2026-02-12**: Documento de optimización aplicado
+- **2026-02-12**: SOUL.md actualizado con personalidad expandida
+- **2026-02-12**: IDENTITY.md actualizado con información completa
+- **2026-02-12**: HEARTBEAT.md implementado con tareas proactivas
+- **2026-02-12**: TOOLS.md creado con configuración detallada
+
+### Próximas Actualizaciones
+- [Agregar según necesidad]

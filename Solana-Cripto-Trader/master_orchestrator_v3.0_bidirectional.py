@@ -74,28 +74,6 @@ class MasterState:
         if STATE_FILE.exists():
             with open(STATE_FILE) as f:
                 self.data = json.load(f)
-
-            # 🔧 V3.1: Migrate stats structure if missing
-            stats = self.data.get("stats", {})
-            if "total_fees" not in stats:
-                stats["total_fees"] = 0.0
-            if "total_borrowing_fees" not in stats:
-                stats["total_borrowing_fees"] = 0.0
-            if "total_funding_received" not in stats:
-                stats["total_funding_received"] = 0.0
-            if "total_funding_paid" not in stats:
-                stats["total_funding_paid"] = 0.0
-            self.data["stats"] = stats
-
-            # 🔧 V3.1: Migrate drift_simulation if missing
-            if "drift_simulation" not in self.data:
-                self.data["drift_simulation"] = {
-                    "leverage": LEVERAGE,
-                    "trading_fee_pct": TRADING_FEE_PCT,
-                    "liquidation_threshold": LIQUIDATION_THRESHOLD,
-                    "borrowing_fee_hourly": BORROWING_FEE_HOURLY,
-                    "funding_rate_pct": FUNDING_RATE_PCT
-                }
         else:
             self.data = self._default()
 
