@@ -1,0 +1,408 @@
+{
+  "enabled": true,
+  "start_time": "2026-02-24T06:51:03.801525",
+  "balance_usd": 327.78746937452524,
+  "initial_balance": 700.0,
+  "leverage": 1,
+  "margin_used": 150.05040751505757,
+  "trades": [
+    {
+      "id": "trade_20260222_165031_a501",
+      "entry_time": "2026-02-22T16:50:31.201765",
+      "entry_price": 1.01479981388091,
+      "direction": "bullish",
+      "size": 28.7475,
+      "symbol": "ORCA",
+      "status": "closed",
+      "exit_time": "2026-02-22T17:47:18.777466",
+      "exit_price": 0.98156256766698,
+      "pnl": -0.96,
+      "pnl_pct": -3.28,
+      "reason": "STOP_LOSS"
+    },
+    {
+      "id": "trade_20260222_165031_0e2d",
+      "entry_time": "2026-02-22T16:50:31.300441",
+      "entry_price": 0.002017574312005521,
+      "direction": "bearish",
+      "size": 28.904169053512494,
+      "symbol": "PUMP",
+      "status": "closed",
+      "exit_time": "2026-02-22T17:50:19.421264",
+      "exit_price": 0.001999547140648246,
+      "pnl": 0.24,
+      "pnl_pct": 0.89,
+      "reason": "PORTFOLIO_TAKE_PROFIT"
+    },
+    {
+      "id": "trade_20260222_165031_e6d9",
+      "entry_time": "2026-02-22T16:50:31.345675",
+      "entry_price": 0.302886725945676,
+      "direction": "bullish",
+      "size": 43.812473992120424,
+      "symbol": "JTO",
+      "status": "closed",
+      "exit_time": "2026-02-22T17:53:35.829703",
+      "exit_price": 0.30992065389021,
+      "pnl": 1.0,
+      "pnl_pct": 2.32,
+      "reason": "PORTFOLIO_TAKE_PROFIT"
+    },
+    {
+      "id": "trade_20260222_165031_ca7e",
+      "entry_time": "2026-02-22T16:50:31.391193",
+      "entry_price": 6.585789138599343e-06,
+      "direction": "bullish",
+      "size": 28.114647081957916,
+      "symbol": "WEN",
+      "status": "closed",
+      "exit_time": "2026-02-22T18:06:15.622369",
+      "exit_price": 6.544033949669602e-06,
+      "pnl": -0.19,
+      "pnl_pct": -0.63,
+      "reason": "PORTFOLIO_TAKE_PROFIT"
+    },
+    {
+      "id": "trade_20260222_165031_9587",
+      "entry_time": "2026-02-22T16:50:31.459156",
+      "entry_price": 0.0003895442571013747,
+      "direction": "bearish",
+      "size": 30.843502818271542,
+      "symbol": "BOME",
+      "status": "closed",
+      "exit_time": "2026-02-22T18:09:16.167418",
+      "exit_price": 0.0003783050708015461,
+      "pnl": 0.87,
+      "pnl_pct": 2.89,
+      "reason": "PORTFOLIO_TAKE_PROFIT"
+    },
+    {
+      "id": "trade_20260224_095042_69bc",
+      "entry_time": "2026-02-24T09:50:42.865120",
+      "entry_price": 0.284228013058783,
+      "direction": "bullish",
+      "size": 42.28095444819781,
+      "symbol": "JTO",
+      "status": "open",
+      "exit_time": null,
+      "exit_price": null,
+      "pnl": 0.0,
+      "pnl_pct": 0.0,
+      "reason": "High volume: 1.5x normal; Bullish trend: 40% strength; RSI oversold: 21.2 < 35; ML Score: 41%"
+    },
+    {
+      "id": "trade_20260224_095042_e9b7",
+      "entry_time": "2026-02-24T09:50:42.969724",
+      "entry_price": 0.001777774229272443,
+      "direction": "bullish",
+      "size": 25.868747783666834,
+      "symbol": "PUMP",
+      "status": "open",
+      "exit_time": null,
+      "exit_price": null,
+      "pnl": 0.0,
+      "pnl_pct": 0.0,
+      "reason": "High volume: 1.5x normal; Bearish trend: 47% strength; ML Score: 14%"
+    },
+    {
+      "id": "trade_20260224_095343_8e40",
+      "entry_time": "2026-02-24T09:53:43.521235",
+      "entry_price": 0.284228013058783,
+      "direction": "bullish",
+      "size": 36.248735689666525,
+      "symbol": "JTO",
+      "status": "open",
+      "exit_time": null,
+      "exit_price": null,
+      "pnl": 0.0,
+      "pnl_pct": 0.0,
+      "reason": "High volume: 1.5x normal; Bullish trend: 40% strength; RSI oversold: 21.2 < 35; ML Score: 41%"
+    },
+    {
+      "id": "trade_20260224_095344_5f7c",
+      "entry_time": "2026-02-24T09:53:44.373990",
+      "entry_price": 0.001777774229272443,
+      "direction": "bullish",
+      "size": 23.628957503566713,
+      "symbol": "PUMP",
+      "status": "open",
+      "exit_time": null,
+      "exit_price": null,
+      "pnl": 0.0,
+      "pnl_pct": 0.0,
+      "reason": "High volume: 1.5x normal; Bearish trend: 47% strength; ML Score: 17%"
+    },
+    {
+      "id": "trade_20260224_095345_84f7",
+      "entry_time": "2026-02-24T09:53:45.228598",
+      "entry_price": 5.86002137745141e-06,
+      "direction": "bullish",
+      "size": 22.023012089959707,
+      "symbol": "BONK",
+      "status": "open",
+      "exit_time": null,
+      "exit_price": null,
+      "pnl": 0.0,
+      "pnl_pct": 0.0,
+      "reason": "High volume: 1.5x normal; RSI oversold: 29.3 < 35; ML Score: 17%"
+    }
+  ],
+  "stats": {
+    "total_trades": 17,
+    "winning_trades": 10,
+    "losing_trades": 7,
+    "total_pnl": 0.22269833070525435,
+    "total_fees": 0.492031861551874,
+    "liquidations": 0,
+    "win_rate": 58.82352941176471,
+    "max_drawdown": 0.0,
+    "current_streak": 2,
+    "best_streak": 2,
+    "worst_streak": 0
+  },
+  "signals": [
+    {
+      "time": "2026-02-22T16:50:31.201765",
+      "symbol": "ORCA",
+      "direction": "bullish",
+      "price": 1.01479981388091,
+      "size": 28.7475,
+      "reason": "High volume: 1.5x normal; Bearish trend: 50% strength; Drop detected: -5.0% 24h; ML Score: 12%",
+      "trade_id": "trade_20260222_165031_a501"
+    },
+    {
+      "time": "2026-02-22T16:50:31.300441",
+      "symbol": "PUMP",
+      "direction": "bearish",
+      "price": 0.002017574312005521,
+      "size": 28.904169053512494,
+      "reason": "High volume: 1.5x normal; Bearish trend: 47% strength; ML Score: 12%",
+      "trade_id": "trade_20260222_165031_0e2d"
+    },
+    {
+      "time": "2026-02-22T16:50:31.345675",
+      "symbol": "JTO",
+      "direction": "bullish",
+      "price": 0.302886725945676,
+      "size": 43.812473992120424,
+      "reason": "High volume: 1.5x normal; Bearish trend: 40% strength; RSI oversold: 21.5 < 35; ML Score: 41%",
+      "trade_id": "trade_20260222_165031_e6d9"
+    },
+    {
+      "time": "2026-02-22T16:50:31.391193",
+      "symbol": "WEN",
+      "direction": "bullish",
+      "price": 6.585789138599343e-06,
+      "size": 28.114647081957916,
+      "reason": "High volume: 1.5x normal; Bearish trend: 45% strength; ML Score: 11%",
+      "trade_id": "trade_20260222_165031_ca7e"
+    },
+    {
+      "time": "2026-02-22T16:50:31.459156",
+      "symbol": "BOME",
+      "direction": "bearish",
+      "price": 0.0003895442571013747,
+      "size": 30.843502818271542,
+      "reason": "High volume: 1.5x normal; Bearish trend: 43% strength; ML Score: 16%",
+      "trade_id": "trade_20260222_165031_9587"
+    },
+    {
+      "time": "2026-02-22T18:12:42.506082",
+      "symbol": "BONK",
+      "direction": "bullish",
+      "price": 5.87884865331638e-06,
+      "size": 13.738667112147063,
+      "reason": "High volume: 1.5x normal; Bearish trend: 59% strength; Drop detected: -5.9% 24h; RSI oversold: 29.5 < 35; ML Score: 16%",
+      "trade_id": "trade_20260222_181242_066c"
+    },
+    {
+      "time": "2026-02-23T00:27:43.694426",
+      "symbol": "WIF",
+      "direction": "bearish",
+      "price": 0.206356694055807,
+      "size": 24.834479853507315,
+      "reason": "High volume: 1.5x normal; Bearish trend: 51% strength; Drop detected: -5.1% 24h; RSI overbought: 89.6 > 65; ML Score: 74%",
+      "trade_id": "trade_20260223_002743_621d"
+    },
+    {
+      "time": "2026-02-23T09:11:25.941386",
+      "symbol": "SOL",
+      "direction": "bearish",
+      "price": 78.7596415905521,
+      "size": 21.492929150030637,
+      "reason": "High volume: 1.5x normal; Bearish trend: 57% strength; Drop detected: -5.7% 24h; RSI overbought: 79.9 > 65; ML Score: 45%",
+      "trade_id": "trade_20260223_091125_e89f"
+    },
+    {
+      "time": "2026-02-23T18:20:29.727150",
+      "symbol": "JTO",
+      "direction": "bullish",
+      "price": 0.27430011817371,
+      "size": 21.438528137725896,
+      "reason": "High volume: 1.5x normal; Bearish trend: 66% strength; Drop detected: -6.6% 24h; RSI oversold: 21.0 < 35; ML Score: 42%",
+      "trade_id": "trade_20260223_182029_b1ff"
+    },
+    {
+      "time": "2026-02-23T18:39:24.323561",
+      "symbol": "BONK",
+      "direction": "bullish",
+      "price": 5.87950452525816e-06,
+      "size": 15.62368962740137,
+      "reason": "High volume: 1.5x normal; Bullish trend: 40% strength; RSI oversold: 29.3 < 35; ML Score: 17%",
+      "trade_id": "trade_20260223_183924_55c8"
+    },
+    {
+      "time": "2026-02-23T19:25:41.758898",
+      "symbol": "JTO",
+      "direction": "bullish",
+      "price": 0.276209283107847,
+      "size": 81.265585568323,
+      "reason": "High volume: 1.5x normal; Bearish trend: 56% strength; Drop detected: -5.6% 24h; RSI oversold: 21.1 < 35; ML Score: 42%",
+      "trade_id": "trade_20260223_192541_d2a6"
+    },
+    {
+      "time": "2026-02-23T19:25:41.838862",
+      "symbol": "MEW",
+      "direction": "bearish",
+      "price": 0.000570400779879073,
+      "size": 50.22173696601602,
+      "reason": "High volume: 1.5x normal; Bullish trend: 40% strength; ML Score: 16%",
+      "trade_id": "trade_20260223_192541_a69c"
+    },
+    {
+      "time": "2026-02-23T19:31:18.365445",
+      "symbol": "MEW",
+      "direction": "bullish",
+      "price": 0.000572183070661801,
+      "size": 45.15233365499999,
+      "reason": "High volume: 1.5x normal; Bullish trend: 40% strength; ML Score: 17%",
+      "trade_id": "trade_20260223_193118_7e7e"
+    },
+    {
+      "time": "2026-02-23T19:31:18.411170",
+      "symbol": "BOME",
+      "direction": "bearish",
+      "price": 0.0003782927514673641,
+      "size": 37.57957974425767,
+      "reason": "High volume: 1.5x normal; Bullish trend: 40% strength; ML Score: 11%",
+      "trade_id": "trade_20260223_193118_08c7"
+    },
+    {
+      "time": "2026-02-23T21:42:11.727585",
+      "symbol": "WEN",
+      "direction": "bearish",
+      "price": 5.930918389637199e-06,
+      "size": 37.668833031801995,
+      "reason": "High volume: 1.5x normal; Bearish trend: 82% strength; Drop detected: -8.2% 24h; ML Score: 14%",
+      "trade_id": "trade_20260223_214211_1cbe"
+    },
+    {
+      "time": "2026-02-23T22:52:53.732992",
+      "symbol": "BONK",
+      "direction": "bullish",
+      "price": 5.74892192402065e-06,
+      "size": 40.736102471498356,
+      "reason": "High volume: 1.5x normal; Bearish trend: 40% strength; RSI oversold: 29.2 < 35; ML Score: 18%",
+      "trade_id": "trade_20260223_225253_0a1c"
+    },
+    {
+      "time": "2026-02-24T05:51:34.300284",
+      "symbol": "PUMP",
+      "direction": "bullish",
+      "price": 0.00174539997128005,
+      "size": 35.81586203944949,
+      "reason": "High volume: 1.5x normal; Bearish trend: 100% strength; Drop detected: -10.2% 24h; ML Score: 11%",
+      "trade_id": "trade_20260224_055134_9b61"
+    },
+    {
+      "time": "2026-02-24T08:20:14.781062",
+      "symbol": "JTO",
+      "direction": "bullish",
+      "price": 0.284420192699607,
+      "size": 62.143749762851286,
+      "reason": "High volume: 1.5x normal; Bullish trend: 40% strength; RSI oversold: 21.1 < 35; ML Score: 42%",
+      "trade_id": "trade_20260224_082014_fa97"
+    },
+    {
+      "time": "2026-02-24T08:20:14.845014",
+      "symbol": "BONK",
+      "direction": "bullish",
+      "price": 5.88790038023246e-06,
+      "size": 40.21717161220219,
+      "reason": "High volume: 1.5x normal; RSI oversold: 29.3 < 35; ML Score: 17%",
+      "trade_id": "trade_20260224_082014_3c8e"
+    },
+    {
+      "time": "2026-02-24T08:23:32.406214",
+      "symbol": "BONK",
+      "direction": "bullish",
+      "price": 5.87984155094894e-06,
+      "size": 37.679808722915794,
+      "reason": "High volume: 1.5x normal; RSI oversold: 29.3 < 35; ML Score: 17%",
+      "trade_id": "trade_20260224_082332_18be"
+    },
+    {
+      "time": "2026-02-24T08:23:32.447971",
+      "symbol": "JTO",
+      "direction": "bullish",
+      "price": 0.281882225082868,
+      "size": 49.70401678299221,
+      "reason": "High volume: 1.5x normal; RSI oversold: 21.1 < 35; ML Score: 42%",
+      "trade_id": "trade_20260224_082332_f620"
+    },
+    {
+      "time": "2026-02-24T08:26:33.022595",
+      "symbol": "BONK",
+      "direction": "bullish",
+      "price": 5.87984155094894e-06,
+      "size": 32.16662947449503,
+      "reason": "High volume: 1.5x normal; RSI oversold: 29.3 < 35; ML Score: 17%",
+      "trade_id": "trade_20260224_082633_2df4"
+    },
+    {
+      "time": "2026-02-24T09:50:42.865120",
+      "symbol": "JTO",
+      "direction": "bullish",
+      "price": 0.284228013058783,
+      "size": 42.28095444819781,
+      "reason": "High volume: 1.5x normal; Bullish trend: 40% strength; RSI oversold: 21.2 < 35; ML Score: 41%",
+      "trade_id": "trade_20260224_095042_69bc"
+    },
+    {
+      "time": "2026-02-24T09:50:42.969724",
+      "symbol": "PUMP",
+      "direction": "bullish",
+      "price": 0.001777774229272443,
+      "size": 25.868747783666834,
+      "reason": "High volume: 1.5x normal; Bearish trend: 47% strength; ML Score: 14%",
+      "trade_id": "trade_20260224_095042_e9b7"
+    },
+    {
+      "time": "2026-02-24T09:53:43.521235",
+      "symbol": "JTO",
+      "direction": "bullish",
+      "price": 0.284228013058783,
+      "size": 36.248735689666525,
+      "reason": "High volume: 1.5x normal; Bullish trend: 40% strength; RSI oversold: 21.2 < 35; ML Score: 41%",
+      "trade_id": "trade_20260224_095343_8e40"
+    },
+    {
+      "time": "2026-02-24T09:53:44.373990",
+      "symbol": "PUMP",
+      "direction": "bullish",
+      "price": 0.001777774229272443,
+      "size": 23.628957503566713,
+      "reason": "High volume: 1.5x normal; Bearish trend: 47% strength; ML Score: 17%",
+      "trade_id": "trade_20260224_095344_5f7c"
+    },
+    {
+      "time": "2026-02-24T09:53:45.228598",
+      "symbol": "BONK",
+      "direction": "bullish",
+      "price": 5.86002137745141e-06,
+      "size": 22.023012089959707,
+      "reason": "High volume: 1.5x normal; RSI oversold: 29.3 < 35; ML Score: 17%",
+      "trade_id": "trade_20260224_095345_84f7"
+    }
+  ]
+}

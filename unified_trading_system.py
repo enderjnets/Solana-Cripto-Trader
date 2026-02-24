@@ -1436,13 +1436,32 @@ class UnifiedTradingSystem:
             
             # 2. Generate ML signals
             signals = self.generate_ml_signals(opportunities)
-            
-            # 3. Process high-confidence signals
+
+            # ====== FIX: Check concurrent limit BEFORE processing signals ======
+            open_trades = self.paper_engine.get_open_trades()
+            profile = self.get_trading_params()
+            max_concurrent = profile.get("max_concurrent_positions", profile.get("max_concurrent", 5))
+            slots_available = max_concurrent - len(open_trades)
+
+            if slots_available <= 0:
+                logger.info(f"⏸️ No slots available ({len(open_trades)}/{max_concurrent}), skipping cycle")
+            else:
+                logger.info(f"🎯 Processing {len(signals)} signals, {slots_available} slots available ({len(open_trades)}/{max_concurrent})")
+            # ====================================================================
+
+            # 3. Process high-confidence signals (with limit)
+            processed_trades = 0
             for signal in signals:
+                # ====== FIX: Check if we have slots available ======
+                if processed_trades >= slots_available:
+                    logger.info(f"⚠️ Reached max concurrent ({processed_trades} trades), stopping")
+                    break
+                # ====================================================
+
                 # Skip low confidence (reduced from 30% to 5% for aggressive trading)
                 if signal["confidence"] < 10:  # Minimum 10% confidence
                     continue
-                
+
                 # Trade both bullish and bearish signals (for more opportunities)
                 if signal["direction"] in ["bullish", "bearish"]:
                     # Get entry price from opportunities or price history
@@ -1451,7 +1470,7 @@ class UnifiedTradingSystem:
                         if opp.symbol == signal["symbol"]:
                             entry_price = opp.price
                             break
-                    
+
                     # Fallback to price history if not found or zero
                     if not entry_price or entry_price == 0:
                         prices = self.ml_signal.price_history.get(signal["symbol"], [])
@@ -1459,7 +1478,7 @@ class UnifiedTradingSystem:
                             entry_price = prices[-1]
                         else:
                             entry_price = 100  # Ultimate fallback
-                    
+
                     # Create trading signal
                     trade_signal = self.create_trading_signal(
                         symbol=signal["symbol"],
@@ -1468,19 +1487,20 @@ class UnifiedTradingSystem:
                         confidence=signal["confidence"],
                         reasons=signal.get("reasons", []) + [f"ML Score: {signal['confidence']:.0f}%"]
                     )
-                    
+
                     if trade_signal:
                         # Validate with risk agent
                         if self.validate_with_risk_agent(trade_signal):
                             # Execute trade
-                            self.execute_trade(trade_signal)
-            
+                            if self.execute_trade(trade_signal):
+                                processed_trades += 1  # ====== FIX: Count processed ======
+
             # 4. Check open positions for SL/TP
             self._check_open_positions()
-            
+
             # 5. Run strategy optimizer periodically (every hour)
             self._run_optimizer_if_needed()
-            
+
             logger.info("✅ Trading cycle complete")
             
         except Exception as e:
