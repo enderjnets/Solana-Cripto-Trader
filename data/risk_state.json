@@ -1,6 +1,6 @@
 {
-  "daily_pnl": -8.74478517195808,
-  "daily_trades": 40,
+  "daily_pnl": -4.882938512762182,
+  "daily_trades": 45,
   "daily_start_balance": 500.0,
   "open_trades": [
     {
@@ -247,7 +247,37 @@
       "symbol": "PUMP",
       "size": 35.81586203944949,
       "direction": "bullish"
+    },
+    {
+      "id": "trade_20260224_082014_f41e",
+      "symbol": "JTO",
+      "size": 62.143749762851286,
+      "direction": "bullish"
+    },
+    {
+      "id": "trade_20260224_082014_53c0",
+      "symbol": "BONK",
+      "size": 40.21717161220219,
+      "direction": "bullish"
+    },
+    {
+      "id": "trade_20260224_082332_5ef5",
+      "symbol": "BONK",
+      "size": 37.679808722915794,
+      "direction": "bullish"
+    },
+    {
+      "id": "trade_20260224_082332_2b71",
+      "symbol": "JTO",
+      "size": 49.70401678299221,
+      "direction": "bullish"
+    },
+    {
+      "id": "trade_20260224_082633_f118",
+      "symbol": "BONK",
+      "size": 32.16662947449503,
+      "direction": "bullish"
     }
   ],
-  "last_update": "2026-02-24T05:51:34.300748"
+  "last_update": "2026-02-24T08:26:33.024225"
 }

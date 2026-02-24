@@ -9,6 +9,7 @@ PROJECT_DIR="/home/enderj/.openclaw/workspace/solana-jupiter-bot"
 LOG_FILE="/tmp/trading_wrapper.log"
 BOT_LOG="/tmp/trading_bot.log"
 NOTIFICATION_LOG="$PROJECT_DIR/data/notifications.log"
+WRAPPER_PID_FILE="/tmp/trading_wrapper.pid"
 MAX_RESTARTS=5
 RESTART_WINDOW=300  # 5 minutes in seconds
 
@@ -16,6 +17,23 @@ RESTART_WINDOW=300  # 5 minutes in seconds
 RESTART_COUNT=0
 LAST_RESTART=0
 GRACEFUL_SHUTDOWN=false
+
+# Check if wrapper is already running
+if [ -f "$WRAPPER_PID_FILE" ]; then
+    OLD_PID=$(cat "$WRAPPER_PID_FILE")
+    if ps -p "$OLD_PID" > /dev/null 2>&1; then
+        echo "✅ Trading bot wrapper is already running (PID: $OLD_PID)"
+        echo "   To stop it: kill $OLD_PID"
+        echo "   To restart: kill $OLD_PID && ./trading_wrapper.sh"
+        exit 0
+    else
+        echo "⚠️  Stale PID file found, cleaning up..."
+        rm -f "$WRAPPER_PID_FILE"
+    fi
+fi
+
+# Save our PID
+echo $$ > "$WRAPPER_PID_FILE"
 
 # Graceful shutdown handler
 shutdown_handler() {
