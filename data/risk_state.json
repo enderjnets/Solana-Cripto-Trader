@@ -1,6 +1,6 @@
 {
-  "daily_pnl": -3.6755308424752466,
-  "daily_trades": 28,
+  "daily_pnl": -8.74478517195808,
+  "daily_trades": 40,
   "daily_start_balance": 500.0,
   "open_trades": [
     {
@@ -175,7 +175,79 @@
       "symbol": "BOME",
       "size": 30.843502818271542,
       "direction": "bearish"
+    },
+    {
+      "id": "trade_20260222_181242_c478",
+      "symbol": "BONK",
+      "size": 13.738667112147063,
+      "direction": "bullish"
+    },
+    {
+      "id": "trade_20260223_002743_78df",
+      "symbol": "WIF",
+      "size": 24.834479853507315,
+      "direction": "bearish"
+    },
+    {
+      "id": "trade_20260223_091125_2ec4",
+      "symbol": "SOL",
+      "size": 21.492929150030637,
+      "direction": "bearish"
+    },
+    {
+      "id": "trade_20260223_182029_06f0",
+      "symbol": "JTO",
+      "size": 21.438528137725896,
+      "direction": "bullish"
+    },
+    {
+      "id": "trade_20260223_183924_70b8",
+      "symbol": "BONK",
+      "size": 15.62368962740137,
+      "direction": "bullish"
+    },
+    {
+      "id": "trade_20260223_192541_fb4b",
+      "symbol": "JTO",
+      "size": 81.265585568323,
+      "direction": "bullish"
+    },
+    {
+      "id": "trade_20260223_192541_34f1",
+      "symbol": "MEW",
+      "size": 50.22173696601602,
+      "direction": "bearish"
+    },
+    {
+      "id": "trade_20260223_193118_8cfd",
+      "symbol": "MEW",
+      "size": 45.15233365499999,
+      "direction": "bullish"
+    },
+    {
+      "id": "trade_20260223_193118_3a25",
+      "symbol": "BOME",
+      "size": 37.57957974425767,
+      "direction": "bearish"
+    },
+    {
+      "id": "trade_20260223_214211_f298",
+      "symbol": "WEN",
+      "size": 37.668833031801995,
+      "direction": "bearish"
+    },
+    {
+      "id": "trade_20260223_225253_1441",
+      "symbol": "BONK",
+      "size": 40.736102471498356,
+      "direction": "bullish"
+    },
+    {
+      "id": "trade_20260224_055134_03e6",
+      "symbol": "PUMP",
+      "size": 35.81586203944949,
+      "direction": "bullish"
     }
   ],
-  "last_update": "2026-02-22T16:50:31.459895"
+  "last_update": "2026-02-24T05:51:34.300748"
 }
