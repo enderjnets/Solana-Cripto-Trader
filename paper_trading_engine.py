@@ -95,10 +95,9 @@ class PaperTradingEngine:
                 if trade.get("exit_time"):
                     trade["exit_time"] = datetime.fromisoformat(trade["exit_time"])
             # FIXED: Don't change initial_balance - it should stay fixed
-            # Calculate margin_used from open trades if not set
-            if data.get("margin_used", 0) == 0:
-                open_trades = [t for t in data.get("trades", []) if t.get("status") == "open"]
-                data["margin_used"] = sum(t.get("margin", t.get("size", 0)) for t in open_trades)
+            # ALWAYS recalculate margin_used from open trades (fix for corrupted values)
+            open_trades = [t for t in data.get("trades", []) if t.get("status") == "open"]
+            data["margin_used"] = sum(t.get("margin", t.get("size", 0)) for t in open_trades)
             return PaperTradingState(**data)
         return PaperTradingState()
 
@@ -110,6 +109,8 @@ class PaperTradingEngine:
             "start_time": self.state.start_time.isoformat() if self.state.start_time else None,
             "balance_usd": self.state.balance_usd,
             "initial_balance": self.state.initial_balance,
+            "leverage": self.state.leverage,
+            "margin_used": self.state.margin_used,  # CRITICAL: Save margin_used
             "trades": [],
             "stats": self.state.stats.copy(),
             "signals": []
