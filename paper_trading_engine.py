@@ -94,9 +94,11 @@ class PaperTradingEngine:
                     trade["entry_time"] = datetime.fromisoformat(trade["entry_time"])
                 if trade.get("exit_time"):
                     trade["exit_time"] = datetime.fromisoformat(trade["exit_time"])
-            # FIX: Set initial_balance to current balance when loading (reset tracking point)
-            if data.get("trades"):
-                data["initial_balance"] = data.get("balance_usd", 500.0)
+            # FIXED: Don't change initial_balance - it should stay fixed
+            # Calculate margin_used from open trades if not set
+            if data.get("margin_used", 0) == 0:
+                open_trades = [t for t in data.get("trades", []) if t.get("status") == "open"]
+                data["margin_used"] = sum(t.get("margin", t.get("size", 0)) for t in open_trades)
             return PaperTradingState(**data)
         return PaperTradingState()
 
@@ -261,6 +263,7 @@ class PaperTradingEngine:
 
         # DEDUCIR MARGIN del balance (no el tamaño completo)
         self.state.margin_used += margin_required
+        self.state.balance_usd -= margin_required  # ← BUG FIX: Deduct margin from balance
 
         # Deduct entry fee (taker fee like Drift)
         entry_fee = leveraged_size * self.state.taker_fee

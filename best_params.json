@@ -1,0 +1,8 @@
+{
+  "min_confidence": 0.2,
+  "position_size_pct": 0.15,
+  "stop_loss_pct": 0.03,
+  "take_profit_pct": 0.06,
+  "max_positions": 5,
+  "min_win_rate": 0.5
+}

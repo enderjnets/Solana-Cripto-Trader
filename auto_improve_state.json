@@ -1,0 +1,142 @@
+{
+  "trades": [
+    {
+      "symbol": "ORCA",
+      "direction": "bullish",
+      "entry_price": 1.01479981388091,
+      "exit_price": 0.98156256766698,
+      "size_usd": 28.7475,
+      "pnl": -0.96,
+      "pnl_percent": -3.28,
+      "duration_seconds": 3407,
+      "confidence": 0.5,
+      "timestamp": "2026-02-23T21:38:00.786963"
+    },
+    {
+      "symbol": "PUMP",
+      "direction": "bearish",
+      "entry_price": 0.002017574312005521,
+      "exit_price": 0.001999547140648246,
+      "size_usd": 28.904169053512494,
+      "pnl": 0.24,
+      "pnl_percent": 0.89,
+      "duration_seconds": 3588,
+      "confidence": 0.5,
+      "timestamp": "2026-02-23T21:38:00.787268"
+    },
+    {
+      "symbol": "JTO",
+      "direction": "bullish",
+      "entry_price": 0.302886725945676,
+      "exit_price": 0.30992065389021,
+      "size_usd": 43.812473992120424,
+      "pnl": 1.0,
+      "pnl_percent": 2.32,
+      "duration_seconds": 3784,
+      "confidence": 0.5,
+      "timestamp": "2026-02-23T21:38:00.787644"
+    },
+    {
+      "symbol": "WEN",
+      "direction": "bullish",
+      "entry_price": 6.585789138599343e-06,
+      "exit_price": 6.544033949669602e-06,
+      "size_usd": 28.114647081957916,
+      "pnl": -0.19,
+      "pnl_percent": -0.63,
+      "duration_seconds": 4544,
+      "confidence": 0.5,
+      "timestamp": "2026-02-23T21:38:00.788360"
+    },
+    {
+      "symbol": "BOME",
+      "direction": "bearish",
+      "entry_price": 0.0003895442571013747,
+      "exit_price": 0.0003783050708015461,
+      "size_usd": 30.843502818271542,
+      "pnl": 0.87,
+      "pnl_percent": 2.89,
+      "duration_seconds": 4724,
+      "confidence": 0.5,
+      "timestamp": "2026-02-23T21:38:00.788635"
+    },
+    {
+      "symbol": "BONK",
+      "direction": "bullish",
+      "entry_price": 5.87884865331638e-06,
+      "exit_price": 5.96951705598776e-06,
+      "size_usd": 13.738667112147063,
+      "pnl": 0.21,
+      "pnl_percent": 1.54,
+      "duration_seconds": 22318,
+      "confidence": 0.5,
+      "timestamp": "2026-02-23T21:38:00.789158"
+    },
+    {
+      "symbol": "WIF",
+      "direction": "bearish",
+      "entry_price": 0.206356694055807,
+      "exit_price": 0.2022215638254455,
+      "size_usd": 24.834479853507315,
+      "pnl": 0.49,
+      "pnl_percent": 2.0,
+      "duration_seconds": 31239,
+      "confidence": 0.5,
+      "timestamp": "2026-02-23T21:38:00.789769"
+    },
+    {
+      "symbol": "SOL",
+      "direction": "bearish",
+      "entry_price": 78.7596415905521,
+      "exit_price": 76.3250489424232,
+      "size_usd": 21.492929150030637,
+      "pnl": 0.65,
+      "pnl_percent": 3.09,
+      "duration_seconds": 32763,
+      "confidence": 0.5,
+      "timestamp": "2026-02-23T21:38:00.790289"
+    },
+    {
+      "symbol": "JTO",
+      "direction": "bullish",
+      "entry_price": 0.27430011817371,
+      "exit_price": 0.279575541641915,
+      "size_usd": 21.438528137725896,
+      "pnl": 0.4,
+      "pnl_percent": 1.92,
+      "duration_seconds": 954,
+      "confidence": 0.5,
+      "timestamp": "2026-02-23T21:38:00.790753"
+    }
+  ],
+  "metrics": {
+    "total_trades": 9,
+    "wins": 7,
+    "losses": 2,
+    "total_pnl": 2.71,
+    "avg_win": 0.5514285714285714,
+    "avg_loss": -0.575,
+    "best_win": 1.0,
+    "worst_loss": -0.96,
+    "avg_confidence": 0.5,
+    "avg_duration": 11924.555555555555,
+    "win_rate": 0.7777777777777778,
+    "avg_pnl_percent": 1.1933333333333334
+  },
+  "cycles_since_retrain": 0,
+  "best_metrics": {
+    "total_trades": 8,
+    "wins": 6,
+    "losses": 2,
+    "total_pnl": 2.31,
+    "avg_win": 0.5766666666666667,
+    "avg_loss": -0.575,
+    "best_win": 1.0,
+    "worst_loss": -0.96,
+    "avg_confidence": 0.5,
+    "avg_duration": 13295.875,
+    "win_rate": 0.75,
+    "avg_pnl_percent": 1.1025
+  },
+  "last_update": "2026-02-23T21:38:00.790847"
+}
