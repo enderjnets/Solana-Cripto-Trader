@@ -1,0 +1,26 @@
+{
+  "periodo": "2026-02-25 12:35 PM - 3:53 PM MST",
+  "balance_final": 333.8572416450153,
+  "balance_inicial": 500.0,
+  "pnl": -166.14275835498472,
+  "pnl_pct": -33.22855167099694,
+  "trades_totales": 6,
+  "open_trades": 3,
+  "stats": {
+    "total_trades": 3,
+    "winning_trades": 2,
+    "losing_trades": 1,
+    "total_pnl": 0.5155734901371818,
+    "total_fees": 0.08018524692351686,
+    "liquidations": 0,
+    "win_rate": 66.66666666666666,
+    "max_drawdown": 0.0,
+    "current_streak": 2,
+    "best_streak": 2,
+    "worst_streak": 0
+  },
+  "ciclos_ejecutados": "~70 ciclos autom\u00e1ticos",
+  "uptime": "~3.5 horas (continuous mode)",
+  "correcciones_aplicadas": 8,
+  "notas": "Periodo de prueba con correcciones cr\u00edticas aplicadas"
+}
