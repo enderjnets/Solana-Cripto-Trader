@@ -1,7 +1,44 @@
 {
-  "daily_pnl": 0.0,
-  "daily_trades": 0,
+  "daily_pnl": 0.5155734901371818,
+  "daily_trades": 6,
   "daily_start_balance": 500.0,
-  "open_trades": [],
-  "last_update": "2026-02-25T12:34:20.901872"
+  "open_trades": [
+    {
+      "id": "trade_20260225_123531_5ec3",
+      "symbol": "JTO",
+      "size": 43.8675,
+      "direction": "bullish"
+    },
+    {
+      "id": "trade_20260225_125710_0c33",
+      "symbol": "PUMP",
+      "size": 66.02200446468748,
+      "direction": "bearish"
+    },
+    {
+      "id": "trade_20260225_125710_88a8",
+      "symbol": "ORCA",
+      "size": 50.48098938234623,
+      "direction": "bearish"
+    },
+    {
+      "id": "trade_20260225_141735_f90a",
+      "symbol": "JTO",
+      "size": 43.90569878751834,
+      "direction": "bullish"
+    },
+    {
+      "id": "trade_20260225_142957_977c",
+      "symbol": "PUMP",
+      "size": 66.07949487376214,
+      "direction": "bullish"
+    },
+    {
+      "id": "trade_20260225_142957_f0a0",
+      "symbol": "ORCA",
+      "size": 56.50970548734358,
+      "direction": "bullish"
+    }
+  ],
+  "last_update": "2026-02-25T14:29:57.751169"
 }

@@ -179,23 +179,59 @@
       "duration_seconds": 36918,
       "confidence": 0.5,
       "timestamp": "2026-02-24T20:21:10.073831"
+    },
+    {
+      "symbol": "JTO",
+      "direction": "bullish",
+      "entry_price": 0.300800029091527,
+      "exit_price": 0.299799953419958,
+      "size_usd": 43.8675,
+      "pnl": -0.16778087526474605,
+      "pnl_percent": -0.33247193312759116,
+      "duration_seconds": 5943,
+      "confidence": 0.5,
+      "timestamp": "2026-02-25T14:14:35.326398"
+    },
+    {
+      "symbol": "PUMP",
+      "direction": "bearish",
+      "entry_price": 0.00192755187781556,
+      "exit_price": 0.00192601044289168,
+      "size_usd": 66.02200446468748,
+      "pnl": 0.01978582497510912,
+      "pnl_percent": 0.07996853115190067,
+      "duration_seconds": 4645,
+      "confidence": 0.5,
+      "timestamp": "2026-02-25T14:14:35.329360"
+    },
+    {
+      "symbol": "ORCA",
+      "direction": "bearish",
+      "entry_price": 0.987184002914245,
+      "exit_price": 0.973713956687911,
+      "size_usd": 50.48098938234623,
+      "pnl": 0.6635685404268187,
+      "pnl_percent": 1.3644919474555226,
+      "duration_seconds": 4645,
+      "confidence": 0.5,
+      "timestamp": "2026-02-25T14:14:35.332330"
     }
   ],
   "metrics": {
-    "total_trades": 15,
-    "wins": 10,
-    "losses": 5,
-    "total_pnl": 6.057889566261963,
-    "avg_win": 0.7887384532873415,
-    "avg_loss": -0.3658989933222903,
+    "total_trades": 18,
+    "wins": 12,
+    "losses": 6,
+    "total_pnl": 6.573463056399145,
+    "avg_win": 0.7142282415229452,
+    "avg_loss": -0.33287930697936624,
     "best_win": 2.375159929730534,
     "worst_loss": -0.96,
     "avg_confidence": 0.5,
-    "avg_duration": 21691.866666666665,
+    "avg_duration": 18922.833333333332,
     "win_rate": 0.6666666666666666,
-    "avg_pnl_percent": 0.9774412672512032
+    "avg_pnl_percent": 0.8763115307915489
   },
-  "cycles_since_retrain": 4,
+  "cycles_since_retrain": 2,
   "best_metrics": {
     "total_trades": 10,
     "wins": 8,
@@ -210,5 +246,5 @@
     "win_rate": 0.8,
     "avg_pnl_percent": 1.371271311788389
   },
-  "last_update": "2026-02-24T20:21:10.074196"
+  "last_update": "2026-02-25T14:14:35.332523"
 }
