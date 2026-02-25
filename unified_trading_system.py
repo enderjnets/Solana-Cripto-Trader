@@ -1197,6 +1197,12 @@ class UnifiedTradingSystem:
         open_trades = self.paper_engine.get_open_trades()
         profile = self.get_trading_params()
         
+        # Check for duplicate token (FIXED: Only 1 trade per token)
+        symbol_trades = [t for t in open_trades if t["symbol"] == signal.symbol]
+        if len(symbol_trades) > 0:
+            logger.warning(f"⚠️ Trade rejected: Already have {len(symbol_trades)} open position(s) in {signal.symbol}")
+            return False
+        
         if len(open_trades) >= profile.get("max_concurrent_positions", profile.get("max_concurrent", 5)):
             logger.warning(f"⚠️ Max concurrent trades reached: {len(open_trades)}")
             return False

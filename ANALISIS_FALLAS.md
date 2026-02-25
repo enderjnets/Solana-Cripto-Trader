@@ -92,6 +92,15 @@ else:
 4. 🔄 Commit cambios a Git
 5. ⏳ Reiniciar sistema
 
+
+
+### 8. **Falta de Validación de Token Duplicado** (NUEVO - 2026-02-25 12:30)
+**Ubicación:** `unified_trading_system.py:1155` (función execute_trade)
+**Problema:** El sistema abría múltiples trades en el mismo token consecutivamente
+**Impacto:** 5 trades en JTO bullish abiertos en 30 minutos
+**Corrección:** Agregar validación para máximo 1 trade por token
+---
+
 ---
 
 **Generado por:** Eko 🦞
