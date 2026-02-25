@@ -507,29 +507,11 @@ def calculate_funding_rate(hours_held: float, position_size: float, fee_pct: flo
 # RESEARCHER AGENT v3.1 (Bidirectional)
 # ============================================================================
 
-# ============================================================================
-# RESEARCHER AGENT v3.2 (With Entry Filters)
-# ============================================================================
-
-"""
-🔧 MEJORAS v3.2 IMPLEMENTADAS:
-1. Confirmación de tendencia (EMA alignment + RSI filter)
-2. Filtro de volatilidad (mínimo 2% cambio en 24h)
-3. Filtro de RSI (no entrar en extremos 30-70)
-4. Límite de trades por token (máx 2 cada 4 horas)
-"""
-
 class ResearcherAgent:
-    """Investiga oportunidades de mercado con lógica bidireccional
+    """Investiga oportunidades de mercado con lógica bidireccional"""
 
-    🔧 V3.2: Mejoras implementadas
-    - Filtros de entrada (tendencia, volatilidad, RSI)
-    - Confirmación antes de generar señales
-    """
-
-    def __init__(self, state, trade_tracker=None):
+    def __init__(self, state: MasterState):
         self.state = state
-        self.trade_tracker = trade_tracker or TokenTradeTracker()
 
     async def run(self):
         self.state.data["agents"]["researcher"]["status"] = "running"
@@ -565,40 +547,31 @@ class ResearcherAgent:
             ema_slow = data.get("ema_slow", 0)
             rsi = data.get("rsi", 50)
 
-            # 🔧 V3.2: Verificar si se puede hacer trade en este token
-            if not self.trade_tracker.can_trade(token):
-                self.state.log(f"   ⚠️ {token}: Cooldown o límite de trades alcanzado - saltando")
-                continue
-
             # Bidirectional signal logic
             signal = None
             target = current
             confidence = 0.5
-            direction = LONG
 
             if market_trend == "bullish":
                 # PUMP signal - Buy on upward momentum
                 if change > 3:
-                    direction = LONG
                     signal = "pump"
-                    target = current * 1.05  # V3.2: +5% TP
+                    target = current * 1.03
                     confidence = 0.7
                     self.state.log(f"   🔥 {token}: PUMP detectado ({change:+.1f}%)")
 
                 # Trend following - LONG on uptrend
                 elif ema_fast > ema_slow and change > 1:
-                    direction = LONG
                     signal = "long"
-                    target = current * 1.05  # V3.2: +5% TP
+                    target = current * 1.02
                     confidence = 0.6
                     self.state.log(f"   📈 {token}: LONG en alza ({change:+.1f}%)")
 
             elif market_trend == "bearish":
                 # DIP signal - SHORT on downward momentum
                 if change < -2:
-                    direction = SHORT
                     signal = "short"
-                    target = current * 0.95  # V3.2: -5% TP
+                    target = current * 0.97
                     confidence = 0.7
                     self.state.log(f"   💥 {token}: SHORT en bajada ({change:+.1f}%)")
 
@@ -609,35 +582,19 @@ class ResearcherAgent:
             elif market_trend == "neutral":
                 # Range trading - Buy at support, Sell at resistance
                 if ema_fast < ema_slow and change > -2:
-                    direction = LONG
+                    # Near support - LONG
                     signal = "long"
-                    target = current * 1.05  # V3.2: +5% TP
+                    target = current * 1.02
                     confidence = 0.5
                     self.state.log(f"   📊 {token}: RANGE LONG en soporte")
                 elif ema_fast > ema_slow and change > 2:
-                    direction = SHORT
+                    # Near resistance - SHORT
                     signal = "short"
-                    target = current * 0.95  # V3.2: -5% TP
+                    target = current * 0.97
                     confidence = 0.5
                     self.state.log(f"   📊 {token}: RANGE SHORT en resistencia")
 
-            # 🔧 V3.2: Aplicar filtros antes de agregar oportunidad
             if signal:
-                # Filtro 1: Volatilidad mínima
-                if ENTRY_FILTER_ENABLED and not check_volatility(change):
-                    self.state.log(f"   ⚠️ {token}: Volatilidad muy baja ({change:+.2f}%) - rechazando")
-                    continue
-
-                # Filtro 2: Confirmación de tendencia
-                if ENTRY_FILTER_ENABLED and not confirm_trend(ema_fast, ema_slow, rsi, current):
-                    self.state.log(f"   ⚠️ {token}: Tendencia no confirmada - rechazando")
-                    continue
-
-                # Filtro 3: RSI en extremos
-                if ENTRY_FILTER_ENABLED and not check_rsi_for_entry(rsi, direction):
-                    self.state.log(f"   ⚠️ {token}: RSI en extremo ({rsi:.1f}) - rechazando")
-                    continue
-
                 opportunities.append({
                     "token": token,
                     "signal": signal,
@@ -645,7 +602,7 @@ class ResearcherAgent:
                     "target": round(target, 2),
                     "confidence": min(0.95, confidence),
                     "change_24h": change,
-                    "direction": direction
+                    "direction": LONG if signal in ["long", "pump"] else SHORT
                 })
 
         self.state.data["agents"]["researcher"]["findings"] = opportunities
@@ -654,9 +611,13 @@ class ResearcherAgent:
         self.state.data["opportunities"] = opportunities
         self.state.save()
 
-        self.state.log(f"✅ RESEARCHER: {len(opportunities)} oportunidades encontradas (después de filtros)")
+        self.state.log(f"✅ RESEARCHER: {len(opportunities)} oportunidades encontradas")
         return opportunities
 
+
+# ============================================================================
+# BACKTESTER AGENT v3.1
+# ============================================================================
 
 class BacktesterAgent:
     """Valida estrategias contra datos históricos"""
@@ -746,38 +707,21 @@ class AuditorAgent:
 # PAPER TRADING AGENT v3.1 (Drift Protocol Simulation)
 # ============================================================================
 
-# ============================================================================
-# PAPER TRADING AGENT v3.2 (Drift Protocol Simulation con Mejoras)
-# ============================================================================
-
-"""
-🔧 MEJORAS v3.2 IMPLEMENTADAS:
-1. RR Ratio 2.0:1 (SL -2.5%, TP +5.0%)
-2. Risk/Trade reducido a 5% (de 10%)
-3. Trailing Stop implementado (0.5% trail)
-4. Registro de trades en TokenTradeTracker
-5. Mejorados cálculos de Drift Protocol
-"""
-
 class PaperTradingAgent:
     """Ejecuta trades en modo paper trading con simulación Drift Protocol
 
-    🔧 MEJORAS v3.2:
+    🔧 MEJORAS v3.1:
     - Simulación Leverage (5x por defecto)
     - Trading fees (0.05% por trade)
     - Liquidation thresholds (80% collateral)
     - Borrowing fees para SHORTs
     - Funding rates (simulado)
-    - Stop Loss al -2.5% (aumentado de -2.0%)
-    - Take Profit al +5.0% (aumentado de +3.0%)
-    - RR Ratio 2.0:1
-    - Risk/Trade 5% (reducido de 10%)
-    - Trailing Stop 0.5%
+    - Stop Loss al -2%
+    - Take Profit al +3%
     """
 
-    def __init__(self, state, trade_tracker=None):
+    def __init__(self, state: MasterState):
         self.state = state
-        self.trade_tracker = trade_tracker or TokenTradeTracker()
 
     async def run(self):
         """Procesa trades aprobados y simula ejecución Drift"""
@@ -810,19 +754,10 @@ class PaperTradingAgent:
         borrowing_fee_hourly = drift_params.get("borrowing_fee_hourly", BORROWING_FEE_HOURLY)
         funding_rate_pct = drift_params.get("funding_rate_pct", FUNDING_RATE_PCT)
 
-        # Initialize trailing stops for open positions
-        if not hasattr(self, 'trailing_stops'):
-            self.trailing_stops = {}
-
         # Open new positions from approved trades
         for strat in approved:
             token = strat.get("token", "")
             if not token:
-                continue
-
-            # 🔧 V3.2: Verificar si se puede hacer trade en este token
-            if not self.trade_tracker.can_trade(token):
-                self.state.log(f"   ⚠️ {token}: Cooldown o límite de trades - saltando")
                 continue
 
             # Check if we already have a position for this token
@@ -839,8 +774,8 @@ class PaperTradingAgent:
             if entry_price <= 0:
                 continue
 
-            # 🔧 V3.2: Calculate position size (5% of capital per trade)
-            position_size = capital * MAX_RISK_PER_TRADE  # 5% instead of 10%
+            # Calculate position size (10% of capital per trade)
+            position_size = capital * 0.10
 
             # Calculate exposure with leverage
             exposure = position_size * leverage
@@ -851,7 +786,7 @@ class PaperTradingAgent:
             direction = strat.get("direction", LONG)
             signal = strat.get("signal", "unknown")
 
-            # Calculate SL and TP based on direction (V3.2: new values)
+            # Calculate SL and TP based on direction
             if direction == LONG:
                 stop_loss = entry_price * (1 + STOP_LOSS_PCT / 100)
                 take_profit = entry_price * (1 + TAKE_PROFIT_PCT / 100)
@@ -861,13 +796,6 @@ class PaperTradingAgent:
 
             # Calculate liquidation price
             liquidation_price = calculate_liquidation_price(entry_price, direction, leverage, liquidation_threshold)
-
-            # 🔧 V3.2: Initialize trailing stop for this position
-            if TRAILING_STOP_ENABLED:
-                self.trailing_stops[token] = TrailingStop(
-                    initial_sl_percent=abs(STOP_LOSS_PCT),
-                    trail_percent=TRAILING_STOP_PCT
-                )
 
             position = {
                 "token": token,
@@ -888,9 +816,6 @@ class PaperTradingAgent:
             }
 
             positions.append(position)
-            
-            # 🔧 V3.2: Registrar trade en el tracker
-            self.trade_tracker.record_trade(token, pnl=0.0)
 
             direction_symbol = "📈 LONG" if direction == LONG else "📉 SHORT"
             self.state.log(f"📝 DRIFT: {direction_symbol} {token} @ ${entry_price:.2f} ({signal}) | Leverage: {leverage}x | Exposure: ${exposure:.2f} | Fee: ${trading_fee:.4f} | SL: ${stop_loss:.2f} | TP: ${take_profit:.2f} | Liq: ${liquidation_price:.2f}")
@@ -950,14 +875,6 @@ class PaperTradingAgent:
             # Calculate total fees
             total_fees = pos.get("trading_fee", 0) + borrowing_fee + funding_paid - funding_received
 
-            # 🔧 V3.2: Update trailing stop and get dynamic SL
-            if TRAILING_STOP_ENABLED and token in self.trailing_stops:
-                new_sl, sl_triggered = self.trailing_stops[token].update_trailing_stop(current, direction)
-                if sl_triggered:
-                    stop_loss = new_sl
-                else:
-                    pos["trailing_stop"] = new_sl
-
             # Net P&L after fees
             net_pnl_value = pnl_value - total_fees
 
@@ -984,7 +901,7 @@ class PaperTradingAgent:
                 close_reason = "LIQUIDATED"
                 net_pnl_value = -position_size  # Total loss
 
-            # Check SL/TP (V3.2: using new STOP_LOSS_PCT and TAKE_PROFIT_PCT)
+            # Check SL/TP
             if direction == LONG:
                 if pnl_pct <= STOP_LOSS_PCT:
                     should_close = True
@@ -1068,6 +985,10 @@ class PaperTradingAgent:
         if closed_positions:
             self.state.log(f"📝 DRIFT: {len(closed_positions)} cerradas | Capital: ${capital:.2f} | Win Rate: {stats['win_rate']:.1f}% | Fees: ${stats['total_fees']:.4f}")
 
+
+# ============================================================================
+# MASTER ORCHESTRATOR v3.1
+# ============================================================================
 
 class MasterOrchestrator:
     def __init__(self):

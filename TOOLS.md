@@ -202,6 +202,53 @@ alias gl='git log --oneline'
 - Downloads: Escanear antes de abrir
 - Ejecutables: Solo de fuentes confiables
 
+## Gmail y Google Calendar (gog CLI)
+
+### Estado
+- **Cuenta**: enderjnets@gmail.com
+- **Comando**: `gog` (wrapper automático, no necesita variables de entorno)
+- **Acceso**: Gmail (leer, buscar, enviar) + Google Calendar (ver, crear, editar eventos)
+
+### Gmail — Comandos principales
+```bash
+# Buscar emails no leídos
+gog gmail search 'is:unread' --max 10
+
+# Buscar emails de alguien
+gog gmail search 'from:persona@ejemplo.com' --max 5
+
+# Ver contenido de un mensaje (usa el ID del search)
+gog gmail get <messageId>
+
+# Enviar email
+gog gmail send --to destinatario@gmail.com --subject "Asunto" --body "Mensaje"
+
+# Responder a un hilo
+gog gmail send --to a@b.com --subject "Re: algo" --body "respuesta" --reply-to-message-id <msgId>
+```
+
+### Google Calendar — Comandos principales
+```bash
+# Ver próximos eventos (calendario principal)
+gog calendar events primary --max 10
+
+# Ver eventos en rango de fechas
+gog calendar events primary --from 2026-02-24 --to 2026-03-01
+
+# Crear evento
+gog calendar create primary --summary "Reunión" --from 2026-02-27T14:00:00 --to 2026-02-27T15:00:00
+
+# Listar todos los calendarios
+gog calendar calendars
+
+# Calendarios disponibles: primary, Familia, NBA, Timberwolves Schedule
+```
+
+### Notas
+- El comando `gog` está en `/home/enderj/.local/bin/gog` (wrapper)
+- No necesita `--account` ni variables de entorno (ya están configuradas)
+- Para JSON usa `--json`, para texto plano usa `--plain`
+
 ## Calendario y Recordatorios
 
 ### Eventos Regulares
