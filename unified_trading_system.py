@@ -476,13 +476,24 @@ class MLSignalGenerator:
             trend * 0.20
         )
         
-        # Convert to confidence (0-95%)
-        # ensemble is -1 to 1, confidence is absolute value scaled
-        raw_confidence = abs(ensemble) * 95
-        confidence = min(95, max(0, raw_confidence))
+        # Convert to confidence (0-95%) - FIXED: Non-linear to penalize weak signals
+        # ensemble is -1 to 1, confidence uses exponential scaling
+        # Weak signals (< 0.3) get very low confidence
+        # Strong signals (> 0.6) get high confidence
+        if abs(ensemble) < 0.3:
+            # Weak signal - penalize heavily
+            confidence = abs(ensemble) * 30  # Max 9% for weak signals
+        elif abs(ensemble) < 0.6:
+            # Moderate signal - moderate confidence
+            confidence = 30 + (abs(ensemble) - 0.3) * 150  # 30-75%
+        else:
+            # Strong signal - high confidence
+            confidence = 75 + (abs(ensemble) - 0.6) * 50  # 75-95%
+
+        confidence = min(95, max(0, confidence))
         
         # Determine direction (lowered threshold from 0.1 to 0.05 for more signals)
-        direction = "bullish" if ensemble > 0.05 else "bearish" if ensemble < -0.05 else "neutral"
+        direction = "bullish" if ensemble > 0.20 else "bearish" if ensemble < -0.20 else "neutral"  # FIXED: Increased threshold from 0.05 to 0.20
         
         signal = {
             "symbol": symbol,
@@ -1052,10 +1063,8 @@ class UnifiedTradingSystem:
                     confidence = min(95, (rsi - (100 - threshold)) * 3)
                     reason = f"RSI overbought: {rsi:.1f} > {100-threshold}"
                 else:
-                    # Neutral zone
-                    direction = "neutral"
-                    confidence = 5
-                    reason = f"RSI neutral: {rsi:.1f}"
+                    # Neutral zone - FIXED: Skip neutral signals instead of generating low confidence
+                    continue  # Skip neutral RSI signals
                 
                 signal = {
                     "symbol": symbol,
@@ -1459,7 +1468,7 @@ class UnifiedTradingSystem:
                 # ====================================================
 
                 # Skip low confidence (reduced from 30% to 5% for aggressive trading)
-                if signal["confidence"] < 10:  # Minimum 10% confidence
+                if signal["confidence"] < 40:  # Minimum 40% confidence - FIXED: Increased from 10% for quality over quantity
                     continue
 
                 # Trade both bullish and bearish signals (for more opportunities)

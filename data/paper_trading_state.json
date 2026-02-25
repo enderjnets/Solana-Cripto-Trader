@@ -1,163 +1,23 @@
 {
   "enabled": true,
-  "start_time": "2026-02-25T07:17:42.333206",
-  "balance_usd": 378.98226744186053,
+  "start_time": "2026-02-25T07:59:42.308683",
+  "balance_usd": 500.0,
   "initial_balance": 500.0,
   "leverage": 1,
-  "margin_used": 125.0,
-  "trades": [
-    {
-      "id": "trade_20260225_071742_4695",
-      "entry_time": "2026-02-25T07:17:42.334736",
-      "entry_price": 86.0,
-      "direction": "long",
-      "size": 25.0,
-      "symbol": "SOL",
-      "status": "closed",
-      "exit_time": "2026-02-25T07:17:42.335953",
-      "exit_price": 100.0,
-      "pnl": 4.057267441860465,
-      "pnl_pct": 16.27906976744186,
-      "reason": "PROFIT"
-    },
-    {
-      "id": "trade_20260225_071742_39d3",
-      "entry_time": "2026-02-25T07:17:42.334969",
-      "entry_price": 86.0,
-      "direction": "long",
-      "size": 25.0,
-      "symbol": "SOL",
-      "status": "open",
-      "exit_time": null,
-      "exit_price": null,
-      "pnl": 0.0,
-      "pnl_pct": 0.0,
-      "reason": "Test 2"
-    },
-    {
-      "id": "trade_20260225_071742_e4b4",
-      "entry_time": "2026-02-25T07:17:42.335408",
-      "entry_price": 86.0,
-      "direction": "long",
-      "size": 25.0,
-      "symbol": "SOL",
-      "status": "open",
-      "exit_time": null,
-      "exit_price": null,
-      "pnl": 0.0,
-      "pnl_pct": 0.0,
-      "reason": "Test 3"
-    },
-    {
-      "id": "trade_20260225_071742_94ca",
-      "entry_time": "2026-02-25T07:17:42.336558",
-      "entry_price": 2e-05,
-      "direction": "long",
-      "size": 25.0,
-      "symbol": "BONK",
-      "status": "open",
-      "exit_time": null,
-      "exit_price": null,
-      "pnl": 0.0,
-      "pnl_pct": 0.0,
-      "reason": "Test 1"
-    },
-    {
-      "id": "trade_20260225_071742_8572",
-      "entry_time": "2026-02-25T07:17:42.337187",
-      "entry_price": 2e-05,
-      "direction": "long",
-      "size": 25.0,
-      "symbol": "BONK",
-      "status": "open",
-      "exit_time": null,
-      "exit_price": null,
-      "pnl": 0.0,
-      "pnl_pct": 0.0,
-      "reason": "Test 2"
-    },
-    {
-      "id": "trade_20260225_071742_1910",
-      "entry_time": "2026-02-25T07:17:42.337754",
-      "entry_price": 2e-05,
-      "direction": "long",
-      "size": 25.0,
-      "symbol": "BONK",
-      "status": "open",
-      "exit_time": null,
-      "exit_price": null,
-      "pnl": 0.0,
-      "pnl_pct": 0.0,
-      "reason": "Test 3"
-    }
-  ],
+  "margin_used": 0.0,
+  "trades": [],
   "stats": {
-    "total_trades": 1,
-    "winning_trades": 1,
+    "total_trades": 0,
+    "winning_trades": 0,
     "losing_trades": 0,
-    "total_pnl": 4.057267441860465,
-    "total_fees": 0.025,
+    "total_pnl": 0.0,
+    "total_fees": 0.0,
     "liquidations": 0,
-    "win_rate": 100.0,
+    "win_rate": 0.0,
     "max_drawdown": 0.0,
-    "current_streak": 1,
-    "best_streak": 1,
+    "current_streak": 0,
+    "best_streak": 0,
     "worst_streak": 0
   },
-  "signals": [
-    {
-      "time": "2026-02-25T07:17:42.334736",
-      "symbol": "SOL",
-      "direction": "long",
-      "price": 86.0,
-      "size": 25.0,
-      "reason": "Test 1",
-      "trade_id": "trade_20260225_071742_4695"
-    },
-    {
-      "time": "2026-02-25T07:17:42.334969",
-      "symbol": "SOL",
-      "direction": "long",
-      "price": 86.0,
-      "size": 25.0,
-      "reason": "Test 2",
-      "trade_id": "trade_20260225_071742_39d3"
-    },
-    {
-      "time": "2026-02-25T07:17:42.335408",
-      "symbol": "SOL",
-      "direction": "long",
-      "price": 86.0,
-      "size": 25.0,
-      "reason": "Test 3",
-      "trade_id": "trade_20260225_071742_e4b4"
-    },
-    {
-      "time": "2026-02-25T07:17:42.336558",
-      "symbol": "BONK",
-      "direction": "long",
-      "price": 2e-05,
-      "size": 25.0,
-      "reason": "Test 1",
-      "trade_id": "trade_20260225_071742_94ca"
-    },
-    {
-      "time": "2026-02-25T07:17:42.337187",
-      "symbol": "BONK",
-      "direction": "long",
-      "price": 2e-05,
-      "size": 25.0,
-      "reason": "Test 2",
-      "trade_id": "trade_20260225_071742_8572"
-    },
-    {
-      "time": "2026-02-25T07:17:42.337754",
-      "symbol": "BONK",
-      "direction": "long",
-      "price": 2e-05,
-      "size": 25.0,
-      "reason": "Test 3",
-      "trade_id": "trade_20260225_071742_1910"
-    }
-  ]
+  "signals": []
 }
