@@ -236,12 +236,34 @@ class PaperTradingEngine:
         if not self.state.enabled:
             return None
 
+        # SAFETY CHECK: Stop trading if balance is below minimum threshold
+        MIN_BALANCE_THRESHOLD = 50.0  # $50 minimum to continue trading
+        if self.state.balance_usd < MIN_BALANCE_THRESHOLD:
+            logger.warning(f"⚠️ TRADING STOPPED: Balance ${self.state.balance_usd:.2f} below threshold ${MIN_BALANCE_THRESHOLD}")
+            self.state.enabled = False
+            self._save_state()
+            return None
+
+        # SAFETY CHECK: Stop if drawdown is too severe (>80%)
+        drawdown_pct = (self.state.initial_balance - self.state.balance_usd) / self.state.initial_balance * 100
+        if drawdown_pct > 80:
+            logger.warning(f"⚠️ TRADING STOPPED: Drawdown {drawdown_pct:.1f}% exceeds 80% limit")
+            self.state.enabled = False
+            self._save_state()
+            return None
+
         symbol = signal.get("symbol", "SOL")
         direction = signal.get("direction", "long")
         price = signal.get("price", 86.0)
         size_usd = signal.get("size", self.state.balance_usd * 0.1)  # 10% of balance
         leverage = signal.get("leverage", self.state.leverage)  # Use configured leverage
         reason = signal.get("reason", "Signal")
+
+        # SAFETY CHECK: Limit position size to max 15% of current balance
+        MAX_POSITION_PCT = 0.15  # 15% max position
+        max_position_usd = self.state.balance_usd * MAX_POSITION_PCT
+        if size_usd > max_position_usd:
+            size_usd = max_position_usd
 
         # Apply leverage: position size = size_usd * leverage
         leveraged_size = size_usd * leverage
@@ -250,10 +272,14 @@ class PaperTradingEngine:
         # But we limit by available margin
         margin_required = size_usd  # Base margin
         
-        # Check if we have enough balance for margin
-        available_margin = self.state.balance_usd - self.state.margin_used
-        if margin_required > available_margin:
-            return None  # Not enough margin
+        # SAFETY CHECK: Ensure enough balance for margin + fees
+        entry_fee = leveraged_size * self.state.taker_fee
+        total_required = margin_required + entry_fee
+        available_balance = self.state.balance_usd - self.state.margin_used
+        
+        if total_required > available_balance:
+            logger.warning(f"⚠️ INSUFFICIENT FUNDS: Need ${total_required:.2f}, have ${available_balance:.2f}")
+            return None  # Not enough margin + fees
 
         # Count open trades
         open_trades = [t for t in self.state.trades if t["status"] == "open"]
@@ -267,7 +293,6 @@ class PaperTradingEngine:
         self.state.balance_usd -= margin_required  # ← BUG FIX: Deduct margin from balance
 
         # Deduct entry fee (taker fee like Drift)
-        entry_fee = leveraged_size * self.state.taker_fee
         self.state.balance_usd -= entry_fee
         
         # Create trade - use consistent "trade_" prefix
@@ -340,6 +365,12 @@ class PaperTradingEngine:
                 exit_fee = size * self.state.taker_fee
                 pnl -= exit_fee
                 
+                # MAX LOSS LIMIT: Cannot lose more than the margin invested
+                max_loss = -margin  # Maximum possible loss is the margin
+                if pnl < max_loss:
+                    pnl = max_loss  # Cap the loss at the margin
+                    reason = "MAX_LOSS_LIMIT"
+                
                 # Check for liquidation (like Drift)
                 # Liquidation happens when position loses > (1 - maintenance_margin) * margin
                 maintenance_margin = self.state.liquidation_threshold * 100  # 50% of margin
@@ -350,7 +381,16 @@ class PaperTradingEngine:
                     pnl = -margin  # Lose entire margin
                     reason = "LIQUIDATION"
                     self.state.stats["liquidations"] = self.state.stats.get("liquidations", 0) + 1
-                    logger.warning(f"⚠️ LIQUIDATION: {trade_id} lost \${margin:.2f}")
+                    logger.warning(f"⚠️ LIQUIDATION: {trade_id} lost ${margin:.2f}")
+
+                # BALANCE VALIDATION: Ensure balance never goes negative
+                new_balance = self.state.balance_usd + margin + pnl
+                if new_balance < 0:
+                    # Cap the loss to keep balance at 0
+                    pnl = -self.state.balance_usd - margin
+                    new_balance = 0
+                    reason = "BALANCE_PROTECTION"
+                    logger.error(f"❌ BALANCE PROTECTION: {trade_id} capped loss to keep balance at $0")
 
                 # Update trade
                 trade_data["status"] = "closed"
@@ -363,7 +403,7 @@ class PaperTradingEngine:
                 trade_data["reason"] = reason
 
                 # Update balance: return margin + PnL (minus fees)
-                self.state.balance_usd += margin + pnl
+                self.state.balance_usd = new_balance  # Safe balance update
                 self.state.margin_used -= margin
                 self.state.stats["total_trades"] += 1
                 self.state.stats["total_pnl"] += pnl

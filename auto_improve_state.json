@@ -167,21 +167,33 @@
       "duration_seconds": 8740,
       "confidence": 0.5,
       "timestamp": "2026-02-24T08:17:14.403137"
+    },
+    {
+      "symbol": "PUMP",
+      "direction": "bullish",
+      "entry_price": 0.001784444136763935,
+      "exit_price": 0.00172768953173095,
+      "size_usd": 15.909422376733835,
+      "pnl": -0.513957092933934,
+      "pnl_percent": -3.180520133059967,
+      "duration_seconds": 36918,
+      "confidence": 0.5,
+      "timestamp": "2026-02-24T20:21:10.073831"
     }
   ],
   "metrics": {
-    "total_trades": 14,
+    "total_trades": 15,
     "wins": 10,
-    "losses": 4,
-    "total_pnl": 6.571846659195897,
+    "losses": 5,
+    "total_pnl": 6.057889566261963,
     "avg_win": 0.7887384532873415,
-    "avg_loss": -0.3288844684193794,
+    "avg_loss": -0.3658989933222903,
     "best_win": 2.375159929730534,
     "worst_loss": -0.96,
     "avg_confidence": 0.5,
-    "avg_duration": 20604.285714285714,
-    "win_rate": 0.7142857142857143,
-    "avg_pnl_percent": 1.2744385101305724
+    "avg_duration": 21691.866666666665,
+    "win_rate": 0.6666666666666666,
+    "avg_pnl_percent": 0.9774412672512032
   },
   "cycles_since_retrain": 4,
   "best_metrics": {
@@ -198,5 +210,5 @@
     "win_rate": 0.8,
     "avg_pnl_percent": 1.371271311788389
   },
-  "last_update": "2026-02-24T08:17:14.403344"
+  "last_update": "2026-02-24T20:21:10.074196"
 }

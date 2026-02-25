@@ -61,7 +61,7 @@ def generate_summary():
 
     # Calcular portfolio actual
     portfolio_value = calculate_portfolio_value(state)
-    initial_balance = 700  # Balance inicial configurado
+    initial_balance = state.get("initial_balance", 500)  # Usar initial_balance del estado
     overall_pnl = portfolio_value - initial_balance
     overall_pnl_pct = (overall_pnl / initial_balance) * 100 if initial_balance > 0 else 0
 
