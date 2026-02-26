@@ -1,8 +1,8 @@
 {
   "generation": 0,
-  "exploration_rate": 0.5,
-  "total_adaptations": 1,
+  "exploration_rate": 0.3,
+  "total_adaptations": 0,
   "total_evolutions": 0,
-  "started_at": "2026-02-25T23:16:17.924085",
-  "last_adaptation": "2026-02-25T23:21:17.952978"
+  "started_at": "2026-02-26T00:01:59.760945",
+  "stopped_at": "2026-02-26T00:02:49.765148"
 }
