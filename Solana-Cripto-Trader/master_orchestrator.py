@@ -1176,7 +1176,23 @@ class MasterOrchestrator:
 # MAIN
 # ============================================================================
 if __name__ == "__main__":
-    print("🎯 Starting Master Orchestrator v3.1 (Drift Protocol Sim)...")
+    import signal
+
+    # 🔧 V3.3: Signal Handler para SIGTERM y otras señales
+    def signal_handler(signum, frame):
+        """Handler para capturar señales sin terminar abruptamente"""
+        print(f"\n🔔 Signal {signum} received - Ignoring (continuing operation)")
+        # NO terminamos el programa, solo logueamos
+
+    # Registrar handlers para señales comunes
+    for sig in [signal.SIGTERM, signal.SIGUSR1, signal.SIGUSR2]:
+        try:
+            signal.signal(sig, signal_handler)
+        except Exception as e:
+            print(f"⚠️ No se pudo registrar handler para {sig}: {e}")
+
+    print("🎯 Starting Master Orchestrator v3.3 (Drift Protocol Sim)...")
+    print(f"   Signal handlers activados para SIGTERM, SIGUSR1, SIGUSR2")
     orchestrator = MasterOrchestrator()
 
     while True:
