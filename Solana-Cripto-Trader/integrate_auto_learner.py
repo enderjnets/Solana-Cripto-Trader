@@ -221,6 +221,48 @@ class AutoLearningIntegration:
         self.auto_learner.stop()
         
         logger.info("Auto-learning integration stopped")
+    
+    def get_status(self) -> Dict:
+        """Get comprehensive system status"""
+        learner_status = self.auto_learner.get_status()
+        
+        return {
+            "running": self.running,
+            "generation": learner_status.get("current_generation", 0),
+            "total_trades": learner_status.get("total_trades", 0),
+            "daily_pnl": learner_status.get("daily_pnl", 0.0),
+            "total_pnl": learner_status.get("total_pnl", 0.0),
+            "exploration_rate": learner_status.get("exploration_rate", 0.3),
+            "trades_since_evolution": self.trades_since_last_evolution,
+            "best_strategy": learner_status.get("best_strategy")
+        }
+    
+    def get_config(self) -> Dict:
+        """Get system configuration"""
+        return {
+            "capital": 500.0,
+            "target_daily": 0.05,
+            "max_drawdown": 0.10,
+            "evolution_interval": 3600,
+            "adaptation_interval": 300,
+            "exploration_decay": 0.995,
+            "population_size": 50,
+            "generations": 20
+        }
+    
+    def get_current_parameters(self) -> Dict:
+        """Get current trading parameters"""
+        params = self.get_adaptive_parameters()
+        
+        return {
+            "sl_pct": params.get("sl_pct", 0.025),
+            "tp_pct": params.get("tp_pct", 0.05),
+            "position_size": params.get("position_size", 0.1),
+            "leverage": params.get("leverage", 5.0),
+            "confidence_threshold": params.get("confidence_threshold", 0.6),
+            "max_trades_per_day": params.get("max_trades_per_day", 10),
+            "risk_per_trade": params.get("risk_per_trade", 0.05)
+        }
 
 
 # ============================================================================
