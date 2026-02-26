@@ -1,8 +1,8 @@
 {
-  "current_generation": 0,
-  "total_trades": 0,
-  "daily_pnl": 0.0,
-  "total_pnl": 0.0,
-  "last_updated": "2026-02-25T18:28:03.883373",
-  "exploration_rate": 0.3
+  "generation": 0,
+  "exploration_rate": 0.5,
+  "total_adaptations": 1,
+  "total_evolutions": 0,
+  "started_at": "2026-02-25T23:16:17.924085",
+  "last_adaptation": "2026-02-25T23:21:17.952978"
 }
