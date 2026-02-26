@@ -1,0 +1,55 @@
+{
+  "initialization": {
+    "timestamp": "2026-02-25T16:33:44-07:00",
+    "status": "SUCCESS",
+    "pid": 600650,
+    "monitor_pid": 600847,
+    "log_file": "/tmp/auto_learning.log",
+    "monitor_log": "/tmp/auto_learning_monitor.log"
+  },
+  "configuration": {
+    "capital": 500.0,
+    "target_daily": 0.05,
+    "max_drawdown": 0.10,
+    "generation": 0,
+    "exploration_rate": 0.3,
+    "evolution_interval": 3600,
+    "adaptation_interval": 300
+  },
+  "parameters": {
+    "sl_pct": 0.025,
+    "tp_pct": 0.05,
+    "position_size": 0.1,
+    "leverage": 5.0,
+    "confidence_threshold": 0.6,
+    "max_trades_per_day": 10,
+    "risk_per_trade": 0.05
+  },
+  "components": {
+    "genetic_algorithm": "active",
+    "reinforcement_learning": "active",
+    "adaptive_parameters": "active",
+    "performance_monitoring": "active",
+    "risk_management": "active"
+  },
+  "monitoring": {
+    "updates_interval": 300,
+    "log_updates": true,
+    "telegram_notifications": true,
+    "alert_targets": true,
+    "alert_drawdown": true
+  },
+  "targets": {
+    "7_day_capital": 675.0,
+    "daily_pnl": 0.05,
+    "win_rate": 0.60,
+    "total_trades": 70
+  },
+  "backup": {
+    "previous_system": "backups/historical/",
+    "previous_capital": 498.13,
+    "previous_trades": 12,
+    "previous_win_rate": 0.50,
+    "previous_pnl": -0.0037
+  }
+}
