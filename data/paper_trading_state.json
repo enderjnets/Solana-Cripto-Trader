@@ -3,8 +3,8 @@
   "start_time": null,
   "balance_usd": 500.0,
   "initial_balance": 500.0,
-  "leverage": 1,
-  "margin_used": 0.0,
+  "leverage": 5,
+  "margin_used": 0,
   "trades": [],
   "stats": {
     "total_trades": 0,
