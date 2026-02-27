@@ -473,6 +473,10 @@ class UnifiedTradingSystem:
         self.running = True
         self.paper_engine.start()
 
+        # Set leverage to 5x (Drift Protocol-like)
+        self.set_leverage(5)
+        logger.info(f"   Leverage: {self.paper_engine.state.leverage}x (Drift Protocol mode)")
+
         # Get trading params (auto-improver or HARDBIT)
         profile = self.get_trading_params()
 
@@ -581,6 +585,10 @@ class UnifiedTradingSystem:
         print(f"   ✅ Heartbeat monitoring")
         print(f"   ✅ Auto-restart on critical errors")
 
+    def set_leverage(self, leverage: int) -> bool:
+        """Set leverage (1-20x, like Drift Protocol)"""
+        return self.paper_engine.set_leverage(leverage)
+
     def get_trading_params(self) -> Dict:
         """Get trading parameters (auto-improver or HARDBIT)"""
         # Try auto_improver first
@@ -588,6 +596,7 @@ class UnifiedTradingSystem:
             params = self.auto_improver.get_trading_params()
             if params:
                 logger.info("✅ Using auto-improver parameters")
+                params["leverage"] = self.paper_engine.state.leverage  # Add current leverage
                 return params
         except (FileNotFoundError, KeyError, AttributeError, ValueError) as e:
             logger.debug(f"Auto-improver not available: {e}. Using HARDBIT fallback")
@@ -605,7 +614,8 @@ class UnifiedTradingSystem:
                 "take_profit_pct": hardbit_profile.get("take_profit", 0.04),
                 "max_daily_loss_pct": hardbit_profile.get("max_daily_loss", 0.05),
                 "max_trades_per_day": hardbit_profile.get("max_trades", 20),
-                "risk_reward_min": 2.0
+                "risk_reward_min": 2.0,
+                "leverage": self.paper_engine.state.leverage  # Add current leverage
             }
         except:
             # Default parameters
@@ -616,7 +626,8 @@ class UnifiedTradingSystem:
                 "take_profit_pct": 0.04,
                 "max_daily_loss_pct": 0.05,
                 "max_trades_per_day": 20,
-                "risk_reward_min": 2.0
+                "risk_reward_min": 2.0,
+                "leverage": self.paper_engine.state.leverage  # Add current leverage
             }
 
     def scan_market(self) -> List[Opportunity]:
@@ -744,10 +755,17 @@ class UnifiedTradingSystem:
     def execute_trade(self, signal: TradingSignal) -> bool:
         """Execute trade"""
         try:
+            # Map direction: bullish/bearish → long/short
+            direction_map = {
+                "bullish": "long",
+                "bearish": "short"
+            }
+            mapped_direction = direction_map.get(signal.direction, signal.direction)
+            
             # Create signal dict for paper trading engine
             signal_dict = {
                 'symbol': signal.symbol,
-                'direction': signal.direction,
+                'direction': mapped_direction,  # Fixed: Now correctly maps to long/short
                 'price': signal.entry_price,  # Mapping: entry_price → price
                 'size': signal.position_size,
                 'reason': ', '.join(signal.reasons) if signal.reasons else 'Signal',  # reasons → reason
