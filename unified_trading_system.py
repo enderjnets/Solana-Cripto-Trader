@@ -583,14 +583,16 @@ class UnifiedTradingSystem:
 
     def get_trading_params(self) -> Dict:
         """Get trading parameters (auto-improver or HARDBIT)"""
-        # Try auto-improver first
+        # Try auto_improver first
         try:
             params = self.auto_improver.get_trading_params()
             if params:
                 logger.info("✅ Using auto-improver parameters")
                 return params
-        except:
-            pass
+        except (FileNotFoundError, KeyError, AttributeError, ValueError) as e:
+            logger.debug(f"Auto-improver not available: {e}. Using HARDBIT fallback")
+        except Exception as e:
+            logger.warning(f"⚠️ Unexpected error with auto-improver: {e}. Using HARDBIT fallback")
 
         # Fallback to HARDBIT
         try:

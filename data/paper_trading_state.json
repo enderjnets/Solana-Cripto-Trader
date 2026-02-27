@@ -1,54 +1,11 @@
 {
-  "enabled": true,
-  "start_time": "2026-02-25T18:32:52.493645",
-  "balance_usd": 333.52836557892044,
+  "enabled": false,
+  "start_time": null,
+  "balance_usd": 500.0,
   "initial_balance": 500.0,
   "leverage": 1,
-  "margin_used": 166.38844020097912,
-  "trades": [
-    {
-      "id": "trade_20260225_161429_b558",
-      "entry_time": "2026-02-25T16:14:29.629802",
-      "entry_price": 0.297200063408177,
-      "direction": "bullish",
-      "size": 43.919999999999995,
-      "symbol": "JTO",
-      "status": "open",
-      "exit_time": null,
-      "exit_price": null,
-      "pnl": 0.0,
-      "pnl_pct": 0.0,
-      "reason": "High volume: 1.5x normal; Bullish trend: 65% strength; Strong rally: +6.5% 24h; RSI oversold: 21.4 < 35; ML Score: 41%"
-    },
-    {
-      "id": "trade_20260225_163601_d8fb",
-      "entry_time": "2026-02-25T16:36:01.427646",
-      "entry_price": 0.00188185709026003,
-      "direction": "bullish",
-      "size": 66.01440128999998,
-      "symbol": "PUMP",
-      "status": "open",
-      "exit_time": null,
-      "exit_price": null,
-      "pnl": 0.0,
-      "pnl_pct": 0.0,
-      "reason": "High volume: 1.5x normal; Bullish trend: 100% strength; Strong rally: +11.1% 24h; RSI oversold: 0.0 < 35; ML Score: 95%"
-    },
-    {
-      "id": "trade_20260225_163601_7a15",
-      "entry_time": "2026-02-25T16:36:01.474387",
-      "entry_price": 0.051531303046411,
-      "direction": "bullish",
-      "size": 56.45403891097913,
-      "symbol": "POPCAT",
-      "status": "open",
-      "exit_time": null,
-      "exit_price": null,
-      "pnl": 0.0,
-      "pnl_pct": 0.0,
-      "reason": "High volume: 1.5x normal; Bullish trend: 99% strength; Strong rally: +9.9% 24h; RSI oversold: 0.0 < 35; ML Score: 95%"
-    }
-  ],
+  "margin_used": 0.0,
+  "trades": [],
   "stats": {
     "total_trades": 0,
     "winning_trades": 0,
@@ -62,33 +19,5 @@
     "best_streak": 0,
     "worst_streak": 0
   },
-  "signals": [
-    {
-      "time": "2026-02-25T16:14:29.629802",
-      "symbol": "JTO",
-      "direction": "bullish",
-      "price": 0.297200063408177,
-      "size": 43.919999999999995,
-      "reason": "High volume: 1.5x normal; Bullish trend: 65% strength; Strong rally: +6.5% 24h; RSI oversold: 21.4 < 35; ML Score: 41%",
-      "trade_id": "trade_20260225_161429_b558"
-    },
-    {
-      "time": "2026-02-25T16:36:01.427646",
-      "symbol": "PUMP",
-      "direction": "bullish",
-      "price": 0.00188185709026003,
-      "size": 66.01440128999998,
-      "reason": "High volume: 1.5x normal; Bullish trend: 100% strength; Strong rally: +11.1% 24h; RSI oversold: 0.0 < 35; ML Score: 95%",
-      "trade_id": "trade_20260225_163601_d8fb"
-    },
-    {
-      "time": "2026-02-25T16:36:01.474387",
-      "symbol": "POPCAT",
-      "direction": "bullish",
-      "price": 0.051531303046411,
-      "size": 56.45403891097913,
-      "reason": "High volume: 1.5x normal; Bullish trend: 99% strength; Strong rally: +9.9% 24h; RSI oversold: 0.0 < 35; ML Score: 95%",
-      "trade_id": "trade_20260225_163601_7a15"
-    }
-  ]
+  "signals": []
 }
