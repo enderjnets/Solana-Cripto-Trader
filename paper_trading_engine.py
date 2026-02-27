@@ -12,8 +12,12 @@ Usage:
 
 import json
 import argparse
+import logging
 from pathlib import Path
 from datetime import datetime
+
+# Configure logging
+logger = logging.getLogger("paper_trading_engine")
 
 class DateTimeEncoder(json.JSONEncoder):
     """Handle datetime serialization."""
