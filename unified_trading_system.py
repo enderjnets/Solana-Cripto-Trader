@@ -319,7 +319,7 @@ class MLSignalGenerator:
         """Generate trading signal with ML indicators"""
         prices = self.price_history.get(symbol, [])
 
-        if len(prices) < 20:
+        if len(prices) < 5:  # Reduced from 20 to 5 - Allow signals with minimal history
             return {
                 "symbol": symbol,
                 "direction": "neutral",
@@ -385,9 +385,9 @@ class MLSignalGenerator:
             confidence = confidence * 0.7  # Less penalty for strong signals
 
         # Determine direction
-        if ensemble_score > 0.20:  # Increased threshold from 0.05 to 0.20
+        if ensemble_score > 0.10:  # Reduced from 0.20 to 0.10 - More reasonable threshold
             direction = "bullish"
-        elif ensemble_score < -0.20:
+        elif ensemble_score < -0.10:
             direction = "bearish"
         else:
             direction = "neutral"
@@ -450,6 +450,9 @@ class UnifiedTradingSystem:
         self.cycle_count = 0
         self.last_cycle_time: Optional[datetime] = None
         self.last_scan_time: Optional[datetime] = None
+
+        # 📊 Track trades since last optimizer run
+        self._last_optimizer_trades_count = 0
 
         # Initialize components
         self.cache = RedisCacheManager()
@@ -718,19 +721,20 @@ class UnifiedTradingSystem:
                     return False
 
             # Validate with risk agent
-            risk_assessment = self.risk_agent.validate_trade(
-                signal.symbol,
-                signal.direction,
-                signal.entry_price,
-                signal.stop_loss,
-                signal.take_profit,
-                signal.position_size,
-                signal.confidence
-            )
+            trade_signal = {
+                "symbol": signal.symbol,
+                "direction": signal.direction,
+                "entry_price": signal.entry_price,
+                "stop_loss": signal.stop_loss,
+                "take_profit": signal.take_profit,
+                "position_size": signal.position_size,
+                "confidence": signal.confidence
+            }
+            risk_assessment = self.risk_agent.validate_trade(trade_signal)
 
-            logger.info(f"✅ Trade approved by Risk Agent (risk: {risk_assessment['risk']:.2f})")
+            logger.info(f"✅ Trade approved by Risk Agent (risk: {risk_assessment.risk_score:.2f})")
 
-            return risk_assessment["approved"]
+            return risk_assessment.approved
         except Exception as e:
             logger.error(f"❌ Error validating with risk agent: {e}")
             return False
@@ -738,16 +742,19 @@ class UnifiedTradingSystem:
     def execute_trade(self, signal: TradingSignal) -> bool:
         """Execute trade"""
         try:
-            # Open position in paper trading engine
-            trade_id = self.paper_engine.open_position(
-                symbol=signal.symbol,
-                direction=signal.direction,
-                entry_price=signal.entry_price,
-                size=signal.position_size,
-                stop_loss=signal.stop_loss,
-                take_profit=signal.take_profit,
-                reasons=signal.reasons
-            )
+            # Create signal dict for paper trading engine
+            signal_dict = {
+                'symbol': signal.symbol,
+                'direction': signal.direction,
+                'price': signal.entry_price,  # Mapping: entry_price → price
+                'size': signal.position_size,
+                'reason': ', '.join(signal.reasons) if signal.reasons else 'Signal',  # reasons → reason
+                'leverage': self.paper_engine.state.leverage  # Get current leverage from engine state
+            }
+
+            # Execute trade using correct API
+            trade = self.paper_engine.execute_signal(signal_dict)
+            trade_id = trade.id if trade else None
 
             if trade_id:
                 logger.info(
@@ -838,13 +845,38 @@ class UnifiedTradingSystem:
                 logger.warning(f"⚠️ Cannot close position {trade_id}: No price available")
                 return
 
-            trade = self.paper_engine.close_position(trade_id, current_price, reason)
+            trade = self.paper_engine.close_trade(trade_id, current_price, reason)
 
             if trade:
                 logger.info(
                     f"✅ Position closed: {trade['symbol']} @ ${current_price:.6f} "
                     f"({reason}) - P&L: ${trade['pnl']:.2f} ({trade['pnl_pct']:.2f}%)"
                 )
+
+                # 📊 Register trade with auto_improver for learning
+                try:
+                    duration_seconds = 0
+                    if 'entry_time' in trade:
+                        entry_time = trade['entry_time']
+                        if isinstance(entry_time, str):
+                            entry_time = datetime.fromisoformat(entry_time)
+                        duration_seconds = (datetime.now() - entry_time).total_seconds()
+                    
+                    self.auto_improver.record_trade({
+                        'symbol': trade.get('symbol', 'UNKNOWN'),
+                        'direction': trade.get('direction', 'bullish'),
+                        'entry_price': trade.get('entry_price', 0),
+                        'exit_price': current_price,
+                        'size_usd': trade.get('size', 0),
+                        'pnl': trade.get('pnl', 0),
+                        'pnl_percent': trade.get('pnl_pct', 0),
+                        'duration_seconds': duration_seconds,
+                        'confidence': trade.get('confidence', 0) if 'confidence' in trade else 0.5,
+                        'timestamp': datetime.now().isoformat()
+                    })
+                    logger.debug(f"📊 Trade registered with auto_improver: {trade['symbol']}")
+                except Exception as e:
+                    logger.error(f"❌ Failed to register trade with auto_improver: {e}")
 
                 # Notify
                 try:
@@ -963,13 +995,17 @@ class UnifiedTradingSystem:
                 self.close_position(trade["id"], "PORTFOLIO_STOP_LOSS")
 
     def _run_optimizer_if_needed(self):
-        """Run strategy optimizer periodically (every hour)"""
-        if self.last_cycle_time and (datetime.now() - self.last_cycle_time).total_seconds() > 3600:
-            try:
-                # Collect feedback
-                open_trades = self.paper_engine.get_open_trades()
-                closed_trades = self.paper_engine.state.stats["total_trades"]
+        """Run strategy optimizer dynamically - after every 5-10 trades close"""
+        try:
+            open_trades = self.paper_engine.get_open_trades()
+            closed_trades = self.paper_engine.state.stats["total_trades"]
 
+            # 📊 Check if we should run optimizer (every 5-10 trades)
+            trades_since_last_optimizer = closed_trades - getattr(self, '_last_optimizer_trades_count', 0)
+            
+            should_run = trades_since_last_optimizer >= 5  # Run every 5 trades minimum
+            
+            if should_run:
                 feedback = {
                     "total_trades": closed_trades,
                     "win_rate": self.paper_engine.state.stats["win_rate"],
@@ -980,9 +1016,15 @@ class UnifiedTradingSystem:
 
                 # Run optimizer
                 self.auto_improver.process_feedback(feedback)
-                logger.info("✅ Strategy optimizer executed")
-            except Exception as e:
-                logger.debug(f"Could not run optimizer: {e}")
+                logger.info(f"✅ Strategy optimizer executed (after {trades_since_last_optimizer} trades)")
+                
+                # Update tracker
+                self._last_optimizer_trades_count = closed_trades
+            else:
+                logger.debug(f"📊 Skipping optimizer: only {trades_since_last_optimizer} trades since last run (need 5)")
+                
+        except Exception as e:
+            logger.debug(f"Could not run optimizer: {e}")
 
     def run_cycle(self):
         """Run one trading cycle with error handling"""
@@ -1019,8 +1061,8 @@ class UnifiedTradingSystem:
                     break
                 # ====================================================
 
-                # Skip low confidence (reduced from 30% to 5% for aggressive trading)
-                if signal["confidence"] < 40:  # Minimum 40% confidence - FIXED: Increased from 10% for quality over quantity
+                # Skip low confidence (adjusted to be realistic with ensemble thresholds)
+                if signal["confidence"] < 25:  # Minimum 25% confidence - Balanced threshold
                     continue
 
                 # Trade both bullish and bearish signals (for more opportunities)
