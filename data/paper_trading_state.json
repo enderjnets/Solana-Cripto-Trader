@@ -1,5 +1,5 @@
 {
-  "enabled": false,
+  "enabled": true,
   "start_time": null,
   "balance_usd": 500.0,
   "initial_balance": 500.0,
