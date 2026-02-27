@@ -1196,11 +1196,29 @@ class UnifiedTradingSystem:
                 time_module.sleep(30)
                 continue
 
-            # ====== FIX v4: Robust sleep with error handling and logging ======
+            # ====== FIX v5: Ultra-robust sleep with heartbeat monitoring ======
             try:
                 logger.info(f"😴 Sleeping for {self.scan_interval} seconds until next cycle...")
-                time_module.sleep(self.scan_interval)
-                logger.info(f"⏰ Woke up after {self.scan_interval} seconds")
+                
+                # Split sleep into smaller intervals for better responsiveness
+                sleep_interval = 10  # Check every 10 seconds
+                elapsed = 0
+                while elapsed < self.scan_interval and self.running:
+                    time_module.sleep(sleep_interval)
+                    elapsed += sleep_interval
+                    
+                    # Write heartbeat every 10 seconds
+                    try:
+                        HEARTBEAT_FILE.write_text(f"{datetime.now().isoformat()}\n{elapsed}/{self.scan_interval}s")
+                    except:
+                        pass
+                    
+                    # Log progress every 30 seconds
+                    if elapsed % 30 == 0:
+                        logger.debug(f"💤 Still sleeping... {elapsed}/{self.scan_interval}s elapsed")
+                
+                if self.running:
+                    logger.info(f"⏰ Woke up after {elapsed} seconds")
             except KeyboardInterrupt:
                 logger.info("⏹️ Keyboard interrupt during sleep")
                 shutdown_reason = "Keyboard interrupt during sleep"
