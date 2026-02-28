@@ -25,7 +25,7 @@ import asyncio
 import subprocess
 import requests
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Any
+from typing import Dict, List, Optional, Tuple
 from threading import Thread
 from datetime import datetime, timedelta
 
@@ -64,13 +64,13 @@ LIQUIDATION_THRESHOLD = 0.80  # 80% collateral threshold
 BORROWING_FEE_HOURLY = 0.0001  # 0.01% por hora para SHORTs
 FUNDING_RATE_PCT = 0.01  # 0.01% funding rate cada 8 horas
 
-# 🔧 V3.3: Filtros de Entrada RELAJADOS (antes demasiado restrictivos = 0 trades)
+# 🔧 V3.2: Filtros de Entrada
 ENTRY_FILTER_ENABLED = True
-MIN_VOLATILITY = 0.005  # 0.5% volatilidad mínima (antes 2% - rechazaba todo)
-ATR_THRESHOLD_PCT = 0.005  # ATR debe ser > 0.5% del precio (antes 1%)
-RSI_OVERBOUGHT = 75  # RSI sobrecompra (antes 70 - demasiado estricto)
-RSI_OVERSOLD = 25  # RSI sobreventa (antes 30 - demasiado estricto)
-PRICE_ACTION_THRESHOLD = 0.003  # 0.3% movimiento mínimo (antes 1%)
+MIN_VOLATILITY = 0.02  # 2% volatilidad mínima requerida
+ATR_THRESHOLD_PCT = 0.01  # ATR debe ser > 1% del precio
+RSI_OVERBOUGHT = 70  # RSI sobrecompra (evitar LONG)
+RSI_OVERSOLD = 30  # RSI sobreventa (evitar SHORT)
+PRICE_ACTION_THRESHOLD = 0.01  # 1% de movimiento mínimo
 
 # 🔧 V3.2: Límite de Trades por Token
 MAX_TRADES_PER_TOKEN = 2  # Máximo 2 trades por token
@@ -186,175 +186,65 @@ class MasterState:
 # PRICE FETCHER & INDICATORS
 # ============================================================================
 
-# ============================================================================
-# HISTORICAL PRICE CACHE (for real EMA/RSI calculations)
-# ============================================================================
-_price_history_cache: Dict[str, List[float]] = {}  # {symbol: [prices...]}
-_price_history_last_fetch: float = 0.0
-_HISTORY_FETCH_INTERVAL = 1800  # Refresh historical data every 30 min (CoinGecko rate limit)
-
-# CoinGecko ID to symbol mapping (global)
-CG_ID_MAP = {
-    "bitcoin": "BTC",
-    "ethereum": "ETH",
-    "solana": "SOL",
-    "cardano": "ADA",
-    "ripple": "XRP",
-    "polkadot": "DOT",
-    "chainlink": "LINK"
-}
-CG_SYM_TO_ID = {v: k for k, v in CG_ID_MAP.items()}
-
-
-def _fetch_historical_prices() -> Dict[str, List[float]]:
-    """Fetch 30-day historical daily prices from CoinGecko for real indicator calculations.
-    Only fetches top tokens to stay within free tier rate limits (~10 req/min)."""
-    global _price_history_cache, _price_history_last_fetch
-    
-    now = time.time()
-    if _price_history_cache and (now - _price_history_last_fetch) < _HISTORY_FETCH_INTERVAL:
-        return _price_history_cache
-    
-    # Only fetch history for major tokens (rate limit friendly)
-    priority_tokens = ["bitcoin", "ethereum", "solana", "cardano"]
-    
-    history = {}
-    for cg_id in priority_tokens:
-        sym = CG_ID_MAP.get(cg_id, cg_id.upper())
-        try:
-            url = f"https://api.coingecko.com/api/v3/coins/{cg_id}/market_chart?vs_currency=usd&days=30&interval=daily"
-            resp = requests.get(url, timeout=15)
-            if resp.status_code == 200:
-                data = resp.json()
-                prices_list = data.get("prices", [])
-                history[sym] = [p[1] for p in prices_list]
-            elif resp.status_code == 429:
-                print(f"   ⚠️ CoinGecko rate limited on {sym} - using cache")
-                break  # Stop fetching more, use what we have
-            else:
-                print(f"   ⚠️ Historical data fetch failed for {sym}: HTTP {resp.status_code}")
-            time.sleep(2)  # 2s between calls to avoid 429
-        except Exception as e:
-            print(f"   ⚠️ Historical fetch error for {sym}: {e}")
-    
-    if history:
-        # Merge new data with cache (keep old data for tokens we didn't fetch)
-        _price_history_cache.update(history)
-        _price_history_last_fetch = now
-    
-    return _price_history_cache
-
-
-def _calculate_ema(prices: List[float], period: int) -> float:
-    """Calculate Exponential Moving Average from a price list"""
-    if not prices or len(prices) < period:
-        return prices[-1] if prices else 0.0
-    
-    multiplier = 2.0 / (period + 1)
-    ema = sum(prices[:period]) / period  # SMA as seed
-    
-    for price in prices[period:]:
-        ema = (price - ema) * multiplier + ema
-    
-    return ema
-
-
-def _calculate_rsi(prices: List[float], period: int = 14) -> float:
-    """Calculate RSI from a price list using standard Wilder's method"""
-    if not prices or len(prices) < period + 1:
-        return 50.0  # Neutral default
-    
-    deltas = [prices[i] - prices[i-1] for i in range(1, len(prices))]
-    
-    gains = [d if d > 0 else 0.0 for d in deltas]
-    losses = [-d if d < 0 else 0.0 for d in deltas]
-    
-    # Initial average
-    avg_gain = sum(gains[:period]) / period
-    avg_loss = sum(losses[:period]) / period
-    
-    # Smooth with Wilder's method
-    for i in range(period, len(gains)):
-        avg_gain = (avg_gain * (period - 1) + gains[i]) / period
-        avg_loss = (avg_loss * (period - 1) + losses[i]) / period
-    
-    if avg_loss == 0:
-        return 100.0
-    
-    rs = avg_gain / avg_loss
-    rsi = 100.0 - (100.0 / (1.0 + rs))
-    
-    return rsi
-
-
 def get_real_prices() -> Dict:
-    """Fetch real-time prices from CoinGecko with REAL indicator data from historical prices"""
+    """Fetch real-time prices from CoinGecko with indicator data"""
     prices = {}
     try:
-        # Step 1: Fetch current prices
         url = "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,solana,cardano,ripple,polkadot,chainlink&vs_currencies=usd&include_24hr_change=true"
         resp = requests.get(url, timeout=10)
 
         if resp.status_code == 200:
             data = resp.json()
 
-            for cg_id, sym in CG_ID_MAP.items():
+            # Map CoinGecko IDs to symbols
+            id_map = {
+                "bitcoin": "BTC",
+                "ethereum": "ETH",
+                "solana": "SOL",
+                "cardano": "ADA",
+                "ripple": "XRP",
+                "polkadot": "DOT",
+                "chainlink": "LINK"
+            }
+
+            for cg_id, sym in id_map.items():
                 if cg_id in data:
                     prices[sym] = {
                         "price": float(data[cg_id]["usd"]),
                         "change": float(data[cg_id].get("usd_24h_change", 0))
                     }
 
-            # Step 2: Fetch historical prices for real indicators
-            history = _fetch_historical_prices()
-            
-            # Step 3: Calculate REAL indicators
-            prices = calculate_indicators(prices, history)
-            return prices
+            # Calculate EMA and RSI
+            prices_with_indicators = calculate_indicators(prices)
+            return prices_with_indicators
 
     except Exception as e:
         print(f"   ⚠️ Price fetch error: {e}")
     return prices
 
 
-def calculate_indicators(prices: Dict, history: Dict = None) -> Dict:
-    """Calculate REAL EMA and RSI from historical price data"""
+def calculate_indicators(prices: Dict) -> Dict:
+    """Calculate EMA and RSI for all tokens"""
     result = {}
 
     for token in prices.keys():
-        current_price = prices[token]["price"]
+        price = prices[token]["price"]
         change_24h = prices[token]["change"]
 
-        # Get historical prices for this token
-        hist_prices = []
-        if history and token in history:
-            hist_prices = history[token].copy()
-            # Append current price as the latest data point
-            hist_prices.append(current_price)
-        
-        if len(hist_prices) >= EMA_SLOW + 1:
-            # REAL EMA calculations from historical data
-            ema_fast = _calculate_ema(hist_prices, EMA_FAST)
-            ema_slow = _calculate_ema(hist_prices, EMA_SLOW)
-            # REAL RSI from historical data
-            rsi = _calculate_rsi(hist_prices, RSI_PERIOD)
+        # Simple EMA calculation (simplified - in production, use historical data)
+        ema_fast = price * 0.9 + price * 0.1
+        ema_slow = price * 0.95 + price * 0.05
+
+        # RSI approximation (0-100)
+        if change_24h > 0:
+            rsi = 50 + min(abs(change_24h) * 2, 50)
         else:
-            # Fallback: approximate from 24h change if no history available
-            # But make EMAs slightly different so crossovers can happen
-            if change_24h > 0:
-                ema_fast = current_price
-                ema_slow = current_price * (1 - abs(change_24h) / 200)
-            else:
-                ema_fast = current_price
-                ema_slow = current_price * (1 + abs(change_24h) / 200)
-            
-            rsi = 50 + change_24h * 2
-            rsi = max(10, min(90, rsi))
+            rsi = 50 - min(abs(change_24h) * 2, 20)
 
         result[token] = prices[token]
-        result[token]["ema_fast"] = round(ema_fast, 2)
-        result[token]["ema_slow"] = round(ema_slow, 2)
-        result[token]["rsi"] = round(rsi, 1)
+        result[token]["ema_fast"] = ema_fast
+        result[token]["ema_slow"] = ema_slow
+        result[token]["rsi"] = rsi
 
     return result
 
@@ -407,31 +297,22 @@ def detect_market_trend(prices: Dict) -> Tuple[str, Dict]:
 
 def confirm_trend(ema_fast: float, ema_slow: float, rsi: float, current_price: float) -> bool:
     """
-    Confirmación de tendencia antes de entrar (v3.3: relajada)
-    
-    Antes requería los 3 filtros = casi nunca entraba.
-    Ahora: requiere al menos 2 de 3 filtros (majority vote).
+    Confirmación fuerte de tendencia antes de entrar
 
     Returns:
         True: Entrada permitida
         False: Rechazar entrada
     """
-    score = 0
-    
     # Filtro 1: EMA alignment (EMA short > EMA long para LONG)
-    if ema_fast > ema_slow:
-        score += 1
+    emma_aligned = ema_fast > ema_slow
 
-    # Filtro 2: RSI no en sobrecompra/sobreventa extrema
-    if RSI_OVERSOLD < rsi < RSI_OVERBOUGHT:
-        score += 1
+    # Filtro 2: RSI no en sobrecompra/sobreventa
+    rsi_ok = RSI_OVERSOLD < rsi < RSI_OVERBOUGHT
 
-    # Filtro 3: Price acción reciente (no completamente lateral)
-    if ema_slow > 0 and abs(current_price - ema_slow) / ema_slow > PRICE_ACTION_THRESHOLD:
-        score += 1
+    # Filtro 3: Price acción reciente (no lateral)
+    price_action_ok = abs(current_price - ema_slow) / ema_slow > PRICE_ACTION_THRESHOLD
 
-    # Majority vote: al menos 2 de 3 condiciones
-    return score >= 2
+    return emma_aligned and rsi_ok and price_action_ok
 
 
 def check_volatility(change_24h: float) -> bool:
@@ -696,61 +577,49 @@ class ResearcherAgent:
             direction = LONG
 
             if market_trend == "bullish":
-                # PUMP signal - Buy on strong upward momentum
-                if change > 2:
+                # PUMP signal - Buy on upward momentum
+                if change > 3:
                     direction = LONG
                     signal = "pump"
-                    target = current * 1.05
+                    target = current * 1.05  # V3.2: +5% TP
                     confidence = 0.7
                     self.state.log(f"   🔥 {token}: PUMP detectado ({change:+.1f}%)")
 
-                # Trend following - LONG on uptrend (relaxed from >1% to >0.3%)
-                elif ema_fast > ema_slow and change > 0.3:
+                # Trend following - LONG on uptrend
+                elif ema_fast > ema_slow and change > 1:
                     direction = LONG
                     signal = "long"
-                    target = current * 1.05
+                    target = current * 1.05  # V3.2: +5% TP
                     confidence = 0.6
                     self.state.log(f"   📈 {token}: LONG en alza ({change:+.1f}%)")
 
-                # EMA crossover signal even with small change
-                elif ema_fast > ema_slow * 1.002:
-                    direction = LONG
-                    signal = "ema_cross"
-                    target = current * 1.05
-                    confidence = 0.55
-                    self.state.log(f"   📈 {token}: EMA CROSS LONG ({change:+.1f}%)")
-
             elif market_trend == "bearish":
-                # SHORT on downward momentum (relaxed from -2% to -1%)
-                if change < -1:
+                # DIP signal - SHORT on downward momentum
+                if change < -2:
                     direction = SHORT
                     signal = "short"
-                    target = current * 0.95
+                    target = current * 0.95  # V3.2: -5% TP
                     confidence = 0.7
                     self.state.log(f"   💥 {token}: SHORT en bajada ({change:+.1f}%)")
 
-                # EMA bearish crossover
-                elif ema_fast < ema_slow * 0.998:
-                    direction = SHORT
-                    signal = "ema_cross_short"
-                    target = current * 0.95
-                    confidence = 0.55
-                    self.state.log(f"   📉 {token}: EMA CROSS SHORT ({change:+.1f}%)")
+                # Don't buy dips in bearish market
+                elif change < -1:
+                    continue  # Skip buying opportunities in bearish market
 
             elif market_trend == "neutral":
-                # Range trading - more permissive entries
-                if ema_fast > ema_slow and change > -1:
+                # Range trading - Buy at support, Sell at resistance
+                if ema_fast < ema_slow and change > -2:
                     direction = LONG
-                    signal = "range_long"
-                    target = current * 1.05
+                    signal = "long"
+                    target = current * 1.05  # V3.2: +5% TP
                     confidence = 0.5
-                    self.state.log(f"   📊 {token}: RANGE LONG ({change:+.1f}%)")
-                elif ema_fast < ema_slow and change < 1:
+                    self.state.log(f"   📊 {token}: RANGE LONG en soporte")
+                elif ema_fast > ema_slow and change > 2:
                     direction = SHORT
-                    signal = "range_short"
-                    target = current * 0.95
+                    signal = "short"
+                    target = current * 0.95  # V3.2: -5% TP
                     confidence = 0.5
-                    self.state.log(f"   📊 {token}: RANGE SHORT ({change:+.1f}%)")
+                    self.state.log(f"   📊 {token}: RANGE SHORT en resistencia")
 
             # 🔧 V3.2: Aplicar filtros antes de agregar oportunidad
             if signal:
@@ -1237,39 +1106,29 @@ class MasterOrchestrator:
                 self.state.data["cycles"] = cycle
 
                 try:
-                    # v3.3: Sequential pipeline - when Researcher runs, 
-                    # Backtester and Auditor MUST also run in the same cycle
-                    ran_research = False
-                    
                     # Run research periodically
                     last_research = self.state.data["agents"]["researcher"].get("last_run")
                     if not last_research:
                         await self.researcher.run()
-                        ran_research = True
                     else:
                         try:
                             last_run_time = datetime.fromisoformat(last_research)
                             if (datetime.now() - last_run_time).seconds > RESEARCH_INTERVAL:
                                 await self.researcher.run()
-                                ran_research = True
                         except:
                             await self.researcher.run()
-                            ran_research = True
 
-                    # Run backtest: ALWAYS after research, or on its own interval
-                    if ran_research or self.state.data.get("opportunities", []):
+                    # Run backtest periodically
+                    last_backtest = self.state.data["agents"]["backtester"].get("last_run")
+                    if not last_backtest:
                         await self.backtester.run()
                     else:
-                        last_backtest = self.state.data["agents"]["backtester"].get("last_run")
-                        if not last_backtest:
-                            await self.backtester.run()
-                        else:
-                            try:
-                                last_run_time = datetime.fromisoformat(last_backtest)
-                                if (datetime.now() - last_run_time).seconds > BACKTEST_INTERVAL:
-                                    await self.backtester.run()
-                            except:
+                        try:
+                            last_run_time = datetime.fromisoformat(last_backtest)
+                            if (datetime.now() - last_run_time).seconds > BACKTEST_INTERVAL:
                                 await self.backtester.run()
+                        except:
+                            await self.backtester.run()
 
                     # Run audit every cycle
                     await self.auditor.run()
@@ -1277,7 +1136,7 @@ class MasterOrchestrator:
                     # Run paper trading (Drift simulation)
                     await self.paper_trader.run()
 
-                    # Fetch and log real-time prices (use cached history)
+                    # Fetch and log real-time prices
                     prices = get_real_prices()
                     self.state.data["current_prices"] = prices
 
