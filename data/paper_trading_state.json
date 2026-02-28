@@ -1,11 +1,82 @@
 {
   "enabled": true,
   "start_time": null,
-  "balance_usd": 500.0,
+  "balance_usd": 332.5653542056303,
   "initial_balance": 500.0,
   "leverage": 5,
-  "margin_used": 0,
-  "trades": [],
+  "margin_used": 835.0855151838891,
+  "trades": [
+    {
+      "id": "trade_20260227_160045_4e25",
+      "entry_time": "2026-02-27T16:00:45.158641",
+      "entry_price": 1920.45377679638,
+      "direction": "short",
+      "size": 180.38207705969288,
+      "symbol": "ETH",
+      "status": "open",
+      "exit_time": null,
+      "exit_price": null,
+      "pnl": 0.0,
+      "pnl_pct": 0.0,
+      "reason": "ML Score: 26%"
+    },
+    {
+      "id": "trade_20260227_160045_0279",
+      "entry_time": "2026-02-27T16:00:45.160797",
+      "entry_price": 65582.4371876982,
+      "direction": "short",
+      "size": 173.4767485359115,
+      "symbol": "BTC",
+      "status": "open",
+      "exit_time": null,
+      "exit_price": null,
+      "pnl": 0.0,
+      "pnl_pct": 0.0,
+      "reason": "ML Score: 28%"
+    },
+    {
+      "id": "trade_20260227_160045_9185",
+      "entry_time": "2026-02-27T16:00:45.162803",
+      "entry_price": 0.203304113594034,
+      "direction": "long",
+      "size": 153.8106276459363,
+      "symbol": "WIF",
+      "status": "open",
+      "exit_time": null,
+      "exit_price": null,
+      "pnl": 0.0,
+      "pnl_pct": 0.0,
+      "reason": "ML Score: 25%"
+    },
+    {
+      "id": "trade_20260227_160045_1718",
+      "entry_time": "2026-02-27T16:00:45.164715",
+      "entry_price": 5.88046391434951e-06,
+      "direction": "short",
+      "size": 165.31469876315873,
+      "symbol": "BONK",
+      "status": "open",
+      "exit_time": null,
+      "exit_price": null,
+      "pnl": 0.0,
+      "pnl_pct": 0.0,
+      "reason": "ML Score: 36%"
+    },
+    {
+      "id": "trade_20260227_160045_9788",
+      "entry_time": "2026-02-27T16:00:45.166674",
+      "entry_price": 0.274598715279813,
+      "direction": "long",
+      "size": 162.10136317918966,
+      "symbol": "JTO",
+      "status": "open",
+      "exit_time": null,
+      "exit_price": null,
+      "pnl": 0.0,
+      "pnl_pct": 0.0,
+      "reason": "ML Score: 42%"
+    }
+  ],
   "stats": {
     "total_trades": 0,
     "winning_trades": 0,
@@ -19,5 +90,51 @@
     "best_streak": 0,
     "worst_streak": 0
   },
-  "signals": []
+  "signals": [
+    {
+      "time": "2026-02-27T16:00:45.158641",
+      "symbol": "ETH",
+      "direction": "short",
+      "price": 1920.45377679638,
+      "size": 36.07641541193858,
+      "reason": "ML Score: 26%",
+      "trade_id": "trade_20260227_160045_4e25"
+    },
+    {
+      "time": "2026-02-27T16:00:45.160797",
+      "symbol": "BTC",
+      "direction": "short",
+      "price": 65582.4371876982,
+      "size": 34.6953497071823,
+      "reason": "ML Score: 28%",
+      "trade_id": "trade_20260227_160045_0279"
+    },
+    {
+      "time": "2026-02-27T16:00:45.162803",
+      "symbol": "WIF",
+      "direction": "long",
+      "price": 0.203304113594034,
+      "size": 30.762125529187262,
+      "reason": "ML Score: 25%",
+      "trade_id": "trade_20260227_160045_9185"
+    },
+    {
+      "time": "2026-02-27T16:00:45.164715",
+      "symbol": "BONK",
+      "direction": "short",
+      "price": 5.88046391434951e-06,
+      "size": 33.06293975263175,
+      "reason": "ML Score: 36%",
+      "trade_id": "trade_20260227_160045_1718"
+    },
+    {
+      "time": "2026-02-27T16:00:45.166674",
+      "symbol": "JTO",
+      "direction": "long",
+      "price": 0.274598715279813,
+      "size": 32.42027263583793,
+      "reason": "ML Score: 42%",
+      "trade_id": "trade_20260227_160045_9788"
+    }
+  ]
 }
