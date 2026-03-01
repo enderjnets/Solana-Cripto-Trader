@@ -1,0 +1,34 @@
+{
+  "weights": {
+    "rsi": 0.3,
+    "ema_crossover": 0.25,
+    "momentum": 0.25,
+    "trend": 0.2
+  },
+  "indicator_scores": {
+    "rsi": {
+      "correct": 0,
+      "incorrect": 0,
+      "neutral": 0
+    },
+    "ema_crossover": {
+      "correct": 0,
+      "incorrect": 0,
+      "neutral": 0
+    },
+    "momentum": {
+      "correct": 0,
+      "incorrect": 0,
+      "neutral": 0
+    },
+    "trend": {
+      "correct": 0,
+      "incorrect": 0,
+      "neutral": 0
+    }
+  },
+  "trades_since_recalc": 0,
+  "total_trades_tracked": 0,
+  "recalc_history": [],
+  "last_update": "2026-03-01T00:05:16.416222"
+}

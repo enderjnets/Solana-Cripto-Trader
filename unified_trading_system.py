@@ -61,6 +61,7 @@ from agents.market_scanner_agent import MarketScannerAgent, Opportunity
 from paper_trading_engine import PaperTradingEngine
 from auto_improver import AutoImprover
 from self_improver import SelfImprover
+from ml.adaptive_weights import AdaptiveWeights
 from api.kraken_price import get_kraken_price
 from api.price_feed import get_price_feed
 from notifications import NotificationLogger, get_notifier
@@ -257,6 +258,7 @@ class RedisCacheManager:
 class MLSignalGenerator:
     """
     ML Signal Generator with RSI, EMA, Momentum, and Trend indicators.
+    Supports adaptive weights that learn from trade outcomes.
     """
 
     def __init__(self, rsi_period: int = 14, ema_short: int = 9, ema_long: int = 21):
@@ -264,6 +266,8 @@ class MLSignalGenerator:
         self.ema_short = ema_short
         self.ema_long = ema_long
         self.price_history: Dict[str, List[float]] = {}
+        # FASE 3: Adaptive weights (loaded from data/ml_weights.json)
+        self.adaptive_weights = AdaptiveWeights()
 
     def update_price(self, symbol: str, price: float):
         """Update price history for a symbol"""
@@ -368,12 +372,13 @@ class MLSignalGenerator:
         trend_score = min(max(trend * 500, -40), 40)
         trend_signal = "bullish" if trend_score > 5 else ("bearish" if trend_score < -5 else "neutral")
 
-        # Calculate weighted ensemble score
+        # FASE 3: Use adaptive weights instead of hardcoded values
+        weights = self.adaptive_weights.get_weights()
         ensemble_score = (
-            rsi_score * 0.30 +
-            ema_score * 0.25 +
-            momentum_score * 0.25 +
-            trend_score * 0.20
+            rsi_score * weights.get("rsi", 0.30) +
+            ema_score * weights.get("ema_crossover", 0.25) +
+            momentum_score * weights.get("momentum", 0.25) +
+            trend_score * weights.get("trend", 0.20)
         )
 
         # Apply non-linear confidence scaling (penalize weak signals)
@@ -819,7 +824,11 @@ class UnifiedTradingSystem:
                 except:
                     pass
 
-                # Store in cache
+                # Store in cache (including ML components for adaptive weights learning)
+                # Get the latest ML signal components for this symbol
+                ml_signal_data = self.ml_signal.generate_signal(signal.symbol)
+                ml_components = ml_signal_data.get("components", {}) if ml_signal_data else {}
+                
                 self.cache.set_trade_state(trade_id, {
                     "symbol": signal.symbol,
                     "direction": signal.direction,
@@ -827,7 +836,8 @@ class UnifiedTradingSystem:
                     "size": signal.position_size,
                     "stop_loss": signal.stop_loss,
                     "take_profit": signal.take_profit,
-                    "confidence": signal.confidence
+                    "confidence": signal.confidence,
+                    "ml_components": ml_components  # FASE 3: For adaptive weight learning
                 })
 
                 return True
@@ -926,6 +936,26 @@ class UnifiedTradingSystem:
                     logger.debug(f"📊 Trade registered with auto_improver: {trade['symbol']}")
                 except Exception as e:
                     logger.error(f"❌ Failed to register trade with auto_improver: {e}")
+
+                # 📊 FASE 3: Record trade with adaptive weights for indicator learning
+                try:
+                    cached_state = self.cache.get_trade_state(trade_id)
+                    if cached_state and "ml_components" in cached_state:
+                        is_win = trade.get('pnl', 0) > 0
+                        trade_dir = trade.get('direction', 'bullish')
+                        # Map long/short to bullish/bearish for consistency
+                        if trade_dir == 'long':
+                            trade_dir = 'bullish'
+                        elif trade_dir == 'short':
+                            trade_dir = 'bearish'
+                        self.ml_signal.adaptive_weights.record_trade(
+                            components=cached_state["ml_components"],
+                            trade_direction=trade_dir,
+                            is_win=is_win
+                        )
+                        logger.debug(f"📊 Adaptive weights updated: {trade['symbol']} ({'WIN' if is_win else 'LOSS'})")
+                except Exception as e:
+                    logger.error(f"❌ Failed to update adaptive weights: {e}")
 
                 # 📊 Register trade with self_improver for symbol+direction learning
                 try:
