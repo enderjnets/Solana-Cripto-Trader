@@ -48,6 +48,7 @@ import sqlite3
 import json
 import time as time_module
 import traceback
+import numpy as np
 
 # Add project root
 PROJECT_ROOT = Path(__file__).parent
@@ -62,6 +63,7 @@ from paper_trading_engine import PaperTradingEngine
 from auto_improver import AutoImprover
 from self_improver import SelfImprover
 from ml.adaptive_weights import AdaptiveWeights
+from ml.ml_model import TradingMLModel
 from api.kraken_price import get_kraken_price
 from api.price_feed import get_price_feed
 from notifications import NotificationLogger, get_notifier
@@ -268,6 +270,8 @@ class MLSignalGenerator:
         self.price_history: Dict[str, List[float]] = {}
         # FASE 3: Adaptive weights (loaded from data/ml_weights.json)
         self.adaptive_weights = AdaptiveWeights()
+        # FASE 4: Real ML model (Gradient Boosting)
+        self.ml_model = TradingMLModel()
 
     def update_price(self, symbol: str, price: float):
         """Update price history for a symbol"""
@@ -390,7 +394,7 @@ class MLSignalGenerator:
         else:
             confidence = confidence * 0.7  # Less penalty for strong signals
 
-        # Determine direction
+        # Determine direction from technical indicators
         if ensemble_score > 0.10:  # Reduced from 0.20 to 0.10 - More reasonable threshold
             direction = "bullish"
         elif ensemble_score < -0.10:
@@ -398,11 +402,49 @@ class MLSignalGenerator:
         else:
             direction = "neutral"
 
+        # Technical indicator confidence
+        tech_confidence = min(confidence * 100, 95.0)  # Max 95%
+        
+        # FASE 4: Use ML model prediction if available (>=30 training samples)
+        ml_confidence = None
+        signal_source = "technical_indicators"
+        try:
+            if self.ml_model.is_ready and direction != "neutral":
+                # Calculate volatility for ML features
+                if len(prices) >= 5:
+                    returns = [(prices[i] - prices[i-1]) / prices[i-1] for i in range(1, len(prices))]
+                    volatility = float(np.std(returns)) if returns else 0.02
+                else:
+                    volatility = 0.02
+                
+                hour = datetime.now().hour
+                
+                ml_pred = self.ml_model.predict_confidence(
+                    rsi=rsi,
+                    ema_short=ema_short,
+                    ema_long=ema_long,
+                    momentum=momentum * 100,  # Convert to percentage
+                    volatility=volatility,
+                    hour=hour,
+                    symbol=symbol
+                )
+                
+                if ml_pred is not None:
+                    ml_confidence = ml_pred
+                    signal_source = "ml_model"
+                    # Blend: 60% ML model, 40% technical for stability
+                    blended_confidence = ml_confidence * 0.6 + tech_confidence * 0.4
+                    tech_confidence = blended_confidence
+        except Exception as e:
+            logger.debug(f"ML model prediction skipped for {symbol}: {e}")
+
         return {
             "symbol": symbol,
             "direction": direction,
-            "confidence": min(confidence * 100, 95.0),  # Max 95%
+            "confidence": tech_confidence,
             "ensemble_score": ensemble_score,
+            "signal_source": signal_source,
+            "ml_confidence": ml_confidence,
             "components": {
                 "rsi": {"value": rsi, "signal": rsi_signal, "score": rsi_score},
                 "ema_crossover": {
@@ -936,6 +978,58 @@ class UnifiedTradingSystem:
                     logger.debug(f"📊 Trade registered with auto_improver: {trade['symbol']}")
                 except Exception as e:
                     logger.error(f"❌ Failed to register trade with auto_improver: {e}")
+
+                # 📊 FASE 4: Record trade with ML model for retraining
+                try:
+                    cached_state = self.cache.get_trade_state(trade_id)
+                    if cached_state and "ml_components" in cached_state:
+                        comps = cached_state["ml_components"]
+                        is_win = trade.get('pnl', 0) > 0
+                        trade_dir = trade.get('direction', 'bullish')
+                        if trade_dir == 'long':
+                            trade_dir = 'bullish'
+                        elif trade_dir == 'short':
+                            trade_dir = 'bearish'
+                        
+                        # Extract indicator values for ML features
+                        rsi_val = comps.get('rsi', {}).get('value', 50.0)
+                        ema_s = comps.get('ema_crossover', {}).get('short', 0)
+                        ema_l = comps.get('ema_crossover', {}).get('long', 0)
+                        mom_val = comps.get('momentum', {}).get('value', 0) * 100
+                        
+                        # Estimate volatility from price history
+                        symbol = trade.get('symbol', 'UNKNOWN')
+                        prices = self.ml_signal.price_history.get(symbol, [])
+                        if len(prices) >= 5:
+                            returns = [(prices[i] - prices[i-1]) / prices[i-1] for i in range(1, len(prices))]
+                            volatility = float(np.std(returns)) if returns else 0.02
+                        else:
+                            volatility = 0.02
+                        
+                        # Get entry hour
+                        entry_time_str = trade.get('entry_time', '')
+                        try:
+                            if isinstance(entry_time_str, str):
+                                entry_hour = datetime.fromisoformat(entry_time_str).hour
+                            else:
+                                entry_hour = entry_time_str.hour
+                        except:
+                            entry_hour = datetime.now().hour
+                        
+                        self.ml_signal.ml_model.record_trade(
+                            rsi=rsi_val,
+                            ema_short=ema_s,
+                            ema_long=ema_l,
+                            momentum=mom_val,
+                            volatility=volatility,
+                            hour=entry_hour,
+                            symbol=symbol,
+                            direction=trade_dir,
+                            is_win=is_win
+                        )
+                        logger.debug(f"🧠 ML Model trade recorded: {symbol} ({'WIN' if is_win else 'LOSS'})")
+                except Exception as e:
+                    logger.error(f"❌ Failed to record trade with ML model: {e}")
 
                 # 📊 FASE 3: Record trade with adaptive weights for indicator learning
                 try:
