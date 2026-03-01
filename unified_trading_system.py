@@ -60,6 +60,7 @@ from agents.risk_agent import RiskAgent, RiskLimits
 from agents.market_scanner_agent import MarketScannerAgent, Opportunity
 from paper_trading_engine import PaperTradingEngine
 from auto_improver import AutoImprover
+from self_improver import SelfImprover
 from api.kraken_price import get_kraken_price
 from api.price_feed import get_price_feed
 from notifications import NotificationLogger, get_notifier
@@ -461,6 +462,7 @@ class UnifiedTradingSystem:
         self.risk_agent = RiskAgent()
         self.paper_engine = PaperTradingEngine()
         self.auto_improver = AutoImprover()
+        self.self_improver = SelfImprover()
         self.notifier = NotificationLogger()
 
         # Load config
@@ -654,17 +656,40 @@ class UnifiedTradingSystem:
         return opportunities
 
     def generate_ml_signals(self, opportunities: List[Opportunity]) -> List[Dict]:
-        """Generate ML signals for opportunities"""
+        """Generate ML signals for opportunities, weighted by historical win rate"""
         signals = []
 
         for opp in opportunities:
             signal = self.ml_signal.generate_signal(opp.symbol)
             if signal["confidence"] > 0:
+                # 📊 FASE 2: Adjust confidence by historical win rate per symbol+direction
+                try:
+                    raw_confidence = signal["confidence"]
+                    win_rate = self.self_improver.get_win_rate(
+                        symbol=signal["symbol"],
+                        direction=signal["direction"]
+                    )
+                    # Formula: adjusted = raw * (0.5 + win_rate * 0.5)
+                    # win_rate=0.0 → multiplier=0.5 (halve confidence)
+                    # win_rate=0.5 → multiplier=0.75 (default baseline)
+                    # win_rate=1.0 → multiplier=1.0 (full confidence)
+                    adjustment_factor = 0.5 + win_rate * 0.5
+                    signal["confidence"] = raw_confidence * adjustment_factor
+                    signal["raw_confidence"] = raw_confidence
+                    signal["win_rate_adjustment"] = adjustment_factor
+                    signal["historical_win_rate"] = win_rate
+                    logger.info(
+                        f"📊 ML Signal for {signal['symbol']}: "
+                        f"{signal['direction']} ({signal['confidence']:.1f}% confidence, "
+                        f"raw={raw_confidence:.1f}%, wr={win_rate:.0%}, adj={adjustment_factor:.2f})"
+                    )
+                except Exception as e:
+                    logger.warning(f"⚠️ Could not adjust confidence for {signal['symbol']}: {e}")
+                    logger.info(
+                        f"📊 ML Signal for {signal['symbol']}: "
+                        f"{signal['direction']} ({signal['confidence']:.1f}% confidence)"
+                    )
                 signals.append(signal)
-                logger.info(
-                    f"📊 ML Signal for {signal['symbol']}: "
-                    f"{signal['direction']} ({signal['confidence']:.1f}% confidence)"
-                )
 
         return signals
 
@@ -901,6 +926,17 @@ class UnifiedTradingSystem:
                     logger.debug(f"📊 Trade registered with auto_improver: {trade['symbol']}")
                 except Exception as e:
                     logger.error(f"❌ Failed to register trade with auto_improver: {e}")
+
+                # 📊 Register trade with self_improver for symbol+direction learning
+                try:
+                    self.self_improver.record_trade(
+                        symbol=trade.get('symbol', 'UNKNOWN'),
+                        direction=trade.get('direction', 'bullish'),
+                        pnl_pct=trade.get('pnl_pct', 0)
+                    )
+                    logger.debug(f"📊 Trade registered with self_improver: {trade['symbol']}_{trade['direction']}")
+                except Exception as e:
+                    logger.error(f"❌ Failed to register trade with self_improver: {e}")
 
                 # Notify
                 try:

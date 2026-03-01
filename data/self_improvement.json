@@ -1,10 +1,78 @@
 {
   "trades_by_signal": {
-    "JUP_bullish": {
+    "ETH_bearish": {
+      "wins": 1,
+      "losses": 1
+    },
+    "BTC_bearish": {
+      "wins": 1,
+      "losses": 1
+    },
+    "WIF_bullish": {
+      "wins": 2,
+      "losses": 2
+    },
+    "BONK_bearish": {
+      "wins": 2,
+      "losses": 3
+    },
+    "JTO_bullish": {
+      "wins": 1,
+      "losses": 1
+    },
+    "SOL_bearish": {
+      "wins": 1,
+      "losses": 2
+    },
+    "WIF_bearish": {
+      "wins": 2,
+      "losses": 3
+    },
+    "BONK_bullish": {
+      "wins": 2,
+      "losses": 0
+    },
+    "JTO_bearish": {
       "wins": 0,
       "losses": 1
+    },
+    "RAY_bullish": {
+      "wins": 1,
+      "losses": 0
+    },
+    "BOME_bullish": {
+      "wins": 1,
+      "losses": 0
+    },
+    "PNUT_bearish": {
+      "wins": 0,
+      "losses": 1
+    },
+    "PUMP_bullish": {
+      "wins": 3,
+      "losses": 0
+    },
+    "JUP_bullish": {
+      "wins": 4,
+      "losses": 0
+    },
+    "BTC_bullish": {
+      "wins": 1,
+      "losses": 0
+    },
+    "SOL_bullish": {
+      "wins": 2,
+      "losses": 0
+    },
+    "ETH_bullish": {
+      "wins": 1,
+      "losses": 0
+    },
+    "MEW_bullish": {
+      "wins": 1,
+      "losses": 0
     }
   },
-  "total_trades": 1,
-  "last_update": "2026-02-19T08:14:44.356737"
+  "total_trades": 41,
+  "last_update": "2026-03-01T00:02:47.299740"
 }
