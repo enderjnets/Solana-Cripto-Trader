@@ -27,11 +27,15 @@ class HardbitRiskProfile:
     # Tamaño de posición
     max_position_pct: float = 0.10      # 10% del capital (conservative)
     
-    # Stop Loss ajustado (más estricto)
+    # Stop Loss ajustado — ratio 2.75:1
     stop_loss_pct: float = 0.02         # 2% SL
     
-    # Take Profit conservador
-    take_profit_pct: float = 0.02       # 2% TP
+    # Take Profit — ratio 2.75:1
+    take_profit_pct: float = 0.055      # 5.5% TP
+    
+    # Trailing stop
+    trailing_stop: bool = True          # Enable trailing stop
+    trailing_stop_pct: float = 0.015    # 1.5% trailing distance
     
     # Límites diarios
     max_daily_loss_pct: float = 0.08    # 8% daily loss limit
@@ -50,8 +54,10 @@ class DayTimeProfile:
     """Perfil diurno por defecto"""
     
     max_position_pct: float = 0.10      # 10% del capital
-    stop_loss_pct: float = 0.03          # 3% SL
-    take_profit_pct: float = 0.06       # 6% TP
+    stop_loss_pct: float = 0.025        # 2.5% SL — ratio 2.6:1
+    take_profit_pct: float = 0.065      # 6.5% TP — ratio 2.6:1
+    trailing_stop: bool = True          # Enable trailing stop
+    trailing_stop_pct: float = 0.015    # 1.5% trailing distance
     max_daily_loss_pct: float = 0.10    # 10% daily loss limit
     max_daily_trades: int = 20           # Máximo 20 trades/día
     max_concurrent: int = 5               # Máximo 5 posiciones
@@ -68,23 +74,27 @@ HARDBIT_CONFIG = {
     "night_profile": {
         "risk_level": "HIGH",
         "max_position_pct": 0.15,
-        "stop_loss_pct": 0.01,
-        "take_profit_pct": 0.02,
+        "stop_loss_pct": 0.02,           # 2% SL (was 1%)
+        "take_profit_pct": 0.055,         # 5.5% TP → ratio 2.75:1
         "max_daily_loss_pct": 0.08,
         "max_daily_trades": 10,
         "max_concurrent_positions": 3,
         "cooldown_seconds": 30,
+        "trailing_stop": True,            # Enable trailing stop
+        "trailing_stop_pct": 0.015,       # 1.5% trailing distance
     },
     
     "day_profile": {
         "risk_level": "MEDIUM",
         "max_position_pct": 0.10,
-        "stop_loss_pct": 0.01,
-        "take_profit_pct": 0.02,
+        "stop_loss_pct": 0.025,           # 2.5% SL (was 1%)
+        "take_profit_pct": 0.065,         # 6.5% TP → ratio 2.6:1
         "max_daily_loss_pct": 0.10,
         "max_daily_trades": 20,
         "max_concurrent_positions": 5,
         "cooldown_seconds": 60,
+        "trailing_stop": True,            # Enable trailing stop
+        "trailing_stop_pct": 0.015,       # 1.5% trailing distance
     },
     
     # Tokens favoritos para noche hardbit

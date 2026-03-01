@@ -66,6 +66,7 @@ from ml.adaptive_weights import AdaptiveWeights
 from ml.ml_model import TradingMLModel
 from api.kraken_price import get_kraken_price
 from api.price_feed import get_price_feed
+from api.websocket_feed import get_ws_price_feed, stop_ws_price_feed
 from notifications import NotificationLogger, get_notifier
 
 # =============================================================================
@@ -657,13 +658,15 @@ class UnifiedTradingSystem:
             hardbit_profile = get_active_profile()
             logger.info("✅ Using HARDBIT schedule parameters")
             return {
-                "max_position_pct": hardbit_profile.get("max_position", 0.15),
-                "max_concurrent_positions": hardbit_profile.get("max_concurrent", 5),
-                "stop_loss_pct": hardbit_profile.get("stop_loss", 0.02),
-                "take_profit_pct": hardbit_profile.get("take_profit", 0.04),
-                "max_daily_loss_pct": hardbit_profile.get("max_daily_loss", 0.05),
-                "max_trades_per_day": hardbit_profile.get("max_trades", 20),
-                "risk_reward_min": 2.0,
+                "max_position_pct": hardbit_profile.get("max_position_pct", 0.15),
+                "max_concurrent_positions": hardbit_profile.get("max_concurrent_positions", 5),
+                "stop_loss_pct": hardbit_profile.get("stop_loss_pct", 0.025),
+                "take_profit_pct": hardbit_profile.get("take_profit_pct", 0.065),
+                "max_daily_loss_pct": hardbit_profile.get("max_daily_loss_pct", 0.10),
+                "max_trades_per_day": hardbit_profile.get("max_daily_trades", 20),
+                "risk_reward_min": 2.5,
+                "trailing_stop": hardbit_profile.get("trailing_stop", True),
+                "trailing_stop_pct": hardbit_profile.get("trailing_stop_pct", 0.015),
                 "leverage": self.paper_engine.state.leverage  # Add current leverage
             }
         except:
@@ -671,11 +674,13 @@ class UnifiedTradingSystem:
             return {
                 "max_position_pct": 0.15,
                 "max_concurrent_positions": 5,
-                "stop_loss_pct": 0.02,
-                "take_profit_pct": 0.04,
-                "max_daily_loss_pct": 0.05,
+                "stop_loss_pct": 0.025,
+                "take_profit_pct": 0.065,
+                "max_daily_loss_pct": 0.10,
                 "max_trades_per_day": 20,
-                "risk_reward_min": 2.0,
+                "risk_reward_min": 2.5,
+                "trailing_stop": True,
+                "trailing_stop_pct": 0.015,
                 "leverage": self.paper_engine.state.leverage  # Add current leverage
             }
 
@@ -891,7 +896,7 @@ class UnifiedTradingSystem:
             return False
 
     def _get_current_price(self, trade_id: str) -> float:
-        """Get current price for a trade"""
+        """Get current price for a trade (WebSocket → REST → Kraken fallback)"""
         try:
             # Get trade from paper engine
             trades = self.paper_engine.state.trades
@@ -902,7 +907,18 @@ class UnifiedTradingSystem:
 
             symbol = trade["symbol"]
 
-            # Try cache first
+            # ========== PRIORITY 1: WebSocket real-time price ==========
+            try:
+                ws_feed = get_ws_price_feed()
+                ws_price = ws_feed.get_price(f"{symbol}USD")
+                if ws_price and ws_price > 0:
+                    logger.info(f"⚡ Price for {symbol}: ${ws_price} (WebSocket real-time)")
+                    self.cache.set_price(symbol, ws_price)
+                    return ws_price
+            except Exception as e:
+                logger.debug(f"WebSocket price unavailable for {symbol}: {e}")
+
+            # ========== PRIORITY 2: Redis/file cache ==========
             cached = self.cache.get_price(symbol)
             if cached and cached.get("timestamp"):
                 # Check if cache is fresh (< 60 seconds)
@@ -910,21 +926,21 @@ class UnifiedTradingSystem:
                 if (datetime.now() - cache_time).total_seconds() < 60:
                     return cached["price"]
 
-            # Get fresh price
+            # ========== PRIORITY 3: REST price feed ==========
             price_feed = get_price_feed()
             price = price_feed.get_price(f"{symbol}USD")
 
             if price:
-                logger.info(f"💰 Close price for {symbol}: ${price} (from price feed)")
+                logger.info(f"💰 Price for {symbol}: ${price} (REST price feed)")
                 self.cache.set_price(symbol, price)
                 return price
 
-            # Fallback to Kraken
+            # ========== PRIORITY 4: Kraken fallback ==========
             try:
                 kraken_feed = get_kraken_price()
                 price = kraken_feed.get_price(f"{symbol}USD")
                 if price:
-                    logger.info(f"💰 Close price for {symbol}: ${price} (from Kraken)")
+                    logger.info(f"💰 Price for {symbol}: ${price} (Kraken fallback)")
                     self.cache.set_price(symbol, price)
                     return price
             except:
@@ -1077,14 +1093,15 @@ class UnifiedTradingSystem:
             logger.error(f"❌ Error closing position: {e}")
 
     def _check_open_positions(self):
-        """Check open positions for stop loss / take profit"""
+        """Check open positions for stop loss / take profit / trailing stop"""
         open_trades = self.paper_engine.get_open_trades()
-        logger.info(f"🔍 Checking {len(open_trades)} open positions for SL/TP...")
+        logger.info(f"🔍 Checking {len(open_trades)} open positions for SL/TP/Trailing...")
 
         for trade in open_trades:
             symbol = trade["symbol"]
             entry_price = trade["entry_price"]
             direction = trade["direction"]
+            trade_id = trade["id"]
 
             # Skip if trade was just opened (less than 30 seconds ago)
             try:
@@ -1101,7 +1118,7 @@ class UnifiedTradingSystem:
                 continue
 
             # Get current price
-            current_price = self._get_current_price(trade["id"])
+            current_price = self._get_current_price(trade_id)
 
             logger.info(f"📊 Checking {symbol}: entry=${entry_price}, current=${current_price}, dir={direction}")
 
@@ -1119,14 +1136,85 @@ class UnifiedTradingSystem:
             profile = self.get_trading_params()
 
             # Use strategy SL/TP if available, otherwise use HARDBIT profile
-            stop_loss = profile.get("stop_loss_pct", 0.02)
-            take_profit = profile.get("take_profit_pct", 0.04)
+            stop_loss = profile.get("stop_loss_pct", 0.025)
+            take_profit = profile.get("take_profit_pct", 0.065)
 
-            # Check SL/TP
+            # ========== TRAILING STOP LOGIC ==========
+            trailing_enabled = profile.get("trailing_stop", False)
+            trailing_pct = profile.get("trailing_stop_pct", 0.015)
+
+            if trailing_enabled:
+                # Initialize or update max_price_reached tracking
+                if not hasattr(self, '_trailing_state'):
+                    self._trailing_state = {}
+
+                if trade_id not in self._trailing_state:
+                    self._trailing_state[trade_id] = {
+                        "max_price": current_price if direction == "bullish" else current_price,
+                        "min_price": current_price if direction == "bearish" else current_price,
+                        "breakeven_activated": False,
+                        "trailing_activated": False,
+                    }
+
+                ts = self._trailing_state[trade_id]
+
+                # Update max/min price reached
+                if direction == "bullish":
+                    if current_price > ts["max_price"]:
+                        ts["max_price"] = current_price
+                else:  # bearish
+                    if current_price < ts["min_price"]:
+                        ts["min_price"] = current_price
+
+                # Phase 1: profit > 1.5% → move SL to breakeven
+                if pnl_pct > 0.015 and not ts["breakeven_activated"]:
+                    stop_loss = 0.0  # breakeven (0% loss)
+                    ts["breakeven_activated"] = True
+                    logger.info(f"🔒 {symbol}: SL moved to BREAKEVEN (profit {pnl_pct*100:.2f}%)")
+
+                # Phase 2: profit > 3% → trailing stop at 1.5% from max
+                if pnl_pct > 0.03:
+                    ts["trailing_activated"] = True
+                    if direction == "bullish":
+                        trailing_sl_price = ts["max_price"] * (1 - trailing_pct)
+                        trailing_sl_pct = (trailing_sl_price - entry_price) / entry_price
+                    else:  # bearish
+                        trailing_sl_price = ts["min_price"] * (1 + trailing_pct)
+                        trailing_sl_pct = (entry_price - trailing_sl_price) / entry_price
+
+                    # Use trailing SL only if it's better than breakeven
+                    if trailing_sl_pct > 0:
+                        # Trailing stop: close if price dropped from max by trailing_pct
+                        if direction == "bullish":
+                            if current_price <= trailing_sl_price:
+                                logger.info(f"📉 {symbol}: TRAILING STOP triggered at ${current_price:.4f} "
+                                          f"(max was ${ts['max_price']:.4f}, trail {trailing_pct*100}%)")
+                                self._cleanup_trailing_state(trade_id)
+                                self.close_position(trade_id, "TRAILING_STOP")
+                                continue
+                        else:  # bearish
+                            if current_price >= trailing_sl_price:
+                                logger.info(f"📉 {symbol}: TRAILING STOP triggered at ${current_price:.4f} "
+                                          f"(min was ${ts['min_price']:.4f}, trail {trailing_pct*100}%)")
+                                self._cleanup_trailing_state(trade_id)
+                                self.close_position(trade_id, "TRAILING_STOP")
+                                continue
+
+                    logger.info(f"📈 {symbol}: Trailing active — max=${ts['max_price']:.4f}, "
+                              f"trail_SL=${trailing_sl_price:.4f}, current=${current_price:.4f}")
+
+                # If breakeven is activated, use 0 as stop loss
+                if ts["breakeven_activated"] and not ts["trailing_activated"]:
+                    stop_loss = 0.0  # Breakeven: don't lose money
+            # ========== END TRAILING STOP ==========
+
+            # Check SL/TP (with potentially modified stop_loss from trailing)
             if pnl_pct <= -stop_loss:
-                self.close_position(trade["id"], "STOP_LOSS")
+                self._cleanup_trailing_state(trade_id)
+                self.close_position(trade_id, "STOP_LOSS")
             elif pnl_pct >= take_profit:
-                self.close_position(trade["id"], "TAKE_PROFIT")
+                self._cleanup_trailing_state(trade_id)
+                self.close_position(trade_id, "TAKE_PROFIT")
 
             # ========== 24H TIME LIMIT ==========
             # Close positions open > 24h (unless in big loss)
@@ -1177,6 +1265,11 @@ class UnifiedTradingSystem:
             logger.warning(f"⚠️ Portfolio in big loss, closing all positions...")
             for trade in open_trades:
                 self.close_position(trade["id"], "PORTFOLIO_STOP_LOSS")
+
+    def _cleanup_trailing_state(self, trade_id: str):
+        """Remove trailing stop state for a closed trade"""
+        if hasattr(self, '_trailing_state') and trade_id in self._trailing_state:
+            del self._trailing_state[trade_id]
 
     def _run_optimizer_if_needed(self):
         """Run strategy optimizer dynamically - after every 5-10 trades close"""
