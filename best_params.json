@@ -1,6 +1,6 @@
 {
-  "min_confidence": 0.2,
-  "position_size_pct": 0.15,
+  "min_confidence": 0.25,
+  "position_size_pct": 0.12,
   "stop_loss_pct": 0.03,
   "take_profit_pct": 0.06,
   "max_positions": 5,

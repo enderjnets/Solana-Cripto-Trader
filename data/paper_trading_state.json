@@ -1,80 +1,85 @@
 {
-  "enabled": true,
+  "enabled": false,
   "start_time": null,
-  "balance_usd": 332.5653542056303,
+  "balance_usd": 324.2293630076676,
   "initial_balance": 500.0,
   "leverage": 5,
-  "margin_used": 835.0855151838891,
+  "margin_used": 175.33230622676552,
   "trades": [
     {
-      "id": "trade_20260227_160045_4e25",
-      "entry_time": "2026-02-27T16:00:45.158641",
-      "entry_price": 1920.45377679638,
+      "id": "trade_20260301_123053_f9fa",
+      "entry_time": "2026-03-01T12:30:53.559869",
+      "entry_price": 6.164953096627658e-06,
       "direction": "short",
-      "size": 180.38207705969288,
-      "symbol": "ETH",
+      "size": 186.3925816806036,
+      "symbol": "WEN",
       "status": "open",
       "exit_time": null,
       "exit_price": null,
       "pnl": 0.0,
       "pnl_pct": 0.0,
-      "reason": "ML Score: 26%"
+      "reason": "ML Score: 28%",
+      "confidence": 28.14955492594423
     },
     {
-      "id": "trade_20260227_160045_0279",
-      "entry_time": "2026-02-27T16:00:45.160797",
-      "entry_price": 65582.4371876982,
+      "id": "trade_20260301_123053_7622",
+      "entry_time": "2026-03-01T12:30:53.754769",
+      "entry_price": 0.0003774893283190564,
       "direction": "short",
-      "size": 173.4767485359115,
+      "size": 179.98544352405105,
+      "symbol": "BOME",
+      "status": "open",
+      "exit_time": null,
+      "exit_price": null,
+      "pnl": 0.0,
+      "pnl_pct": 0.0,
+      "reason": "ML Score: 31%",
+      "confidence": 31.247581301206818
+    },
+    {
+      "id": "trade_20260301_123053_2c05",
+      "entry_time": "2026-03-01T12:30:53.758575",
+      "entry_price": 66030.7866549632,
+      "direction": "long",
+      "size": 234.75607853427965,
       "symbol": "BTC",
       "status": "open",
       "exit_time": null,
       "exit_price": null,
       "pnl": 0.0,
       "pnl_pct": 0.0,
-      "reason": "ML Score: 28%"
+      "reason": "ML Score: 62%",
+      "confidence": 61.975503806192705
     },
     {
-      "id": "trade_20260227_160045_9185",
-      "entry_time": "2026-02-27T16:00:45.162803",
-      "entry_price": 0.203304113594034,
-      "direction": "long",
-      "size": 153.8106276459363,
-      "symbol": "WIF",
-      "status": "open",
-      "exit_time": null,
-      "exit_price": null,
-      "pnl": 0.0,
-      "pnl_pct": 0.0,
-      "reason": "ML Score: 25%"
-    },
-    {
-      "id": "trade_20260227_160045_1718",
-      "entry_time": "2026-02-27T16:00:45.164715",
-      "entry_price": 5.88046391434951e-06,
+      "id": "trade_20260301_123053_06c0",
+      "entry_time": "2026-03-01T12:30:53.762116",
+      "entry_price": 5.77996542122879e-06,
       "direction": "short",
-      "size": 165.31469876315873,
+      "size": 138.71399673239435,
       "symbol": "BONK",
       "status": "open",
       "exit_time": null,
       "exit_price": null,
       "pnl": 0.0,
       "pnl_pct": 0.0,
-      "reason": "ML Score: 36%"
+      "reason": "ML Score: 27%",
+      "confidence": 26.770315920735392
     },
     {
-      "id": "trade_20260227_160045_9788",
-      "entry_time": "2026-02-27T16:00:45.166674",
-      "entry_price": 0.274598715279813,
-      "direction": "long",
-      "size": 162.10136317918966,
-      "symbol": "JTO",
+      "id": "trade_20260301_123053_fff5",
+      "entry_time": "2026-03-01T12:30:53.765655",
+      "entry_price": 0.000592259225368186,
+      "direction": "short",
+      "size": 136.81343066249894,
+      "symbol": "MEW",
       "status": "open",
       "exit_time": null,
       "exit_price": null,
       "pnl": 0.0,
       "pnl_pct": 0.0,
-      "reason": "ML Score: 42%"
+      "reason": "ML Score: 31%",
+      "confidence": 31.247581301206818
     }
   ],
   "stats": {
@@ -92,49 +97,49 @@
   },
   "signals": [
     {
-      "time": "2026-02-27T16:00:45.158641",
-      "symbol": "ETH",
+      "time": "2026-03-01T12:30:53.559869",
+      "symbol": "WEN",
       "direction": "short",
-      "price": 1920.45377679638,
-      "size": 36.07641541193858,
-      "reason": "ML Score: 26%",
-      "trade_id": "trade_20260227_160045_4e25"
-    },
-    {
-      "time": "2026-02-27T16:00:45.160797",
-      "symbol": "BTC",
-      "direction": "short",
-      "price": 65582.4371876982,
-      "size": 34.6953497071823,
+      "price": 6.164953096627658e-06,
+      "size": 37.27851633612072,
       "reason": "ML Score: 28%",
-      "trade_id": "trade_20260227_160045_0279"
+      "trade_id": "trade_20260301_123053_f9fa"
     },
     {
-      "time": "2026-02-27T16:00:45.162803",
-      "symbol": "WIF",
+      "time": "2026-03-01T12:30:53.754769",
+      "symbol": "BOME",
+      "direction": "short",
+      "price": 0.0003774893283190564,
+      "size": 35.99708870481021,
+      "reason": "ML Score: 31%",
+      "trade_id": "trade_20260301_123053_7622"
+    },
+    {
+      "time": "2026-03-01T12:30:53.758575",
+      "symbol": "BTC",
       "direction": "long",
-      "price": 0.203304113594034,
-      "size": 30.762125529187262,
-      "reason": "ML Score: 25%",
-      "trade_id": "trade_20260227_160045_9185"
+      "price": 66030.7866549632,
+      "size": 46.95121570685593,
+      "reason": "ML Score: 62%",
+      "trade_id": "trade_20260301_123053_2c05"
     },
     {
-      "time": "2026-02-27T16:00:45.164715",
+      "time": "2026-03-01T12:30:53.762116",
       "symbol": "BONK",
       "direction": "short",
-      "price": 5.88046391434951e-06,
-      "size": 33.06293975263175,
-      "reason": "ML Score: 36%",
-      "trade_id": "trade_20260227_160045_1718"
+      "price": 5.77996542122879e-06,
+      "size": 27.742799346478872,
+      "reason": "ML Score: 27%",
+      "trade_id": "trade_20260301_123053_06c0"
     },
     {
-      "time": "2026-02-27T16:00:45.166674",
-      "symbol": "JTO",
-      "direction": "long",
-      "price": 0.274598715279813,
-      "size": 32.42027263583793,
-      "reason": "ML Score: 42%",
-      "trade_id": "trade_20260227_160045_9788"
+      "time": "2026-03-01T12:30:53.765655",
+      "symbol": "MEW",
+      "direction": "short",
+      "price": 0.000592259225368186,
+      "size": 27.36268613249979,
+      "reason": "ML Score: 31%",
+      "trade_id": "trade_20260301_123053_fff5"
     }
   ]
 }
