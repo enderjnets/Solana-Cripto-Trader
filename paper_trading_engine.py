@@ -134,7 +134,8 @@ class PaperTradingEngine:
                 "exit_price": trade["exit_price"],
                 "pnl": trade["pnl"],
                 "pnl_pct": trade["pnl_pct"],
-                "reason": trade["reason"]
+                "reason": trade["reason"],
+                "confidence": trade.get("confidence", 0.0)  # Persist ML confidence
             }
             data["trades"].append(trade_data)
         
@@ -262,6 +263,7 @@ class PaperTradingEngine:
         size_usd = signal.get("size", self.state.balance_usd * 0.1)  # 10% of balance
         leverage = signal.get("leverage", self.state.leverage)  # Use configured leverage
         reason = signal.get("reason", "Signal")
+        confidence = signal.get("confidence", 0.0)  # ML confidence (0-100)
 
         # SAFETY CHECK: Limit position size to max 15% of current balance
         MAX_POSITION_PCT = 0.15  # 15% max position
@@ -337,7 +339,8 @@ class PaperTradingEngine:
             "exit_price": None,
             "pnl": 0.0,
             "pnl_pct": 0.0,
-            "reason": reason
+            "reason": reason,
+            "confidence": confidence  # ML confidence stored with trade
         })
 
         self._save_state()

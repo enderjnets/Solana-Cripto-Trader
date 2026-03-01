@@ -769,7 +769,8 @@ class UnifiedTradingSystem:
                 'price': signal.entry_price,  # Mapping: entry_price → price
                 'size': signal.position_size,
                 'reason': ', '.join(signal.reasons) if signal.reasons else 'Signal',  # reasons → reason
-                'leverage': self.paper_engine.state.leverage  # Get current leverage from engine state
+                'leverage': self.paper_engine.state.leverage,  # Get current leverage from engine state
+                'confidence': signal.confidence  # Pass ML confidence to paper engine
             }
 
             # Execute trade using correct API
@@ -882,6 +883,9 @@ class UnifiedTradingSystem:
                             entry_time = datetime.fromisoformat(entry_time)
                         duration_seconds = (datetime.now() - entry_time).total_seconds()
                     
+                    # Use real ML confidence from trade (stored at open time)
+                    real_confidence = trade.get('confidence', 0.0)
+                    
                     self.auto_improver.record_trade({
                         'symbol': trade.get('symbol', 'UNKNOWN'),
                         'direction': trade.get('direction', 'bullish'),
@@ -891,7 +895,7 @@ class UnifiedTradingSystem:
                         'pnl': trade.get('pnl', 0),
                         'pnl_percent': trade.get('pnl_pct', 0),
                         'duration_seconds': duration_seconds,
-                        'confidence': trade.get('confidence', 0) if 'confidence' in trade else 0.5,
+                        'confidence': real_confidence,
                         'timestamp': datetime.now().isoformat()
                     })
                     logger.debug(f"📊 Trade registered with auto_improver: {trade['symbol']}")
