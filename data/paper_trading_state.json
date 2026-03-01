@@ -1,14 +1,87 @@
 {
   "enabled": true,
   "start_time": null,
-  "balance_usd": 500.0,
+  "balance_usd": 375.4647049124379,
   "initial_balance": 500.0,
-  "leverage": 1,
-  "margin_used": 0.0,
-  "liquidation_threshold": 0.005,
-  "maker_fee": 0.0002,
-  "taker_fee": 0.0005,
-  "trades": [],
+  "leverage": 5,
+  "margin_used": 124.22473325442598,
+  "trades": [
+    {
+      "id": "trade_20260301_130924_722e",
+      "entry_time": "2026-03-01T13:09:24.754312",
+      "entry_price": 0.5808394053146632,
+      "direction": "short",
+      "size": 129.68326727711195,
+      "symbol": "RAY",
+      "status": "open",
+      "exit_time": null,
+      "exit_price": null,
+      "pnl": 0.0,
+      "pnl_pct": 0.0,
+      "reason": "ML Score: 31%",
+      "confidence": 31.247581301206818
+    },
+    {
+      "id": "trade_20260301_130924_b65c",
+      "entry_time": "2026-03-01T13:09:24.755510",
+      "entry_price": 6.105490162166053e-06,
+      "direction": "short",
+      "size": 122.93934960263354,
+      "symbol": "WEN",
+      "status": "open",
+      "exit_time": null,
+      "exit_price": null,
+      "pnl": 0.0,
+      "pnl_pct": 0.0,
+      "reason": "ML Score: 31%",
+      "confidence": 31.247581301206818
+    },
+    {
+      "id": "trade_20260301_130924_2af5",
+      "entry_time": "2026-03-01T13:09:24.756620",
+      "entry_price": 82.8384656618962,
+      "direction": "short",
+      "size": 107.49977184473387,
+      "symbol": "SOL",
+      "status": "open",
+      "exit_time": null,
+      "exit_price": null,
+      "pnl": 0.0,
+      "pnl_pct": 0.0,
+      "reason": "ML Score: 25%",
+      "confidence": 25.495538972128944
+    },
+    {
+      "id": "trade_20260301_130924_8280",
+      "entry_time": "2026-03-01T13:09:24.757687",
+      "entry_price": 65707.0054256504,
+      "direction": "short",
+      "size": 107.11514281680897,
+      "symbol": "BTC",
+      "status": "open",
+      "exit_time": null,
+      "exit_price": null,
+      "pnl": 0.0,
+      "pnl_pct": 0.0,
+      "reason": "ML Score: 29%",
+      "confidence": 28.682481343645065
+    },
+    {
+      "id": "trade_20260301_130924_2675",
+      "entry_time": "2026-03-01T13:09:24.758731",
+      "entry_price": 0.864374449126198,
+      "direction": "long",
+      "size": 153.88613473084158,
+      "symbol": "ORCA",
+      "status": "open",
+      "exit_time": null,
+      "exit_price": null,
+      "pnl": 0.0,
+      "pnl_pct": 0.0,
+      "reason": "ML Score: 65%",
+      "confidence": 65.35212276943007
+    }
+  ],
   "stats": {
     "total_trades": 0,
     "winning_trades": 0,
@@ -22,5 +95,51 @@
     "best_streak": 0,
     "worst_streak": 0
   },
-  "signals": []
+  "signals": [
+    {
+      "time": "2026-03-01T13:09:24.754312",
+      "symbol": "RAY",
+      "direction": "short",
+      "price": 0.5808394053146632,
+      "size": 25.936653455422388,
+      "reason": "ML Score: 31%",
+      "trade_id": "trade_20260301_130924_722e"
+    },
+    {
+      "time": "2026-03-01T13:09:24.755510",
+      "symbol": "WEN",
+      "direction": "short",
+      "price": 6.105490162166053e-06,
+      "size": 24.587869920526707,
+      "reason": "ML Score: 31%",
+      "trade_id": "trade_20260301_130924_b65c"
+    },
+    {
+      "time": "2026-03-01T13:09:24.756620",
+      "symbol": "SOL",
+      "direction": "short",
+      "price": 82.8384656618962,
+      "size": 21.499954368946774,
+      "reason": "ML Score: 25%",
+      "trade_id": "trade_20260301_130924_2af5"
+    },
+    {
+      "time": "2026-03-01T13:09:24.757687",
+      "symbol": "BTC",
+      "direction": "short",
+      "price": 65707.0054256504,
+      "size": 21.423028563361793,
+      "reason": "ML Score: 29%",
+      "trade_id": "trade_20260301_130924_8280"
+    },
+    {
+      "time": "2026-03-01T13:09:24.758731",
+      "symbol": "ORCA",
+      "direction": "long",
+      "price": 0.864374449126198,
+      "size": 30.777226946168316,
+      "reason": "ML Score: 65%",
+      "trade_id": "trade_20260301_130924_2675"
+    }
+  ]
 }
