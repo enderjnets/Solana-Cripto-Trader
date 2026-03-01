@@ -262,6 +262,11 @@ class PaperTradingEngine:
         price = signal.get("price", 86.0)
         size_usd = signal.get("size", self.state.balance_usd * 0.1)  # 10% of balance
         leverage = signal.get("leverage", self.state.leverage)  # Use configured leverage
+
+        # SAFETY CHECK: Reject trades with zero or negative size
+        if size_usd <= 0:
+            logger.warning(f"⚠️ REJECTED: {symbol} trade with size=${size_usd:.2f} (must be > 0)")
+            return None
         reason = signal.get("reason", "Signal")
         confidence = signal.get("confidence", 0.0)  # ML confidence (0-100)
 

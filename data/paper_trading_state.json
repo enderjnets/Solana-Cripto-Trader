@@ -1,87 +1,14 @@
 {
-  "enabled": false,
+  "enabled": true,
   "start_time": null,
-  "balance_usd": 324.2293630076676,
+  "balance_usd": 500.0,
   "initial_balance": 500.0,
-  "leverage": 5,
-  "margin_used": 175.33230622676552,
-  "trades": [
-    {
-      "id": "trade_20260301_123053_f9fa",
-      "entry_time": "2026-03-01T12:30:53.559869",
-      "entry_price": 6.164953096627658e-06,
-      "direction": "short",
-      "size": 186.3925816806036,
-      "symbol": "WEN",
-      "status": "open",
-      "exit_time": null,
-      "exit_price": null,
-      "pnl": 0.0,
-      "pnl_pct": 0.0,
-      "reason": "ML Score: 28%",
-      "confidence": 28.14955492594423
-    },
-    {
-      "id": "trade_20260301_123053_7622",
-      "entry_time": "2026-03-01T12:30:53.754769",
-      "entry_price": 0.0003774893283190564,
-      "direction": "short",
-      "size": 179.98544352405105,
-      "symbol": "BOME",
-      "status": "open",
-      "exit_time": null,
-      "exit_price": null,
-      "pnl": 0.0,
-      "pnl_pct": 0.0,
-      "reason": "ML Score: 31%",
-      "confidence": 31.247581301206818
-    },
-    {
-      "id": "trade_20260301_123053_2c05",
-      "entry_time": "2026-03-01T12:30:53.758575",
-      "entry_price": 66030.7866549632,
-      "direction": "long",
-      "size": 234.75607853427965,
-      "symbol": "BTC",
-      "status": "open",
-      "exit_time": null,
-      "exit_price": null,
-      "pnl": 0.0,
-      "pnl_pct": 0.0,
-      "reason": "ML Score: 62%",
-      "confidence": 61.975503806192705
-    },
-    {
-      "id": "trade_20260301_123053_06c0",
-      "entry_time": "2026-03-01T12:30:53.762116",
-      "entry_price": 5.77996542122879e-06,
-      "direction": "short",
-      "size": 138.71399673239435,
-      "symbol": "BONK",
-      "status": "open",
-      "exit_time": null,
-      "exit_price": null,
-      "pnl": 0.0,
-      "pnl_pct": 0.0,
-      "reason": "ML Score: 27%",
-      "confidence": 26.770315920735392
-    },
-    {
-      "id": "trade_20260301_123053_fff5",
-      "entry_time": "2026-03-01T12:30:53.765655",
-      "entry_price": 0.000592259225368186,
-      "direction": "short",
-      "size": 136.81343066249894,
-      "symbol": "MEW",
-      "status": "open",
-      "exit_time": null,
-      "exit_price": null,
-      "pnl": 0.0,
-      "pnl_pct": 0.0,
-      "reason": "ML Score: 31%",
-      "confidence": 31.247581301206818
-    }
-  ],
+  "leverage": 1,
+  "margin_used": 0.0,
+  "liquidation_threshold": 0.005,
+  "maker_fee": 0.0002,
+  "taker_fee": 0.0005,
+  "trades": [],
   "stats": {
     "total_trades": 0,
     "winning_trades": 0,
@@ -95,51 +22,5 @@
     "best_streak": 0,
     "worst_streak": 0
   },
-  "signals": [
-    {
-      "time": "2026-03-01T12:30:53.559869",
-      "symbol": "WEN",
-      "direction": "short",
-      "price": 6.164953096627658e-06,
-      "size": 37.27851633612072,
-      "reason": "ML Score: 28%",
-      "trade_id": "trade_20260301_123053_f9fa"
-    },
-    {
-      "time": "2026-03-01T12:30:53.754769",
-      "symbol": "BOME",
-      "direction": "short",
-      "price": 0.0003774893283190564,
-      "size": 35.99708870481021,
-      "reason": "ML Score: 31%",
-      "trade_id": "trade_20260301_123053_7622"
-    },
-    {
-      "time": "2026-03-01T12:30:53.758575",
-      "symbol": "BTC",
-      "direction": "long",
-      "price": 66030.7866549632,
-      "size": 46.95121570685593,
-      "reason": "ML Score: 62%",
-      "trade_id": "trade_20260301_123053_2c05"
-    },
-    {
-      "time": "2026-03-01T12:30:53.762116",
-      "symbol": "BONK",
-      "direction": "short",
-      "price": 5.77996542122879e-06,
-      "size": 27.742799346478872,
-      "reason": "ML Score: 27%",
-      "trade_id": "trade_20260301_123053_06c0"
-    },
-    {
-      "time": "2026-03-01T12:30:53.765655",
-      "symbol": "MEW",
-      "direction": "short",
-      "price": 0.000592259225368186,
-      "size": 27.36268613249979,
-      "reason": "ML Score: 31%",
-      "trade_id": "trade_20260301_123053_fff5"
-    }
-  ]
+  "signals": []
 }
