@@ -1,0 +1,134 @@
+#!/usr/bin/env python3
+"""
+BitTrader Agents — Shared LLM Configuration
+Z.ai GLM-5 Coding Plan (PRIMARY) + MiniMax fallback
+"""
+import json
+import os
+import requests
+from pathlib import Path
+
+# ── Paths ──────────────────────────────────────────────────────────────────
+WORKSPACE = Path("/home/enderj/.openclaw/workspace")
+BITTRADER = WORKSPACE / "bittrader"
+KEYS_DIR = BITTRADER / "keys"
+
+# ══════════════════════════════════════════════════════════════════════
+# ZAI GLM-5 CODING PLAN (PRIMARY)
+# ══════════════════════════════════════════════════════════════════════
+
+ZAI_CODING_KEY = "863f222d3de340df8b6ff7e1e36ab216.DFOH1veovvWzaoFT"
+ZAI_CODING_BASE_URL = "https://api.z.ai/api/coding/paas/v4/chat/completions"
+ZAI_CODING_MODEL = "glm-5"  # GLM-5 es el nuevo flagship model
+
+# ══════════════════════════════════════════════════════════════════════
+# MINIMAX M2.5 (FALLBACK)
+# ══════════════════════════════════════════════════════════════════════
+
+MINIMAX_KEY = json.loads((KEYS_DIR / "minimax.json").read_text())["minimax_api_key"]
+MINIMAX_URL = "https://api.minimax.io/v1/text/chatcompletion_v2"
+MINIMAX_MODEL = "MiniMax-Text-01"
+
+# ══════════════════════════════════════════════════════════════════════
+# LLM CALL FUNCTIONS
+# ══════════════════════════════════════════════════════════════════════
+
+def call_glm_5_coding(prompt: str, system: str = "", max_tokens: int = 2000) -> str:
+    """
+    Llama a GLM-5 via Z.ai Coding Plan (PRIMARY).
+    Endpoint: https://api.z.ai/api/coding/paas/v4/chat/completions
+    """
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {ZAI_CODING_KEY}"
+    }
+
+    messages = []
+    if system:
+        messages.append({"role": "system", "content": system})
+    messages.append({"role": "user", "content": prompt})
+
+    data = {
+        "model": ZAI_CODING_MODEL,
+        "messages": messages,
+        "max_tokens": max_tokens,
+        "temperature": 0.7
+    }
+
+    try:
+        response = requests.post(ZAI_CODING_BASE_URL, headers=headers, json=data, timeout=60)
+        response.raise_for_status()
+        result = response.json()
+
+        # Parsear respuesta
+        if "choices" in result and len(result["choices"]) > 0:
+            return result["choices"][0]["message"]["content"]
+        else:
+            return str(result)
+    except Exception as e:
+        print(f"    ⚠️ GLM-5 Coding error: {e}")
+        return None
+
+
+def call_minimax_llm(prompt: str, system: str = "", max_tokens: int = 2000) -> str:
+    """Llama a MiniMax M2.5 (FALLBACK)."""
+    headers = {
+        "Authorization": f"Bearer {MINIMAX_KEY}",
+        "Content-Type": "application/json",
+    }
+
+    messages = []
+    if system:
+        messages.append({"role": "system", "content": system})
+    messages.append({"role": "user", "content": prompt})
+
+    payload = {
+        "model": MINIMAX_MODEL,
+        "messages": messages,
+        "max_tokens": max_tokens,
+        "temperature": 0.85,
+        "top_p": 0.95,
+    }
+
+    try:
+        r = requests.post(MINIMAX_URL, headers=headers, json=payload, timeout=60)
+        r.raise_for_status()
+        data = r.json()
+        return data["choices"][0]["message"]["content"].strip()
+    except Exception as e:
+        print(f"    ⚠️ MiniMax error: {e}")
+        return None
+
+
+def call_llm(prompt: str, system: str = "", max_tokens: int = 2000) -> str:
+    """
+    Llama al LLM con fallback:
+    1. GLM-5 Coding (PRIMARY)
+    2. MiniMax M2.5 (FALLBACK)
+    """
+    # Intentar GLM-5 Coding primero
+    result = call_glm_5_coding(prompt, system, max_tokens)
+    if result:
+        return result
+
+    print("    ⚠️ GLM-5 Coding falló, intentando MiniMax fallback...")
+    result = call_minimax_llm(prompt, system, max_tokens)
+    if result:
+        return result
+
+    print("    ❌ Todos los LLM fallaron")
+    return None
+
+
+# ══════════════════════════════════════════════════════════════════════
+# EXPORTS
+# ══════════════════════════════════════════════════════════════════════
+
+if __name__ == "__main__":
+    # Test
+    print("🧪 Test: GLM-5 Coding Plan...")
+    result = call_glm_5_coding("Hola, preséntate en una frase.", "Eres un asistente útil.")
+    if result:
+        print(f"✅ GLM-5: {result[:100]}")
+    else:
+        print("❌ GLM-5 falló")
