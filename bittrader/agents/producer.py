@@ -65,7 +65,7 @@ def call_claude(prompt: str, system: str = "", max_tokens: int = 2000) -> str:
     data["messages"].append({"role": "user", "content": prompt})
 
     try:
-        r = requests.post(CLAUDE_BASE_URL, headers=headers, json=data, timeout=60)
+        r = requests.post(CLAUDE_BASE_URL, headers=headers, json=data, timeout=120)
         r.raise_for_status()
         response = r.json()
         return response.get("content", [{}])[0].get("text", "")
@@ -94,7 +94,7 @@ def call_glm_4_7(prompt: str, system: str = "", max_tokens: int = 2000) -> str:
     }
 
     try:
-        r = requests.post(ZAI_CODING_BASE_URL, headers=headers, json=data, timeout=60)
+        r = requests.post(ZAI_CODING_BASE_URL, headers=headers, json=data, timeout=120)
         r.raise_for_status()
         response = r.json()
 
@@ -128,7 +128,7 @@ def call_minimax_llm(prompt: str, system: str = "", max_tokens: int = 2000) -> s
         "messages": messages,
     }
     try:
-        r = requests.post(MINIMAX_URL, headers=headers, json=payload, timeout=60)
+        r = requests.post(MINIMAX_URL, headers=headers, json=payload, timeout=120)
         r.raise_for_status()
         data = r.json()
         # Parsear respuesta Anthropic API compatible
@@ -148,7 +148,14 @@ def call_llm(prompt: str, system: str = "", max_tokens: int = 2000) -> str:
     if result:
         return result
 
-    print("      ⚠️ Claude Sonnet falló, intentando MiniMax fallback...")
+    # 2. Intentar GLM-4.7
+    print("      ⚠️ Claude Sonnet falló, intentando GLM-4.7 fallback...")
+    result = call_glm_4_7(prompt, system, max_tokens)
+    if result:
+        return result
+
+    # 3. Intentar MiniMax
+    print("      ⚠️ GLM-4.7 falló, intentando MiniMax fallback...")
     result = call_minimax_llm(prompt, system, max_tokens)
     if result:
         return result

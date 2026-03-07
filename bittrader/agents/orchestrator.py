@@ -77,7 +77,7 @@ def step_producer(args, creator_result: dict = None) -> dict:
     guiones_file = None
     if args.guiones:
         guiones_file = Path(args.guiones)
-    return run_producer(guiones_file=guiones_file)
+    return run_producer()
 
 
 def step_publisher(args, producer_result: dict = None) -> dict:

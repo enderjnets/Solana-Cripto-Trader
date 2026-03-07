@@ -58,7 +58,7 @@ def call_claude(prompt: str, system: str = "", max_tokens: int = 2000) -> str:
     data["messages"].append({"role": "user", "content": prompt})
 
     try:
-        r = requests.post(CLAUDE_BASE_URL, headers=headers, json=data, timeout=60)
+        r = requests.post(CLAUDE_BASE_URL, headers=headers, json=data, timeout=120)
         r.raise_for_status()
         response = r.json()
         return response.get("content", [{}])[0].get("text", "")
@@ -87,7 +87,7 @@ def call_glm_4_7(prompt: str, system: str = "", max_tokens: int = 2000) -> str:
     }
 
     try:
-        r = requests.post(ZAI_CODING_BASE_URL, headers=headers, json=data, timeout=60)
+        r = requests.post(ZAI_CODING_BASE_URL, headers=headers, json=data, timeout=120)
         r.raise_for_status()
         response = r.json()
 
@@ -135,13 +135,20 @@ def call_minimax_llm(prompt: str, system: str = "", max_tokens: int = 2000) -> s
 
 
 def call_llm(prompt: str, system: str = "", max_tokens: int = 2000) -> str:
-    """Llama al LLM con fallback: Claude Sonnet -> MiniMax (GLM-4.7 latencia alta hoy)"""
+    """Llama al LLM con fallback: Claude Sonnet -> GLM-4.7 -> MiniMax"""
     # 1. Intentar Claude Sonnet 4.6
     result = call_claude(prompt, system, max_tokens)
     if result:
         return result
 
-    print("    ⚠️ Claude Sonnet falló, intentando MiniMax fallback...")
+    # 2. Intentar GLM-4.7
+    print("    ⚠️ Claude Sonnet falló, intentando GLM-4.7 fallback...")
+    result = call_glm_4_7(prompt, system, max_tokens)
+    if result:
+        return result
+
+    # 3. Intentar MiniMax
+    print("    ⚠️ GLM-4.7 falló, intentando MiniMax fallback...")
     result = call_minimax_llm(prompt, system, max_tokens)
     if result:
         return result
@@ -422,15 +429,32 @@ def run_creator(dry_run: bool = False) -> dict:
         return result
 
     scripts = []
+    import concurrent.futures
     for item in plan:
         try:
             if item["type"] == "short":
-                script = generate_short_script(item, scout)
+                gen_fn = lambda i=item: generate_short_script(i, scout)
             else:
-                script = generate_long_script(item, scout)
+                gen_fn = lambda i=item: generate_long_script(i, scout)
+
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                future = executor.submit(gen_fn)
+                try:
+                    script = future.result(timeout=90)  # 90s max por guion
+                except concurrent.futures.TimeoutError:
+                    print(f"    ⏱️ Timeout generando '{item['topic'][:40]}' — saltando")
+                    scripts.append({
+                        "id":     f"timeout_{int(time.time())}",
+                        "type":   item["type"],
+                        "title":  item["topic"],
+                        "status": "timeout",
+                        "error":  "LLM timeout after 90s",
+                    })
+                    continue
+
             scripts.append(script)
             print(f"    ✅ '{script['title'][:55]}'")
-            time.sleep(2)  # Rate limiting
+            time.sleep(1)  # Rate limiting
         except Exception as e:
             print(f"    ❌ Error generando '{item['topic'][:40]}': {e}")
             scripts.append({

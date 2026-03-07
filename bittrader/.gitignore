@@ -1,0 +1,73 @@
+# Sub-repositories (tienen su propio git)
+Bittrading-Corp/
+Simple-NAS100-TradingBot/
+Simple-NAS100-TradingBot_VM/
+Solana-Cripto-Trader/
+.openclaw/
+
+# Directories
+node_modules/
+__pycache__/
+*.pyc
+
+# OpenClaw workspace files
+.asus-google.png
+.google.png
+.google-cloud-cli-linux-x86_64.tar.gz
+.MOK-0001.der
+download_*.py
+download_*.sh
+ekoo-*.js
+ekoo-chromium-service.sh
+ekoo-chromium.sh
+file_*---*.json
+file_*---*.srt
+file_*---*.tsv
+file_*---*.txt
+file_*---*.vtt
+install_*.sh
+ngrok.log
+package-lock.json
+principal_preview.mp4
+screenshot.png
+short*_preview.mp4
+start-ekoo-chromium.sh
+telegram_voice_handler.py
+test_voice.onnx
+upload_shorts_*.py
+voice_*.py
+voice_system*.py
+voz_sistema---*.json
+voz_sistema---*.srt
+voz_sistema---*.tsv
+voz_sistema---*.txt
+voz_sistema---*.vtt
+watchdog.log
+
+# Video files
+videos/
+jueves_mar5/
+lunes_mar2/
+martes_mar3/
+miercoles_mar4/
+semana_2026-03-05/
+video_*/
+
+# FTMO files
+ftmo_*.py
+ftmo_*.json
+ftmo_*.md
+mt5_*.py
+mt5_*.sh
+mt5_*.html
+mt5_*.png
+
+# Skills
+skills/
+
+# Research
+RESEARCH/
+
+# Memory (except README)
+memory/*.md
+!memory/*.json

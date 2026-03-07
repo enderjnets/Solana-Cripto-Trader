@@ -1,0 +1,5 @@
+{
+  "zai_api_key": "__ZAI_API_KEY_FROM_ENV__",
+  "base_url": "https://api.z.ai/api/coding/paas/v4",
+  "model": "glm-4.7"
+}

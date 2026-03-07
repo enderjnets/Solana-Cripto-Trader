@@ -1,0 +1,15 @@
+{
+  "minimax_api_key": "YOUR_MINIMAX_API_KEY",
+  "youtube_credentials": "path/to/youtube_credentials.json",
+  "logo_path": "path/to/bittrader_logo.png",
+  "tts_voice": "presenter_male",
+  "tts_model": "speech-02-hd",
+  "video_model": "MiniMax-Hailuo-2.3",
+  "llm_model": "MiniMax-Text-01",
+  "whisper_model": "small",
+  "channel_name": "BitTrader",
+  "channel_handle": "@bittrader9259",
+  "timezone": "America/Denver",
+  "max_short_duration_sec": 58,
+  "max_retries": 2
+}

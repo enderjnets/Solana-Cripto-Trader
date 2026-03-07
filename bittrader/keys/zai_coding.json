@@ -1,0 +1,7 @@
+{
+  "zai_coding_api_key": "863f222d3de340df8b6ff7e1e36ab216.DFOH1veovvWzaoFT",
+  "plan": "coding",
+  "provider": "Z.ai (GLM-4.7)",
+  "notes": "API key para plan coding de GLM-4.7 - Solo funciona con Claude Code, Cursor, TRAE (no OpenClaw)",
+  "created_at": "2026-03-05T14:38:00Z"
+}
