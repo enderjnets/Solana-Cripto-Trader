@@ -140,13 +140,20 @@ def generate_risk_alert(portfolio: dict) -> str:
     
     capital = portfolio.get("capital_usd", 0)
     initial = portfolio.get("initial_capital", 500)
-    
-    # Alerta de drawdown
-    if capital < initial * 0.9:  # >10% drawdown
-        drawdown = (initial - capital) / initial * 100
+
+    # Calcular equity total = capital libre + invertido + P&L no realizado
+    positions = portfolio.get("positions", [])
+    open_positions = [p for p in positions if p.get("status") == "open"]
+    invested_in_positions = sum(p.get("size_usd", 0) for p in open_positions)
+    unrealized_pnl = sum(p.get("pnl_usd", 0) for p in open_positions)
+    total_equity = capital + invested_in_positions + unrealized_pnl
+
+    # Alerta de drawdown (basado en equity total, no solo capital libre)
+    drawdown = max(0.0, (initial - total_equity) / initial * 100) if initial > 0 else 0.0
+
+    if drawdown >= 10.0:  # >10% drawdown
         alerts.append(f"⚠️ DRAWDOWN CRÍTICO: {drawdown:.1f}%")
-    elif capital < initial * 0.95:  # >5% drawdown
-        drawdown = (initial - capital) / initial * 100
+    elif drawdown >= 5.0:  # >5% drawdown
         alerts.append(f"⚠️ Drawdown alto: {drawdown:.1f}%")
     
     # Alerta de muchas posiciones

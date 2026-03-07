@@ -111,6 +111,76 @@ def get_current_price(symbol: str, market: dict) -> float:
     return float(token_data.get("price", 0))
 
 
+def load_risk_report() -> dict:
+    """Carga el reporte del Risk Manager."""
+    if RISK_FILE.exists():
+        with open(RISK_FILE) as f:
+            return json.load(f)
+    return {}
+
+
+def close_positions_emergency(portfolio: dict, symbols: list, market: dict, history: list) -> list:
+    """
+    Cierra posiciones por emergencia (sin importar SL/TP).
+    Usado cuando Risk Manager detecta condiciones extremas.
+    """
+    closed = []
+    now = datetime.now(timezone.utc).isoformat()
+
+    for pos in portfolio["positions"]:
+        if pos.get("status") != "open":
+            continue
+
+        if pos["symbol"] in symbols:
+            # Actualizar precio actual
+            pos["current_price"] = get_current_price(pos["symbol"], market)
+
+            pos["status"] = "closed"
+            pos["close_time"] = now
+            pos["close_reason"] = "EMERGENCY_CLOSE"
+            pos["close_price"] = pos["current_price"]
+
+            # Actualizar P&L
+            pnl_pct = (pos["current_price"] - pos["entry_price"]) / pos["entry_price"]
+            if pos["direction"] == "short":
+                pnl_pct = -pnl_pct
+            pnl_usd = pos["size_usd"] * pnl_pct
+
+            pos["pnl_pct"] = round(pnl_pct, 4)
+            pos["pnl_usd"] = round(pnl_usd, 4)
+
+            # Actualizar stats del portfolio
+            portfolio["total_trades"] = portfolio.get("total_trades", 0) + 1
+            if pnl_usd > 0:
+                portfolio["wins"] = portfolio.get("wins", 0) + 1
+            else:
+                portfolio["losses"] = portfolio.get("losses", 0) + 1
+
+            # Devolver capital al portfolio
+            portfolio["capital_usd"] += pos["size_usd"] + pnl_usd
+
+            # Agregar al historial
+            history.append({
+                "id": pos["id"],
+                "symbol": pos["symbol"],
+                "direction": pos["direction"],
+                "entry_price": pos["entry_price"],
+                "exit_price": pos["close_price"],
+                "size_usd": pos["size_usd"],
+                "pnl_usd": pos["pnl_usd"],
+                "pnl_pct": pos["pnl_pct"],
+                "open_time": pos["open_time"],
+                "close_time": pos["close_time"],
+                "close_reason": "EMERGENCY_CLOSE",
+                "strategy": pos.get("strategy", "unknown"),
+            })
+
+            closed.append(pos)
+            log.error(f"🚨 EMERGENCY CLOSE: {pos['symbol']} | P&L: ${pnl_usd:+.2f} ({pnl_pct*100:+.2f}%)")
+
+    return closed
+
+
 # ─── Paper Trading ────────────────────────────────────────────────────────────
 
 def paper_open_position(signal: dict, portfolio: dict, market: dict) -> Optional[dict]:
@@ -278,9 +348,20 @@ def run(safe: bool = True, debug: bool = False) -> dict:
     history = load_history()
     signals_data = load_signals()
     market = load_market()
+    risk_report = load_risk_report()
 
     signals = signals_data.get("signals", [])
     portfolio_status = portfolio.get("status", "ACTIVE")
+
+    # Chequear emergency close del Risk Manager
+    emergency_close = risk_report.get("emergency_close", {})
+    if emergency_close.get("triggered", False):
+        symbols_to_close = emergency_close.get("symbols", [])
+        reason = emergency_close.get("reason", "")
+        log.warning(f"⚠️ RISK MANAGER solicitó emergency close: {reason}")
+        emergency_closed = close_positions_emergency(portfolio, symbols_to_close, market, history)
+        if emergency_closed:
+            log.error(f"🚨 {len(emergency_closed)} posiciones cerradas por emergencia")
 
     # Actualizar precios y cerrar posiciones que tocaron SL/TP
     open_before = len([p for p in portfolio["positions"] if p.get("status") == "open"])

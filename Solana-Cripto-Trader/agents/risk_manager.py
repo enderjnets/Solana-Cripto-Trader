@@ -17,7 +17,7 @@ import argparse
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
+from typing import Optional, List, Dict
 
 # ─── Configuración ───────────────────────────────────────────────────────────
 
@@ -27,6 +27,7 @@ DATA_DIR.mkdir(exist_ok=True)
 
 MARKET_FILE  = DATA_DIR / "market_latest.json"
 PORTFOLIO_FILE = DATA_DIR / "portfolio.json"
+RESEARCH_FILE = DATA_DIR / "research_latest.json"
 OUTPUT_FILE  = DATA_DIR / "risk_report.json"
 
 logging.basicConfig(
@@ -72,6 +73,14 @@ def load_portfolio() -> dict:
     }
 
 
+def load_research() -> dict:
+    """Carga el análisis de mercado del AI Researcher."""
+    if RESEARCH_FILE.exists():
+        with open(RESEARCH_FILE) as f:
+            return json.load(f)
+    return {"trend": "NEUTRAL", "confidence": 0.5}
+
+
 # ─── Cálculos de Riesgo ──────────────────────────────────────────────────────
 
 def calculate_drawdown(portfolio: dict) -> float:
@@ -96,6 +105,84 @@ def calculate_drawdown(portfolio: dict) -> float:
         return 0.0
     drawdown = (initial - total_value) / initial
     return max(0.0, drawdown)
+
+
+def evaluate_emergency_close(portfolio: dict, research: dict, market: dict) -> dict:
+    """
+    Evalúa si se deben cerrar todas las posiciones por emergencia.
+
+    Causas de cierre:
+    1. 5 posiciones todas LONG y tendencia BEARISH (confianza > 70%)
+    2. 5 posiciones todas SHORT y tendencia BULLISH (confianza > 70%)
+    3. Fear & Greed en extremos (<10 o >90) con todas las posiciones en contra
+    4. Drawdown > 8% y todas las posiciones negativas
+
+    Retorna:
+        {"emergency_close": bool, "reason": str, "symbols": List[str]}
+    """
+    open_positions = [p for p in portfolio.get("positions", []) if p.get("status") == "open"]
+
+    if not open_positions or len(open_positions) < 3:
+        return {"emergency_close": False, "reason": "", "symbols": []}
+
+    # Obtener tendencia del research
+    trend = research.get("trend", "NEUTRAL").upper()
+    confidence = research.get("confidence", 0)
+
+    # Obtener Fear & Greed del market
+    fear_greed_value = market.get("fear_greed", {}).get("value", 50)
+
+    # Analizar direcciones de posiciones
+    long_positions = [p for p in open_positions if p.get("direction") == "long"]
+    short_positions = [p for p in open_positions if p.get("direction") == "short"]
+    all_long = len(long_positions) == len(open_positions)
+    all_short = len(short_positions) == len(open_positions)
+
+    # Calcular P&L de posiciones
+    negative_positions = [p for p in open_positions if p.get("pnl_usd", 0) < 0]
+    all_negative = len(negative_positions) == len(open_positions)
+
+    # Causa 1: 5 LONGs + tendencia BEARISH (alta confianza)
+    if all_long and trend == "BEARISH" and confidence >= 0.7:
+        return {
+            "emergency_close": True,
+            "reason": f"Tendencia BEARISH ({int(confidence*100)}%) con {len(open_positions)} LONGs",
+            "symbols": [p["symbol"] for p in open_positions]
+        }
+
+    # Causa 2: 5 SHORTs + tendencia BULLISH (alta confianza)
+    if all_short and trend == "BULLISH" and confidence >= 0.7:
+        return {
+            "emergency_close": True,
+            "reason": f"Tendencia BULLISH ({int(confidence*100)}%) con {len(open_positions)} SHORTs",
+            "symbols": [p["symbol"] for p in open_positions]
+        }
+
+    # Causa 3: Fear & Greed extremo + todas posiciones en contra
+    if fear_greed_value < 10 and all_long and all_negative:
+        return {
+            "emergency_close": True,
+            "reason": f"Fear & Greed EXTREMO ({fear_greed_value}) - mercado pánico, cerrar LONGs",
+            "symbols": [p["symbol"] for p in open_positions]
+        }
+
+    if fear_greed_value > 90 and all_short and all_negative:
+        return {
+            "emergency_close": True,
+            "reason": f"Fear & Greed EXTREMO ({fear_greed_value}) - euforia, cerrar SHORTs",
+            "symbols": [p["symbol"] for p in open_positions]
+        }
+
+    # Causa 4: Drawdown alto + todas posiciones negativas
+    drawdown = calculate_drawdown(portfolio)
+    if drawdown >= 0.08 and all_negative:
+        return {
+            "emergency_close": True,
+            "reason": f"Drawdown {int(drawdown*100)}% con todas las posiciones perdiendo",
+            "symbols": [p["symbol"] for p in open_positions]
+        }
+
+    return {"emergency_close": False, "reason": "", "symbols": []}
 
 
 def calculate_position_size(capital: float, price: float, sl_pct: float = SL_PCT) -> dict:
@@ -185,6 +272,7 @@ def run(debug: bool = False) -> dict:
 
     market = load_market()
     portfolio = load_portfolio()
+    research = load_research()
 
     free_capital   = portfolio.get("capital_usd", 500.0)
     initial        = portfolio.get("initial_capital", 500.0)
@@ -199,6 +287,12 @@ def run(debug: bool = False) -> dict:
     # Calcular drawdown
     drawdown = calculate_drawdown(portfolio)
     drawdown_pct = round(drawdown * 100, 2)
+
+    # Evaluación de cierre de emergencia
+    emergency_eval = evaluate_emergency_close(portfolio, research, market)
+    if emergency_eval["emergency_close"]:
+        log.error(f"🚨 EMERGENCY CLOSE: {emergency_eval['reason']}")
+        log.error(f"    Cerrar: {', '.join(emergency_eval['symbols'])}")
 
     # Actualizar estado por drawdown
     if drawdown >= MAX_DRAWDOWN_PCT:
@@ -249,6 +343,11 @@ def run(debug: bool = False) -> dict:
         "tp_pct": SL_PCT * TP_MULTIPLIER * 100,
         "tokens_approved": approved_count,
         "evaluations": evaluations,
+        "emergency_close": {
+            "triggered": emergency_eval["emergency_close"],
+            "reason": emergency_eval["reason"],
+            "symbols": emergency_eval["symbols"]
+        }
     }
 
     with open(OUTPUT_FILE, "w") as f:
