@@ -1,0 +1,131 @@
+{
+  "title": "Trader Manual vs Trader con IA — ¿Quién se hace rico primero?",
+  "type": "long",
+  "duration_target": 90,
+  "style": "storytelling_vs",
+  "series": "Rhino Battles",
+  "episode": 1,
+  "script": "Trader Manual versus Trader con Inteligencia Artificial. ¿Quién se hace rico primero en cinco años?\n\nAño uno. El trader manual abre su primera cuenta. Se sienta frente a las gráficas doce horas al día. Dibuja líneas, estudia patrones, pierde el sueño.\n\nEl trader con IA ni siquiera toca el teclado. Está programando su primer bot. Sus amigos se ríen de él.\n\nAño dos. El trader manual ya ganó sus primeros mil dólares. Se siente invencible. Opera por emoción, sin sistema.\n\nEl trader con IA sigue en pruebas. Su bot pierde dinero. Lo ajusta. Lo mejora. Lo vuelve a probar. Cero ganancias.\n\nAño tres. El trader manual pierde todo en una mala racha. Quiebra su cuenta. Empieza de nuevo desde cero.\n\nEl trader con IA lanza su bot en vivo. Opera veinticuatro siete sin emociones. Sin miedo. Sin ego. Empieza a generar ganancias consistentes.\n\nAño cuatro. El trader manual sigue perdiendo noches frente a la pantalla. Gana un mes, pierde al siguiente. Está agotado.\n\nEl trader con IA ya tiene tres bots corriendo en diferentes mercados. Crypto, futuros, forex. Duerme tranquilo mientras sus agentes trabajan.\n\nAño cinco. El trader manual abandonó. El estrés lo venció. Vuelve a su trabajo de oficina.\n\nEl trader con IA maneja su portafolio desde su teléfono. Sus bots generan ingresos pasivos cada día. Viaja. Vive libre.\n\nUno operó con emociones. El otro operó con inteligencia. La pregunta no es si puedes hacer trading. La pregunta es si vas a dejar que una máquina lo haga mejor que tú.\n\nBitTrader. Trading inteligente.",
+  "scenes": [
+    {
+      "id": 1,
+      "time": "0-3s",
+      "text": "Trader Manual vs Trader con IA",
+      "prompt": "Two anthropomorphic rhinoceros fighters facing each other in a boxing ring, one wearing a wrinkled shirt with chart papers, the other wearing a sleek black hoodie with glowing blue circuits, boxing gloves, intense dramatic lighting, crowd silhouettes, hyper-realistic 3D render, cinematic, 9:16 vertical"
+    },
+    {
+      "id": 2,
+      "time": "3-6s",
+      "text": "¿Quién se hace rico primero en 5 años?",
+      "prompt": "Split screen comparison, two anthropomorphic rhinoceros characters, left side in messy trading desk with papers, right side in clean modern desk with AI screens, golden VS text between them, dramatic lighting, hyper-realistic 3D render, 9:16 vertical"
+    },
+    {
+      "id": 3,
+      "time": "6-10s",
+      "text": "Año 1: El trader manual abre su primera cuenta",
+      "prompt": "Anthropomorphic rhinoceros in casual clothes sitting at a desk with a single monitor showing candlestick charts, excited expression, small apartment room, warm lamp lighting, coffee cup, hyper-realistic 3D render, cinematic, 9:16 vertical"
+    },
+    {
+      "id": 4,
+      "time": "10-14s",
+      "text": "Se sienta frente a las gráficas 12 horas al día",
+      "prompt": "Exhausted anthropomorphic rhinoceros hunched over multiple screens showing trading charts, dark room lit only by monitor glow, bags under eyes, messy desk with energy drinks, clock showing 3AM, hyper-realistic 3D render, moody lighting, 9:16 vertical"
+    },
+    {
+      "id": 5,
+      "time": "14-18s",
+      "text": "El trader con IA está programando su primer bot",
+      "prompt": "Cool anthropomorphic rhinoceros in a black hoodie typing on a laptop, screen showing Python code with green terminal text, modern minimalist desk, blue ambient lighting, focused expression, hyper-realistic 3D render, cinematic, 9:16 vertical"
+    },
+    {
+      "id": 6,
+      "time": "18-22s",
+      "text": "Sus amigos se ríen de él",
+      "prompt": "Group of anthropomorphic rhinoceros characters laughing and pointing at one rhinoceros working on laptop in a cafe, mocking expressions, the coder rhinoceros ignores them with headphones on, warm cafe lighting, hyper-realistic 3D render, 9:16 vertical"
+    },
+    {
+      "id": 7,
+      "time": "22-26s",
+      "text": "Año 2: El trader manual ganó sus primeros $1000",
+      "prompt": "Proud anthropomorphic rhinoceros in a polo shirt celebrating at his trading desk, small stack of dollar bills, single monitor showing green profit chart, fist pump pose, warm golden lighting, hyper-realistic 3D render, cinematic, 9:16 vertical"
+    },
+    {
+      "id": 8,
+      "time": "26-30s",
+      "text": "Opera por emoción, sin sistema",
+      "prompt": "Stressed anthropomorphic rhinoceros frantically clicking mouse, multiple screens showing red charts, sweat drops, chaotic desk with crumpled papers, dramatic red lighting, anxiety expression, hyper-realistic 3D render, cinematic, 9:16 vertical"
+    },
+    {
+      "id": 9,
+      "time": "30-34s",
+      "text": "El trader con IA sigue en pruebas. Su bot pierde dinero.",
+      "prompt": "Anthropomorphic rhinoceros in hoodie staring at laptop screen showing red numbers and error logs, thoughtful expression, hand on chin, dark room with blue screen glow, coffee cups scattered, hyper-realistic 3D render, moody, 9:16 vertical"
+    },
+    {
+      "id": 10,
+      "time": "34-38s",
+      "text": "Lo ajusta. Lo mejora. Lo vuelve a probar.",
+      "prompt": "Determined anthropomorphic rhinoceros coding intensely, dual monitors showing code and backtesting results, whiteboard behind with algorithms and flowcharts, focused expression, blue and purple ambient lighting, hyper-realistic 3D render, 9:16 vertical"
+    },
+    {
+      "id": 11,
+      "time": "38-42s",
+      "text": "Año 3: El trader manual pierde todo",
+      "prompt": "Devastated anthropomorphic rhinoceros with head in hands at trading desk, screens showing massive red losses, empty wallet on desk, dark dramatic lighting, rain visible through window, emotional scene, hyper-realistic 3D render, cinematic, 9:16 vertical"
+    },
+    {
+      "id": 12,
+      "time": "42-46s",
+      "text": "El trader con IA lanza su bot en vivo",
+      "prompt": "Anthropomorphic rhinoceros in sleek black hoodie pressing a glowing green LAUNCH button on screen, multiple monitors showing live trading data, green profit lines going up, confident smile, futuristic blue lighting, hyper-realistic 3D render, cinematic, 9:16 vertical"
+    },
+    {
+      "id": 13,
+      "time": "46-50s",
+      "text": "Opera 24/7 sin emociones. Sin miedo. Sin ego.",
+      "prompt": "Futuristic trading room with holographic screens showing live crypto and futures data, an anthropomorphic rhinoceros robot/AI avatar managing trades, green numbers everywhere, sleek modern design, blue and green neon lighting, hyper-realistic 3D render, 9:16 vertical"
+    },
+    {
+      "id": 14,
+      "time": "50-54s",
+      "text": "Año 4: El trader manual sigue perdiendo noches",
+      "prompt": "Tired worn-out anthropomorphic rhinoceros in old clothes, bloodshot eyes, sitting in messy room at 4AM, single cracked monitor, ashtray and empty bottles, defeated posture, cold harsh lighting, hyper-realistic 3D render, gritty cinematic, 9:16 vertical"
+    },
+    {
+      "id": 15,
+      "time": "54-58s",
+      "text": "El trader con IA tiene 3 bots en diferentes mercados",
+      "prompt": "Successful anthropomorphic rhinoceros in premium black t-shirt and expensive watch, relaxed in modern office chair, wall of 6 monitors showing crypto, forex, and futures charts all in green, city skyline through floor-to-ceiling windows at sunset, stacks of money on mahogany desk, whiskey glass, hyper-realistic 3D render, warm cinematic lighting, 9:16 vertical"
+    },
+    {
+      "id": 16,
+      "time": "58-62s",
+      "text": "Duerme tranquilo mientras sus agentes trabajan",
+      "prompt": "Anthropomorphic rhinoceros sleeping peacefully in luxurious bed, phone on nightstand showing green profit notifications, moonlight through curtains, peaceful serene expression, while holographic trading screens float in the background showing active trades, hyper-realistic 3D render, soft blue lighting, 9:16 vertical"
+    },
+    {
+      "id": 17,
+      "time": "62-68s",
+      "text": "Año 5: El trader manual abandonó. Vuelve a su trabajo de oficina.",
+      "prompt": "Sad anthropomorphic rhinoceros in cheap suit walking into a grey corporate office building, head down, briefcase in hand, rainy day, other office workers rushing past, dull lifeless corporate environment, cold grey lighting, hyper-realistic 3D render, cinematic, 9:16 vertical"
+    },
+    {
+      "id": 18,
+      "time": "68-74s",
+      "text": "El trader con IA maneja su portafolio desde su teléfono",
+      "prompt": "Anthropomorphic rhinoceros in designer sunglasses and luxury casual clothes, sitting on a tropical beach, checking phone showing trading dashboard with massive profits, cocktail in other hand, ocean and palm trees in background, golden hour sunset lighting, hyper-realistic 3D render, cinematic, 9:16 vertical"
+    },
+    {
+      "id": 19,
+      "time": "74-80s",
+      "text": "Uno operó con emociones. El otro operó con inteligencia.",
+      "prompt": "Epic split composition: left side shows broken down anthropomorphic rhinoceros in grey office cubicle looking miserable, right side shows wealthy anthropomorphic rhinoceros in penthouse with city view and trading screens, dramatic diagonal split with golden light, hyper-realistic 3D render, cinematic contrast, 9:16 vertical"
+    },
+    {
+      "id": 20,
+      "time": "80-90s",
+      "text": "BitTrader. Trading inteligente.",
+      "prompt": "Epic anthropomorphic rhinoceros in black premium suit standing on rooftop overlooking city at night, arms crossed confidently, holographic trading charts floating around him, BitTrader logo glowing in gold, dramatic upward camera angle, cinematic lighting with blue and gold tones, hyper-realistic 3D render, 9:16 vertical"
+    }
+  ]
+}
