@@ -1,0 +1,365 @@
+{
+  "analyzed_at": "2026-03-08T01:34:57.057465+00:00",
+  "videos_analyzed": 250,
+  "best_hours": {
+    "all_hours": [
+      {
+        "hour": 16,
+        "hour_label": "16:00",
+        "videos_published": 10,
+        "avg_views": 335,
+        "avg_views_per_day": 27.74
+      },
+      {
+        "hour": 14,
+        "hour_label": "14:00",
+        "videos_published": 7,
+        "avg_views": 105,
+        "avg_views_per_day": 16.26
+      },
+      {
+        "hour": 1,
+        "hour_label": "01:00",
+        "videos_published": 24,
+        "avg_views": 587,
+        "avg_views_per_day": 6.73
+      },
+      {
+        "hour": 19,
+        "hour_label": "19:00",
+        "videos_published": 25,
+        "avg_views": 427,
+        "avg_views_per_day": 3.68
+      },
+      {
+        "hour": 22,
+        "hour_label": "22:00",
+        "videos_published": 23,
+        "avg_views": 392,
+        "avg_views_per_day": 2.79
+      },
+      {
+        "hour": 0,
+        "hour_label": "00:00",
+        "videos_published": 34,
+        "avg_views": 1045,
+        "avg_views_per_day": 1.56
+      },
+      {
+        "hour": 18,
+        "hour_label": "18:00",
+        "videos_published": 18,
+        "avg_views": 234,
+        "avg_views_per_day": 1.51
+      },
+      {
+        "hour": 3,
+        "hour_label": "03:00",
+        "videos_published": 7,
+        "avg_views": 197,
+        "avg_views_per_day": 0.9
+      },
+      {
+        "hour": 21,
+        "hour_label": "21:00",
+        "videos_published": 19,
+        "avg_views": 338,
+        "avg_views_per_day": 0.54
+      },
+      {
+        "hour": 23,
+        "hour_label": "23:00",
+        "videos_published": 13,
+        "avg_views": 534,
+        "avg_views_per_day": 0.48
+      },
+      {
+        "hour": 17,
+        "hour_label": "17:00",
+        "videos_published": 12,
+        "avg_views": 300,
+        "avg_views_per_day": 0.45
+      },
+      {
+        "hour": 12,
+        "hour_label": "12:00",
+        "videos_published": 5,
+        "avg_views": 376,
+        "avg_views_per_day": 0.43
+      },
+      {
+        "hour": 2,
+        "hour_label": "02:00",
+        "videos_published": 12,
+        "avg_views": 351,
+        "avg_views_per_day": 0.27
+      },
+      {
+        "hour": 4,
+        "hour_label": "04:00",
+        "videos_published": 5,
+        "avg_views": 135,
+        "avg_views_per_day": 0.24
+      },
+      {
+        "hour": 15,
+        "hour_label": "15:00",
+        "videos_published": 7,
+        "avg_views": 256,
+        "avg_views_per_day": 0.21
+      },
+      {
+        "hour": 6,
+        "hour_label": "06:00",
+        "videos_published": 2,
+        "avg_views": 506,
+        "avg_views_per_day": 0.2
+      },
+      {
+        "hour": 7,
+        "hour_label": "07:00",
+        "videos_published": 2,
+        "avg_views": 79,
+        "avg_views_per_day": 0.2
+      },
+      {
+        "hour": 20,
+        "hour_label": "20:00",
+        "videos_published": 19,
+        "avg_views": 176,
+        "avg_views_per_day": 0.19
+      },
+      {
+        "hour": 8,
+        "hour_label": "08:00",
+        "videos_published": 1,
+        "avg_views": 273,
+        "avg_views_per_day": 0.12
+      },
+      {
+        "hour": 13,
+        "hour_label": "13:00",
+        "videos_published": 4,
+        "avg_views": 34,
+        "avg_views_per_day": 0.04
+      },
+      {
+        "hour": 11,
+        "hour_label": "11:00",
+        "videos_published": 1,
+        "avg_views": 19,
+        "avg_views_per_day": 0.03
+      }
+    ],
+    "best_hours": [
+      {
+        "hour": 16,
+        "hour_label": "16:00",
+        "videos_published": 10,
+        "avg_views": 335,
+        "avg_views_per_day": 27.74
+      },
+      {
+        "hour": 14,
+        "hour_label": "14:00",
+        "videos_published": 7,
+        "avg_views": 105,
+        "avg_views_per_day": 16.26
+      },
+      {
+        "hour": 1,
+        "hour_label": "01:00",
+        "videos_published": 24,
+        "avg_views": 587,
+        "avg_views_per_day": 6.73
+      },
+      {
+        "hour": 19,
+        "hour_label": "19:00",
+        "videos_published": 25,
+        "avg_views": 427,
+        "avg_views_per_day": 3.68
+      },
+      {
+        "hour": 22,
+        "hour_label": "22:00",
+        "videos_published": 23,
+        "avg_views": 392,
+        "avg_views_per_day": 2.79
+      }
+    ],
+    "worst_hours": [
+      {
+        "hour": 8,
+        "hour_label": "08:00",
+        "videos_published": 1,
+        "avg_views": 273,
+        "avg_views_per_day": 0.12
+      },
+      {
+        "hour": 13,
+        "hour_label": "13:00",
+        "videos_published": 4,
+        "avg_views": 34,
+        "avg_views_per_day": 0.04
+      },
+      {
+        "hour": 11,
+        "hour_label": "11:00",
+        "videos_published": 1,
+        "avg_views": 19,
+        "avg_views_per_day": 0.03
+      }
+    ]
+  },
+  "best_days": {
+    "all_days": [
+      {
+        "day": 4,
+        "day_name": "Viernes",
+        "videos_published": 35,
+        "avg_views": 244,
+        "avg_views_per_day": 8.38
+      },
+      {
+        "day": 3,
+        "day_name": "Jueves",
+        "videos_published": 40,
+        "avg_views": 726,
+        "avg_views_per_day": 8.34
+      },
+      {
+        "day": 1,
+        "day_name": "Martes",
+        "videos_published": 38,
+        "avg_views": 370,
+        "avg_views_per_day": 1.8
+      },
+      {
+        "day": 0,
+        "day_name": "Lunes",
+        "videos_published": 41,
+        "avg_views": 237,
+        "avg_views_per_day": 1.6
+      },
+      {
+        "day": 2,
+        "day_name": "Miércoles",
+        "videos_published": 38,
+        "avg_views": 603,
+        "avg_views_per_day": 1.02
+      },
+      {
+        "day": 5,
+        "day_name": "Sábado",
+        "videos_published": 37,
+        "avg_views": 380,
+        "avg_views_per_day": 0.59
+      },
+      {
+        "day": 6,
+        "day_name": "Domingo",
+        "videos_published": 21,
+        "avg_views": 528,
+        "avg_views_per_day": 0.44
+      }
+    ],
+    "best_days": [
+      {
+        "day": 4,
+        "day_name": "Viernes",
+        "videos_published": 35,
+        "avg_views": 244,
+        "avg_views_per_day": 8.38
+      },
+      {
+        "day": 3,
+        "day_name": "Jueves",
+        "videos_published": 40,
+        "avg_views": 726,
+        "avg_views_per_day": 8.34
+      },
+      {
+        "day": 1,
+        "day_name": "Martes",
+        "videos_published": 38,
+        "avg_views": 370,
+        "avg_views_per_day": 1.8
+      }
+    ]
+  },
+  "content_analysis": {
+    "shorts": {
+      "count": 79,
+      "avg_views": 121,
+      "avg_views_per_day": 7.94,
+      "avg_likes": 3,
+      "avg_comments": 0.3
+    },
+    "longs": {
+      "count": 171,
+      "avg_views": 584,
+      "avg_views_per_day": 1.19,
+      "avg_likes": 22,
+      "avg_comments": 10.3
+    },
+    "recommendation": "shorts"
+  },
+  "audience_timezone": {
+    "primary_tz": "America/Denver",
+    "note": "Sin datos — usando zona del creador"
+  },
+  "daily_patterns": {},
+  "schedule": {
+    "timezone": "America/Denver",
+    "slots": [
+      {
+        "day": "Viernes",
+        "day_number": 4,
+        "hour": 16,
+        "hour_label": "16:00",
+        "expected_vpd": 18.06
+      },
+      {
+        "day": "Jueves",
+        "day_number": 3,
+        "hour": 16,
+        "hour_label": "16:00",
+        "expected_vpd": 18.04
+      },
+      {
+        "day": "Martes",
+        "day_number": 1,
+        "hour": 16,
+        "hour_label": "16:00",
+        "expected_vpd": 14.77
+      },
+      {
+        "day": "Viernes",
+        "day_number": 4,
+        "hour": 14,
+        "hour_label": "14:00",
+        "expected_vpd": 12.32
+      },
+      {
+        "day": "Jueves",
+        "day_number": 3,
+        "hour": 14,
+        "hour_label": "14:00",
+        "expected_vpd": 12.3
+      },
+      {
+        "day": "Martes",
+        "day_number": 1,
+        "hour": 14,
+        "hour_label": "14:00",
+        "expected_vpd": 9.03
+      }
+    ],
+    "content_mix": {
+      "recommendation": "shorts",
+      "suggested_ratio": "3 shorts : 1 long",
+      "weekly_target": 4
+    }
+  }
+}
