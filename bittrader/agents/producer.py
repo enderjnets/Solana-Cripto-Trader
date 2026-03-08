@@ -1,10 +1,18 @@
 #!/usr/bin/env python3
 """
-🎬 BitTrader Producer v3.0 — MiniMax TTS + MiniMax Hailuo Video + ffmpeg
+🎬 BitTrader Producer v4.0 — Edge-TTS + MiniMax Hailuo Video + ffmpeg
 Convierte guiones en videos completos:
-1. Genera audio con MiniMax TTS (speech-02-hd)
+1. Genera audio con Edge-TTS Jorge (es-MX-JorgeNeural) — MiniMax TTS deshabilitado (genera estática)
 2. Genera clips de video con MiniMax Hailuo 2.3
 3. Ensambla video final con ffmpeg
+
+Mejoras v4.0:
+- TTS: Edge-TTS Jorge como primario (MiniMax genera estática para español)
+- Shorts: blur-fill en vez de barras negras (Hailuo no genera vertical nativo)
+- Logo BitTrader: overlay top-right, 240px (shorts) / 180px (longs)
+- Subtítulos: 78px (shorts) / 55px (longs) — legibles en móvil
+- Video: aspect_ratio 9:16 pasado a Hailuo (sin efecto pero documentado)
+- Audio: 44100Hz AAC
 """
 import sys
 import json
@@ -46,8 +54,10 @@ MINIMAX_HEADERS = {
     "Content-Type": "application/json"
 }
 
-# TTS voice: presenter_male is clear and professional
-TTS_VOICE = "presenter_male"
+# TTS voice: Edge-TTS Jorge is the primary (MiniMax presenter_male generates static noise)
+# MiniMax TTS is DISABLED — generates corrupted audio for Spanish text
+TTS_VOICE = "presenter_male"  # kept for reference, NOT used
+TTS_PRIMARY = "edge"  # Use edge-tts as primary
 TTS_SPEED = 1.0
 TTS_MODEL = "speech-02-hd"
 
@@ -278,14 +288,16 @@ def edge_tts_fallback(text: str, output_path: Path) -> float:
 
 
 def generate_audio(text: str, output_path: Path) -> float:
-    """Generate audio: MiniMax primary, edge-tts fallback."""
-    # For long texts, MiniMax TTS may have limits — split if needed
-    duration = minimax_tts(text, output_path)
+    """Generate audio: edge-tts primary (MiniMax TTS disabled — generates static for Spanish)."""
+    # Edge-TTS Jorge is reliable and free — use as primary
+    print("      🔊 Usando Edge-TTS (es-MX-JorgeNeural)...")
+    duration = edge_tts_fallback(text, output_path)
     if duration > 0:
         return duration
     
-    print("      ⚠️ MiniMax TTS falló, usando edge-tts fallback...")
-    return edge_tts_fallback(text, output_path)
+    # Only try MiniMax as last resort
+    print("      ⚠️ Edge-TTS falló, intentando MiniMax TTS...")
+    return minimax_tts(text, output_path)
 
 
 # ════════════════════════════════════════════════════════════════════════
@@ -298,7 +310,8 @@ def create_video_task(prompt: str, aspect_ratio: str = "9:16") -> str:
         "prompt": prompt,
         "model": VIDEO_MODEL,
         "duration": VIDEO_DURATION,
-        "resolution": "1080P"
+        "resolution": "1080P",
+        "aspect_ratio": aspect_ratio,
     }
     
     r = requests.post(f"{MINIMAX_BASE_URL}/video_generation",
@@ -471,15 +484,35 @@ def assemble_video(clips: list, audio_path: Path, output_path: Path,
     safe_title = title.replace("'", "'\\''").replace('"', '\\"').replace(':', ' -')
     
     # Step 1: Concat clips and scale
+    # For SHORT (vertical 9:16): use blur-fill technique instead of black bars
+    # Hailuo generates horizontal clips (1366x768) — blur-fill looks professional
+    # For LONG (horizontal): simple scale + pad is fine
     intermediate = script_dir / "concat_scaled.mp4"
-    cmd1 = [
-        "ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", str(concat_path),
-        "-vf", f"scale={scale}:force_original_aspect_ratio=decrease,pad={scale}:(ow-iw)/2:(oh-ih)/2:black",
-        "-t", str(duration + 1),
-        "-c:v", "libx264", "-preset", "fast", "-crf", "23",
-        "-an",
-        str(intermediate)
-    ]
+    if video_type == "short":
+        # Blur-fill: blurred background fills black bars, sharp image centered
+        vf_scale = (
+            "[0:v]scale=1080:1920:force_original_aspect_ratio=increase,"
+            "crop=1080:1920,avgblur=30[bg];"
+            "[0:v]scale=1080:-2:force_original_aspect_ratio=decrease[fg];"
+            "[bg][fg]overlay=(W-w)/2:(H-h)/2"
+        )
+        cmd1 = [
+            "ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", str(concat_path),
+            "-filter_complex", vf_scale,
+            "-t", str(duration + 1),
+            "-c:v", "libx264", "-preset", "ultrafast", "-crf", "23",
+            "-an",
+            str(intermediate)
+        ]
+    else:
+        cmd1 = [
+            "ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", str(concat_path),
+            "-vf", f"scale={scale}:force_original_aspect_ratio=decrease,pad={scale}:(ow-iw)/2:(oh-ih)/2:black",
+            "-t", str(duration + 1),
+            "-c:v", "libx264", "-preset", "fast", "-crf", "23",
+            "-an",
+            str(intermediate)
+        ]
     
     r1 = subprocess.run(cmd1, capture_output=True, text=True, timeout=300)
     if r1.returncode != 0:
@@ -508,25 +541,88 @@ def assemble_video(clips: list, audio_path: Path, output_path: Path,
                     f"OutlineColour=&H00000000,Outline=3,Shadow=0,Alignment=2,MarginV=60'"
                 )
     
-    # Title overlay
-    title_y = "100" if video_type == "short" else "40"
-    title_size = "42" if video_type == "short" else "48"
-    
-    vf = (f"drawtext=text='{safe_title}':fontcolor=gold:fontsize={title_size}:"
-          f"x=(w-text_w)/2:y={title_y}:font=DejaVu Sans Bold:borderw=3:bordercolor=black"
-          f"{subtitle_filter}")
-    
-    cmd2 = [
-        "ffmpeg", "-y",
-        "-i", str(intermediate),
-        "-i", str(audio_path),
-        "-vf", vf,
-        "-c:v", "libx264", "-preset", "fast", "-crf", "23",
-        "-c:a", "aac", "-b:a", "192k",
-        "-shortest",
-        "-movflags", "+faststart",
-        str(output_path)
-    ]
+    # BitTrader logo overlay (top-right corner, 240px, semi-transparent)
+    LOGO_PATH = WORKSPACE / "videos/BIBLIOTECA/bittrader_logo.png"
+    has_logo = LOGO_PATH.exists()
+
+    # Logo size: 240px for shorts (vertical), 180px for longs
+    logo_size = 240 if video_type == "short" else 180
+
+    if has_logo:
+        # Use filter_complex for logo + subtitles
+        sub_filter = ""
+        if sub_path.exists():
+            sub_escaped = str(sub_path).replace("'", "'\\''").replace(":", "\\:")
+            if sub_path.suffix == ".ass":
+                sub_filter = f",ass='{sub_escaped}'"
+            else:
+                if video_type == "short":
+                    sub_filter = (
+                        f",subtitles='{sub_escaped}':force_style="
+                        f"'FontName=DejaVu Sans,FontSize=78,PrimaryColour=&H0000FFFF,"
+                        f"OutlineColour=&H00000000,Outline=3,Shadow=0,Alignment=2,MarginV=420'"
+                    )
+                else:
+                    sub_filter = (
+                        f",subtitles='{sub_escaped}':force_style="
+                        f"'FontName=DejaVu Sans,FontSize=55,PrimaryColour=&H0000FFFF,"
+                        f"OutlineColour=&H00000000,Outline=3,Shadow=0,Alignment=2,MarginV=60'"
+                    )
+
+        filter_complex = (
+            f"[2:v]scale={logo_size}:-1[logo];"
+            f"[0:v][logo]overlay=W-w-30:30:format=auto{sub_filter}"
+        )
+
+        cmd2 = [
+            "ffmpeg", "-y",
+            "-i", str(intermediate),
+            "-i", str(audio_path),
+            "-i", str(LOGO_PATH),
+            "-filter_complex", filter_complex,
+            "-c:v", "libx264", "-preset", "fast", "-crf", "23",
+            "-c:a", "aac", "-b:a", "192k", "-ar", "44100",
+            "-shortest",
+            "-movflags", "+faststart",
+            str(output_path)
+        ]
+    else:
+        # No logo — use simple -vf
+        subtitle_filter = ""
+        if sub_path.exists():
+            sub_escaped = str(sub_path).replace("'", "'\\''").replace(":", "\\:")
+            if sub_path.suffix == ".ass":
+                subtitle_filter = f",ass='{sub_escaped}'"
+            else:
+                if video_type == "short":
+                    subtitle_filter = (
+                        f",subtitles='{sub_escaped}':force_style="
+                        f"'FontName=DejaVu Sans,FontSize=78,PrimaryColour=&H0000FFFF,"
+                        f"OutlineColour=&H00000000,Outline=3,Shadow=0,Alignment=2,MarginV=420'"
+                    )
+                else:
+                    subtitle_filter = (
+                        f",subtitles='{sub_escaped}':force_style="
+                        f"'FontName=DejaVu Sans,FontSize=55,PrimaryColour=&H0000FFFF,"
+                        f"OutlineColour=&H00000000,Outline=3,Shadow=0,Alignment=2,MarginV=60'"
+                    )
+
+        vf = f"[0:v]{subtitle_filter}" if subtitle_filter else None
+
+        cmd2 = [
+            "ffmpeg", "-y",
+            "-i", str(intermediate),
+            "-i", str(audio_path),
+        ]
+        if vf:
+            cmd2 += ["-vf", subtitle_filter.lstrip(",")]
+        cmd2 += [
+            "-c:v", "libx264", "-preset", "fast", "-crf", "23",
+            "-c:a", "aac", "-b:a", "192k", "-ar", "44100",
+            "-shortest",
+            "-movflags", "+faststart",
+            str(output_path)
+        ]
     
     r2 = subprocess.run(cmd2, capture_output=True, text=True, timeout=600)
     

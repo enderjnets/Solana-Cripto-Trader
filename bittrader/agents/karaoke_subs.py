@@ -35,9 +35,11 @@ BLACK       = "&H00000000"
 GOLD        = "&H0000D4FF"   # #FFD400
 HIGHLIGHT   = "&H0000FFFF"   # Yellow for active word
 
-# Font sizes
-FONT_SIZE_SHORT  = 18
-FONT_SIZE_LONG   = 16
+# Font sizes (must be large enough for mobile viewing!)
+# For 1080x1920 vertical: minimum 60px, recommended 75-80px
+# For 1920x1080 horizontal: minimum 45px, recommended 55px
+FONT_SIZE_SHORT  = 78
+FONT_SIZE_LONG   = 55
 HIGHLIGHT_SCALE  = 140  # % scale for active word
 
 

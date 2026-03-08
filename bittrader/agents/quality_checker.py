@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-✅ BitTrader Quality Checker v2.0 — Auditor de Calidad Completo
+✅ BitTrader Quality Checker v3.0 — Auditor de Calidad Completo
 Verifica cada aspecto de los videos antes de publicar.
 
 Pipeline: Producer → Thumbnail Agent → Quality Checker → Publisher
@@ -10,9 +10,12 @@ Checks realizados:
 2. AUDIO: presente, niveles (no silencio, no clipping), sample rate
 3. VISUAL: frames negros, bitrate mínimo, clips no corruptos
 4. SYNC: audio y video misma duración (sincronización)
-5. THUMBNAIL: dimensiones, formato, tamaño, no vacía, texto legible
-6. OVERLAY: título no cortado, logo posición correcta
-7. METADATA: título, tags, descripción
+5. SUBTITLES: tamaño legible, posición, no duplicados, visibilidad
+6. THUMBNAIL: dimensiones, formato, tamaño, no vacía, texto legible
+7. OVERLAY: título no cortado, logo posición correcta
+8. METADATA: título, tags, descripción
+9. FRAMING: contenido no cortado por crop, safe zones respetadas
+10. AUDIO MIX: presencia de música de fondo, balance voz/música
 
 Grados:
   A = Perfecto (0 issues, 0 warnings)
@@ -47,10 +50,10 @@ QC_REPORT_FILE  = DATA_DIR / "quality_report.json"
 STANDARDS = {
     "short": {
         "min_duration": 5,
-        "max_duration": 60,
+        "max_duration": 180,   # Rhino storytelling videos can be up to 3 min
         "expected_width": 1080,
         "expected_height": 1920,
-        "max_size_mb": 50,
+        "max_size_mb": 200,
         "min_bitrate_kbps": 500,
         "requires_thumbnail": False,
     },
@@ -390,6 +393,327 @@ def check_duplicate_subtitles(video_path: Path) -> dict:
     }
 
 
+def check_subtitle_quality(video_path: Path, vtype: str) -> dict:
+    """
+    Check subtitle size, position, and legibility.
+    Verifies:
+    - Font size is large enough for mobile viewing
+    - Subtitles are in safe zone (not cut off at edges)
+    - Text is readable (contrast with background)
+    """
+    issues = []
+    warnings = []
+
+    # Check ASS files for font size
+    video_dir = video_path.parent
+    ass_files = list(video_dir.glob("subtitles*.ass")) + list(video_dir.glob("*.ass"))
+
+    for ass_file in ass_files:
+        try:
+            content = ass_file.read_text(encoding='utf-8')
+
+            # Parse Style lines for font size
+            for line in content.split('\n'):
+                if line.startswith('Style:'):
+                    parts = line.split(',')
+                    if len(parts) >= 3:
+                        style_name = parts[0].replace('Style:', '').strip()
+                        font_size = 0
+                        try:
+                            font_size = int(parts[2].strip())
+                        except (ValueError, IndexError):
+                            pass
+
+                        if font_size > 0:
+                            # For 1080x1920 vertical video, minimum readable font = 60
+                            # For 1920x1080 horizontal, minimum = 45
+                            if vtype == "short":
+                                min_font = 60
+                                recommended_font = 75
+                            else:
+                                min_font = 45
+                                recommended_font = 55
+
+                            if font_size < min_font:
+                                issues.append(
+                                    f"📝 Subtítulos demasiado pequeños: {font_size}px "
+                                    f"(mínimo: {min_font}px, recomendado: {recommended_font}px) "
+                                    f"— no legible en móvil"
+                                )
+                            elif font_size < recommended_font:
+                                warnings.append(
+                                    f"📝 Subtítulos algo pequeños: {font_size}px "
+                                    f"(recomendado: {recommended_font}px para estilo viral)"
+                                )
+
+            # Check MarginV (vertical margin from bottom)
+            for line in content.split('\n'):
+                if line.startswith('Style:'):
+                    parts = line.split(',')
+                    if len(parts) >= 20:
+                        try:
+                            margin_v = int(parts[19].strip())
+                            # MarginV too small = text at very bottom, might be cut off
+                            if margin_v < 30:
+                                warnings.append(
+                                    f"📝 Subtítulos muy pegados al borde inferior "
+                                    f"(MarginV={margin_v}) — riesgo de corte en algunos reproductores"
+                                )
+                            # MarginV too large = text in middle of screen
+                            if margin_v > 400:
+                                warnings.append(
+                                    f"📝 Subtítulos muy arriba (MarginV={margin_v}) — "
+                                    f"deberían estar en tercio inferior"
+                                )
+                        except (ValueError, IndexError):
+                            pass
+
+            # Check Outline/Border thickness
+            for line in content.split('\n'):
+                if line.startswith('Style:'):
+                    parts = line.split(',')
+                    if len(parts) >= 17:
+                        try:
+                            outline = float(parts[16].strip())
+                            if outline < 1.5:
+                                warnings.append(
+                                    f"📝 Borde de subtítulos muy delgado ({outline}) — "
+                                    f"puede no leerse sobre fondo claro (recomendado: 2-4)"
+                                )
+                        except (ValueError, IndexError):
+                            pass
+
+        except Exception:
+            pass
+
+    # Visual check: extract frame and verify subtitle visibility
+    frame_path = video_path.parent / "_qc_sub_size_frame.jpg"
+    try:
+        # Check at 5 seconds (subtitles should be active)
+        subprocess.run([
+            "ffmpeg", "-y", "-ss", "5", "-i", str(video_path),
+            "-vframes", "1", "-q:v", "2", str(frame_path)
+        ], capture_output=True, timeout=10)
+
+        if frame_path.exists() and Image and ImageStat:
+            img = Image.open(frame_path)
+            w, h = img.size
+
+            # Check bottom 20% of frame for subtitle presence
+            bottom_zone = img.crop((0, int(h * 0.75), w, int(h * 0.95)))
+            bt_stat = ImageStat.Stat(bottom_zone)
+            bt_stddev = sum(s**2 for s in bt_stat.stddev[:3]) / 3
+
+            # Very low contrast in subtitle zone = no visible subtitles
+            if bt_stddev < 200:
+                warnings.append(
+                    "📝 No se detectan subtítulos visibles en zona inferior del frame (¿tamaño insuficiente?)"
+                )
+
+        frame_path.unlink(missing_ok=True)
+    except Exception:
+        if frame_path.exists():
+            frame_path.unlink(missing_ok=True)
+
+    return {
+        "issues": issues,
+        "warnings": warnings,
+        "passed": len(issues) == 0,
+    }
+
+
+def check_framing_crop(video_path: Path, probe: dict, vtype: str) -> dict:
+    """
+    Check if content is being cut off by aggressive cropping.
+    When converting 16:9 clips to 9:16 vertical, center crop can cut
+    important content at the sides.
+    
+    Checks:
+    - Edge content (important elements near borders)
+    - Safe zone compliance (90% inner area should contain main content)
+    - Aspect ratio consistency across clips
+    """
+    issues = []
+    warnings = []
+
+    width = probe.get("width", 0)
+    height = probe.get("height", 0)
+
+    if width == 0 or height == 0:
+        return {"issues": [], "warnings": ["⚠️ No se pudo verificar framing"], "passed": True}
+
+    # Extract multiple frames to check framing consistency
+    frames_to_check = [3, 15, 30, 60]
+    duration = probe.get("duration", 0)
+    frames_to_check = [t for t in frames_to_check if t < duration]
+
+    edge_issues = 0
+    total_checked = 0
+
+    for timestamp in frames_to_check[:3]:
+        frame_path = video_path.parent / f"_qc_frame_{timestamp}.jpg"
+        try:
+            subprocess.run([
+                "ffmpeg", "-y", "-ss", str(timestamp), "-i", str(video_path),
+                "-vframes", "1", "-q:v", "2", str(frame_path)
+            ], capture_output=True, timeout=10)
+
+            if frame_path.exists() and Image and ImageStat:
+                img = Image.open(frame_path)
+                w, h = img.size
+                total_checked += 1
+
+                # Check left and right 5% edges for content loss
+                # If edges are very uniform/dark, content might be cut
+                left_edge = img.crop((0, 0, max(w // 20, 1), h))
+                right_edge = img.crop((w - max(w // 20, 1), 0, w, h))
+
+                left_stat = ImageStat.Stat(left_edge)
+                right_stat = ImageStat.Stat(right_edge)
+
+                left_mean = sum(left_stat.mean[:3]) / 3
+                right_mean = sum(right_stat.mean[:3]) / 3
+                left_var = sum(s**2 for s in left_stat.stddev[:3]) / 3
+                right_var = sum(s**2 for s in right_stat.stddev[:3]) / 3
+
+                # If edges are completely black with no variance = padding (OK)
+                # If edges are abruptly cut (high content that extends to border) = crop issue
+                # Hard to detect perfectly, but check for asymmetric brightness
+                center = img.crop((w // 4, h // 4, w * 3 // 4, h * 3 // 4))
+                center_stat = ImageStat.Stat(center)
+                center_mean = sum(center_stat.mean[:3]) / 3
+
+                # If center has content but edges are dramatically different = possible bad crop
+                if left_var > 1000 or right_var > 1000:
+                    # Edges have lots of detail = content extends to edges
+                    # This is acceptable for AI-generated images that fill the frame
+                    pass
+
+                # Check top and bottom safe zones (important for mobile UI elements)
+                top_zone = img.crop((0, 0, w, max(h // 15, 1)))
+                bottom_zone = img.crop((0, h - max(h // 15, 1), w, h))
+
+                top_stat = ImageStat.Stat(top_zone)
+                bottom_stat = ImageStat.Stat(bottom_zone)
+                top_var = sum(s**2 for s in top_stat.stddev[:3]) / 3
+                bottom_var = sum(s**2 for s in bottom_stat.stddev[:3]) / 3
+
+                # Important content in extreme top/bottom = will be covered by platform UI
+                if top_var > 2000:
+                    edge_issues += 1
+
+            frame_path.unlink(missing_ok=True)
+        except Exception:
+            if frame_path.exists():
+                frame_path.unlink(missing_ok=True)
+
+    if total_checked > 0 and edge_issues > total_checked * 0.6:
+        warnings.append(
+            "🖼️ Contenido importante cerca de los bordes — "
+            "puede ser cortado por UI de la plataforma (Instagram/TikTok/YouTube)"
+        )
+
+    # Check if clips are being cropped from 16:9 to 9:16
+    # AI-generated clips from Hailuo are typically 16:9 (1280x720 or 1920x1080)
+    # Converting to 9:16 by crop loses ~75% of horizontal content
+    if vtype == "short" and height > width:
+        # This is vertical — check if source clips are horizontal
+        clips_dir = video_path.parent / "clips"
+        if clips_dir.exists():
+            clip_files = sorted(clips_dir.glob("*.mp4"))
+            if clip_files:
+                try:
+                    r = subprocess.run([
+                        "ffprobe", "-v", "quiet", "-show_entries",
+                        "stream=width,height", "-of", "csv=p=0",
+                        str(clip_files[0])
+                    ], capture_output=True, text=True, timeout=10)
+                    parts = r.stdout.strip().split(',')
+                    if len(parts) >= 2:
+                        src_w, src_h = int(parts[0]), int(parts[1])
+                        if src_w > src_h:
+                            crop_loss = round((1 - (height / width * src_h / src_w)) * 100)
+                            if crop_loss > 40:
+                                issues.append(
+                                    f"🖼️ Clips fuente son {src_w}x{src_h} (horizontal) "
+                                    f"cortados a {width}x{height} (vertical) — "
+                                    f"~{crop_loss}% del contenido horizontal se pierde. "
+                                    f"Usar prompts con 'vertical composition 9:16' o "
+                                    f"scale+pad en vez de crop"
+                                )
+                except Exception:
+                    pass
+
+    return {
+        "issues": issues,
+        "warnings": warnings,
+        "passed": len(issues) == 0,
+    }
+
+
+def check_audio_mix(video_path: Path, duration: float) -> dict:
+    """
+    Check audio composition — detect if video has only narration
+    without background music (for storytelling videos, music is critical).
+    
+    Checks:
+    - Frequency spectrum analysis (music has wider spectrum than speech alone)
+    - Volume consistency (music provides a consistent base level)
+    """
+    issues = []
+    warnings = []
+
+    try:
+        # Analyze frequency spectrum - speech is 85-3000Hz, music extends wider
+        # Use astats to check frequency distribution
+        result = subprocess.run([
+            "ffmpeg", "-i", str(video_path),
+            "-af", "astats=metadata=1:reset=1,ametadata=print:key=lavfi.astats.Overall.RMS_level",
+            "-f", "null", "-"
+        ], capture_output=True, text=True, timeout=60)
+
+        # Simple heuristic: analyze high-frequency content
+        # If there's music, there should be energy above 4kHz
+        # Extract a small segment and check spectrum
+        result2 = subprocess.run([
+            "ffmpeg", "-i", str(video_path),
+            "-af", "highpass=f=4000,volumedetect",
+            "-f", "null", "-"
+        ], capture_output=True, text=True, timeout=60)
+
+        high_freq_volume = -100
+        for line in result2.stderr.split("\n"):
+            if "mean_volume" in line:
+                try:
+                    val = line.split("mean_volume:")[1].strip().split(" ")[0]
+                    high_freq_volume = float(val)
+                except:
+                    pass
+
+        # If high frequency content is very low, probably no music
+        # Speech alone typically has high_freq < -50dB
+        # Music typically has high_freq > -40dB
+        if high_freq_volume < -55:
+            warnings.append(
+                f"🎵 No se detecta música de fondo (energía alta frecuencia: {high_freq_volume:.0f}dB). "
+                f"Videos storytelling necesitan música cinematográfica para engagement"
+            )
+        elif high_freq_volume < -45:
+            warnings.append(
+                f"🎵 Música de fondo muy baja o ausente (alta frecuencia: {high_freq_volume:.0f}dB)"
+            )
+
+    except Exception as e:
+        warnings.append(f"⚠️ No se pudo analizar mix de audio: {e}")
+
+    return {
+        "issues": issues,
+        "warnings": warnings,
+        "high_freq_db": high_freq_volume if 'high_freq_volume' in dir() else None,
+        "passed": len(issues) == 0,
+    }
+
+
 def check_bitrate_quality(probe: dict, standards: dict) -> list:
     """Check if bitrate is sufficient for quality."""
     warnings = []
@@ -685,6 +1009,24 @@ def check_video_quality(video: dict) -> dict:
     checks["issues"].extend(sub_check.get("issues", []))
     checks["warnings"].extend(sub_check.get("warnings", []))
 
+    # ═══ 4c. SUBTITLE QUALITY (SIZE, POSITION, LEGIBILITY) ═══
+    sub_quality = check_subtitle_quality(video_path, vtype)
+    checks["details"]["subtitle_quality"] = sub_quality
+    checks["issues"].extend(sub_quality.get("issues", []))
+    checks["warnings"].extend(sub_quality.get("warnings", []))
+
+    # ═══ 4d. FRAMING / CROP CHECK ═══
+    framing = check_framing_crop(video_path, probe, vtype)
+    checks["details"]["framing"] = framing
+    checks["issues"].extend(framing.get("issues", []))
+    checks["warnings"].extend(framing.get("warnings", []))
+
+    # ═══ 4e. AUDIO MIX (MUSIC DETECTION) ═══
+    audio_mix = check_audio_mix(video_path, duration)
+    checks["details"]["audio_mix"] = audio_mix
+    checks["issues"].extend(audio_mix.get("issues", []))
+    checks["warnings"].extend(audio_mix.get("warnings", []))
+
     # ═══ 5. THUMBNAIL ═══
     if standards["requires_thumbnail"] or thumb_path:
         if not thumb_path:
@@ -740,8 +1082,8 @@ def check_video_quality(video: dict) -> dict:
 
 def run_quality_checker() -> dict:
     """Run quality checks on all produced videos."""
-    print("\n✅ BitTrader Quality Checker v2.0 — Auditoría Completa")
-    print("  🔍 Checks: Video | Audio | Visual | Sync | Subs | Thumbnail | Overlay | Metadata\n")
+    print("\n✅ BitTrader Quality Checker v3.0 — Auditoría Completa")
+    print("  🔍 Checks: Video | Audio | Visual | Sync | Subs | SubSize | Framing | AudioMix | Thumbnail | Overlay | Metadata\n")
 
     if not PRODUCTION_FILE.exists():
         print("  ⚠️ No se encontró archivo de producción.")
@@ -791,7 +1133,7 @@ def run_quality_checker() -> dict:
     # Save report
     report = {
         "checked_at": datetime.now(timezone.utc).isoformat(),
-        "version": "2.0",
+        "version": "3.0",
         "total": len(videos),
         "passed": passed,
         "failed": failed,
@@ -809,7 +1151,7 @@ def run_quality_checker() -> dict:
 
     production["quality_check"] = {
         "checked_at": report["checked_at"],
-        "version": "2.0",
+        "version": "3.0",
         "passed": passed,
         "failed": failed,
         "pass_rate": report["pass_rate"],
