@@ -144,66 +144,100 @@ def shorten_script_with_llm(script: str, target_seconds: int = 55) -> str:
     return call_llm(prompt, system, max_tokens=400)
 
 
+# ── BitTrader Rhino Character — consistent visual identity ────────────────
+RHINO_BASE_SHORT = (
+    "anthropomorphic rhinoceros character, hyper-realistic 3D render, "
+    "muscular but elegant, wearing modern casual trading clothes, "
+    "expressive face, dramatic cinematic lighting, "
+    "ultra HD, photorealistic textures, 9:16 vertical aspect ratio, dark moody background"
+)
+RHINO_BASE_LONG = (
+    "anthropomorphic rhinoceros character, hyper-realistic 3D render, "
+    "muscular but elegant, wearing modern casual trading clothes, "
+    "expressive face, dramatic cinematic lighting, "
+    "ultra HD, photorealistic textures, 16:9 widescreen, dark moody background"
+)
+
+
+def inject_rhino(prompt: str, video_type: str) -> str:
+    """Ensure every video prompt features the BitTrader rhino mascot."""
+    base = RHINO_BASE_SHORT if video_type == "short" else RHINO_BASE_LONG
+    p = prompt.strip()
+    if "rhinoceros" not in p.lower() and "rhino" not in p.lower():
+        p = f"Anthropomorphic rhinoceros — {p}, {base}"
+    elif "hyper-realistic" not in p.lower() and "3d render" not in p.lower():
+        p = f"{p}, {base}"
+    return p
+
+
 def generate_video_prompts(script: dict) -> list:
-    """Use LLM to generate video clip prompts from the script."""
+    """Use LLM to generate video clip prompts — always starring the BitTrader rhino mascot."""
     title = script.get("title", "")
     text = script.get("script", "")
     video_type = script.get("type", "short")
-    
-    num_clips = 3 if video_type == "short" else 5
+    existing_prompts = script.get("video_prompts", [])
+
+    # Use pre-generated prompts from creator.py if available (already have rhino injected)
+    if existing_prompts:
+        return [inject_rhino(p, video_type) for p in existing_prompts]
+
+    num_clips = 3 if video_type == "short" else 6
     aspect = "9:16 vertical" if video_type == "short" else "16:9 horizontal"
-    
-    system = "Eres director de video para un canal de YouTube de trading y criptomonedas."
-    prompt = f"""Genera {num_clips} prompts de video para este guión. Cada clip dura 6 segundos.
-Los clips serán generados con IA (MiniMax Hailuo), así que describe escenas visuales cinematográficas.
 
-Título: {title}
-Guión: {text[:500]}
+    system = (
+        "You are a video director for BitTrader YouTube channel. "
+        "The channel mascot is an anthropomorphic rhinoceros — a confident, modern trader. "
+        "EVERY scene must feature this rhino character as the main subject."
+    )
+    prompt = f"""Generate {num_clips} video prompts for this script. Each clip is 6 seconds.
+Clips are AI-generated with MiniMax Hailuo. Describe cinematic scenes.
 
-Formato de respuesta (JSON array, SIN comentarios):
+Title: {title}
+Script (first 400 chars): {text[:400]}
+
+Response format (JSON array, NO comments):
 [
-  "prompt del clip 1: descripción visual detallada en inglés, cinematic, professional",
-  "prompt del clip 2: ...",
+  "Anthropomorphic rhinoceros [doing X related to topic], [setting], [mood], hyper-realistic 3D render, {aspect}, dramatic cinematic lighting, dark background",
   ...
 ]
 
-REGLAS:
-- Prompts en INGLÉS (la API funciona mejor en inglés)
-- Escenas relacionadas con trading, finanzas, criptomonedas, tecnología
-- Incluir: lighting, mood, camera angle, details
-- NO incluir texto en los clips (los subtítulos van por separado)
+RULES:
+- EVERY prompt MUST feature the BitTrader anthropomorphic rhinoceros as main character
+- Scenes must relate to the video topic (crypto/trading/finance/AI)
+- Vary settings: trading desk, city street, crypto exchange, phone, server room, etc.
+- Include: mood, lighting, camera angle, character action
+- NO text overlays in clips (subtitles added separately)
+- Prompts in ENGLISH
 """
-    
-    result = call_llm(prompt, system, max_tokens=1000)
-    if not result:
-        return get_fallback_prompts(video_type)
-    
-    try:
-        # Try to parse JSON from result
-        json_match = re.search(r'\[.*?\]', result, re.DOTALL)
-        if json_match:
-            prompts = json.loads(json_match.group())
-            if isinstance(prompts, list) and len(prompts) >= 2:
-                return prompts[:num_clips]
-    except:
-        pass
-    
+
+    result = call_llm(prompt, system, max_tokens=1200)
+    if result:
+        try:
+            json_match = re.search(r'\[.*?\]', result, re.DOTALL)
+            if json_match:
+                prompts = json.loads(json_match.group())
+                if isinstance(prompts, list) and len(prompts) >= 2:
+                    return [inject_rhino(p, video_type) for p in prompts[:num_clips]]
+        except Exception:
+            pass
+
     return get_fallback_prompts(video_type)
 
 
 def get_fallback_prompts(video_type: str) -> list:
-    """Fallback video prompts if LLM fails."""
+    """Fallback rhino video prompts if LLM fails."""
     short_prompts = [
-        "Professional trader analyzing cryptocurrency charts on multiple monitors in dark office, green and red candlestick patterns, dramatic blue lighting, close-up of screen data, cinematic depth of field",
-        "Bitcoin and cryptocurrency coins floating and rotating in digital space, golden light particles, futuristic blockchain aesthetic, dark background with subtle grid, 4K cinematic quality",
-        "Person confidently typing on keyboard, trading platform showing upward green chart trend, modern minimalist office, warm golden hour lighting through window, success atmosphere",
+        f"Anthropomorphic rhinoceros sitting at a trading desk with multiple monitors showing green crypto charts, excited expression, neon-lit dark room, {RHINO_BASE_SHORT}",
+        f"Anthropomorphic rhinoceros holding a glowing smartphone showing Bitcoin price spike, standing in a modern city at night, confident pose, {RHINO_BASE_SHORT}",
+        f"Anthropomorphic rhinoceros pointing at a large holographic candlestick chart rising upward, dark background with blue data streams, triumphant expression, {RHINO_BASE_SHORT}",
     ]
     long_prompts = [
-        "Wide shot of modern trading floor with multiple monitors showing live market data, blue ambient lighting, professional atmosphere, cinematic camera slowly panning",
-        "Close-up of hands on keyboard with trading platform on screen showing detailed candlestick charts, risk management panel visible, professional setup, dramatic lighting",
-        "Person studying financial charts on tablet, coffee on desk, morning light through window, educational atmosphere, modern workspace with plants",
-        "Time-lapse of cryptocurrency price chart going up with green candles, digital numbers changing rapidly, futuristic data visualization, dark background",
-        "Person walking confidently in modern city at golden hour, phone showing trading profits notification, success and financial freedom concept, cinematic slow motion",
+        f"Anthropomorphic rhinoceros standing in front of a massive wall of trading screens in a dark room, arms crossed, confident and commanding, {RHINO_BASE_LONG}",
+        f"Anthropomorphic rhinoceros typing rapidly on a keyboard, laptop screen showing AI code and trading algorithms, focused expression, {RHINO_BASE_LONG}",
+        f"Anthropomorphic rhinoceros analyzing a holographic portfolio dashboard with green profit metrics, modern office, impressed expression, {RHINO_BASE_LONG}",
+        f"Anthropomorphic rhinoceros in casual clothes checking trading app on phone with a coffee, morning light, relaxed successful atmosphere, {RHINO_BASE_LONG}",
+        f"Anthropomorphic rhinoceros looking at camera with a knowing smile, crypto chart rising behind them, dramatic lighting, motivational mood, {RHINO_BASE_LONG}",
+        f"Anthropomorphic rhinoceros walking through a futuristic digital city with blockchain holograms floating around, confident stride, cinematic, {RHINO_BASE_LONG}",
     ]
     return short_prompts if video_type == "short" else long_prompts
 

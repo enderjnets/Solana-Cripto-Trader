@@ -181,7 +181,30 @@ TEMAS DE IA + TRADING (prioridad alta):
 - Comparativas: bots tradicionales vs agentes con IA
 - Cómo usar LLMs para analizar patrones de mercado
 - Automatización avanzada con inteligencia artificial
-- Herramientas de IA para traders"""
+- Herramientas de IA para traders
+
+IDENTIDAD VISUAL — PERSONAJE MASCOTA:
+El canal BitTrader tiene un personaje mascota: un RINOCERONTE ANTROPOMÓRFICO 3D hiperrealista.
+Este rinoceronte es el protagonista de TODOS los videos — shorts y longs.
+Es inteligente, moderno, confiado. Siempre aparece en el contexto de la escena del guión.
+TODOS los VIDEO_PROMPT deben incluir este personaje como sujeto principal."""
+
+# ── Rhino character base prompt (appended to every video prompt) ───────────
+RHINO_BASE = (
+    "anthropomorphic rhinoceros character, hyper-realistic 3D render, "
+    "muscular but elegant, wearing modern casual trading clothes, "
+    "expressive face, dramatic cinematic lighting, "
+    "ultra HD, photorealistic textures, "
+    "9:16 vertical aspect ratio, dark moody background"
+)
+
+RHINO_BASE_LONG = (
+    "anthropomorphic rhinoceros character, hyper-realistic 3D render, "
+    "muscular but elegant, wearing modern casual trading clothes, "
+    "expressive face, dramatic cinematic lighting, "
+    "ultra HD, photorealistic textures, "
+    "16:9 widescreen, dark moody background"
+)
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -299,7 +322,7 @@ GUION:
 - Dato o ejemplo concreto
 - CTA con pregunta ("¿Tú qué opinas? Comenta abajo")]
 
-VIDEO_PROMPT: [Descripción en INGLÉS para generar video con IA, escena visual relevante, cinematic, 9:16]"""
+VIDEO_PROMPT: [Describe the SCENE in English for AI video generation. ALWAYS star the BitTrader rhino mascot doing something relevant to the topic. Include: what the rhino is doing, the setting, the mood. Example: "Anthropomorphic rhinoceros sitting at a trading desk watching green charts on multiple monitors, excited expression, neon-lit room, hyper-realistic 3D render, 9:16 vertical"]"""
 
     print(f"    🤖 Generando short (GLM-5): {item['topic'][:50]}...")
     raw = call_llm(prompt, system=SYSTEM_PROMPT, max_tokens=800)
@@ -333,9 +356,9 @@ EXPLICACION (2-3min): El contenido principal con ejemplos concretos
 EJEMPLOS (1-2min): Casos reales, números, comparaciones
 CTA (30s): Llamada a acción con pregunta para comentarios y pedir suscripción]
 
-VIDEO_PROMPT_1: [Escena visual en inglés para intro, 16:9]
-VIDEO_PROMPT_2: [Escena visual en inglés para cuerpo, 16:9]
-VIDEO_PROMPT_3: [Escena visual en inglés para cierre, 16:9]"""
+VIDEO_PROMPT_1: [Intro scene with BitTrader rhino mascot. Describe what rhino is doing related to the topic hook. Setting, mood, action. Hyper-realistic 3D, 16:9]
+VIDEO_PROMPT_2: [Main content scene with rhino mascot. Relevant action for the explanation section. Different setting from prompt 1. 16:9]
+VIDEO_PROMPT_3: [Closing/CTA scene with rhino mascot. Confident, forward-looking mood. 16:9]"""
 
     print(f"    🤖 Generando video largo (GLM-5): {item['topic'][:50]}...")
     raw = call_llm(prompt, system=SYSTEM_PROMPT, max_tokens=2000)
@@ -361,7 +384,16 @@ def parse_script_response(raw: str, vtype: str, item: dict) -> dict:
 
     # Extract VIDEO_PROMPT(s) — do this BEFORE extracting guion so we can exclude them
     vp_matches = re.findall(r"VIDEO_PROMPT[_\d]*:\s*(.+?)(?=\nVIDEO_PROMPT|\n\*?\*?[A-Z_]+\*?\*?:|\Z)", raw, re.DOTALL | re.IGNORECASE)
-    video_prompts = [v.strip().strip("*").strip() for v in vp_matches]
+    rhino_base = RHINO_BASE if vtype == "short" else RHINO_BASE_LONG
+    video_prompts = []
+    for v in vp_matches:
+        p = v.strip().strip("*").strip()
+        # Inject rhino base style if the LLM didn't include the character
+        if "rhinoceros" not in p.lower() and "rhino" not in p.lower():
+            p = f"Anthropomorphic rhinoceros — {p}, {rhino_base}"
+        elif "hyper-realistic" not in p.lower() and "3d render" not in p.lower():
+            p = f"{p}, {rhino_base}"
+        video_prompts.append(p)
 
     def clean_script_text(text: str) -> str:
         """Remove structural headers and video prompts from script text (TTS-ready).
