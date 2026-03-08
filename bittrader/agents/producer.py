@@ -19,6 +19,13 @@ import base64
 from datetime import datetime, timezone
 from pathlib import Path
 
+# Import karaoke subtitles generator
+try:
+    from karaoke_subs import generate_karaoke_subs
+    HAS_KARAOKE = True
+except ImportError:
+    HAS_KARAOKE = False
+
 # ── Paths ──────────────────────────────────────────────────────────────────
 WORKSPACE  = Path("/home/enderj/.openclaw/workspace")
 BITTRADER  = WORKSPACE / "bittrader"
@@ -422,11 +429,20 @@ def create_srt_from_text(text: str, duration: float, srt_path: Path):
 def assemble_video(clips: list, audio_path: Path, output_path: Path, 
                    title: str, duration: float, video_type: str,
                    script_text: str, script_dir: Path) -> bool:
-    """Assemble clips + audio + subtitles into final video."""
+    """Assemble clips + audio + karaoke subtitles into final video."""
     
-    # Create SRT
-    srt_path = script_dir / "subtitles.srt"
-    create_srt_from_text(script_text, duration, srt_path)
+    # Generate karaoke subtitles (ASS) or fallback to SRT
+    sub_path = None
+    if HAS_KARAOKE:
+        try:
+            sub_path = generate_karaoke_subs(audio_path, script_text, script_dir, video_type)
+        except Exception as e:
+            print(f"      ⚠️ Karaoke subs failed: {e}")
+    
+    if not sub_path or not sub_path.exists():
+        # Fallback to basic SRT
+        sub_path = script_dir / "subtitles.srt"
+        create_srt_from_text(script_text, duration, sub_path)
     
     # Create concat file for clips
     concat_path = script_dir / "concat.txt"
@@ -472,21 +488,25 @@ def assemble_video(clips: list, audio_path: Path, output_path: Path,
     
     # Step 2: Add audio + subtitles + title
     subtitle_filter = ""
-    if srt_path.exists():
-        # Escape the path for ffmpeg filter
-        srt_escaped = str(srt_path).replace("'", "'\\''").replace(":", "\\:")
-        if video_type == "short":
-            subtitle_filter = (
-                f",subtitles='{srt_escaped}':force_style="
-                f"'FontName=DejaVu Sans,FontSize=22,PrimaryColour=&H0000FFFF,"
-                f"OutlineColour=&H00000000,Outline=2,Shadow=1,Alignment=2,MarginV=250'"
-            )
+    if sub_path.exists():
+        sub_escaped = str(sub_path).replace("'", "'\\''").replace(":", "\\:")
+        if sub_path.suffix == ".ass":
+            # ASS karaoke — use native styling (don't force_style)
+            subtitle_filter = f",ass='{sub_escaped}'"
         else:
-            subtitle_filter = (
-                f",subtitles='{srt_escaped}':force_style="
-                f"'FontName=DejaVu Sans,FontSize=20,PrimaryColour=&H00FFFFFF,"
-                f"OutlineColour=&H00000000,Outline=2,Shadow=1,Alignment=2,MarginV=60'"
-            )
+            # SRT fallback — force BitTrader style
+            if video_type == "short":
+                subtitle_filter = (
+                    f",subtitles='{sub_escaped}':force_style="
+                    f"'FontName=DejaVu Sans,FontSize=22,PrimaryColour=&H0000FFFF,"
+                    f"OutlineColour=&H00000000,Outline=3,Shadow=0,Alignment=2,MarginV=250'"
+                )
+            else:
+                subtitle_filter = (
+                    f",subtitles='{sub_escaped}':force_style="
+                    f"'FontName=DejaVu Sans,FontSize=20,PrimaryColour=&H0000FFFF,"
+                    f"OutlineColour=&H00000000,Outline=3,Shadow=0,Alignment=2,MarginV=60'"
+                )
     
     # Title overlay
     title_y = "100" if video_type == "short" else "40"
@@ -532,23 +552,35 @@ def make_fallback_video(audio_path: Path, output_path: Path, title: str,
     bg = random.choice(BG_COLORS)
     accent = random.choice(ACCENT_COLORS)
     
-    srt_path = script_dir / "subtitles.srt"
-    create_srt_from_text(script_text, duration, srt_path)
+    # Generate karaoke subtitles or fallback to SRT
+    sub_path = None
+    if HAS_KARAOKE:
+        try:
+            sub_path = generate_karaoke_subs(audio_path, script_text, script_dir, video_type)
+        except Exception:
+            pass
+    
+    if not sub_path or not sub_path.exists():
+        sub_path = script_dir / "subtitles.srt"
+        create_srt_from_text(script_text, duration, sub_path)
     
     size = "1080x1920" if video_type == "short" else "1920x1080"
     safe_title = title.replace("'", "'\\''").replace('"', '\\"').replace(':', ' -')
     title_y = "120" if video_type == "short" else "60"
     title_size = "44" if video_type == "short" else "52"
-    margin_v = "200" if video_type == "short" else "80"
     
     subtitle_filter = ""
-    if srt_path.exists():
-        srt_escaped = str(srt_path).replace("'", "'\\''").replace(":", "\\:")
-        subtitle_filter = (
-            f",subtitles='{srt_escaped}':force_style="
-            f"'FontName=DejaVu Sans,FontSize=24,PrimaryColour=&H00FFFFFF,"
-            f"OutlineColour=&H00000000,Outline=2,Shadow=1,Alignment=2,MarginV={margin_v}'"
-        )
+    if sub_path.exists():
+        sub_escaped = str(sub_path).replace("'", "'\\''").replace(":", "\\:")
+        if sub_path.suffix == ".ass":
+            subtitle_filter = f",ass='{sub_escaped}'"
+        else:
+            margin_v = "200" if video_type == "short" else "80"
+            subtitle_filter = (
+                f",subtitles='{sub_escaped}':force_style="
+                f"'FontName=DejaVu Sans,FontSize=24,PrimaryColour=&H0000FFFF,"
+                f"OutlineColour=&H00000000,Outline=3,Shadow=0,Alignment=2,MarginV={margin_v}'"
+            )
     
     cmd = [
         "ffmpeg", "-y",
