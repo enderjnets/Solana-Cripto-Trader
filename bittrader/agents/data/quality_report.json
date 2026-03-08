@@ -1,9 +1,16 @@
 {
-  "checked_at": "2026-03-08T01:05:18.696785+00:00",
+  "checked_at": "2026-03-08T01:11:13.257052+00:00",
+  "version": "2.0",
   "total": 8,
   "passed": 8,
   "failed": 0,
   "pass_rate": "100%",
+  "grades": {
+    "A": 7,
+    "B": 1,
+    "C": 0,
+    "F": 0
+  },
   "results": [
     {
       "title": "AKT explota mientras BTC cae un 1.4%",
@@ -11,16 +18,47 @@
       "issues": [],
       "warnings": [],
       "passed": true,
+      "details": {
+        "audio_levels": {
+          "mean_volume_db": -7.4,
+          "max_volume_db": 0.0,
+          "issues": [],
+          "warnings": []
+        },
+        "black_frames": {
+          "black_pct": 0.0,
+          "black_seconds": 0,
+          "issues": [],
+          "warnings": []
+        },
+        "scene_changes": 3,
+        "thumbnail": {
+          "exists": true,
+          "path": "output/2026-03-07-v3/short_1772925855_875/thumbnail.jpg",
+          "size_kb": 174,
+          "width": 1280,
+          "height": 720,
+          "format": "JPEG",
+          "brightness": 47.3,
+          "variance": 1589.9,
+          "issues": [],
+          "warnings": [],
+          "passed": true
+        }
+      },
       "probe": {
         "duration": 19.428,
         "size_bytes": 7192551,
+        "bitrate": 2961725,
         "format": "mov,mp4,m4a,3gp,3g2,mj2",
         "video_codec": "h264",
         "width": 1080,
         "height": 1920,
         "fps": 24.0,
+        "video_duration": 19.416667,
         "audio_codec": "aac",
         "audio_sample_rate": 32000,
+        "audio_duration": 19.428,
         "has_video": true,
         "has_audio": true
       },
@@ -35,16 +73,47 @@
       "issues": [],
       "warnings": [],
       "passed": true,
+      "details": {
+        "audio_levels": {
+          "mean_volume_db": -7.4,
+          "max_volume_db": 0.0,
+          "issues": [],
+          "warnings": []
+        },
+        "black_frames": {
+          "black_pct": 0.0,
+          "black_seconds": 0,
+          "issues": [],
+          "warnings": []
+        },
+        "scene_changes": 3,
+        "thumbnail": {
+          "exists": true,
+          "path": "output/2026-03-07-v3/short_1772925869_724/thumbnail.jpg",
+          "size_kb": 194,
+          "width": 1280,
+          "height": 720,
+          "format": "JPEG",
+          "brightness": 51.2,
+          "variance": 2695.2,
+          "issues": [],
+          "warnings": [],
+          "passed": true
+        }
+      },
       "probe": {
         "duration": 19.293,
         "size_bytes": 7409403,
+        "bitrate": 3072369,
         "format": "mov,mp4,m4a,3gp,3g2,mj2",
         "video_codec": "h264",
         "width": 1080,
         "height": 1920,
         "fps": 24.0,
+        "video_duration": 19.291667,
         "audio_codec": "aac",
         "audio_sample_rate": 32000,
+        "audio_duration": 19.293,
         "has_video": true,
         "has_audio": true
       },
@@ -59,16 +128,47 @@
       "issues": [],
       "warnings": [],
       "passed": true,
+      "details": {
+        "audio_levels": {
+          "mean_volume_db": -7.4,
+          "max_volume_db": 0.0,
+          "issues": [],
+          "warnings": []
+        },
+        "black_frames": {
+          "black_pct": 0.0,
+          "black_seconds": 0,
+          "issues": [],
+          "warnings": []
+        },
+        "scene_changes": 2,
+        "thumbnail": {
+          "exists": true,
+          "path": "output/2026-03-07-v3/short_1772925884_383/thumbnail.jpg",
+          "size_kb": 206,
+          "width": 1280,
+          "height": 720,
+          "format": "JPEG",
+          "brightness": 50.6,
+          "variance": 2347.7,
+          "issues": [],
+          "warnings": [],
+          "passed": true
+        }
+      },
       "probe": {
         "duration": 17.39,
         "size_bytes": 6069421,
+        "bitrate": 2792143,
         "format": "mov,mp4,m4a,3gp,3g2,mj2",
         "video_codec": "h264",
         "width": 1080,
         "height": 1920,
         "fps": 24.0,
+        "video_duration": 17.375,
         "audio_codec": "aac",
         "audio_sample_rate": 32000,
+        "audio_duration": 17.39,
         "has_video": true,
         "has_audio": true
       },
@@ -83,16 +183,47 @@
       "issues": [],
       "warnings": [],
       "passed": true,
+      "details": {
+        "audio_levels": {
+          "mean_volume_db": -7.4,
+          "max_volume_db": 0.0,
+          "issues": [],
+          "warnings": []
+        },
+        "black_frames": {
+          "black_pct": 0.0,
+          "black_seconds": 0,
+          "issues": [],
+          "warnings": []
+        },
+        "scene_changes": 3,
+        "thumbnail": {
+          "exists": true,
+          "path": "output/2026-03-07-v3/short_1772925672_305/thumbnail.jpg",
+          "size_kb": 199,
+          "width": 1280,
+          "height": 720,
+          "format": "JPEG",
+          "brightness": 57.1,
+          "variance": 5475.6,
+          "issues": [],
+          "warnings": [],
+          "passed": true
+        }
+      },
       "probe": {
         "duration": 19.577,
         "size_bytes": 7355727,
+        "bitrate": 3005864,
         "format": "mov,mp4,m4a,3gp,3g2,mj2",
         "video_codec": "h264",
         "width": 1080,
         "height": 1920,
         "fps": 24.0,
+        "video_duration": 19.541667,
         "audio_codec": "aac",
         "audio_sample_rate": 32000,
+        "audio_duration": 19.577,
         "has_video": true,
         "has_audio": true
       },
@@ -107,32 +238,53 @@
       "issues": [],
       "warnings": [],
       "passed": true,
+      "details": {
+        "audio_levels": {
+          "mean_volume_db": -7.4,
+          "max_volume_db": 0.0,
+          "issues": [],
+          "warnings": []
+        },
+        "black_frames": {
+          "black_pct": 0.0,
+          "black_seconds": 0,
+          "issues": [],
+          "warnings": []
+        },
+        "scene_changes": 15,
+        "thumbnail": {
+          "exists": true,
+          "path": "output/2026-03-07-v3/long_1772925728_400/thumbnail.jpg",
+          "size_kb": 185,
+          "width": 1280,
+          "height": 720,
+          "format": "JPEG",
+          "brightness": 60.5,
+          "variance": 3271.8,
+          "issues": [],
+          "warnings": [],
+          "passed": true
+        }
+      },
       "probe": {
         "duration": 94.0,
         "size_bytes": 30919717,
+        "bitrate": 2631465,
         "format": "mov,mp4,m4a,3gp,3g2,mj2",
         "video_codec": "h264",
         "width": 1920,
         "height": 1080,
         "fps": 24.0,
+        "video_duration": 94.0,
         "audio_codec": "aac",
         "audio_sample_rate": 32000,
+        "audio_duration": 93.984,
         "has_video": true,
         "has_audio": true
       },
       "duration": 94.0,
       "size_mb": 29.5,
       "resolution": "1920x1080",
-      "thumbnail": {
-        "exists": true,
-        "path": "output/2026-03-07-v3/long_1772925728_400/thumbnail.jpg",
-        "size_kb": 185,
-        "width": 1280,
-        "height": 720,
-        "format": "JPEG",
-        "issues": [],
-        "passed": true
-      },
       "grade": "A"
     },
     {
@@ -141,16 +293,47 @@
       "issues": [],
       "warnings": [],
       "passed": true,
+      "details": {
+        "audio_levels": {
+          "mean_volume_db": -7.4,
+          "max_volume_db": 0.0,
+          "issues": [],
+          "warnings": []
+        },
+        "black_frames": {
+          "black_pct": 0.0,
+          "black_seconds": 0,
+          "issues": [],
+          "warnings": []
+        },
+        "scene_changes": 3,
+        "thumbnail": {
+          "exists": true,
+          "path": "output/2026-03-07-v3/short_1772925742_739/thumbnail.jpg",
+          "size_kb": 237,
+          "width": 1280,
+          "height": 720,
+          "format": "JPEG",
+          "brightness": 67.8,
+          "variance": 4842.5,
+          "issues": [],
+          "warnings": [],
+          "passed": true
+        }
+      },
       "probe": {
         "duration": 18.983,
         "size_bytes": 7058979,
+        "bitrate": 2974863,
         "format": "mov,mp4,m4a,3gp,3g2,mj2",
         "video_codec": "h264",
         "width": 1080,
         "height": 1920,
         "fps": 24.0,
+        "video_duration": 18.958333,
         "audio_codec": "aac",
         "audio_sample_rate": 32000,
+        "audio_duration": 18.983,
         "has_video": true,
         "has_audio": true
       },
@@ -165,67 +348,113 @@
       "issues": [],
       "warnings": [],
       "passed": true,
+      "details": {
+        "audio_levels": {
+          "mean_volume_db": -7.4,
+          "max_volume_db": 0.0,
+          "issues": [],
+          "warnings": []
+        },
+        "black_frames": {
+          "black_pct": 0.0,
+          "black_seconds": 0,
+          "issues": [],
+          "warnings": []
+        },
+        "scene_changes": 15,
+        "thumbnail": {
+          "exists": true,
+          "path": "output/2026-03-07-v3/long_1772925781_782/thumbnail.jpg",
+          "size_kb": 222,
+          "width": 1280,
+          "height": 720,
+          "format": "JPEG",
+          "brightness": 57.3,
+          "variance": 2697.9,
+          "issues": [],
+          "warnings": [],
+          "passed": true
+        }
+      },
       "probe": {
         "duration": 94.0,
         "size_bytes": 30328260,
+        "bitrate": 2581128,
         "format": "mov,mp4,m4a,3gp,3g2,mj2",
         "video_codec": "h264",
         "width": 1920,
         "height": 1080,
         "fps": 24.0,
+        "video_duration": 94.0,
         "audio_codec": "aac",
         "audio_sample_rate": 32000,
+        "audio_duration": 93.984,
         "has_video": true,
         "has_audio": true
       },
       "duration": 94.0,
       "size_mb": 28.9,
       "resolution": "1920x1080",
-      "thumbnail": {
-        "exists": true,
-        "path": "output/2026-03-07-v3/long_1772925781_782/thumbnail.jpg",
-        "size_kb": 222,
-        "width": 1280,
-        "height": 720,
-        "format": "JPEG",
-        "issues": [],
-        "passed": true
-      },
       "grade": "A"
     },
     {
       "title": "El bot que lee noticias y ejecuta tus trades solo (sin errores)",
       "type": "long",
       "issues": [],
-      "warnings": [],
+      "warnings": [
+        "🖼️ Miniatura oscura (brillo: 39/255)"
+      ],
       "passed": true,
+      "details": {
+        "audio_levels": {
+          "mean_volume_db": -7.4,
+          "max_volume_db": 0.0,
+          "issues": [],
+          "warnings": []
+        },
+        "black_frames": {
+          "black_pct": 0.0,
+          "black_seconds": 0,
+          "issues": [],
+          "warnings": []
+        },
+        "scene_changes": 15,
+        "thumbnail": {
+          "exists": true,
+          "path": "output/2026-03-07-v3/long_1772925821_433/thumbnail.jpg",
+          "size_kb": 196,
+          "width": 1280,
+          "height": 720,
+          "format": "JPEG",
+          "brightness": 39.3,
+          "variance": 3448.6,
+          "issues": [],
+          "warnings": [
+            "Miniatura oscura (brillo: 39/255)"
+          ],
+          "passed": true
+        }
+      },
       "probe": {
         "duration": 94.0,
         "size_bytes": 30775807,
+        "bitrate": 2619217,
         "format": "mov,mp4,m4a,3gp,3g2,mj2",
         "video_codec": "h264",
         "width": 1920,
         "height": 1080,
         "fps": 24.0,
+        "video_duration": 94.0,
         "audio_codec": "aac",
         "audio_sample_rate": 32000,
+        "audio_duration": 93.984,
         "has_video": true,
         "has_audio": true
       },
       "duration": 94.0,
       "size_mb": 29.4,
       "resolution": "1920x1080",
-      "thumbnail": {
-        "exists": true,
-        "path": "output/2026-03-07-v3/long_1772925821_433/thumbnail.jpg",
-        "size_kb": 196,
-        "width": 1280,
-        "height": 720,
-        "format": "JPEG",
-        "issues": [],
-        "passed": true
-      },
-      "grade": "A"
+      "grade": "B"
     }
   ]
 }

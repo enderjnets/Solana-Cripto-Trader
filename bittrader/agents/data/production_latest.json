@@ -366,9 +366,16 @@
     "errors": 0
   },
   "quality_check": {
-    "checked_at": "2026-03-08T01:05:18.696785+00:00",
+    "checked_at": "2026-03-08T01:11:13.257052+00:00",
+    "version": "2.0",
     "passed": 8,
     "failed": 0,
-    "pass_rate": "100%"
+    "pass_rate": "100%",
+    "grades": {
+      "A": 7,
+      "B": 1,
+      "C": 0,
+      "F": 0
+    }
   }
 }
