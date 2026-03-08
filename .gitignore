@@ -1,0 +1,11 @@
+memory/*credentials*.json
+memory/*_credentials.json
+memory/gcloud_credentials.json
+memory/veo_credentials.json
+memory/youtube_credentials.json
+memory/youtube_*.json
+bittrader/keys/
+memory/20*.md
+MEMORY.md
+memory/plans/
+*.docx

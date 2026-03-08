@@ -208,3 +208,8 @@
 Contexto breve
 Acción sugerida / requerida
 ```
+
+## Solana Bot Alerts
+- Revisar `/home/enderj/.openclaw/workspace/Solana-Cripto-Trader/agents/data/pending_alerts.json`
+- Si hay alertas nuevas → enviarlas al usuario y limpiar el archivo
+- Alertas importantes: trade cerrado con P&L, stop loss tocado, drawdown >5%
