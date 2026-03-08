@@ -359,21 +359,52 @@ def parse_script_response(raw: str, vtype: str, item: dict) -> dict:
     tags_raw = extract_field("TAGS", raw)
     tags     = [t.strip().strip("*") for t in tags_raw.split(",") if t.strip()]
 
-    # Extract GUION block
-    guion_m = re.search(r"GU[ÍI]ON:\s*\n(.*?)(?=\nVIDEO_PROMPT|\Z)", raw, re.DOTALL | re.IGNORECASE)
-    if guion_m:
-        guion = guion_m.group(1).strip()
-        # Remove markdown bold markers and structural headers from guion
-        guion = re.sub(r'\*\*[^*]+\*\*\s*\n?', '', guion)
-        guion = guion.strip()
-    else:
-        # Fallback: use everything after removing known header fields
-        guion = re.sub(r'^\*?\*?(TITULO|DESCRIPCION|TAGS|VIDEO_PROMPT[_\d]*)\*?\*?:.*?\n', '', raw, flags=re.MULTILINE | re.IGNORECASE)
-        guion = guion.strip()
+    # Extract VIDEO_PROMPT(s) — do this BEFORE extracting guion so we can exclude them
+    vp_matches = re.findall(r"VIDEO_PROMPT[_\d]*:\s*(.+?)(?=\nVIDEO_PROMPT|\n\*?\*?[A-Z_]+\*?\*?:|\Z)", raw, re.DOTALL | re.IGNORECASE)
+    video_prompts = [v.strip().strip("*").strip() for v in vp_matches]
 
-    # Extract VIDEO_PROMPT(s)
-    vp_matches = re.findall(r"VIDEO_PROMPT[_\d]*:\s*(.+?)(?=\nVIDEO_PROMPT|\n\*?\*?[A-Z_]+|\Z)", raw, re.DOTALL | re.IGNORECASE)
-    video_prompts = [v.strip().strip("*") for v in vp_matches]
+    def clean_script_text(text: str) -> str:
+        """Remove structural headers and video prompts from script text (TTS-ready).
+        
+        Strips: GUIÓN COMPLETO:, HOOK (30s):, PROBLEMA (45s):, EXPLICACION (2-3min):,
+        CTA (30s):, VIDEO_PROMPT_N:, **bold headers**, etc.
+        The output should be pure narration — ready to pass to TTS.
+        """
+        # Remove GUION/GUIÓN COMPLETO: header line
+        text = re.sub(
+            r'^GU[IÍ](?:O|Ó)N(?:\s+COMPLETO)?\s*:\s*\n?',
+            '', text, flags=re.MULTILINE | re.IGNORECASE
+        )
+        # Remove section timing headers: HOOK (30s):, PROBLEMA (45s):, CTA (30s):, etc.
+        text = re.sub(
+            r'^[ \t]*\*?\*?\s*(?:HOOK|INTRO|INTRODUCTION|PROBLEMA|PROBLEM|EXPLICACION|EXPLANATION|'
+            r'EJEMPLOS|EXAMPLES|CTA|CONCLUSION|OUTRO|CUERPO|BODY|DESARROLLO|SECTION)\s*'
+            r'(?:\([^)]*\))?\s*\*?\*?\s*:[ \t]*$',
+            '', text, flags=re.MULTILINE | re.IGNORECASE
+        )
+        # Remove VIDEO_PROMPT lines (single-line and multi-line inline)
+        text = re.sub(r'^VIDEO_PROMPT[_\d]*:.*$', '', text, flags=re.MULTILINE | re.IGNORECASE)
+        # Remove markdown bold header lines **SOMETHING** (standalone lines)
+        text = re.sub(r'^\*\*[^*\n]+\*\*\s*$', '', text, flags=re.MULTILINE)
+        # Collapse multiple blank lines into one
+        text = re.sub(r'\n{3,}', '\n\n', text)
+        return text.strip()
+
+    # Extract GUION block — handle both "GUIÓN:" and "GUIÓN COMPLETO:" variants
+    guion_m = re.search(
+        r"GU[IÍ](?:O|Ó)N(?:\s+COMPLETO)?\s*:\s*\n(.*?)(?=\nVIDEO_PROMPT|\Z)",
+        raw, re.DOTALL | re.IGNORECASE
+    )
+    if guion_m:
+        guion = clean_script_text(guion_m.group(1))
+    else:
+        # Fallback: strip all known metadata fields and clean
+        guion = re.sub(
+            r'^\*?\*?(?:TITULO|DESCRIPCION|TAGS|VIDEO_PROMPT[_\d]*|'
+            r'GU[IÍ](?:O|Ó)N(?:\s+COMPLETO)?)\*?\*?:.*\n?',
+            '', raw, flags=re.MULTILINE | re.IGNORECASE
+        )
+        guion = clean_script_text(guion)
 
     if not title:
         title = item["topic"][:60]

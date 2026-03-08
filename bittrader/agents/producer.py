@@ -291,8 +291,36 @@ def edge_tts_fallback(text: str, output_path: Path) -> float:
     return float(dur.stdout.strip()) if dur.stdout.strip() else 0
 
 
+def clean_script_for_tts(text: str) -> str:
+    """Strip structural headers and video prompts — produce pure narration for TTS.
+    
+    Removes: GUIÓN COMPLETO:, HOOK (30s):, PROBLEMA (45s):, EXPLICACION (2-3min):,
+    CTA (30s):, VIDEO_PROMPT_N:, **bold section headers**, etc.
+    This is a safety net — creator.py should already return clean text.
+    """
+    import re
+    # Remove GUION/GUIÓN COMPLETO: header
+    text = re.sub(r'^GU[IÍ](?:O|Ó)N(?:\s+COMPLETO)?\s*:\s*\n?', '', text, flags=re.MULTILINE | re.IGNORECASE)
+    # Remove section timing headers: HOOK (30s):, PROBLEMA (45s):, CTA (30s):, etc.
+    text = re.sub(
+        r'^[ \t]*\*?\*?\s*(?:HOOK|INTRO|INTRODUCTION|PROBLEMA|PROBLEM|EXPLICACION|EXPLANATION|'
+        r'EJEMPLOS|EXAMPLES|CTA|CONCLUSION|OUTRO|CUERPO|BODY|DESARROLLO|SECTION)\s*'
+        r'(?:\([^)]*\))?\s*\*?\*?\s*:[ \t]*$',
+        '', text, flags=re.MULTILINE | re.IGNORECASE
+    )
+    # Remove VIDEO_PROMPT lines
+    text = re.sub(r'^VIDEO_PROMPT[_\d]*:.*$', '', text, flags=re.MULTILINE | re.IGNORECASE)
+    # Remove standalone **bold** header lines
+    text = re.sub(r'^\*\*[^*\n]+\*\*\s*$', '', text, flags=re.MULTILINE)
+    # Collapse multiple blank lines
+    text = re.sub(r'\n{3,}', '\n\n', text)
+    return text.strip()
+
+
 def generate_audio(text: str, output_path: Path) -> float:
     """Generate audio: edge-tts primary (MiniMax TTS disabled — generates static for Spanish)."""
+    # Always sanitize script before TTS — strip section headers, video prompts, etc.
+    text = clean_script_for_tts(text)
     # Edge-TTS Jorge is reliable and free — use as primary
     print("      🔊 Usando Edge-TTS (es-MX-JorgeNeural)...")
     duration = edge_tts_fallback(text, output_path)
