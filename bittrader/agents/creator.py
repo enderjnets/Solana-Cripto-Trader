@@ -12,6 +12,8 @@ import requests
 from datetime import datetime, timezone
 from pathlib import Path
 import os
+sys.path.insert(0, str(Path(__file__).parent))
+import qwen_client
 
 # ── Paths ──────────────────────────────────────────────────────────────────
 WORKSPACE  = Path("/home/enderj/.openclaw/workspace")
@@ -153,7 +155,16 @@ def call_llm(prompt: str, system: str = "", max_tokens: int = 2000) -> str:
     if result:
         return result
 
-    print("    ❌ Todos los LLM fallaron")
+    # 4. Qwen2.5 14B local (último fallback — gratis, ilimitado)
+    print("    ⚠️ MiniMax falló, intentando Qwen2.5 14B local...")
+    if qwen_client.is_available():
+        full_prompt = f"{system}\n\n{prompt}" if system else prompt
+        result = qwen_client.ask(full_prompt, temperature=0.7, max_tokens=max_tokens, timeout=120)
+        if result:
+            print("    ✅ Qwen2.5 14B local respondió")
+            return result
+
+    print("    ❌ Todos los LLM fallaron (incluido Qwen local)")
     return None
 
 
