@@ -71,6 +71,10 @@ VIDEO_MAX_WAIT = 600  # 10 min max per clip
 EDGE_TTS_VOICE = "es-MX-JorgeNeural"
 EDGE_TTS_RATE = "+10%"
 
+# ── Coin logos ─────────────────────────────────────────────────────────────
+COIN_LOGOS_DIR = DATA_DIR / "coin_logos"
+COIN_LOGOS_DIR.mkdir(parents=True, exist_ok=True)
+
 # ── LLM for script operations ─────────────────────────────────────────────
 CLAUDE_BASE_URL = "http://127.0.0.1:8443/v1/messages"
 CLAUDE_MODEL = "claude-sonnet-4-6"
@@ -439,9 +443,102 @@ def create_srt_from_text(text: str, duration: float, srt_path: Path):
     srt_path.write_text('\n'.join(srt_lines), encoding='utf-8')
 
 
+# ════════════════════════════════════════════════════════════════════════
+# COIN LOGO FETCHER
+# ════════════════════════════════════════════════════════════════════════
+
+def extract_coin_symbol(script: dict) -> str | None:
+    """Extract the main coin ticker/symbol from script tags or title."""
+    tags = script.get("tags", [])
+    title = script.get("title", "")
+
+    # Common tickers to detect — check tags first (most reliable)
+    known = [
+        "BTC","ETH","SOL","BNB","AKT","PENGU","PI","ZEC","JUP","BONK","WIF",
+        "RAY","DOGE","SHIB","AVAX","DOT","LINK","ADA","MATIC","OP","ARB","SUI",
+        "APT","TRX","LTC","XRP","ATOM","FTM","NEAR","INJ","TIA","PYTH","JTO",
+        "MEME","PEPE","FLOKI","BRETT","MOG","POPCAT","WEN","NEIRO","GOAT"
+    ]
+    for tag in tags:
+        tag_up = tag.upper()
+        for coin in known:
+            if coin == tag_up or tag_up.startswith(coin):
+                return coin
+
+    # Fallback: scan title for known tickers
+    title_up = title.upper()
+    for coin in known:
+        if coin in title_up:
+            return coin
+
+    return None
+
+
+def fetch_coin_logo(symbol: str) -> Path | None:
+    """Download coin logo from CoinGecko. Returns path or None if failed."""
+    cached = COIN_LOGOS_DIR / f"{symbol}.png"
+    if cached.exists() and cached.stat().st_size > 1000:
+        return cached
+
+    # CoinGecko ID map for common coins
+    id_map = {
+        "BTC": "bitcoin", "ETH": "ethereum", "SOL": "solana", "BNB": "binancecoin",
+        "AKT": "akash-network", "PENGU": "pudgy-penguins", "PI": "pi-network",
+        "ZEC": "zcash", "JUP": "jupiter-exchange-solana", "BONK": "bonk",
+        "WIF": "dogwifcoin", "RAY": "raydium", "DOGE": "dogecoin", "SHIB": "shiba-inu",
+        "AVAX": "avalanche-2", "DOT": "polkadot", "LINK": "chainlink",
+        "ADA": "cardano", "MATIC": "matic-network", "OP": "optimism",
+        "ARB": "arbitrum", "SUI": "sui", "APT": "aptos", "TRX": "tron",
+        "LTC": "litecoin", "XRP": "ripple", "ATOM": "cosmos", "FTM": "fantom",
+        "NEAR": "near", "INJ": "injective-protocol", "TIA": "celestia",
+        "PYTH": "pyth-network", "JTO": "jito-governance-token",
+        "PEPE": "pepe", "FLOKI": "floki", "MEME": "memecoin",
+    }
+
+    coin_id = id_map.get(symbol.upper())
+    if not coin_id:
+        # Try searching CoinGecko
+        try:
+            r = requests.get(
+                f"https://api.coingecko.com/api/v3/search?query={symbol}",
+                timeout=10
+            )
+            results = r.json().get("coins", [])
+            if results:
+                coin_id = results[0]["id"]
+        except Exception:
+            return None
+
+    try:
+        r = requests.get(
+            f"https://api.coingecko.com/api/v3/coins/{coin_id}?localization=false"
+            f"&tickers=false&market_data=false&community_data=false&developer_data=false",
+            timeout=15
+        )
+        img_url = r.json().get("image", {}).get("large", "")
+        if not img_url:
+            return None
+
+        img_r = requests.get(img_url, timeout=15)
+        cached.write_bytes(img_r.content)
+
+        # Verify it's actually a PNG/image (not HTML error page)
+        if cached.stat().st_size < 1000:
+            cached.unlink()
+            return None
+
+        print(f"      🖼️  Coin logo downloaded: {symbol} ({cached.stat().st_size//1024}KB)")
+        return cached
+
+    except Exception as e:
+        print(f"      ⚠️  Could not fetch logo for {symbol}: {e}")
+        return None
+
+
 def assemble_video(clips: list, audio_path: Path, output_path: Path, 
                    title: str, duration: float, video_type: str,
-                   script_text: str, script_dir: Path) -> bool:
+                   script_text: str, script_dir: Path,
+                   coin_logo_path: Path | None = None) -> bool:
     """Assemble clips + audio + karaoke subtitles into final video."""
     
     # Generate karaoke subtitles (ASS) or fallback to SRT
@@ -547,9 +644,11 @@ def assemble_video(clips: list, audio_path: Path, output_path: Path,
 
     # Logo size: 240px for shorts (vertical), 180px for longs
     logo_size = 240 if video_type == "short" else 180
+    # Coin logo size: 100px bottom-left
+    coin_logo_size = 100 if video_type == "short" else 80
 
     if has_logo:
-        # Use filter_complex for logo + subtitles
+        # Use filter_complex for logo + subtitles + optional coin logo
         sub_filter = ""
         if sub_path.exists():
             sub_escaped = str(sub_path).replace("'", "'\\''").replace(":", "\\:")
@@ -569,23 +668,45 @@ def assemble_video(clips: list, audio_path: Path, output_path: Path,
                         f"OutlineColour=&H00000000,Outline=3,Shadow=0,Alignment=2,MarginV=60'"
                     )
 
-        filter_complex = (
-            f"[2:v]scale={logo_size}:-1[logo];"
-            f"[0:v][logo]overlay=W-w-30:30:format=auto{sub_filter}"
-        )
-
-        cmd2 = [
-            "ffmpeg", "-y",
-            "-i", str(intermediate),
-            "-i", str(audio_path),
-            "-i", str(LOGO_PATH),
-            "-filter_complex", filter_complex,
-            "-c:v", "libx264", "-preset", "fast", "-crf", "23",
-            "-c:a", "aac", "-b:a", "192k", "-ar", "44100",
-            "-shortest",
-            "-movflags", "+faststart",
-            str(output_path)
-        ]
+        if coin_logo_path and coin_logo_path.exists():
+            # 3 inputs: video, audio, BT logo, coin logo
+            filter_complex = (
+                f"[2:v]scale={logo_size}:-1,format=rgba,colorchannelmixer=aa=0.85[btlogo];"
+                f"[3:v]scale={coin_logo_size}:-1,format=rgba,colorchannelmixer=aa=0.90[coin];"
+                f"[0:v][btlogo]overlay=W-w-30:30:format=auto[v1];"
+                f"[v1][coin]overlay=25:H-h-25:format=auto{sub_filter}"
+            )
+            cmd2 = [
+                "ffmpeg", "-y",
+                "-i", str(intermediate),
+                "-i", str(audio_path),
+                "-i", str(LOGO_PATH),
+                "-i", str(coin_logo_path),
+                "-filter_complex", filter_complex,
+                "-c:v", "libx264", "-preset", "fast", "-crf", "23",
+                "-c:a", "aac", "-b:a", "192k", "-ar", "44100",
+                "-shortest",
+                "-movflags", "+faststart",
+                str(output_path)
+            ]
+            print(f"      🪙 Coin logo overlay: {coin_logo_path.name}")
+        else:
+            filter_complex = (
+                f"[2:v]scale={logo_size}:-1[logo];"
+                f"[0:v][logo]overlay=W-w-30:30:format=auto{sub_filter}"
+            )
+            cmd2 = [
+                "ffmpeg", "-y",
+                "-i", str(intermediate),
+                "-i", str(audio_path),
+                "-i", str(LOGO_PATH),
+                "-filter_complex", filter_complex,
+                "-c:v", "libx264", "-preset", "fast", "-crf", "23",
+                "-c:a", "aac", "-b:a", "192k", "-ar", "44100",
+                "-shortest",
+                "-movflags", "+faststart",
+                str(output_path)
+            ]
     else:
         # No logo — use simple -vf
         subtitle_filter = ""
@@ -739,6 +860,13 @@ def produce_single(script: dict, output_dir: Path, use_ai_video: bool = True) ->
     # ── STEP 2: Generate Video ──
     video_path = output_dir / f"{script_id}.mp4"
     
+    # ── STEP 1.5: Fetch coin logo ──
+    coin_symbol = extract_coin_symbol(script)
+    coin_logo_path = None
+    if coin_symbol:
+        print(f"    🪙 Buscando logo de {coin_symbol}...")
+        coin_logo_path = fetch_coin_logo(coin_symbol)
+
     if use_ai_video:
         print(f"    🎬 Generando clips con MiniMax Hailuo...")
         
@@ -759,7 +887,8 @@ def produce_single(script: dict, output_dir: Path, use_ai_video: bool = True) ->
             print(f"    🔧 Ensamblando {len(clips)} clips + audio...")
             success = assemble_video(
                 clips, audio_path, video_path, title, duration,
-                video_type, script_text, output_dir
+                video_type, script_text, output_dir,
+                coin_logo_path=coin_logo_path
             )
             if success:
                 size_mb = video_path.stat().st_size / (1024 * 1024)
