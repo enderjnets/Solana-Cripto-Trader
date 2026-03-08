@@ -375,8 +375,9 @@ def run_publisher(production_file: Path = None, video_ids: list = None,
         all_vids   = production.get("videos", [])
         videos_to_upload = [
             v for v in all_vids
-            if v.get("status") == "success"
+            if v.get("status") in ("success", "ready", "produced")
             and v.get("output_file")
+            and Path(v["output_file"]).exists()
             and (not video_ids or v.get("script_id") in video_ids)
         ]
         print(f"  📋 {len(videos_to_upload)} videos listos para subir")
