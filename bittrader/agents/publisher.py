@@ -22,6 +22,7 @@ sys.path.insert(0, str(WORKSPACE / "youtube_env/lib/python3.13/site-packages"))
 YT_CREDS        = WORKSPACE / "memory/youtube_credentials.json"
 PRODUCTION_FILE = DATA_DIR / "production_latest.json"
 UPLOAD_QUEUE    = DATA_DIR / "upload_queue.json"
+SCHEDULE_FILE   = DATA_DIR / "optimal_schedule.json"
 
 # Category IDs
 CAT_SHORTS     = "28"  # Science & Technology (best for crypto/trading shorts)
@@ -64,53 +65,121 @@ def get_youtube_client():
 
 
 # ══════════════════════════════════════════════════════════════════════════
-# SMART SCHEDULING
+# SMART SCHEDULING — Data-Driven (from Schedule Optimizer)
 # ══════════════════════════════════════════════════════════════════════════
 
 # Track assigned slots to avoid collisions within a batch
 _assigned_slots = []
 
+
+def _load_optimal_schedule() -> dict:
+    """Load schedule data from Schedule Optimizer."""
+    if SCHEDULE_FILE.exists():
+        try:
+            return json.loads(SCHEDULE_FILE.read_text())
+        except Exception:
+            pass
+    return {}
+
+
 def get_optimal_schedule(video_type: str, scout_data: dict = None) -> datetime:
     """
-    Determina el mejor horario de publicación basado en datos del Scout.
-    Distribuye videos a lo largo del día para no saturar.
+    Determina el mejor horario de publicación basado en datos REALES
+    del Schedule Optimizer (análisis de 250+ videos históricos).
+
+    Lógica:
+    1. Carga horarios óptimos del Schedule Optimizer
+    2. Filtra los mejores slots (día + hora) ordenados por VPD esperado
+    3. Asigna el próximo slot disponible que no colisione con otros del batch
+    4. Máximo 1 video por slot de 2 horas (para no saturar)
+
+    Videos se suben como PRIVADOS y se programan para publicarse
+    en el horario óptimo automáticamente.
+
     Retorna datetime en UTC.
     """
     global _assigned_slots
     now = datetime.now(timezone.utc)
 
-    # Default slots (Mountain Time → UTC, MT = UTC-7)
-    # Shorts: 7am, 10am, 12pm, 3pm, 6pm MT → 14, 17, 19, 22, 01 UTC
-    # Longs:  10am, 3pm MT → 17, 22 UTC
-    default_hours_shorts = [14, 17, 19, 22, 1]  # UTC
-    default_hours_long   = [17, 22]              # UTC
+    # Load data-driven schedule
+    schedule_data = _load_optimal_schedule()
+    schedule = schedule_data.get("schedule", {})
+    best_hours_data = schedule_data.get("best_hours", {})
+    best_days_data = schedule_data.get("best_days", {})
 
-    hours = default_hours_shorts if video_type == "short" else default_hours_long
+    # Extract ranked slots from optimizer
+    optimizer_slots = schedule.get("slots", [])
 
-    # Try scout data for best hours
-    if scout_data:
-        pub_times = scout_data.get("youtube", {}).get("publish_times", {})
-        by_hour = pub_times.get("by_hour", {})
-        if by_hour:
-            # Sort hours by average views and use top slots
-            sorted_hours = sorted(by_hour.items(), key=lambda x: x[1].get("avg", 0), reverse=True)
-            data_hours = [int(h) for h, _ in sorted_hours[:5]]
-            if data_hours:
-                hours = data_hours
+    # Build ranked hours from real data (fallback to optimizer slots)
+    if best_hours_data.get("best_hours"):
+        ranked_hours = [h["hour"] for h in best_hours_data["best_hours"]]
+    elif optimizer_slots:
+        ranked_hours = list(dict.fromkeys(s["hour"] for s in optimizer_slots))
+    else:
+        # Hardcoded fallback (MT to UTC: +7 in summer, +6 in winter)
+        ranked_hours = [16, 14, 1, 19, 22]  # UTC — based on historical best
 
-    # Find next available slot not already assigned
-    for day_offset in range(1, 4):  # Try up to 3 days ahead
-        for h in hours:
-            candidate = (now + timedelta(days=day_offset)).replace(
+    # Build ranked days from real data
+    if best_days_data.get("best_days"):
+        ranked_days = [d["day"] for d in best_days_data["best_days"]]
+    elif optimizer_slots:
+        ranked_days = list(dict.fromkeys(s["day_number"] for s in optimizer_slots))
+    else:
+        ranked_days = [4, 3, 1]  # Fri, Thu, Tue
+
+    # For shorts: use all ranked hours (more publishing slots)
+    # For longs: use only top 2 hours (prime time only)
+    if video_type == "long":
+        hours_to_use = ranked_hours[:2]
+    else:
+        hours_to_use = ranked_hours[:4]
+
+    # Find next available slot
+    # Strategy: scan next 7 days, prefer ranked days, then fill any day
+    for day_offset in range(1, 8):
+        candidate_date = now + timedelta(days=day_offset)
+        weekday = candidate_date.weekday()
+
+        # Score this day (ranked days get priority)
+        if weekday not in ranked_days and day_offset < 4:
+            continue  # Skip non-optimal days in the first 3 days
+
+        for h in hours_to_use:
+            candidate = candidate_date.replace(
                 hour=h, minute=0, second=0, microsecond=0
             )
-            # Check not already assigned
-            if candidate not in _assigned_slots:
+
+            # Must be in the future
+            if candidate <= now:
+                continue
+
+            # Check not already assigned in this batch
+            # Also enforce 2-hour buffer between videos
+            collision = False
+            for assigned in _assigned_slots:
+                if abs((candidate - assigned).total_seconds()) < 7200:  # 2 hours
+                    collision = True
+                    break
+
+            if not collision:
                 _assigned_slots.append(candidate)
                 return candidate
 
-    # Fallback: 2 hours from now
-    fallback = now + timedelta(hours=2)
+    # If all optimal slots taken, fall back to any available slot
+    for day_offset in range(1, 14):
+        for h in ranked_hours:
+            candidate = (now + timedelta(days=day_offset)).replace(
+                hour=h, minute=0, second=0, microsecond=0
+            )
+            if candidate > now and candidate not in _assigned_slots:
+                _assigned_slots.append(candidate)
+                return candidate
+
+    # Ultimate fallback: tomorrow at best hour
+    fallback = (now + timedelta(days=1)).replace(
+        hour=ranked_hours[0] if ranked_hours else 16,
+        minute=0, second=0, microsecond=0
+    )
     _assigned_slots.append(fallback)
     return fallback
 
@@ -143,6 +212,24 @@ def build_description(script: dict, video_type: str) -> str:
 # ══════════════════════════════════════════════════════════════════════════
 # UPLOAD
 # ══════════════════════════════════════════════════════════════════════════
+
+def set_thumbnail(yt, video_id: str, thumbnail_path: Path) -> bool:
+    """Upload custom thumbnail for a video."""
+    from googleapiclient.http import MediaFileUpload
+
+    if not thumbnail_path.exists():
+        print(f"       ⚠️ Thumbnail no encontrada: {thumbnail_path}")
+        return False
+
+    try:
+        media = MediaFileUpload(str(thumbnail_path), mimetype="image/jpeg")
+        yt.thumbnails().set(videoId=video_id, media_body=media).execute()
+        print(f"       🖼️ Thumbnail subida")
+        return True
+    except Exception as e:
+        print(f"       ⚠️ Thumbnail error: {str(e)[:100]}")
+        return False
+
 
 def upload_video(yt, video: dict, scout_data: dict = None) -> dict:
     """Sube un video a YouTube. Retorna resultado con video_id."""
@@ -179,8 +266,14 @@ def upload_video(yt, video: dict, scout_data: dict = None) -> dict:
         }
     }
 
+    # Show schedule in Mountain Time for user
+    mt_offset = timedelta(hours=-7)  # MDT (summer) or -6 (MST winter)
+    publish_mt = publish_at + mt_offset
+    day_name = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"][publish_mt.weekday()]
+
     print(f"    📤 Subiendo: {title[:55]}")
-    print(f"       Tipo: {vtype} | Cat: {cat_id} | Schedule: {publish_at_str}")
+    print(f"       Tipo: {vtype} | Cat: {cat_id}")
+    print(f"       📅 Programado: {day_name} {publish_mt.strftime('%d/%m %I:%M %p')} MT")
 
     media = MediaFileUpload(str(video_path), mimetype="video/mp4",
                             resumable=True, chunksize=1024*1024*5)
@@ -194,12 +287,35 @@ def upload_video(yt, video: dict, scout_data: dict = None) -> dict:
             print(f"       ⬆️  {pct}%...", end="\r")
 
     video_id = response["id"]
-    print(f"\n    ✅ Subido: https://youtube.com/shorts/{video_id}" if vtype == "short"
-          else f"\n    ✅ Subido: https://youtube.com/watch?v={video_id}")
+    url = f"https://youtube.com/{'shorts/' if vtype=='short' else 'watch?v='}{video_id}"
+    print(f"\n    ✅ Subido: {url}")
+    print(f"       🔒 Privado hasta {day_name} {publish_mt.strftime('%d/%m %I:%M %p')} MT")
+
+    # Upload thumbnail if available
+    thumb_uploaded = False
+    thumb_path = None
+
+    # Check for thumbnail in video data or directory
+    if video.get("thumbnail"):
+        thumb_path = Path(video["thumbnail"])
+    else:
+        # Look in video directory
+        video_dir = video_path.parent
+        for candidate in ["thumbnail.jpg", "thumbnail.png", "thumbnail_final.jpg"]:
+            p = video_dir / candidate
+            if p.exists():
+                thumb_path = p
+                break
+
+    if thumb_path and thumb_path.exists():
+        thumb_uploaded = set_thumbnail(yt, video_id, thumb_path)
+
     return {
         "video_id":    video_id,
-        "url":         f"https://youtube.com/{'shorts/' if vtype=='short' else 'watch?v='}{video_id}",
+        "url":         url,
         "scheduled":   publish_at_str,
+        "scheduled_mt": f"{day_name} {publish_mt.strftime('%d/%m %I:%M %p')} MT",
+        "thumbnail":   thumb_uploaded,
         "status":      "uploaded",
         "uploaded_at": datetime.now(timezone.utc).isoformat(),
     }
