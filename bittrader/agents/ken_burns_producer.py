@@ -30,14 +30,16 @@ from karaoke_subs import generate_karaoke_subs
 
 # ── Rhino character base ───────────────────────────────────────────────────
 RHINO_BASE_SHORT = (
-    "anthropomorphic rhinoceros character hyper-realistic 3D render "
-    "muscular elegant modern casual trading clothes expressive face "
-    "dramatic cinematic lighting ultra HD photorealistic dark moody background"
+    "anthropomorphic rhinoceros character, hyper-realistic 3D render, muscular but elegant, "
+    "wearing modern casual trading clothes, sitting at trading desk with multiple crypto monitors "
+    "showing green candlestick charts, expressive confident face, dramatic cinematic lighting, "
+    "ultra HD, photorealistic textures, dark moody background, depth of field bokeh, professional photography"
 )
 RHINO_BASE_LONG = (
-    "anthropomorphic rhinoceros character hyper-realistic 3D render "
-    "muscular elegant modern casual trading clothes expressive face "
-    "dramatic cinematic lighting ultra HD photorealistic dark moody background widescreen"
+    "anthropomorphic rhinoceros character, hyper-realistic 3D render, muscular but elegant, "
+    "wearing modern casual trading clothes, sitting at trading desk with multiple crypto monitors "
+    "showing green candlestick charts, expressive confident face, dramatic cinematic lighting, "
+    "ultra HD, photorealistic textures, dark moody background, depth of field bokeh, widescreen cinematic"
 )
 
 # ── Ken Burns variants ─────────────────────────────────────────────────────
