@@ -570,10 +570,14 @@ def assemble_video(clips: list, audio_path: Path, output_path: Path,
     """Assemble clips + audio + karaoke subtitles into final video."""
     
     # Generate karaoke subtitles (ASS) or fallback to SRT
+    # Always use Whisper for real word-level timestamps (edge-tts audio is clean enough)
     sub_path = None
     if HAS_KARAOKE:
         try:
-            sub_path = generate_karaoke_subs(audio_path, script_text, script_dir, video_type)
+            sub_path = generate_karaoke_subs(
+                audio_path, script_text, script_dir, video_type,
+                style="word_highlight", use_whisper=True
+            )
         except Exception as e:
             print(f"      ⚠️ Karaoke subs failed: {e}")
     
@@ -589,15 +593,50 @@ def assemble_video(clips: list, audio_path: Path, output_path: Path,
     if not valid_clips:
         print("      ❌ No valid clips to assemble")
         return False
-    
+
+    # Normalize clips to target resolution — fix clips with wrong dimensions (e.g. 1080x2050)
+    target_w, target_h = (1080, 1920) if video_type == "short" else (1920, 1080)
+    norm_dir = script_dir / "clips_norm"
+    norm_dir.mkdir(exist_ok=True)
+    normalized_clips = []
+    for clip in valid_clips:
+        probe = subprocess.run(
+            ["ffprobe", "-v", "quiet", "-select_streams", "v:0",
+             "-show_entries", "stream=width,height",
+             "-of", "csv=p=0", str(clip)],
+            capture_output=True, text=True
+        )
+        dims = probe.stdout.strip().split(",")
+        w, h = (int(dims[0]), int(dims[1])) if len(dims) == 2 else (0, 0)
+        norm_clip = norm_dir / clip.name
+        if w == target_w and h == target_h:
+            norm_clip = clip  # already correct, skip re-encode
+        else:
+            print(f"      🔧 Normalizing {clip.name}: {w}x{h} → {target_w}x{target_h}")
+            if video_type == "short":
+                vf = (f"scale={target_w}:{target_h}:force_original_aspect_ratio=increase,"
+                      f"crop={target_w}:{target_h},avgblur=30[bg];"
+                      f"[bg]scale={target_w}:{target_h}[bg2];"
+                      f"movie='{clip}',scale={target_w}:-2:force_original_aspect_ratio=decrease[fg];"
+                      f"[bg2][fg]overlay=(W-w)/2:(H-h)/2")
+            else:
+                vf = (f"scale={target_w}:{target_h}:force_original_aspect_ratio=decrease,"
+                      f"pad={target_w}:{target_h}:(ow-iw)/2:(oh-ih)/2:black")
+            subprocess.run(
+                ["ffmpeg", "-y", "-i", str(clip), "-vf", vf,
+                 "-c:v", "libx264", "-preset", "fast", "-crf", "23", "-an", str(norm_clip)],
+                capture_output=True, timeout=60
+            )
+        normalized_clips.append(norm_clip)
+
     # Calculate how many times to loop clips to fill audio duration
     clip_duration = VIDEO_DURATION  # 6s per clip
-    total_clip_time = len(valid_clips) * clip_duration
+    total_clip_time = len(normalized_clips) * clip_duration
     loops_needed = max(1, int(duration / total_clip_time) + 1)
     
     concat_lines = []
     for _ in range(loops_needed):
-        for clip in valid_clips:
+        for clip in normalized_clips:
             concat_lines.append(f"file '{clip}'")
     
     concat_path.write_text('\n'.join(concat_lines))
@@ -801,7 +840,10 @@ def make_fallback_video(audio_path: Path, output_path: Path, title: str,
     sub_path = None
     if HAS_KARAOKE:
         try:
-            sub_path = generate_karaoke_subs(audio_path, script_text, script_dir, video_type)
+            sub_path = generate_karaoke_subs(
+                audio_path, script_text, script_dir, video_type,
+                style="word_highlight", use_whisper=True
+            )
         except Exception:
             pass
     
