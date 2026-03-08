@@ -1,13 +1,13 @@
 {
-  "checked_at": "2026-03-08T01:11:13.257052+00:00",
+  "checked_at": "2026-03-08T01:30:57.020334+00:00",
   "version": "2.0",
   "total": 8,
   "passed": 8,
   "failed": 0,
   "pass_rate": "100%",
   "grades": {
-    "A": 7,
-    "B": 1,
+    "A": 6,
+    "B": 2,
     "C": 0,
     "F": 0
   },
@@ -32,6 +32,11 @@
           "warnings": []
         },
         "scene_changes": 3,
+        "subtitles": {
+          "issues": [],
+          "warnings": [],
+          "passed": true
+        },
         "thumbnail": {
           "exists": true,
           "path": "output/2026-03-07-v3/short_1772925855_875/thumbnail.jpg",
@@ -48,8 +53,8 @@
       },
       "probe": {
         "duration": 19.428,
-        "size_bytes": 7192551,
-        "bitrate": 2961725,
+        "size_bytes": 7513157,
+        "bitrate": 3093743,
         "format": "mov,mp4,m4a,3gp,3g2,mj2",
         "video_codec": "h264",
         "width": 1080,
@@ -63,7 +68,7 @@
         "has_audio": true
       },
       "duration": 19.4,
-      "size_mb": 6.9,
+      "size_mb": 7.2,
       "resolution": "1080x1920",
       "grade": "A"
     },
@@ -87,6 +92,11 @@
           "warnings": []
         },
         "scene_changes": 3,
+        "subtitles": {
+          "issues": [],
+          "warnings": [],
+          "passed": true
+        },
         "thumbnail": {
           "exists": true,
           "path": "output/2026-03-07-v3/short_1772925869_724/thumbnail.jpg",
@@ -102,9 +112,9 @@
         }
       },
       "probe": {
-        "duration": 19.293,
-        "size_bytes": 7409403,
-        "bitrate": 3072369,
+        "duration": 19.291667,
+        "size_bytes": 7666733,
+        "bitrate": 3179293,
         "format": "mov,mp4,m4a,3gp,3g2,mj2",
         "video_codec": "h264",
         "width": 1080,
@@ -113,12 +123,12 @@
         "video_duration": 19.291667,
         "audio_codec": "aac",
         "audio_sample_rate": 32000,
-        "audio_duration": 19.293,
+        "audio_duration": 19.264,
         "has_video": true,
         "has_audio": true
       },
       "duration": 19.3,
-      "size_mb": 7.1,
+      "size_mb": 7.3,
       "resolution": "1080x1920",
       "grade": "A"
     },
@@ -142,6 +152,11 @@
           "warnings": []
         },
         "scene_changes": 2,
+        "subtitles": {
+          "issues": [],
+          "warnings": [],
+          "passed": true
+        },
         "thumbnail": {
           "exists": true,
           "path": "output/2026-03-07-v3/short_1772925884_383/thumbnail.jpg",
@@ -157,9 +172,9 @@
         }
       },
       "probe": {
-        "duration": 17.39,
-        "size_bytes": 6069421,
-        "bitrate": 2792143,
+        "duration": 17.375,
+        "size_bytes": 6265499,
+        "bitrate": 2884834,
         "format": "mov,mp4,m4a,3gp,3g2,mj2",
         "video_codec": "h264",
         "width": 1080,
@@ -168,12 +183,12 @@
         "video_duration": 17.375,
         "audio_codec": "aac",
         "audio_sample_rate": 32000,
-        "audio_duration": 17.39,
+        "audio_duration": 17.344,
         "has_video": true,
         "has_audio": true
       },
       "duration": 17.4,
-      "size_mb": 5.8,
+      "size_mb": 6.0,
       "resolution": "1080x1920",
       "grade": "A"
     },
@@ -197,6 +212,11 @@
           "warnings": []
         },
         "scene_changes": 3,
+        "subtitles": {
+          "issues": [],
+          "warnings": [],
+          "passed": true
+        },
         "thumbnail": {
           "exists": true,
           "path": "output/2026-03-07-v3/short_1772925672_305/thumbnail.jpg",
@@ -212,9 +232,9 @@
         }
       },
       "probe": {
-        "duration": 19.577,
-        "size_bytes": 7355727,
-        "bitrate": 3005864,
+        "duration": 19.541667,
+        "size_bytes": 7487702,
+        "bitrate": 3065327,
         "format": "mov,mp4,m4a,3gp,3g2,mj2",
         "video_codec": "h264",
         "width": 1080,
@@ -223,12 +243,12 @@
         "video_duration": 19.541667,
         "audio_codec": "aac",
         "audio_sample_rate": 32000,
-        "audio_duration": 19.577,
+        "audio_duration": 19.52,
         "has_video": true,
         "has_audio": true
       },
-      "duration": 19.6,
-      "size_mb": 7.0,
+      "duration": 19.5,
+      "size_mb": 7.1,
       "resolution": "1080x1920",
       "grade": "A"
     },
@@ -252,6 +272,11 @@
           "warnings": []
         },
         "scene_changes": 15,
+        "subtitles": {
+          "issues": [],
+          "warnings": [],
+          "passed": true
+        },
         "thumbnail": {
           "exists": true,
           "path": "output/2026-03-07-v3/long_1772925728_400/thumbnail.jpg",
@@ -268,8 +293,8 @@
       },
       "probe": {
         "duration": 94.0,
-        "size_bytes": 30919717,
-        "bitrate": 2631465,
+        "size_bytes": 32433034,
+        "bitrate": 2760258,
         "format": "mov,mp4,m4a,3gp,3g2,mj2",
         "video_codec": "h264",
         "width": 1920,
@@ -283,7 +308,7 @@
         "has_audio": true
       },
       "duration": 94.0,
-      "size_mb": 29.5,
+      "size_mb": 30.9,
       "resolution": "1920x1080",
       "grade": "A"
     },
@@ -291,7 +316,9 @@
       "title": "ZEC cae 7%: ¿el fin de las privacy coins?",
       "type": "short",
       "issues": [],
-      "warnings": [],
+      "warnings": [
+        "📝 Texto detectado en múltiples zonas verticales — posible subtítulos duplicados"
+      ],
       "passed": true,
       "details": {
         "audio_levels": {
@@ -307,6 +334,13 @@
           "warnings": []
         },
         "scene_changes": 3,
+        "subtitles": {
+          "issues": [],
+          "warnings": [
+            "📝 Texto detectado en múltiples zonas verticales — posible subtítulos duplicados"
+          ],
+          "passed": true
+        },
         "thumbnail": {
           "exists": true,
           "path": "output/2026-03-07-v3/short_1772925742_739/thumbnail.jpg",
@@ -322,9 +356,9 @@
         }
       },
       "probe": {
-        "duration": 18.983,
-        "size_bytes": 7058979,
-        "bitrate": 2974863,
+        "duration": 18.958333,
+        "size_bytes": 7234798,
+        "bitrate": 3052925,
         "format": "mov,mp4,m4a,3gp,3g2,mj2",
         "video_codec": "h264",
         "width": 1080,
@@ -333,14 +367,14 @@
         "video_duration": 18.958333,
         "audio_codec": "aac",
         "audio_sample_rate": 32000,
-        "audio_duration": 18.983,
+        "audio_duration": 18.944,
         "has_video": true,
         "has_audio": true
       },
       "duration": 19.0,
-      "size_mb": 6.7,
+      "size_mb": 6.9,
       "resolution": "1080x1920",
-      "grade": "A"
+      "grade": "B"
     },
     {
       "title": "De $0 a cuenta fondeada en 30 días (plan real paso a paso)",
@@ -362,6 +396,11 @@
           "warnings": []
         },
         "scene_changes": 15,
+        "subtitles": {
+          "issues": [],
+          "warnings": [],
+          "passed": true
+        },
         "thumbnail": {
           "exists": true,
           "path": "output/2026-03-07-v3/long_1772925781_782/thumbnail.jpg",
@@ -378,8 +417,8 @@
       },
       "probe": {
         "duration": 94.0,
-        "size_bytes": 30328260,
-        "bitrate": 2581128,
+        "size_bytes": 32195733,
+        "bitrate": 2740062,
         "format": "mov,mp4,m4a,3gp,3g2,mj2",
         "video_codec": "h264",
         "width": 1920,
@@ -393,7 +432,7 @@
         "has_audio": true
       },
       "duration": 94.0,
-      "size_mb": 28.9,
+      "size_mb": 30.7,
       "resolution": "1920x1080",
       "grade": "A"
     },
@@ -418,7 +457,12 @@
           "issues": [],
           "warnings": []
         },
-        "scene_changes": 15,
+        "scene_changes": 18,
+        "subtitles": {
+          "issues": [],
+          "warnings": [],
+          "passed": true
+        },
         "thumbnail": {
           "exists": true,
           "path": "output/2026-03-07-v3/long_1772925821_433/thumbnail.jpg",
@@ -436,23 +480,23 @@
         }
       },
       "probe": {
-        "duration": 94.0,
-        "size_bytes": 30775807,
-        "bitrate": 2619217,
+        "duration": 111.471,
+        "size_bytes": 37557412,
+        "bitrate": 2695403,
         "format": "mov,mp4,m4a,3gp,3g2,mj2",
         "video_codec": "h264",
         "width": 1920,
         "height": 1080,
         "fps": 24.0,
-        "video_duration": 94.0,
+        "video_duration": 111.458333,
         "audio_codec": "aac",
         "audio_sample_rate": 32000,
-        "audio_duration": 93.984,
+        "audio_duration": 111.471,
         "has_video": true,
         "has_audio": true
       },
-      "duration": 94.0,
-      "size_mb": 29.4,
+      "duration": 111.5,
+      "size_mb": 35.8,
       "resolution": "1920x1080",
       "grade": "B"
     }

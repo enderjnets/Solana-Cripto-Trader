@@ -272,6 +272,124 @@ def check_scene_changes(video_path: Path) -> int:
         return -1
 
 
+def check_duplicate_subtitles(video_path: Path) -> dict:
+    """
+    Detect duplicate/overlapping subtitle tracks or burned-in double subtitles.
+    Common issue: re-encoding a video that already has subtitles burned in,
+    then adding subtitles again → visual duplication.
+    """
+    issues = []
+    warnings = []
+
+    # Check 1: Multiple subtitle streams in the container
+    try:
+        result = subprocess.run([
+            "ffprobe", "-v", "quiet", "-print_format", "json",
+            "-show_streams", "-select_streams", "s", str(video_path)
+        ], capture_output=True, text=True, timeout=10)
+
+        data = json.loads(result.stdout)
+        sub_streams = data.get("streams", [])
+        if len(sub_streams) > 1:
+            warnings.append(f"📝 {len(sub_streams)} pistas de subtítulos en el archivo (posible duplicación)")
+    except Exception:
+        pass
+
+    # Check 2: Look for subtitle files in the same directory
+    video_dir = video_path.parent
+    sub_files = list(video_dir.glob("subtitles.*"))
+    ass_files = [f for f in sub_files if f.suffix == ".ass"]
+    srt_files = [f for f in sub_files if f.suffix == ".srt"]
+
+    if ass_files and srt_files:
+        warnings.append(f"📝 Encontrados tanto .ass como .srt — verificar que solo uno se use en el video")
+
+    # Check 3: Analyze ASS file for overlapping dialogue lines at same timestamp
+    for ass_file in ass_files:
+        try:
+            content = ass_file.read_text(encoding='utf-8')
+            dialogue_lines = [l for l in content.split('\n') if l.startswith('Dialogue:')]
+
+            if not dialogue_lines:
+                continue
+
+            # Parse timestamps and check for exact duplicates
+            seen_times = {}
+            overlap_count = 0
+
+            for line in dialogue_lines:
+                parts = line.split(',', 9)
+                if len(parts) >= 3:
+                    start = parts[1].strip()
+                    end = parts[2].strip()
+                    text = parts[-1].strip() if len(parts) > 9 else ""
+
+                    # Count how many lines share exact same start AND end time
+                    # (This is NORMAL for word-highlight karaoke — each word gets its own line
+                    #  within a group, all sharing the group's time range)
+                    # What's NOT normal: identical text at same time
+                    key = f"{start}|{end}|{text}"
+                    if key in seen_times:
+                        overlap_count += 1
+                    seen_times[key] = seen_times.get(key, 0) + 1
+
+            if overlap_count > 0:
+                issues.append(f"📝 {overlap_count} líneas de subtítulos duplicadas exactas (mismo tiempo + mismo texto)")
+
+            # Check for excessive dialogue lines relative to duration
+            # Word-highlight karaoke creates 1 line per word per group:
+            # N words = N dialogue lines (each word gets highlighted individually)
+            # A 20s short with 130 words = 130 lines (NORMAL for word-highlight)
+            # A 90s long with 700 words = 700 lines (NORMAL for word-highlight)
+            # Only flag if lines exceed 2x the word count (actual duplication)
+            word_count_estimate = len(content.split()) // 3  # rough estimate
+            if len(dialogue_lines) > max(1500, word_count_estimate * 3):
+                warnings.append(f"📝 Exceso de líneas de subtítulo: {len(dialogue_lines)} (posible duplicación)")
+
+        except Exception:
+            pass
+
+    # Check 4: Sample frame analysis — detect if text appears at multiple Y positions
+    # (burned-in duplicates show text at different vertical positions)
+    frame_path = video_path.parent / "_qc_sub_frame.jpg"
+    try:
+        # Extract frame at 3 seconds
+        subprocess.run([
+            "ffmpeg", "-y", "-ss", "3", "-i", str(video_path),
+            "-vframes", "1", "-q:v", "3", str(frame_path)
+        ], capture_output=True, timeout=10)
+
+        if frame_path.exists() and Image and ImageStat:
+            img = Image.open(frame_path)
+            w, h = img.size
+
+            # Check bottom third and bottom half for text-like brightness patterns
+            # If both zones have high contrast text, subtitles may be duplicated
+            bottom_third = img.crop((0, h * 2 // 3, w, h))
+            bottom_half_upper = img.crop((0, h // 2, w, h * 2 // 3))
+
+            bt_stat = ImageStat.Stat(bottom_third)
+            bhu_stat = ImageStat.Stat(bottom_half_upper)
+
+            # High stddev in both zones suggests text in both = possible duplicate
+            bt_contrast = sum(s**2 for s in bt_stat.stddev[:3]) / 3
+            bhu_contrast = sum(s**2 for s in bhu_stat.stddev[:3]) / 3
+
+            if bt_contrast > 3000 and bhu_contrast > 3000:
+                warnings.append("📝 Texto detectado en múltiples zonas verticales — posible subtítulos duplicados")
+
+        frame_path.unlink(missing_ok=True)
+    except Exception:
+        if frame_path.exists():
+            frame_path.unlink(missing_ok=True)
+
+    return {
+        "issues": issues,
+        "warnings": warnings,
+        "passed": len(issues) == 0,
+    }
+
+
 def check_bitrate_quality(probe: dict, standards: dict) -> list:
     """Check if bitrate is sufficient for quality."""
     warnings = []
@@ -561,6 +679,12 @@ def check_video_quality(video: dict) -> dict:
     checks["issues"].extend(sync_issues)
     checks["warnings"].extend(sync_warnings)
 
+    # ═══ 4b. SUBTITLE DUPLICATES ═══
+    sub_check = check_duplicate_subtitles(video_path)
+    checks["details"]["subtitles"] = sub_check
+    checks["issues"].extend(sub_check.get("issues", []))
+    checks["warnings"].extend(sub_check.get("warnings", []))
+
     # ═══ 5. THUMBNAIL ═══
     if standards["requires_thumbnail"] or thumb_path:
         if not thumb_path:
@@ -617,7 +741,7 @@ def check_video_quality(video: dict) -> dict:
 def run_quality_checker() -> dict:
     """Run quality checks on all produced videos."""
     print("\n✅ BitTrader Quality Checker v2.0 — Auditoría Completa")
-    print("  🔍 Checks: Video | Audio | Visual | Sync | Thumbnail | Overlay | Metadata\n")
+    print("  🔍 Checks: Video | Audio | Visual | Sync | Subs | Thumbnail | Overlay | Metadata\n")
 
     if not PRODUCTION_FILE.exists():
         print("  ⚠️ No se encontró archivo de producción.")
