@@ -13,6 +13,39 @@
 - **RAM**: [Verificar con `free -h`]
 - **Almacenamiento**: [Verificar con `df -h`]
 
+## Ollama / Qwen Local
+
+### Configuración
+- **Servicio**: `systemctl status ollama` (auto-start)
+- **Puerto**: 11434
+- **Modelo**: qwen2.5:14b (9GB, GPU RTX 3070)
+- **Provider OpenClaw**: `local` (NO "ollama")
+- **API**: openai-completions + /v1 + injectNumCtx=false
+
+### Comandos útiles
+```bash
+# Estado
+systemctl status ollama
+ollama list
+
+# Parar (liberar VRAM para gaming/video)
+sudo systemctl stop ollama
+
+# Iniciar
+sudo systemctl start ollama
+
+# Test rápido
+curl -s http://localhost:11434/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{"model":"qwen2.5:14b","messages":[{"role":"user","content":"hola"}],"stream":false}'
+```
+
+### ⚠️ Notas importantes
+- Qwen ocupa 7.3GB de 8GB VRAM → Whisper debe correr en CPU
+- Provider DEBE llamarse `local` (no `ollama`) para evitar detección automática
+- `injectNumCtxForOpenAICompat: false` es obligatorio (evita error de RAM)
+- contextWindow: 32768 en config (mínimo OpenClaw es 16K)
+
 ## Herramientas de Desarrollo
 
 ### Python
