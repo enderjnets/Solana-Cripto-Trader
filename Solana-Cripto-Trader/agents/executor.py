@@ -50,7 +50,14 @@ log = logging.getLogger("executor")
 
 INITIAL_CAPITAL = 500.0   # Capital paper inicial
 PAPER_MODE      = True    # Cambia a False para trades reales
-MAKER_FEE       = 0.0025  # 0.25% fee Jupiter
+
+# ─── Drift Protocol Simulation ───────────────────────────────────────────────
+TAKER_FEE           = 0.001    # 0.1% taker fee (Drift Protocol)
+MAKER_FEE           = 0.001    # 0.1% maker fee (Drift Protocol)
+DEFAULT_LEVERAGE    = 3        # 3x leverage por defecto
+MAX_LEVERAGE        = 10       # Máximo 10x
+MAINTENANCE_MARGIN  = 0.05     # 5% margen de mantenimiento
+FUNDING_RATE        = 0.0001   # 0.01% por hora (funding rate simulado)
 
 # ─── Carga / Guardado de Estado ──────────────────────────────────────────────
 
@@ -140,13 +147,16 @@ def close_positions_emergency(portfolio: dict, symbols: list, market: dict, hist
             pos["close_reason"] = "EMERGENCY_CLOSE"
             pos["close_price"] = pos["current_price"]
 
-            # Actualizar P&L
+            # Actualizar P&L con leverage
+            notional = pos.get("notional_value", pos.get("size_usd", 0))
+            margin = pos.get("margin_usd", pos.get("size_usd", 0))
+
             pnl_pct = (pos["current_price"] - pos["entry_price"]) / pos["entry_price"]
             if pos["direction"] == "short":
                 pnl_pct = -pnl_pct
-            pnl_usd = pos["size_usd"] * pnl_pct
+            pnl_usd = notional * pnl_pct + pos.get("funding_accumulated", 0)
 
-            pos["pnl_pct"] = round(pnl_pct, 4)
+            pos["pnl_pct"] = round(pnl_pct * 100, 4)
             pos["pnl_usd"] = round(pnl_usd, 4)
 
             # Actualizar stats del portfolio
@@ -156,8 +166,9 @@ def close_positions_emergency(portfolio: dict, symbols: list, market: dict, hist
             else:
                 portfolio["losses"] = portfolio.get("losses", 0) + 1
 
-            # Devolver capital al portfolio
-            portfolio["capital_usd"] += pos["size_usd"] + pnl_usd
+            # Devolver margen + P&L al portfolio
+            returned = max(0, margin + pnl_usd)
+            portfolio["capital_usd"] += returned
 
             # Agregar al historial
             history.append({
@@ -184,7 +195,12 @@ def close_positions_emergency(portfolio: dict, symbols: list, market: dict, hist
 # ─── Paper Trading ────────────────────────────────────────────────────────────
 
 def paper_open_position(signal: dict, portfolio: dict, market: dict) -> Optional[dict]:
-    """Abre una posición en paper trading usando precio real de Jupiter."""
+    """
+    Abre una posición en paper trading simulando Drift Protocol.
+    - Leverage configurable (default 3x, max 10x)
+    - Solo se descuenta el margen del capital
+    - Calcula precio de liquidación
+    """
     symbol = signal["symbol"]
     price = get_current_price(symbol, market)
 
@@ -192,18 +208,37 @@ def paper_open_position(signal: dict, portfolio: dict, market: dict) -> Optional
         log.warning(f"⚠️  Sin precio para {symbol}, no se puede abrir posición")
         return None
 
-    size_usd = signal.get("suggested_size_usd", 0)
-    if size_usd <= 0:
-        size_usd = portfolio["capital_usd"] * 0.02  # 2% fallback
+    # Determinar leverage (signal puede sugerirlo, si no, default)
+    leverage = signal.get("leverage", DEFAULT_LEVERAGE)
+    leverage = max(1, min(leverage, MAX_LEVERAGE))
 
-    # Verificar capital suficiente
-    if portfolio["capital_usd"] < size_usd:
-        log.warning(f"⚠️  Capital insuficiente: ${portfolio['capital_usd']:.2f} < ${size_usd:.2f}")
+    # size_usd = margen que el trader pone (lo que se descuenta del capital)
+    margin_usd = signal.get("suggested_size_usd", 0)
+    if margin_usd <= 0:
+        margin_usd = portfolio["capital_usd"] * 0.02  # 2% fallback
+
+    # Verificar capital suficiente para el margen
+    if portfolio["capital_usd"] < margin_usd:
+        log.warning(f"⚠️  Capital insuficiente para margen: ${portfolio['capital_usd']:.2f} < ${margin_usd:.2f}")
         return None
 
-    fee = size_usd * MAKER_FEE
-    tokens_bought = (size_usd - fee) / price
+    # Notional = margen * leverage (tamaño real de la posición)
+    notional_value = margin_usd * leverage
 
+    # Fees sobre el notional (como en Drift)
+    fee_entry = notional_value * TAKER_FEE
+    tokens = (notional_value - fee_entry) / price
+
+    # Margen de mantenimiento
+    margin_maintenance = notional_value * MAINTENANCE_MARGIN
+
+    # Precio de liquidación (cuando P&L = -margen)
+    if signal["direction"] == "long":
+        liq_price = price * (1 - (margin_usd - fee_entry) / notional_value)
+    else:
+        liq_price = price * (1 + (margin_usd - fee_entry) / notional_value)
+
+    # SL/TP defaults
     sl_pct = 0.025
     tp_pct = 0.05
     sl_price = price * (1 - sl_pct) if signal["direction"] == "long" else price * (1 + sl_pct)
@@ -222,11 +257,17 @@ def paper_open_position(signal: dict, portfolio: dict, market: dict) -> Optional
         "strategy": signal["strategy"],
         "entry_price": round(price, 8),
         "current_price": round(price, 8),
-        "size_usd": round(size_usd, 2),
-        "tokens": round(tokens_bought, 6),
+        "margin_usd": round(margin_usd, 2),          # Lo que puso el trader
+        "notional_value": round(notional_value, 2),   # Tamaño real de la posición
+        "leverage": leverage,
+        "size_usd": round(notional_value, 2),         # Compat: = notional
+        "tokens": round(tokens, 6),
         "sl_price": round(sl_price, 8),
         "tp_price": round(tp_price, 8),
-        "fee_entry": round(fee, 4),
+        "liquidation_price": round(liq_price, 8),
+        "margin_maintenance": round(margin_maintenance, 4),
+        "fee_entry": round(fee_entry, 4),
+        "funding_accumulated": 0.0,
         "pnl_usd": 0.0,
         "pnl_pct": 0.0,
         "status": "open",
@@ -234,19 +275,69 @@ def paper_open_position(signal: dict, portfolio: dict, market: dict) -> Optional
         "close_time": None,
         "mode": "paper",
         "confidence": signal.get("confidence", 0),
+        "last_funding_time": datetime.now(timezone.utc).isoformat(),
     }
 
-    # Descontar del capital (la reserva mientras la posición está abierta)
-    portfolio["capital_usd"] = round(portfolio["capital_usd"] - size_usd, 2)
+    # Descontar solo el MARGEN del capital (no el notional completo)
+    portfolio["capital_usd"] = round(portfolio["capital_usd"] - margin_usd, 2)
     portfolio["positions"].append(position)
 
+    log.info(f"    📐 Leverage: {leverage}x | Margen: ${margin_usd:.2f} | Notional: ${notional_value:.2f} | Liq: ${liq_price:.6f}")
+
     return position
+
+
+def apply_funding_rate(pos: dict) -> float:
+    """
+    Simula el funding rate de Drift Protocol.
+    Se aplica cada hora sobre el notional value.
+    Longs pagan cuando funding > 0, shorts pagan cuando funding < 0.
+    Retorna el monto de funding aplicado (negativo = pagado, positivo = recibido).
+    """
+    now = datetime.now(timezone.utc)
+    last_funding_str = pos.get("last_funding_time", pos.get("open_time"))
+    try:
+        last_funding = datetime.fromisoformat(last_funding_str)
+        if last_funding.tzinfo is None:
+            last_funding = last_funding.replace(tzinfo=timezone.utc)
+    except (ValueError, TypeError):
+        last_funding = now
+
+    # Calcular horas transcurridas desde último funding
+    hours_elapsed = (now - last_funding).total_seconds() / 3600.0
+    if hours_elapsed < 1.0:
+        return 0.0
+
+    # Número de períodos de funding a aplicar
+    periods = int(hours_elapsed)
+    notional = pos.get("notional_value", pos.get("size_usd", 0))
+
+    # Funding rate simulado: longs pagan, shorts reciben (mercado normal)
+    # En mercado bajista sería al revés, pero simplificamos con rate fijo
+    funding_per_period = notional * FUNDING_RATE
+    total_funding = funding_per_period * periods
+
+    # Longs pagan funding (negativo), shorts reciben (positivo)
+    if pos["direction"] == "long":
+        funding_impact = -total_funding
+    else:
+        funding_impact = total_funding
+
+    pos["funding_accumulated"] = round(pos.get("funding_accumulated", 0) + funding_impact, 6)
+    pos["last_funding_time"] = now.isoformat()
+
+    if abs(funding_impact) > 0.001:
+        direction_text = "pagó" if funding_impact < 0 else "recibió"
+        log.info(f"    💸 {pos['symbol']} {direction_text} ${abs(funding_impact):.4f} funding ({periods}h)")
+
+    return funding_impact
 
 
 def paper_update_positions(portfolio: dict, market: dict, history: list) -> list:
     """
     Actualiza P&L de todas las posiciones abiertas.
-    Cierra automáticamente si toca SL o TP.
+    Simula Drift Protocol: leverage, liquidación, funding rate.
+    Cierra automáticamente si toca SL, TP o precio de liquidación.
     """
     closed = []
     remaining = []
@@ -266,20 +357,63 @@ def paper_update_positions(portfolio: dict, market: dict, history: list) -> list
         # Actualizar precio actual
         pos["current_price"] = round(current_price, 8)
 
-        # Calcular P&L
+        # Aplicar funding rate
+        funding_impact = apply_funding_rate(pos)
+
+        # Calcular P&L basado en NOTIONAL (leverage amplifica ganancias Y pérdidas)
+        notional = pos.get("notional_value", pos.get("size_usd", 0))
+        margin = pos.get("margin_usd", pos.get("size_usd", 0))
+        leverage = pos.get("leverage", 1)
+
         if pos["direction"] == "long":
-            pnl_pct = (current_price - pos["entry_price"]) / pos["entry_price"]
+            price_pnl_pct = (current_price - pos["entry_price"]) / pos["entry_price"]
         else:
-            pnl_pct = (pos["entry_price"] - current_price) / pos["entry_price"]
+            price_pnl_pct = (pos["entry_price"] - current_price) / pos["entry_price"]
 
-        pnl_usd = pos["tokens"] * abs(current_price - pos["entry_price"])
-        if pnl_pct < 0:
-            pnl_usd = -pnl_usd
+        # P&L = movimiento de precio * notional + funding acumulado
+        pnl_from_price = notional * price_pnl_pct
+        funding_total = pos.get("funding_accumulated", 0)
+        pnl_usd = pnl_from_price + funding_total
 
-        pos["pnl_pct"] = round(pnl_pct * 100, 4)
+        # P&L % relativo al MARGEN (no al notional) — refleja retorno real del trader
+        pnl_pct_on_margin = (pnl_usd / margin * 100) if margin > 0 else 0
+
         pos["pnl_usd"] = round(pnl_usd, 4)
+        pos["pnl_pct"] = round(pnl_pct_on_margin, 4)
 
-        # Verificar SL/TP
+        # ─── Verificar LIQUIDACIÓN (Drift Protocol) ─────────────────────
+        liq_price = pos.get("liquidation_price", 0)
+        hit_liquidation = False
+
+        if liq_price > 0:
+            if pos["direction"] == "long":
+                hit_liquidation = current_price <= liq_price
+            else:
+                hit_liquidation = current_price >= liq_price
+
+        if hit_liquidation:
+            pos["status"] = "closed"
+            pos["close_time"] = datetime.now(timezone.utc).isoformat()
+            pos["close_reason"] = "LIQUIDATED"
+            pos["close_price"] = current_price
+
+            # En liquidación se pierde todo el margen
+            pos["pnl_usd"] = round(-margin, 4)
+            pos["pnl_pct"] = -100.0
+            pos["fee_exit"] = 0.0
+
+            # No se devuelve nada — margen perdido completamente
+            portfolio["total_trades"] = portfolio.get("total_trades", 0) + 1
+            portfolio["losses"] = portfolio.get("losses", 0) + 1
+
+            log.error(f"  💀 [LIQUIDATED] {symbol} {leverage}x {pos['direction']} | "
+                      f"Perdido: ${margin:.2f} margen completo | Liq: ${liq_price:.6f}")
+
+            history.append({**pos})
+            closed.append(pos)
+            continue
+
+        # ─── Verificar SL/TP ─────────────────────────────────────────────
         hit_sl = False
         hit_tp = False
 
@@ -297,14 +431,18 @@ def paper_update_positions(portfolio: dict, market: dict, history: list) -> list
             pos["close_reason"] = close_reason
             pos["close_price"] = current_price
 
-            # Devolver capital + P&L
-            fee_exit = pos["size_usd"] * MAKER_FEE
-            returned = pos["size_usd"] + pnl_usd - fee_exit
+            # Fee de salida sobre el notional
+            fee_exit = notional * TAKER_FEE
             pos["fee_exit"] = round(fee_exit, 4)
+
+            # Devolver margen + P&L - fees
+            returned = margin + pnl_usd - fee_exit
+            returned = max(0, returned)  # No puede ser negativo (ya se descontó margen)
             portfolio["capital_usd"] = round(portfolio["capital_usd"] + returned, 2)
 
             # Estadísticas
-            is_win = pnl_usd > 0
+            net_pnl = pnl_usd - fee_exit
+            is_win = net_pnl > 0
             portfolio["total_trades"] = portfolio.get("total_trades", 0) + 1
             if is_win:
                 portfolio["wins"] = portfolio.get("wins", 0) + 1
@@ -312,7 +450,9 @@ def paper_update_positions(portfolio: dict, market: dict, history: list) -> list
                 portfolio["losses"] = portfolio.get("losses", 0) + 1
 
             result_emoji = "✅" if is_win else "❌"
-            log.info(f"  {result_emoji} [{close_reason}] {symbol} cerrada | P&L: ${pnl_usd:+.2f} ({pnl_pct*100:+.2f}%)")
+            log.info(f"  {result_emoji} [{close_reason}] {symbol} {leverage}x {pos['direction']} | "
+                     f"P&L: ${net_pnl:+.2f} ({pnl_pct_on_margin:+.1f}% on margin) | "
+                     f"Funding: ${funding_total:+.4f}")
 
             history.append({**pos})
             closed.append(pos)
@@ -411,8 +551,11 @@ def run(safe: bool = True, debug: bool = False) -> dict:
             opened.append(pos)
             open_count += 1
             arrow = "🟢" if pos["direction"] == "long" else "🔴"
+            lev = pos.get("leverage", 1)
+            margin = pos.get("margin_usd", pos.get("size_usd", 0))
+            notional = pos.get("notional_value", pos.get("size_usd", 0))
             log.info(f"  {arrow} ABIERTA {symbol} [{signal['strategy']}] "
-                     f"${pos['size_usd']:.2f} @ ${pos['entry_price']:.6f}")
+                     f"{lev}x | Margen: ${margin:.2f} | Notional: ${notional:.2f} @ ${pos['entry_price']:.6f}")
 
     # Calcular métricas actuales
     total_trades = portfolio.get("total_trades", 0)

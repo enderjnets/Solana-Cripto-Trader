@@ -45,8 +45,13 @@ TP_MULTIPLIER         = 2.5    # TP = 2.5x SL → 7.5% (era 2x → más runway)
 MAX_OPEN_POSITIONS    = 3      # Máximo 3 posiciones (era 5 — más concentrado)
 MAX_DRAWDOWN_PCT      = 0.10   # 10% drawdown máximo antes de parar
 PAUSE_DRAWDOWN_PCT    = 0.08   # 8% → PAUSED
-MIN_POSITION_USD      = 8.0    # Mínimo $8 por posición (era $5 — fees no valen para <$8)
-MAX_SINGLE_EXPOSURE   = 0.25   # Máximo 25% del capital (era 20% — más concentrado)
+MIN_POSITION_USD      = 8.0    # Mínimo $8 margen por posición
+MAX_SINGLE_EXPOSURE   = 0.25   # Máximo 25% del capital en margen
+
+# ─── Drift Protocol Parameters ───────────────────────────────────────────────
+DEFAULT_LEVERAGE      = 3      # 3x leverage por defecto
+MAX_LEVERAGE          = 10     # Máximo 10x
+MAINTENANCE_MARGIN    = 0.05   # 5% del notional
 
 # ─── Carga de Datos ───────────────────────────────────────────────────────────
 
@@ -91,15 +96,15 @@ def calculate_drawdown(portfolio: dict) -> float:
     initial  = portfolio.get("initial_capital", 500.0)
     free_cap = portfolio.get("capital_usd", 500.0)
 
-    # Sumar capital invertido en posiciones abiertas + P&L no realizado
+    # Sumar margen invertido en posiciones abiertas + P&L no realizado
     invested    = 0.0
     unrealized  = 0.0
     for pos in portfolio.get("positions", []):
         if pos.get("status") == "open":
-            invested   += pos.get("size_usd", 0)
+            invested   += pos.get("margin_usd", pos.get("size_usd", 0))
             unrealized += pos.get("pnl_usd", 0)
 
-    # Equity real = lo que tenemos libre + lo que tenemos invertido ± P&L
+    # Equity real = lo que tenemos libre + margen invertido ± P&L (con leverage)
     total_value = free_cap + invested + unrealized
     if initial <= 0:
         return 0.0
@@ -185,28 +190,42 @@ def evaluate_emergency_close(portfolio: dict, research: dict, market: dict) -> d
     return {"emergency_close": False, "reason": "", "symbols": []}
 
 
-def calculate_position_size(capital: float, price: float, sl_pct: float = SL_PCT) -> dict:
+def calculate_position_size(capital: float, price: float, sl_pct: float = SL_PCT,
+                            leverage: int = DEFAULT_LEVERAGE) -> dict:
     """
-    Kelly Criterion simplificado:
-    - Riesgo máximo por trade: 2% del capital
-    - Tamaño = (capital * risk_pct) / sl_pct
-    - Convertido a tokens = tamaño_usd / precio
+    Drift Protocol position sizing:
+    - Riesgo máximo por trade: 1.5% del capital
+    - margin_usd = riesgo / sl_pct (lo que pone el trader)
+    - notional = margin * leverage (tamaño real de la posición)
+    - tokens = notional / precio
+    - liquidation_price calculado basado en margen
     """
+    leverage = max(1, min(leverage, MAX_LEVERAGE))
+
     risk_amount = capital * RISK_PER_TRADE_PCT
-    position_size_usd = risk_amount / sl_pct
+    margin_usd = risk_amount / sl_pct
 
-    # Cap: no más de MAX_SINGLE_EXPOSURE del capital
-    max_position = capital * MAX_SINGLE_EXPOSURE
-    position_size_usd = min(position_size_usd, max_position)
+    # Cap: margen no más de MAX_SINGLE_EXPOSURE del capital
+    max_margin = capital * MAX_SINGLE_EXPOSURE
+    margin_usd = min(margin_usd, max_margin)
 
-    tokens = (position_size_usd / price) if price > 0 else 0
+    # Notional = margen * leverage
+    notional_usd = margin_usd * leverage
+    tokens = (notional_usd / price) if price > 0 else 0
+
+    # Margen de mantenimiento
+    margin_maintenance = notional_usd * MAINTENANCE_MARGIN
 
     return {
         "risk_amount_usd": round(risk_amount, 2),
-        "position_size_usd": round(position_size_usd, 2),
+        "margin_usd": round(margin_usd, 2),
+        "position_size_usd": round(margin_usd, 2),     # Compat: = margin
+        "notional_usd": round(notional_usd, 2),
+        "leverage": leverage,
         "tokens": round(tokens, 6),
         "sl_pct": sl_pct,
         "tp_pct": round(sl_pct * TP_MULTIPLIER, 4),
+        "margin_maintenance": round(margin_maintenance, 4),
     }
 
 
@@ -248,18 +267,27 @@ def evaluate_token(symbol: str, token_data: dict, capital: float,
         result["reason"] = f"MAX_POSICIONES ({MAX_OPEN_POSITIONS})"
         return result
 
-    # Calcular tamaño de posición
-    sizing = calculate_position_size(capital, price)
+    # Calcular tamaño de posición con leverage
+    sizing = calculate_position_size(capital, price, leverage=DEFAULT_LEVERAGE)
 
-    if sizing["position_size_usd"] < MIN_POSITION_USD:
-        result["reason"] = f"POSICION_MUY_PEQUEÑA (${sizing['position_size_usd']:.2f})"
+    if sizing["margin_usd"] < MIN_POSITION_USD:
+        result["reason"] = f"MARGEN_MUY_PEQUEÑO (${sizing['margin_usd']:.2f})"
         return result
 
     result["approved"] = True
     result["reason"] = "OK"
     result["position_size"] = sizing
-    result["sl_price"] = round(price * (1 - sizing["sl_pct"]), 8)
-    result["tp_price"] = round(price * (1 + sizing["tp_pct"]), 8)
+    result["sl_price_long"] = round(price * (1 - sizing["sl_pct"]), 8)
+    result["tp_price_long"] = round(price * (1 + sizing["tp_pct"]), 8)
+    result["sl_price_short"] = round(price * (1 + sizing["sl_pct"]), 8)
+    result["tp_price_short"] = round(price * (1 - sizing["tp_pct"]), 8)
+    # Compat
+    result["sl_price"] = result["sl_price_long"]
+    result["tp_price"] = result["tp_price_long"]
+    # Liquidation prices
+    margin_ratio = sizing["margin_usd"] / sizing["notional_usd"] if sizing["notional_usd"] > 0 else 1
+    result["liq_price_long"] = round(price * (1 - margin_ratio), 8)
+    result["liq_price_short"] = round(price * (1 + margin_ratio), 8)
     return result
 
 
@@ -319,7 +347,7 @@ def run(debug: bool = False) -> dict:
             approved_count += 1
             if debug:
                 sz = eval_result["position_size"]
-                log.info(f"  ✅ {symbol}: ${sz['position_size_usd']:.2f} | SL: {sz['sl_pct']*100:.1f}% | TP: {sz['tp_pct']*100:.1f}%")
+                log.info(f"  ✅ {symbol}: Margin ${sz['margin_usd']:.2f} | {sz['leverage']}x → Notional ${sz['notional_usd']:.2f} | SL: {sz['sl_pct']*100:.1f}% | TP: {sz['tp_pct']*100:.1f}%")
         else:
             if debug:
                 log.info(f"  ❌ {symbol}: {eval_result['reason']}")
