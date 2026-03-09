@@ -39,14 +39,14 @@ log = logging.getLogger("risk_manager")
 
 # ─── Parámetros de Riesgo ────────────────────────────────────────────────────
 
-RISK_PER_TRADE_PCT    = 0.02   # 2% del capital por trade (Kelly simplificado)
-SL_PCT                = 0.025  # Stop loss: 2.5% fijo
-TP_MULTIPLIER         = 2.0    # TP = 2x SL → 5%
-MAX_OPEN_POSITIONS    = 5      # Máximo de posiciones simultáneas
+RISK_PER_TRADE_PCT    = 0.015  # 1.5% del capital por trade (era 2% — más conservador)
+SL_PCT                = 0.03   # Stop loss: 3% (era 2.5% — más room)
+TP_MULTIPLIER         = 2.5    # TP = 2.5x SL → 7.5% (era 2x → más runway)
+MAX_OPEN_POSITIONS    = 3      # Máximo 3 posiciones (era 5 — más concentrado)
 MAX_DRAWDOWN_PCT      = 0.10   # 10% drawdown máximo antes de parar
 PAUSE_DRAWDOWN_PCT    = 0.08   # 8% → PAUSED
-MIN_POSITION_USD      = 5.0    # Mínimo en dólares por posición
-MAX_SINGLE_EXPOSURE   = 0.20   # Máximo 20% del capital en un solo token
+MIN_POSITION_USD      = 8.0    # Mínimo $8 por posición (era $5 — fees no valen para <$8)
+MAX_SINGLE_EXPOSURE   = 0.25   # Máximo 25% del capital (era 20% — más concentrado)
 
 # ─── Carga de Datos ───────────────────────────────────────────────────────────
 
@@ -122,7 +122,7 @@ def evaluate_emergency_close(portfolio: dict, research: dict, market: dict) -> d
     """
     open_positions = [p for p in portfolio.get("positions", []) if p.get("status") == "open"]
 
-    if not open_positions or len(open_positions) < 3:
+    if not open_positions or len(open_positions) < MAX_OPEN_POSITIONS:
         return {"emergency_close": False, "reason": "", "symbols": []}
 
     # Obtener tendencia del research

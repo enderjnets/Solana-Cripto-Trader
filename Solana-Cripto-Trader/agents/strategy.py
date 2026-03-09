@@ -68,15 +68,15 @@ EMA_MID         = 21
 EMA_SLOW        = 50
 ROC_PERIOD      = 10
 
-# Filtros de entrada
-MIN_CONFIDENCE          = 0.40   # Confianza mínima (0-1)
+# Filtros de entrada — OPTIMIZADO 2026-03-08
+MIN_CONFIDENCE          = 0.60   # Confianza mínima subida (era 0.40 — muchos trades débiles)
 MIN_INDICATORS_ALIGNED  = 2      # Mínimo indicadores alineados para señal
-ATR_SL_MULTIPLIER       = 1.5    # SL = entrada - N×ATR
-ATR_TP_MULTIPLIER       = 3.0    # TP = entrada + N×ATR (RR 2:1)
-MIN_ATR_PCT             = 0.005  # ATR mínimo como % del precio (filtrar activos planos)
-RSI_OVERBOUGHT          = 72
-RSI_OVERSOLD            = 28
-MOMENTUM_24H_MIN        = 3.0    # % cambio 24h mínimo para momentum
+ATR_SL_MULTIPLIER       = 2.0    # SL = entrada - N×ATR (era 1.5 — SL muy apretado)
+ATR_TP_MULTIPLIER       = 4.0    # TP = entrada + N×ATR (RR 2:1 → ahora más holgado)
+MIN_ATR_PCT             = 0.008  # ATR mínimo subido (era 0.005 — filtra activos planos)
+RSI_OVERBOUGHT          = 70     # Más estricto para shorts
+RSI_OVERSOLD            = 30     # Menos agresivo (era 28)
+MOMENTUM_24H_MIN        = 2.0    # Bajado (era 3.0 — permite más momentum trades)
 BB_SQUEEZE_THRESHOLD    = 0.02   # BB width < 2% = squeeze (potencial breakout)
 
 # ─── Persistencia ────────────────────────────────────────────────────────────

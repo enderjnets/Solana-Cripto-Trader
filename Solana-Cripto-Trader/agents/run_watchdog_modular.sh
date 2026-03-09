@@ -1,5 +1,6 @@
 #!/bin/bash
 # Watchdog para mantener el sistema modular de Solana corriendo
+# Optimizado 2026-03-08: Ciclo continuo con --live
 
 AGENTS_DIR="/home/enderj/.openclaw/workspace/Solana-Cripto-Trader/agents"
 LOG_DIR="$HOME/.config/solana-jupiter-bot"
@@ -9,31 +10,26 @@ PID_FILE="$LOG_DIR/modular.pid"
 # Crear directorio de logs
 mkdir -p "$LOG_DIR"
 
-echo "[$(date '+%Y-%m-%d %H:%M:%S')] 🤖 Watchdog Modular - Iniciando..."
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] 🤖 Watchdog Modular v2 - Iniciando..."
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] 📁 Directorio: $AGENTS_DIR"
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] 📝 Log: $LOG_FILE"
 
 while true; do
-    # Verificar si el proceso del orchestrator está corriendo
-    if ! pgrep -f "agents/orchestrator.py" > /dev/null; then
-        echo "[$(date '+%H:%M:%S')] 🔄 El sistema modular se detuvo. Reiniciando..."
+    # Verificar si el orchestrator modular está corriendo
+    if ! pgrep -f "orchestrator.py.*--live" > /dev/null; then
+        echo "[$(date '+%H:%M:%S')] 🔄 Orchestrator modular no está corriendo. Iniciando..."
         
-        # Cambiar al directorio de agentes
         cd "$AGENTS_DIR"
         
-        # Iniciar el orchestrator en modo background
-        nohup python3 orchestrator.py --once >> "$LOG_FILE" 2>&1 &
+        # Modo --live: ciclo continuo cada 120 segundos
+        nohup python3 -u orchestrator.py --live --interval 120 >> "$LOG_FILE" 2>&1 &
         ORCH_PID=$!
-        
-        # Guardar PID
         echo "$ORCH_PID" > "$PID_FILE"
         
-        echo "[$(date '+%H:%M:%S')] ✅ Sistema modular reiniciado (PID: $ORCH_PID)"
-        
-        # Esperar 2 segundos para asegurar que arranque
-        sleep 2
+        echo "[$(date '+%H:%M:%S')] ✅ Orchestrator modular iniciado (PID: $ORCH_PID)"
+        sleep 5
     fi
     
-    # Esperar 60 segundos antes del siguiente check
-    sleep 60
+    # Check cada 120 segundos
+    sleep 120
 done

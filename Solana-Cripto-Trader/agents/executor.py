@@ -387,9 +387,10 @@ def run(safe: bool = True, debug: bool = False) -> dict:
     opened = []
     open_count = len([p for p in portfolio["positions"] if p.get("status") == "open"])
 
+    MAX_POSITIONS = 3  # Optimizado 2026-03-08 (era 5 — más concentrado)
     for signal in signals:
-        if open_count >= 5:
-            log.info("📊 Máximo de posiciones alcanzado (5)")
+        if open_count >= MAX_POSITIONS:
+            log.info(f"📊 Máximo de posiciones alcanzado ({MAX_POSITIONS})")
             break
 
         symbol = signal["symbol"]
