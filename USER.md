@@ -2,7 +2,7 @@
 
 ## Información Personal
 
-- **Nombre**: Ender
+- **Nombre**: Ender (con R al final — importante pronunciarlo bien)
 - **Handle**: @enderj
 - **Plataformas**: 
   - Telegram: @Enderjh
