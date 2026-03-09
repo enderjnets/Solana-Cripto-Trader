@@ -311,3 +311,21 @@ gog calendar calendars
 
 ### Próximas Actualizaciones
 - [Agregar según necesidad]
+
+## VAPI — Asistente de Voz Telefónico
+
+### Credenciales
+- **Private Key**: f361bb66-8274-403a-8c0c-b984d7dd1cee
+- **Public Key (Phone ID)**: 64fcd5de-ab68-4ae0-93f6-846ce1209cce
+- **Assistant ID (Eko)**: 225a9f9f-5d58-412a-b8df-81b72c799a4a
+- **Número de teléfono**: +1 (720) 824-9313
+
+### Configuración
+- **Voz**: Fernando (ElevenLabs dlGxemPxFMTY7iXagmOj)
+- **Modelo**: Claude Sonnet 4.6
+- **STT**: Deepgram Nova-3 (español)
+- **Estado**: ✅ ACTIVO
+
+### Uso
+- Llamadas entrantes: Cualquiera puede llamar al +17208249313
+- Llamadas salientes: Via API con curl o skill de OpenClaw
