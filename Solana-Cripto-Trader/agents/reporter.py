@@ -118,8 +118,9 @@ def calculate_metrics(portfolio: dict, history: list) -> dict:
     # P&L no realizado + valor de posiciones abiertas
     open_positions = [p for p in portfolio.get("positions", []) if p.get("status") == "open"]
     unrealized_pnl = sum(p.get("pnl_usd", 0) for p in open_positions)
-    # Valor total = capital libre + lo invertido en posiciones abiertas + P&L no realizado
-    invested_in_positions = sum(p.get("size_usd", 0) for p in open_positions)
+    # Corrección: usar margin_usd (lo que el trader aportó), NO size_usd/notional (que es 3x el margen)
+    # size_usd = notional_value (margen × leverage), margin_usd = capital real inmovilizado
+    invested_in_positions = sum(p.get("margin_usd", p.get("size_usd", 0)) for p in open_positions)
 
     # Avg win / avg loss
     winning_trades = [t for t in closed_trades if t.get("pnl_usd", 0) > 0]

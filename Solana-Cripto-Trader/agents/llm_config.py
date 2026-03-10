@@ -34,18 +34,15 @@ def call_llm(prompt: str, system: str = "", max_tokens: int = 2000) -> str:
         "anthropic-version": "2023-06-01"
     }
 
-    # Build messages (Anthropic format)
-    messages = []
-    if system:
-        messages.append({"role": "user", "content": system})
-    messages.append({"role": "user", "content": prompt})
-
+    # Build request (Anthropic format: "system" is a top-level field, not a user message)
     data = {
         "model": MINIMAX_MODEL,
-        "messages": messages,
+        "messages": [{"role": "user", "content": prompt}],
         "max_tokens": max_tokens,
-        "temperature": 0.7
+        "temperature": 0.2,  # Más determinista para outputs JSON de trading
     }
+    if system:
+        data["system"] = system
 
     try:
         response = requests.post(MINIMAX_URL, headers=headers, json=data, timeout=60)

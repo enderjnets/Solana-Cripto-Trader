@@ -164,7 +164,7 @@ def generate_signals_with_llm(market: dict, research: dict, portfolio: dict) -> 
     tokens_summary = []
     for symbol, data in top_tokens:
         price = data.get("price", 0)
-        change_24h = data.get("price_24h_change", 0)
+        change_24h = data.get("price_24h_change_pct", 0)
         rsi = data.get("rsi", 50)
         mc = data.get("market_cap", 0)
         

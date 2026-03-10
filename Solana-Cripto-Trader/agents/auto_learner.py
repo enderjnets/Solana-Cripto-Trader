@@ -78,7 +78,7 @@ class LearnerDB:
                 CREATE TABLE IF NOT EXISTS trade_results (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    trade_id TEXT,
+                    trade_id TEXT UNIQUE,
                     symbol TEXT,
                     direction TEXT,
                     sl_pct REAL,
@@ -90,6 +90,21 @@ class LearnerDB:
                     confidence REAL,
                     holding_time REAL
                 )
+            """)
+            # Limpiar duplicados existentes (mantener solo la primera inserción por trade_id)
+            conn.execute("""
+                DELETE FROM trade_results
+                WHERE id NOT IN (
+                    SELECT MIN(id) FROM trade_results
+                    WHERE trade_id IS NOT NULL
+                    GROUP BY trade_id
+                )
+                AND trade_id IS NOT NULL
+            """)
+            # Crear índice único si no existe (por si la tabla ya existía sin él)
+            conn.execute("""
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_trade_id_unique
+                ON trade_results(trade_id)
             """)
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS parameter_history (
@@ -105,10 +120,10 @@ class LearnerDB:
             """)
 
     def record_trade(self, trade_data: dict):
-        """Registra resultado de trade."""
+        """Registra resultado de trade. INSERT OR IGNORE evita duplicados por trade_id."""
         with sqlite3.connect(self.db_path) as conn:
             conn.execute("""
-                INSERT INTO trade_results (
+                INSERT OR IGNORE INTO trade_results (
                     trade_id, symbol, direction, sl_pct, tp_pct, leverage,
                     pnl_usd, pnl_pct, win, confidence, holding_time
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)

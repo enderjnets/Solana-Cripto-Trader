@@ -30,11 +30,15 @@ BASE_DIR = Path(__file__).parent
 DATA_DIR = BASE_DIR / "data"
 DATA_DIR.mkdir(exist_ok=True)
 
-SIGNALS_FILE   = DATA_DIR / "signals_latest.json"
-MARKET_FILE    = DATA_DIR / "market_latest.json"
-RISK_FILE      = DATA_DIR / "risk_report.json"
-PORTFOLIO_FILE = DATA_DIR / "portfolio.json"
-HISTORY_FILE   = DATA_DIR / "trade_history.json"
+SIGNALS_FILE       = DATA_DIR / "signals_latest.json"
+SIGNALS_LLM_FILE   = DATA_DIR / "strategy_llm.json"
+MARKET_FILE        = DATA_DIR / "market_latest.json"
+RISK_FILE          = DATA_DIR / "risk_report.json"
+PORTFOLIO_FILE     = DATA_DIR / "portfolio.json"
+HISTORY_FILE       = DATA_DIR / "trade_history.json"
+
+# Máxima antigüedad de señales LLM para considerarlas válidas (en segundos)
+LLM_SIGNALS_MAX_AGE_SEC = 600  # 10 minutos (5 ciclos de 2min)
 
 # .env del proyecto para Telegram/wallet
 ENV_FILE = Path(__file__).parent.parent / ".env"
@@ -99,10 +103,54 @@ def save_history(history: list):
 
 
 def load_signals() -> dict:
+    """
+    Carga señales priorizando AI Strategy (strategy_llm.json) sobre técnico (signals_latest.json).
+    
+    Lógica:
+    1. Si strategy_llm.json existe y tiene señales recientes (< 10 min) → usar señales IA
+    2. Fallback → signals_latest.json (señales técnicas de strategy.py)
+    """
+    # Intentar cargar señales del AI Strategy primero
+    if SIGNALS_LLM_FILE.exists():
+        try:
+            with open(SIGNALS_LLM_FILE) as f:
+                llm_data = json.load(f)
+            
+            # Verificar antigüedad del archivo
+            generated_at = llm_data.get("generated_at", "")
+            if generated_at:
+                try:
+                    ts = datetime.fromisoformat(generated_at)
+                    if ts.tzinfo is None:
+                        ts = ts.replace(tzinfo=timezone.utc)
+                    age_sec = (datetime.now(timezone.utc) - ts).total_seconds()
+                    
+                    llm_signals = llm_data.get("signals", [])
+                    # Solo usar señales LLM si son recientes y hay señales válidas
+                    if age_sec <= LLM_SIGNALS_MAX_AGE_SEC and llm_signals:
+                        # Normalizar formato: ai_strategy usa sl_price/tp_price directamente
+                        # pero necesita direction != "none"
+                        valid_llm_signals = [
+                            s for s in llm_signals
+                            if s.get("direction", "none") not in ("none", "")
+                        ]
+                        if valid_llm_signals:
+                            log.info(f"🤖 Usando señales AI Strategy ({len(valid_llm_signals)} señales, {age_sec:.0f}s de antigüedad)")
+                            return {"signals": valid_llm_signals, "source": "ai_strategy"}
+                except (ValueError, TypeError):
+                    pass
+        except Exception as e:
+            log.warning(f"⚠️ Error leyendo strategy_llm.json: {e}")
+    
+    # Fallback: señales técnicas de strategy.py
     if not SIGNALS_FILE.exists():
-        return {"signals": []}
+        return {"signals": [], "source": "none"}
+    
+    log.info("📊 Usando señales técnicas (signals_latest.json) — fallback")
     with open(SIGNALS_FILE) as f:
-        return json.load(f)
+        data = json.load(f)
+    data["source"] = "technical"
+    return data
 
 
 def load_market() -> dict:

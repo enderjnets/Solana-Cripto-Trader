@@ -117,7 +117,7 @@ def analyze_market_with_llm(market: dict) -> dict:
     for token in top_tokens:
         if token in tokens_data:
             t = tokens_data[token]
-            price_24h_change = t.get("price_24h_change", 0)
+            price_24h_change = t.get("price_24h_change_pct", 0)
             price_summary.append(f"{token}: {price_24h_change:+.2f}% 24h")
     
     price_text = "\n".join(price_summary)
@@ -181,7 +181,7 @@ Responde SOLO en formato JSON válido."""
                 # Añadir metadata
                 analysis.update({
                     "fng_index": fng,
-                    "price_changes": {token: tokens_data[token].get("price_24h_change", 0) 
+                    "price_changes": {token: tokens_data[token].get("price_24h_change_pct", 0) 
                                    for token in top_tokens if token in tokens_data},
                     "tokens_analyzed": top_tokens,
                     "llm_used": "claude_sonnet_or_minimax",
