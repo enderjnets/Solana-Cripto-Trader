@@ -276,6 +276,11 @@ def paper_open_position(signal: dict, portfolio: dict, market: dict) -> Optional
         "mode": "paper",
         "confidence": signal.get("confidence", 0),
         "last_funding_time": datetime.now(timezone.utc).isoformat(),
+        # Trailing stop support
+        "exit_mode": signal.get("exit_mode", "fixed"),  # "fixed" or "trailing"
+        "trailing_pct": signal.get("trailing_pct", 0.0),  # e.g. 0.02 = 2% pullback
+        "peak_price": round(price, 8),  # highest price seen (for long) / lowest (for short)
+        "trailing_sl": 0.0,  # dynamic SL that follows the peak
     }
 
     # Descontar solo el MARGEN del capital (no el notional completo)
@@ -413,19 +418,47 @@ def paper_update_positions(portfolio: dict, market: dict, history: list) -> list
             closed.append(pos)
             continue
 
+        # ─── Trailing Stop Logic ─────────────────────────────────────────
+        exit_mode = pos.get("exit_mode", "fixed")
+        trailing_pct = pos.get("trailing_pct", 0.0)
+
+        if exit_mode == "trailing" and trailing_pct > 0:
+            if pos["direction"] == "long":
+                # Update peak if price made new high
+                if current_price > pos.get("peak_price", pos["entry_price"]):
+                    pos["peak_price"] = round(current_price, 8)
+                # Trailing SL follows peak downward
+                pos["trailing_sl"] = round(pos["peak_price"] * (1 - trailing_pct), 8)
+            else:
+                # Short: update peak (lowest) if price made new low
+                if current_price < pos.get("peak_price", pos["entry_price"]):
+                    pos["peak_price"] = round(current_price, 8)
+                pos["trailing_sl"] = round(pos["peak_price"] * (1 + trailing_pct), 8)
+
         # ─── Verificar SL/TP ─────────────────────────────────────────────
         hit_sl = False
         hit_tp = False
+        hit_trailing = False
 
         if pos["direction"] == "long":
             hit_sl = current_price <= pos["sl_price"]
             hit_tp = current_price >= pos["tp_price"]
+            # Trailing SL only activates after price has moved past entry (in profit)
+            if exit_mode == "trailing" and pos.get("trailing_sl", 0) > pos["entry_price"]:
+                hit_trailing = current_price <= pos["trailing_sl"]
         else:
             hit_sl = current_price >= pos["sl_price"]
             hit_tp = current_price <= pos["tp_price"]
+            if exit_mode == "trailing" and pos.get("trailing_sl", 0) < pos["entry_price"]:
+                hit_trailing = current_price >= pos["trailing_sl"]
 
-        if hit_sl or hit_tp:
-            close_reason = "TP" if hit_tp else "SL"
+        if hit_sl or hit_tp or hit_trailing:
+            if hit_trailing:
+                close_reason = "TRAILING_SL"
+            elif hit_tp:
+                close_reason = "TP"
+            else:
+                close_reason = "SL"
             pos["status"] = "closed"
             pos["close_time"] = datetime.now(timezone.utc).isoformat()
             pos["close_reason"] = close_reason

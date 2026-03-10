@@ -201,6 +201,8 @@ Responde ÚNICAMENTE en formato JSON válido con esta estructura:
       "entry_price": 0.0,
       "sl_price": 0.0,
       "tp_price": 0.0,
+      "exit_mode": "fixed|trailing",
+      "trailing_pct": 0.0,
       "size_usd": 0.0,
       "confidence": 0.0,
       "strategy": "momentum|breakout|oversold",
@@ -219,9 +221,23 @@ Responde ÚNICAMENTE en formato JSON válido con esta estructura:
 REGLAS DE TRADING:
 1. RIESGO POR TRADE: 2% del capital ($10 USD)
 2. STOP LOSS: 2.5% del entry
-3. TAKE PROFIT: 5% del entry (2x SL)
+3. TAKE PROFIT: 5% del entry (2x SL) — o trailing stop si las condiciones lo ameritan
 4. MÁXIMO 3 señales por ciclo
 5. NO generar señal si el token YA tiene posición abierta
+
+EXIT MODE — Elige el modo de salida más apropiado para CADA señal:
+- "fixed": TP fijo. Ideal para mercados laterales, baja volatilidad, o reversión a la media (oversold_bounce).
+- "trailing": Trailing stop. Ideal para mercados con momentum fuerte, breakouts confirmados, o tendencias claras.
+  - Si eliges "trailing", establece "trailing_pct" (porcentaje de retroceso desde el máximo/mínimo).
+  - Ejemplo: trailing_pct=0.02 = cierra si el precio retrocede 2% desde su máximo alcanzado.
+  - El tp_price sigue siendo el TP máximo de seguridad (el trade cierra ahí si no hay trailing mejor).
+  - Rango recomendado trailing_pct: 0.015 (tight, scalping) a 0.04 (wide, swing).
+
+CRITERIOS para elegir trailing vs fixed:
+- Volatilidad > 3% y RSI 50-65 con tendencia alcista → TRAILING (puede capturar movimiento extendido)
+- Breakout con volumen alto → TRAILING (momentum puede continuar)
+- Oversold bounce (RSI < 30) → FIXED (el rebote suele ser limitado)
+- Mercado lateral sin tendencia clara → FIXED
 
 CRITERIOS DE ENTRADA:
 - LONG: RSI < 30 (sobreventa) + cambio 24h > -3% + volatilidad > 0.5%
