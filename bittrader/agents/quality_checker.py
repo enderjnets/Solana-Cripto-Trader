@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-✅ BitTrader Quality Checker v3.0 — Auditor de Calidad Completo
+✅ BitTrader Quality Checker v4.0 — Auditor de Calidad Completo + IA
 Verifica cada aspecto de los videos antes de publicar.
 
 Pipeline: Producer → Thumbnail Agent → Quality Checker → Publisher
@@ -16,6 +16,7 @@ Checks realizados:
 8. METADATA: título, tags, descripción
 9. FRAMING: contenido no cortado por crop, safe zones respetadas
 10. AUDIO MIX: presencia de música de fondo, balance voz/música
+11. 🤖 AI VISUAL CHECK: Sonnet 4.6 analiza composición, legibilidad, estética
 
 Grados:
   A = Perfecto (0 issues, 0 warnings)
@@ -24,11 +25,13 @@ Grados:
   F = No publicar (issues críticos)
 
 Ejecutar: python3 agents/quality_checker.py
+         python3 agents/quality_checker.py --no-ai   (skip AI check)
 """
 import json
 import subprocess
 import struct
 import math
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -37,6 +40,13 @@ try:
 except ImportError:
     Image = None
     ImageStat = None
+
+# AI Quality Check (optional — Sonnet 4.6 visual analysis)
+AI_CHECK_ENABLED = "--no-ai" not in sys.argv
+try:
+    from ai_quality_check import check_video_ai
+except ImportError:
+    AI_CHECK_ENABLED = False
 
 # ── Paths ──────────────────────────────────────────────────────────────────
 WORKSPACE  = Path("/home/enderj/.openclaw/workspace")
@@ -79,7 +89,7 @@ THUMB_STANDARDS = {
 # Audio standards
 AUDIO_MIN_VOLUME_DB   = -40   # Below this = basically silence
 AUDIO_MAX_VOLUME_DB   = 0.0   # Above this = clipping (0.0dB is normal for TTS)
-AUDIO_MIN_SAMPLE_RATE = 16000
+AUDIO_MIN_SAMPLE_RATE = 22000  # Edge TTS genera 24000Hz mínimo; MiniMax corrupto usa 32000Hz
 AUDIO_SYNC_TOLERANCE  = 2.0   # Max seconds difference audio vs video
 
 # Visual standards
@@ -393,6 +403,56 @@ def check_duplicate_subtitles(video_path: Path) -> dict:
     }
 
 
+CORRECTIONS_FILE = Path(__file__).parent / "data" / "subtitle_corrections.json"
+
+def load_subtitle_corrections() -> dict:
+    """Carga las correcciones aprendidas para subtítulos."""
+    try:
+        if CORRECTIONS_FILE.exists():
+            return json.loads(CORRECTIONS_FILE.read_text())
+    except Exception:
+        pass
+    return {"corrections": {}, "known_technical_terms": []}
+
+def apply_subtitle_corrections(text: str) -> tuple[str, list]:
+    """Aplica correcciones aprendidas al texto de subtítulos. Retorna (texto_corregido, lista_de_fixes)."""
+    data = load_subtitle_corrections()
+    corrections = data.get("corrections", {})
+    fixes = []
+    result = text
+    for wrong, right in corrections.items():
+        if wrong in result:
+            result = result.replace(wrong, right)
+            fixes.append(f"'{wrong}' → '{right}'")
+    return result, fixes
+
+def learn_subtitle_correction(wrong: str, right: str) -> None:
+    """Aprende una nueva corrección y la guarda para futuros videos."""
+    data = load_subtitle_corrections()
+    if wrong not in data.get("corrections", {}):
+        data.setdefault("corrections", {})[wrong] = right
+        data["corrections_applied"] = data.get("corrections_applied", 0) + 1
+        data["last_updated"] = __import__("datetime").date.today().isoformat()
+        try:
+            CORRECTIONS_FILE.write_text(json.dumps(data, ensure_ascii=False, indent=2))
+            print(f"  📚 Corrección aprendida: '{wrong}' → '{right}'")
+        except Exception as e:
+            print(f"  ⚠️ No se pudo guardar corrección: {e}")
+
+def auto_fix_ass_file(ass_path: Path) -> list:
+    """Aplica correcciones automáticas a un archivo ASS. Retorna lista de fixes aplicados."""
+    all_fixes = []
+    try:
+        content = ass_path.read_text(encoding="utf-8")
+        fixed, fixes = apply_subtitle_corrections(content)
+        if fixes:
+            ass_path.write_text(fixed, encoding="utf-8")
+            all_fixes.extend(fixes)
+            print(f"  ✅ Auto-corregidos {len(fixes)} errores en {ass_path.name}: {fixes}")
+    except Exception as e:
+        print(f"  ⚠️ Error auto-corrigiendo {ass_path}: {e}")
+    return all_fixes
+
 def check_subtitle_quality(video_path: Path, vtype: str) -> dict:
     """
     Check subtitle size, position, and legibility.
@@ -400,13 +460,30 @@ def check_subtitle_quality(video_path: Path, vtype: str) -> dict:
     - Font size is large enough for mobile viewing
     - Subtitles are in safe zone (not cut off at edges)
     - Text is readable (contrast with background)
+    - Auto-applies learned corrections before checking
     """
     issues = []
     warnings = []
 
-    # Check ASS files for font size
+    # Auto-apply learned corrections before checking
     video_dir = video_path.parent
-    ass_files = list(video_dir.glob("subtitles*.ass")) + list(video_dir.glob("*.ass"))
+    all_ass = list(video_dir.glob("subtitles*.ass")) + list(video_dir.glob("*.ass"))
+    # Deduplicate
+    all_ass = list(dict.fromkeys(all_ass))
+    # Prefer _fixed version: if subtitles_fixed.ass exists, skip subtitles.ass
+    fixed_ass = video_dir / "subtitles_fixed.ass"
+    orig_ass = video_dir / "subtitles.ass"
+    if fixed_ass.exists() and orig_ass.exists():
+        ass_files = [f for f in all_ass if f != orig_ass]
+    else:
+        ass_files = all_ass
+
+    for ass_file in ass_files:
+        fixes = auto_fix_ass_file(ass_file)
+        if fixes:
+            warnings.append(f"📚 Auto-correcciones aplicadas: {', '.join(fixes)}")
+
+    # Check ASS files for font size
 
     for ass_file in ass_files:
         try:
@@ -428,11 +505,11 @@ def check_subtitle_quality(video_path: Path, vtype: str) -> dict:
                             # For 1080x1920 vertical video, minimum readable font = 60
                             # For 1920x1080 horizontal, minimum = 45
                             if vtype == "short":
-                                min_font = 60
-                                recommended_font = 75
+                                min_font = 100
+                                recommended_font = 130
                             else:
-                                min_font = 45
-                                recommended_font = 55
+                                min_font = 70
+                                recommended_font = 90
 
                             if font_size < min_font:
                                 issues.append(
@@ -834,33 +911,86 @@ def check_thumbnail_deep(path: Path) -> dict:
 # OVERLAY CHECK (title position, logo)
 # ════════════════════════════════════════════════════════════════════════
 
-def check_overlay_quality(video_path: Path, title: str, vtype: str) -> list:
-    """Check if title text and logo are properly positioned in the video."""
+def _count_logo_orange_pixels() -> int:
+    """Count orange pixels in the BitTrader logo reference (cached)."""
+    if not hasattr(_count_logo_orange_pixels, "_cache"):
+        LOGO_PATH = WORKSPACE / "videos/BIBLIOTECA/bittrader_logo.png"
+        if not LOGO_PATH.exists() or not Image:
+            _count_logo_orange_pixels._cache = 0
+            return 0
+        logo = Image.open(LOGO_PATH).convert("RGBA")
+        # Scale to 240px (short size — largest overlay)
+        scale = 240 / max(logo.size)
+        logo_small = logo.resize((int(logo.width * scale), int(logo.height * scale)), Image.LANCZOS)
+        pixels = list(logo_small.getdata())
+        # Count distinctive orange pixels (the circles in the BitTrader logo)
+        orange = sum(1 for p in pixels if p[3] > 128 and p[0] > 180 and p[1] > 120 and p[1] < 190 and p[2] < 80)
+        _count_logo_orange_pixels._cache = orange
+    return _count_logo_orange_pixels._cache
+
+
+def check_overlay_quality(video_path: Path, title: str, vtype: str) -> dict:
+    """Check if title text and logo are properly positioned in the video.
+    Uses color-signature matching against the actual BitTrader logo (orange circles).
+    Returns dict with 'issues' and 'warnings' lists."""
+    issues = []
     warnings = []
 
     # Extract a frame and check if title area has content
     frame_path = video_path.parent / "_qc_frame.jpg"
     try:
         subprocess.run([
-            "ffmpeg", "-y", "-ss", "1", "-i", str(video_path),
+            "ffmpeg", "-y", "-ss", "2", "-i", str(video_path),
             "-vframes", "1", "-q:v", "3", str(frame_path)
         ], capture_output=True, timeout=10)
 
         if frame_path.exists() and Image and ImageStat:
-            img = Image.open(frame_path)
+            img = Image.open(frame_path).convert("RGB")
             w, h = img.size
 
-            # Check title area (top center)
+            # ── BitTrader Logo Check (top-right corner) ──
+            # Use color-signature matching: the BitTrader logo has distinctive
+            # orange circles. Count orange pixels in the expected logo zone
+            # and compare against the reference logo's orange pixel count.
+            logo_size = 240 if vtype == "short" else 180
+            margin = 30
+            logo_x1 = max(0, w - logo_size - margin)
+            logo_y1 = margin
+            logo_x2 = w - margin
+            logo_y2 = logo_size + margin
+
+            if logo_x2 > logo_x1 and logo_y2 > logo_y1:
+                logo_area = img.crop((logo_x1, logo_y1, logo_x2, logo_y2))
+                corner_pixels = list(logo_area.getdata())
+
+                # Count orange pixels matching BitTrader logo signature
+                orange_in_corner = sum(
+                    1 for p in corner_pixels
+                    if p[0] > 180 and p[1] > 120 and p[1] < 190 and p[2] < 80
+                )
+
+                # Get reference count from actual logo
+                ref_orange = _count_logo_orange_pixels()
+                # Logo is present if corner has at least 25% of the reference orange pixels
+                # (accounts for transparency blending and compression)
+                threshold = max(ref_orange * 0.25, 200)
+                has_logo = orange_in_corner >= threshold
+
+                if not has_logo:
+                    issues.append(
+                        f"🦏 Logo BitTrader NO detectado en video (top-right) — "
+                        f"orange_px={orange_in_corner} (necesita ≥{int(threshold)})"
+                    )
+
+            # ── Title area check ──
             if vtype == "short":
-                title_area = img.crop((0, 60, w, 160))  # Top area for shorts
+                title_area = img.crop((0, 60, w, 160))
             else:
-                title_area = img.crop((0, 20, w, 100))  # Top area for longs
+                title_area = img.crop((0, 20, w, 100))
 
             title_stat = ImageStat.Stat(title_area)
-            title_brightness = sum(title_stat.mean[:3]) / 3
             title_variance = sum(s ** 2 for s in title_stat.stddev[:3]) / 3
 
-            # Title area should have visible text (some contrast/variance)
             if title_variance < 200:
                 warnings.append("⚠️ Zona del título podría no tener texto visible")
 
@@ -873,9 +1003,10 @@ def check_overlay_quality(video_path: Path, title: str, vtype: str) -> list:
             frame_path.unlink(missing_ok=True)
 
     except Exception:
-        frame_path.unlink(missing_ok=True)
+        if frame_path.exists():
+            frame_path.unlink(missing_ok=True)
 
-    return warnings
+    return {"issues": issues, "warnings": warnings}
 
 
 # ════════════════════════════════════════════════════════════════════════
@@ -1046,8 +1177,9 @@ def check_video_quality(video: dict) -> dict:
             checks["warnings"].append("⚠️ Sin miniatura para video largo")
 
     # ═══ 6. OVERLAY (title, logo) ═══
-    overlay_warnings = check_overlay_quality(video_path, title, vtype)
-    checks["warnings"].extend(overlay_warnings)
+    overlay_result = check_overlay_quality(video_path, title, vtype)
+    checks["issues"].extend(overlay_result.get("issues", []))
+    checks["warnings"].extend(overlay_result.get("warnings", []))
 
     # ═══ 7. METADATA ═══
     if not title or len(title) < 5:
@@ -1058,6 +1190,31 @@ def check_video_quality(video: dict) -> dict:
     tags = video.get("tags", [])
     if not tags:
         checks["warnings"].append("⚠️ Sin tags definidos")
+
+    # ═══ 8. AI VISUAL CHECK (Sonnet 4.6) ═══
+    if AI_CHECK_ENABLED:
+        try:
+            ai_result = check_video_ai(video_path, title, vtype, thumb_path)
+            checks["details"]["ai_check"] = ai_result
+
+            if "error" not in ai_result:
+                ai_grade = ai_result.get("grade", "?")
+                ai_score = ai_result.get("overall_score", 0)
+                checks["ai_grade"] = ai_grade
+                checks["ai_score"] = ai_score
+                checks["ai_observations"] = ai_result.get("observations", "")
+
+                # AI issues are critical — add to main issues
+                for issue in ai_result.get("issues", []):
+                    checks["issues"].append(f"🤖 {issue}")
+
+                # AI warnings are informative
+                for warning in ai_result.get("warnings", []):
+                    checks["warnings"].append(f"🤖 {warning}")
+            else:
+                checks["warnings"].append(f"⚠️ AI check failed: {ai_result['error']}")
+        except Exception as e:
+            checks["warnings"].append(f"⚠️ AI check error: {e}")
 
     # ═══ GRADE ═══
     n_issues = len(checks["issues"])
@@ -1082,8 +1239,12 @@ def check_video_quality(video: dict) -> dict:
 
 def run_quality_checker() -> dict:
     """Run quality checks on all produced videos."""
-    print("\n✅ BitTrader Quality Checker v3.0 — Auditoría Completa")
-    print("  🔍 Checks: Video | Audio | Visual | Sync | Subs | SubSize | Framing | AudioMix | Thumbnail | Overlay | Metadata\n")
+    ai_label = "ON" if AI_CHECK_ENABLED else "OFF"
+    print(f"\n✅ BitTrader Quality Checker v4.0 — Auditoría Completa + IA ({ai_label})")
+    checks_list = "Video | Audio | Visual | Sync | Subs | SubSize | Framing | AudioMix | Thumbnail | Overlay | Metadata"
+    if AI_CHECK_ENABLED:
+        checks_list += " | 🤖 AI Vision"
+    print(f"  🔍 Checks: {checks_list}\n")
 
     if not PRODUCTION_FILE.exists():
         print("  ⚠️ No se encontró archivo de producción.")
@@ -1121,8 +1282,15 @@ def run_quality_checker() -> dict:
         else:
             failed += 1
 
+        ai_info = ""
+        if check.get("ai_score"):
+            ai_info = f" | 🤖 AI: {check['ai_score']}/10 ({check.get('ai_grade','?')})"
+
         print(f"    {icon} Grade {grade} | {duration}s | {size}MB | {resolution} | "
-              f"{n_issues} issues, {n_warnings} warnings")
+              f"{n_issues} issues, {n_warnings} warnings{ai_info}")
+
+        if check.get("ai_observations"):
+            print(f"       🤖 {check['ai_observations']}")
 
         for issue in check.get("issues", []):
             print(f"       {issue}")
@@ -1133,7 +1301,7 @@ def run_quality_checker() -> dict:
     # Save report
     report = {
         "checked_at": datetime.now(timezone.utc).isoformat(),
-        "version": "3.0",
+        "version": "4.0",
         "total": len(videos),
         "passed": passed,
         "failed": failed,
@@ -1151,7 +1319,7 @@ def run_quality_checker() -> dict:
 
     production["quality_check"] = {
         "checked_at": report["checked_at"],
-        "version": "3.0",
+        "version": "4.0",
         "passed": passed,
         "failed": failed,
         "pass_rate": report["pass_rate"],
