@@ -604,6 +604,47 @@ def run(safe: bool = True, debug: bool = False) -> dict:
             "closed": len(closed_this_cycle),
         }
 
+    # ── Safety Nets ──────────────────────────────────────────────────────
+    # Kill switch: if STOP_TRADING file exists, don't open new positions
+    STOP_FILE = DATA_DIR / "STOP_TRADING"
+    if STOP_FILE.exists():
+        log.warning("🛑 KILL SWITCH ACTIVE — STOP_TRADING file detected. No new positions.")
+        _save_portfolio(portfolio)
+        return {
+            "status": "kill_switch_active",
+            "capital": portfolio["capital_usd"],
+            "opened": 0,
+            "closed": len(closed_this_cycle),
+        }
+
+    # Max daily loss: if realized P&L today < -$25, stop trading
+    MAX_DAILY_LOSS = 25.0
+    today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    today_pnl = sum(
+        t.get("pnl_usd", 0) for t in closed_this_cycle
+    )
+    # Also count previously closed trades today from history
+    if HISTORY_FILE.exists():
+        try:
+            all_history = json.loads(HISTORY_FILE.read_text())
+            today_pnl += sum(
+                t.get("pnl_usd", 0) for t in all_history
+                if isinstance(t, dict) and t.get("closed_at", "").startswith(today_str)
+            )
+        except Exception:
+            pass
+
+    if today_pnl < -MAX_DAILY_LOSS:
+        log.warning(f"🛑 MAX DAILY LOSS hit: ${today_pnl:.2f} < -${MAX_DAILY_LOSS}. Stopping new trades.")
+        _save_portfolio(portfolio)
+        return {
+            "status": "max_daily_loss",
+            "daily_pnl": round(today_pnl, 2),
+            "capital": portfolio["capital_usd"],
+            "opened": 0,
+            "closed": len(closed_this_cycle),
+        }
+
     # Abrir nuevas posiciones según señales
     opened = []
     open_count = len([p for p in portfolio["positions"] if p.get("status") == "open"])

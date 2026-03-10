@@ -207,11 +207,40 @@ def evaluate_emergency_close(portfolio: dict, research: dict, market: dict) -> d
     return {"emergency_close": False, "reason": "", "symbols": []}
 
 
+def _kelly_risk_pct() -> float:
+    """Calculate half-Kelly risk percentage from auto_learner stats."""
+    try:
+        if AUTO_LEARNER_FILE.exists():
+            state = json.loads(AUTO_LEARNER_FILE.read_text())
+            params = state.get("params", {})
+            # Need win rate and payoff ratio from trade history
+            th_file = DATA_DIR / "trade_history.json"
+            if th_file.exists():
+                trades = json.loads(th_file.read_text())
+                if isinstance(trades, list) and len(trades) >= 10:
+                    wins = [t for t in trades if t.get("pnl_usd", 0) > 0]
+                    losses = [t for t in trades if t.get("pnl_usd", 0) <= 0]
+                    if wins and losses:
+                        wr = len(wins) / len(trades)
+                        avg_win = sum(t["pnl_usd"] for t in wins) / len(wins)
+                        avg_loss = abs(sum(t["pnl_usd"] for t in losses) / len(losses))
+                        if avg_loss > 0:
+                            payoff = avg_win / avg_loss
+                            kelly = wr - (1 - wr) / payoff
+                            # Half-Kelly for safety, capped between 0.5% and 3%
+                            half_kelly = max(0.005, min(kelly * 0.5, 0.03))
+                            log.info(f"📐 Kelly: WR={wr:.1%} Payoff={payoff:.2f} → half-Kelly={half_kelly:.1%}")
+                            return half_kelly
+    except Exception as e:
+        log.warning(f"⚠️ Kelly calculation failed: {e}")
+    return RISK_PER_TRADE_PCT  # Fallback to default
+
+
 def calculate_position_size(capital: float, price: float, sl_pct: float = SL_PCT,
                             leverage: int = DEFAULT_LEVERAGE) -> dict:
     """
     Drift Protocol position sizing:
-    - Riesgo máximo por trade: 1.5% del capital
+    - Riesgo máximo por trade: Kelly Criterion (half-Kelly) or 1.5% fallback
     - margin_usd = riesgo / sl_pct (lo que pone el trader)
     - notional = margin * leverage (tamaño real de la posición)
     - tokens = notional / precio
@@ -219,7 +248,8 @@ def calculate_position_size(capital: float, price: float, sl_pct: float = SL_PCT
     """
     leverage = max(1, min(leverage, MAX_LEVERAGE))
 
-    risk_amount = capital * RISK_PER_TRADE_PCT
+    kelly_pct = _kelly_risk_pct()
+    risk_amount = capital * kelly_pct
     margin_usd = risk_amount / sl_pct
 
     # Cap: margen no más de MAX_SINGLE_EXPOSURE del capital
