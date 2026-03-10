@@ -38,6 +38,7 @@ MARKET_FILE = DATA_DIR / "market_latest.json"
 RESEARCH_FILE = DATA_DIR / "research_latest.json"
 PORTFOLIO_FILE = DATA_DIR / "portfolio.json"
 STRATEGY_FILE = DATA_DIR / "strategy_llm.json"
+SIGNALS_FILE = DATA_DIR / "signals_latest.json"
 
 logging.basicConfig(
     level=logging.INFO,
@@ -87,6 +88,25 @@ def load_portfolio() -> dict:
         "initial_capital": INITIAL_CAPITAL,
         "positions": []
     }
+
+def load_rsi_map() -> dict:
+    """Carga mapa symbol→rsi desde signals_latest.json si existe."""
+    rsi_map = {}
+    try:
+        if SIGNALS_FILE.exists():
+            data = json.loads(SIGNALS_FILE.read_text())
+            for sig in data.get("signals", []):
+                sym = sig.get("symbol")
+                rsi_val = sig.get("rsi")
+                if sym and rsi_val is not None:
+                    rsi_map[sym] = rsi_val
+            # También intentar desde indicator_summary
+            for sym, ind in data.get("indicator_summary", {}).items():
+                if sym not in rsi_map and ind.get("rsi") is not None:
+                    rsi_map[sym] = ind["rsi"]
+    except Exception:
+        pass
+    return rsi_map
 
 def save_strategy(strategy: dict):
     strategy["generated_at"] = datetime.now(timezone.utc).isoformat()
@@ -160,12 +180,16 @@ def generate_signals_with_llm(market: dict, research: dict, portfolio: dict) -> 
     positions = portfolio.get("positions", [])
     open_symbols = [p["symbol"] for p in positions if p.get("status") == "open"]
     
+    # Cargar RSI desde signals_latest.json (más preciso que el hardcoded 50)
+    rsi_map = load_rsi_map()
+
     # Preparar datos para el LLM
     tokens_summary = []
     for symbol, data in top_tokens:
         price = data.get("price", 0)
         change_24h = data.get("price_24h_change_pct", 0)
-        rsi = data.get("rsi", 50)
+        # Preferir RSI calculado por strategy.py; fallback al del market o 50
+        rsi = rsi_map.get(symbol, data.get("rsi", 50))
         mc = data.get("market_cap", 0)
         
         # Calcular volatilidad aproximada

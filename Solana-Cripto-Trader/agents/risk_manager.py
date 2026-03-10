@@ -25,10 +25,11 @@ BASE_DIR = Path(__file__).parent
 DATA_DIR = BASE_DIR / "data"
 DATA_DIR.mkdir(exist_ok=True)
 
-MARKET_FILE  = DATA_DIR / "market_latest.json"
-PORTFOLIO_FILE = DATA_DIR / "portfolio.json"
-RESEARCH_FILE = DATA_DIR / "research_latest.json"
-OUTPUT_FILE  = DATA_DIR / "risk_report.json"
+MARKET_FILE        = DATA_DIR / "market_latest.json"
+PORTFOLIO_FILE     = DATA_DIR / "portfolio.json"
+RESEARCH_FILE      = DATA_DIR / "research_latest.json"
+OUTPUT_FILE        = DATA_DIR / "risk_report.json"
+AUTO_LEARNER_FILE  = DATA_DIR / "auto_learner_state.json"
 
 logging.basicConfig(
     level=logging.INFO,
@@ -49,9 +50,24 @@ MIN_POSITION_USD      = 8.0    # Mínimo $8 margen por posición
 MAX_SINGLE_EXPOSURE   = 0.25   # Máximo 25% del capital en margen
 
 # ─── Drift Protocol Parameters ───────────────────────────────────────────────
-DEFAULT_LEVERAGE      = 3      # 3x leverage por defecto
+DEFAULT_LEVERAGE      = 3      # 3x leverage por defecto (overridden by auto_learner)
 MAX_LEVERAGE          = 10     # Máximo 10x
 MAINTENANCE_MARGIN    = 0.05   # 5% del notional
+
+# Leverage tiers from auto_learner
+LEVERAGE_TIERS = {1: 2, 2: 3, 3: 5, 4: 7, 5: 10}
+
+
+def load_auto_learner_leverage() -> int:
+    """Lee leverage_tier del auto_learner y retorna el leverage efectivo."""
+    try:
+        if AUTO_LEARNER_FILE.exists():
+            data = json.loads(AUTO_LEARNER_FILE.read_text())
+            tier = int(data.get("params", {}).get("leverage_tier", 2))
+            return LEVERAGE_TIERS.get(tier, DEFAULT_LEVERAGE)
+    except Exception:
+        pass
+    return DEFAULT_LEVERAGE
 
 # ─── Carga de Datos ───────────────────────────────────────────────────────────
 
@@ -97,11 +113,12 @@ def calculate_drawdown(portfolio: dict) -> float:
     free_cap = portfolio.get("capital_usd", 500.0)
 
     # Sumar margen invertido en posiciones abiertas + P&L no realizado
+    # IMPORTANTE: usar margin_usd (capital real del trader), NO size_usd (notional = margen × leverage)
     invested    = 0.0
     unrealized  = 0.0
     for pos in portfolio.get("positions", []):
         if pos.get("status") == "open":
-            invested   += pos.get("margin_usd", pos.get("size_usd", 0))
+            invested   += pos.get("margin_usd", 0)  # margen real, no notional
             unrealized += pos.get("pnl_usd", 0)
 
     # Equity real = lo que tenemos libre + margen invertido ± P&L (con leverage)
@@ -267,8 +284,9 @@ def evaluate_token(symbol: str, token_data: dict, capital: float,
         result["reason"] = f"MAX_POSICIONES ({MAX_OPEN_POSITIONS})"
         return result
 
-    # Calcular tamaño de posición con leverage
-    sizing = calculate_position_size(capital, price, leverage=DEFAULT_LEVERAGE)
+    # Calcular tamaño de posición con leverage del auto_learner
+    effective_leverage = load_auto_learner_leverage()
+    sizing = calculate_position_size(capital, price, leverage=effective_leverage)
 
     if sizing["margin_usd"] < MIN_POSITION_USD:
         result["reason"] = f"MARGEN_MUY_PEQUEÑO (${sizing['margin_usd']:.2f})"
@@ -307,8 +325,9 @@ def run(debug: bool = False) -> dict:
     open_positions = [p for p in portfolio.get("positions", []) if p.get("status") == "open"]
     portfolio_status = portfolio.get("status", "ACTIVE")
 
-    # Equity real = capital libre + invertido en posiciones + P&L abierto
-    invested   = sum(p.get("size_usd", 0) for p in open_positions)
+    # Equity real = capital libre + margen invertido en posiciones + P&L abierto
+    # IMPORTANTE: usar margin_usd (capital real del trader), NO size_usd (notional = margen × leverage)
+    invested   = sum(p.get("margin_usd", 0) for p in open_positions)
     unrealized = sum(p.get("pnl_usd", 0) for p in open_positions)
     capital    = free_capital + invested + unrealized  # equity total
 

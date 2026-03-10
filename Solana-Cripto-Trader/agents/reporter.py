@@ -18,6 +18,7 @@ import argparse
 import requests
 import time
 from datetime import datetime, timezone, timedelta
+from zoneinfo import ZoneInfo
 from pathlib import Path
 from typing import Optional
 
@@ -144,7 +145,7 @@ def calculate_metrics(portfolio: dict, history: list) -> dict:
         returns = [t.get("pnl_pct", 0) / 100 for t in closed_trades]
         avg_return = sum(returns) / len(returns)
         std_return = (sum((r - avg_return)**2 for r in returns) / len(returns)) ** 0.5
-        sharpe = (avg_return / std_return * (252**0.5)) if std_return > 0 else 0.0
+        sharpe = (avg_return / std_return * (365**0.5)) if std_return > 0 else 0.0
 
     return {
         "capital_usd": round(capital, 2),
@@ -178,7 +179,7 @@ def queue_alert(message: str):
             alerts = json.loads(ALERTS_FILE.read_text())
         except Exception:
             alerts = []
-    alerts.append({"ts": datetime.now().isoformat(), "msg": message})
+    alerts.append({"ts": datetime.now(ZoneInfo("America/Denver")).isoformat(), "msg": message})
     # Keep last 20 alerts
     ALERTS_FILE.write_text(json.dumps(alerts[-20:], indent=2))
 
@@ -286,7 +287,7 @@ def format_cycle_report(metrics: dict, portfolio: dict, market: dict) -> str:
     open_pos = [p for p in open_pos if p.get("status") == "open"]
 
     lines = [
-        f"📊 <b>Cycle Report</b> — {datetime.now().strftime('%H:%M:%S')}",
+        f"📊 <b>Cycle Report</b> — {datetime.now(ZoneInfo('America/Denver')).strftime('%H:%M:%S')}",
         f"{status_emoji} Estado: {status}",
         f"💰 Capital: ${metrics['capital_usd']:.2f} (inicial: ${metrics['initial_capital']:.2f})",
         f"📈 P&L realizado: ${metrics['total_pnl']:+.2f} ({metrics['return_pct']:+.2f}%)",
@@ -309,7 +310,7 @@ def format_cycle_report(metrics: dict, portfolio: dict, market: dict) -> str:
 
 def format_daily_report(metrics: dict, portfolio: dict, history: list) -> str:
     """Reporte diario completo para 8AM MT."""
-    now = datetime.now()
+    now = datetime.now(ZoneInfo("America/Denver"))
     lines = [
         f"🌅 <b>Reporte Diario — Solana Bot</b>",
         f"📅 {now.strftime('%A %d %B %Y, %H:%M')} MT",
@@ -420,7 +421,7 @@ def check_and_send_alerts(portfolio: dict, history: list, metrics: dict,
 
 def should_send_daily_report(alerts_state: dict) -> bool:
     """Verifica si es hora del reporte diario (8AM MT)."""
-    now_mt = datetime.now()  # Asumimos zona MT configurada en sistema
+    now_mt = datetime.now(ZoneInfo("America/Denver"))
     last_daily = alerts_state.get("last_daily_report", "")
 
     # Solo entre 7:50 y 8:10 AM
@@ -471,7 +472,7 @@ def run(daily: bool = False, alert_only: bool = False) -> dict:
                     log.info("🎤 Nota de voz enviada")
                 else:
                     log.warning("⚠️  TTS falló, solo texto enviado")
-            alerts_state["last_daily_report"] = datetime.now().strftime("%Y-%m-%d")
+            alerts_state["last_daily_report"] = datetime.now(ZoneInfo("America/Denver")).strftime("%Y-%m-%d")
             save_alerts_state(alerts_state)
 
     # Alertas inmediatas

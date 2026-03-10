@@ -36,11 +36,12 @@ BASE_DIR      = Path(__file__).parent
 DATA_DIR      = BASE_DIR / "data"
 DATA_DIR.mkdir(exist_ok=True)
 
-MARKET_FILE   = DATA_DIR / "market_latest.json"
-RISK_FILE     = DATA_DIR / "risk_report.json"
-OUTPUT_FILE   = DATA_DIR / "signals_latest.json"
-PRICE_HISTORY = DATA_DIR / "price_history.json"
-VOLUME_HISTORY= DATA_DIR / "volume_history.json"
+MARKET_FILE        = DATA_DIR / "market_latest.json"
+RISK_FILE          = DATA_DIR / "risk_report.json"
+OUTPUT_FILE        = DATA_DIR / "signals_latest.json"
+PRICE_HISTORY      = DATA_DIR / "price_history.json"
+VOLUME_HISTORY     = DATA_DIR / "volume_history.json"
+AUTO_LEARNER_FILE  = DATA_DIR / "auto_learner_state.json"
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s", datefmt="%H:%M:%S")
 log = logging.getLogger("strategy")
@@ -80,6 +81,21 @@ MOMENTUM_24H_MIN        = 2.0    # Bajado (era 3.0 — permite más momentum tra
 BB_SQUEEZE_THRESHOLD    = 0.02   # BB width < 2% = squeeze (potencial breakout)
 
 # ─── Persistencia ────────────────────────────────────────────────────────────
+
+def load_auto_learner_params() -> dict:
+    """Carga parámetros del auto_learner. Retorna defaults si el archivo no existe."""
+    defaults = {"sl_pct": 0.025, "tp_pct": 0.05}
+    try:
+        if AUTO_LEARNER_FILE.exists():
+            data = json.loads(AUTO_LEARNER_FILE.read_text())
+            params = data.get("params", {})
+            sl_pct = float(params.get("sl_pct", defaults["sl_pct"]))
+            tp_pct = float(params.get("tp_pct", defaults["tp_pct"]))
+            return {"sl_pct": sl_pct, "tp_pct": tp_pct}
+    except Exception:
+        pass
+    return defaults
+
 
 def load_json(path: Path, default=None):
     if path.exists():
@@ -658,10 +674,24 @@ def build_signal(symbol, direction, strategy, ind, score, reasons, risk_eval):
     price   = ind["price"]
     atr_val = ind.get("atr") or (price * 0.02)  # 2% fallback si no hay ATR
 
-    sl = round(price - ATR_SL_MULTIPLIER * atr_val, 8) if direction == "long" \
-         else round(price + ATR_SL_MULTIPLIER * atr_val, 8)
-    tp = round(price + ATR_TP_MULTIPLIER * atr_val, 8) if direction == "long" \
-         else round(price - ATR_TP_MULTIPLIER * atr_val, 8)
+    # Usar parámetros del auto_learner si están disponibles
+    al_params = load_auto_learner_params()
+    al_sl_pct = al_params["sl_pct"]
+    al_tp_pct = al_params["tp_pct"]
+
+    # SL/TP primario basado en ATR (dinámica); luego ajustado por pct mínimo del auto_learner
+    atr_sl = ATR_SL_MULTIPLIER * atr_val
+    atr_tp = ATR_TP_MULTIPLIER * atr_val
+    # Si el SL ATR es menor que el mínimo del auto_learner, usar el pct del auto_learner
+    min_sl_abs = price * al_sl_pct
+    min_tp_abs = price * al_tp_pct
+    effective_sl = max(atr_sl, min_sl_abs)
+    effective_tp = max(atr_tp, min_tp_abs)
+
+    sl = round(price - effective_sl, 8) if direction == "long" \
+         else round(price + effective_sl, 8)
+    tp = round(price + effective_tp, 8) if direction == "long" \
+         else round(price - effective_tp, 8)
 
     rr = abs(tp - price) / abs(price - sl) if abs(price - sl) > 0 else 0
 
