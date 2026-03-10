@@ -100,6 +100,37 @@ def get_fear_greed_index() -> dict:
     
     return {"value": 50, "classification": "Neutral", "timestamp": ""}
 
+# ─── RSS News Feed ───────────────────────────────────────────────────────────
+
+def fetch_crypto_news() -> list:
+    """Fetch latest crypto news from RSS feeds (CoinDesk + CoinTelegraph)."""
+    import urllib.request
+    import xml.etree.ElementTree as ET
+
+    feeds = [
+        "https://www.coindesk.com/arc/outboundfeeds/rss/",
+        "https://cointelegraph.com/rss",
+    ]
+    headlines = []
+    for url in feeds:
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                tree = ET.parse(resp)
+                root = tree.getroot()
+                items = root.findall(".//item")[:5]
+                for item in items:
+                    title = item.findtext("title", "").strip()
+                    desc = item.findtext("description", "").strip()
+                    if title:
+                        # Clean HTML from description
+                        import re as _re
+                        desc_clean = _re.sub(r'<[^>]+>', '', desc)[:200]
+                        headlines.append(f"- {title}: {desc_clean}")
+        except Exception as e:
+            log.warning(f"⚠️ RSS fetch failed for {url}: {e}")
+    return headlines[:10]  # Max 10 headlines total
+
 # ─── Análisis con LLM ───────────────────────────────────────────────────────────
 
 def analyze_market_with_llm(market: dict) -> dict:
@@ -147,6 +178,10 @@ TIPS:
 - El Fear & Greed Index indica sentimiento del mercado (<50 miedo, >50 codicia)
 - Considera múltiples factores: precio, sentimiento, volatilidad"""
 
+    # Fetch crypto news
+    news = fetch_crypto_news()
+    news_text = "\n".join(news) if news else "No news available"
+
     user_prompt = f"""Analiza el mercado de Solana basado en estos datos:
 
 CAMBIOS 24H:
@@ -155,6 +190,9 @@ CAMBIOS 24H:
 FEAR & GREED INDEX:
 - Valor: {fng['value']}
 - Clasificación: {fng['classification']}
+
+NOTICIAS RECIENTES:
+{news_text}
 
 INSTRUCCIONES:
 1. Determina la tendencia general (BULLISH/BEARISH/NEUTRAL)

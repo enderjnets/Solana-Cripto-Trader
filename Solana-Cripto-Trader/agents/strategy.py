@@ -631,38 +631,121 @@ def score_long(ind: dict) -> tuple[float, list]:
 
 
 def score_short(ind: dict) -> tuple[float, list]:
-    """Puntúa la probabilidad de un trade SHORT (inverso del long)."""
-    long_score, long_reasons = score_long(ind)
-    short_score = round(1 - long_score, 3)
+    """Puntúa la probabilidad de un trade SHORT — análisis independiente."""
+    score = 0.30  # Base neutral-baja
+    reasons = []
 
-    # Invertir razones
-    short_reasons = []
     rsi_val = ind.get("rsi")
     macd_d  = ind.get("macd")
     bb      = ind.get("bb")
 
-    if ind["trend"] == "down":
-        short_reasons.append(f"Tendencia bajista EMA ✅")
-    if rsi_val and rsi_val > RSI_OVERBOUGHT:
-        short_reasons.append(f"RSI {rsi_val:.0f} sobrecomprado ✅")
-    if macd_d and macd_d["bearish_cross"]:
-        short_reasons.append("MACD cruce bajista ✅")
-    if bb and bb["pct_b"] > 0.85:
-        short_reasons.append(f"Precio en BB superior ✅")
+    # ── 1. Tendencia bajista ── peso 0.15
+    if ind.get("trend") == "down":
+        score += 0.15
+        reasons.append("Tendencia bajista EMA ✅")
+    elif ind.get("trend") == "up":
+        score -= 0.10
+        reasons.append("Tendencia alcista — SHORT riesgoso ⚠️")
+
+    # ── 2. RSI sobrecomprado ── peso 0.15
+    if rsi_val:
+        if rsi_val > 80:
+            score += 0.18
+            reasons.append(f"RSI {rsi_val:.0f} extremo sobrecomprado ✅✅")
+        elif rsi_val > RSI_OVERBOUGHT:
+            score += 0.12
+            reasons.append(f"RSI {rsi_val:.0f} sobrecomprado ✅")
+        elif rsi_val < 40:
+            score -= 0.10
+            reasons.append(f"RSI {rsi_val:.0f} bajo — no ideal para SHORT ⚠️")
+
+    # ── 3. MACD bearish ── peso 0.12
+    if macd_d:
+        if macd_d.get("bearish_cross"):
+            score += 0.12
+            reasons.append("MACD cruce bajista ✅")
+        elif macd_d.get("bullish_cross"):
+            score -= 0.08
+            reasons.append("MACD cruce alcista — contradice SHORT ⚠️")
+        hist = macd_d.get("histogram", 0)
+        if hist and hist < -0.5:
+            score += 0.05
+            reasons.append("MACD histograma negativo fuerte ✅")
+
+    # ── 4. Bollinger Band superior ── peso 0.10
+    if bb:
+        pct_b = bb.get("pct_b", 0.5)
+        if pct_b > 0.95:
+            score += 0.12
+            reasons.append(f"Precio sobre BB superior ({pct_b:.2f}) ✅✅")
+        elif pct_b > 0.85:
+            score += 0.08
+            reasons.append(f"Precio en BB superior ({pct_b:.2f}) ✅")
+        elif pct_b < 0.3:
+            score -= 0.08
+            reasons.append(f"Precio en BB inferior — no SHORT ⚠️")
+
+    # ── 5. Death Cross ── peso 0.10
     if ind.get("cross") == "death":
-        short_reasons.append("Death Cross EMA7/EMA21 ✅")
+        score += 0.12
+        reasons.append("Death Cross EMA7/EMA21 ✅")
+    elif ind.get("cross") == "golden":
+        score -= 0.10
+        reasons.append("Golden Cross — contradice SHORT ⚠️")
+
+    # ── 6. Divergencia RSI bearish ── peso 0.10
     if ind.get("rsi_divergence") == "bearish":
-        short_reasons.append("Divergencia RSI bajista ✅")
+        score += 0.12
+        reasons.append("Divergencia RSI bajista ✅")
+    elif ind.get("rsi_divergence") == "bullish":
+        score -= 0.08
+        reasons.append("Divergencia RSI alcista — contradice SHORT ⚠️")
+
+    # ── 7. OBV distribución ── peso 0.08
     if ind.get("obv_trend") == "down":
-        short_reasons.append("OBV distribución ✅")
+        score += 0.08
+        reasons.append("OBV distribución — venta institucional ✅")
+    elif ind.get("obv_trend") == "up":
+        score -= 0.05
+        reasons.append("OBV acumulación — contradice SHORT ⚠️")
+
+    # ── 8. ROC negativo ── peso 0.06
+    roc_val = ind.get("roc")
+    if roc_val is not None:
+        if roc_val < -3.0:
+            score += 0.08
+            reasons.append(f"ROC {roc_val:.1f}% momentum bajista ✅")
+        elif roc_val > 3.0:
+            score -= 0.05
+            reasons.append(f"ROC +{roc_val:.1f}% momentum alcista ⚠️")
+
+    # ── 9. Sobreextensión 24h ── peso 0.08
     c24 = ind.get("change_24h", 0)
-    if c24 > 15:
-        short_reasons.append(f"24h +{c24:.1f}% sobreextendido ✅")
+    if c24 > 20:
+        score += 0.10
+        reasons.append(f"24h +{c24:.1f}% sobreextendido — reversión probable ✅")
+    elif c24 > 10:
+        score += 0.06
+        reasons.append(f"24h +{c24:.1f}% rally extendido ✅")
+    elif c24 < -10:
+        score -= 0.08
+        reasons.append(f"24h {c24:.1f}% ya cayó mucho — no SHORT ⚠️")
 
-    if not short_reasons:
-        short_reasons = [f"Score inverso {short_score:.2f}"]
+    # ── 10. VWAP resistencia ── peso 0.06
+    pvwap = ind.get("price_vs_vwap", 0)
+    if pvwap and pvwap > 3.0:
+        score += 0.06
+        reasons.append(f"Precio muy sobre VWAP (+{pvwap:.1f}%) — regresión probable ✅")
 
-    return short_score, short_reasons
+    # ── 11. Keltner Channel superior ── peso 0.05
+    if ind.get("kc_position") == "above":
+        score += 0.06
+        reasons.append("Sobre Keltner Channel — sobreextensión ✅")
+
+    if not reasons:
+        reasons = [f"Score SHORT base {score:.2f}"]
+
+    return round(min(max(score, 0), 1), 3), reasons
 
 
 # ══════════════════════════════════════════════════════════════════════════════

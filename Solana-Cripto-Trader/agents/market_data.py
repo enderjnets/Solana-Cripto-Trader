@@ -252,6 +252,43 @@ def fetch_coingecko_24h() -> dict:
         return {}
 
 
+# ─── Multi-Timeframe (Hourly Trend) ──────────────────────────────────────────
+
+HOURLY_TOKENS = {"SOL": "solana", "BTC": "bitcoin", "ETH": "ethereum", "JUP": "jupiter-exchange-solana"}
+
+def fetch_hourly_trends() -> dict:
+    """Fetch 24h hourly candle data from CoinGecko for trend analysis."""
+    trends = {}
+    for symbol, cg_id in HOURLY_TOKENS.items():
+        try:
+            url = f"https://api.coingecko.com/api/v3/coins/{cg_id}/market_chart"
+            resp = requests.get(url, params={"vs_currency": "usd", "days": "1"}, timeout=10)
+            resp.raise_for_status()
+            data = resp.json()
+            prices = data.get("prices", [])
+            if len(prices) >= 2:
+                first_price = prices[0][1]
+                last_price = prices[-1][1]
+                change_pct = ((last_price - first_price) / first_price) * 100
+                if change_pct > 1.5:
+                    trend = "up"
+                elif change_pct < -1.5:
+                    trend = "down"
+                else:
+                    trend = "sideways"
+                trends[symbol] = {
+                    "price_1h_trend": trend,
+                    "trend_change_pct": round(change_pct, 2),
+                    "hourly_high": round(max(p[1] for p in prices), 4),
+                    "hourly_low": round(min(p[1] for p in prices), 4),
+                }
+            time.sleep(1.5)  # Rate limit CoinGecko free tier
+        except Exception as e:
+            log.warning(f"⚠️ Hourly trend failed for {symbol}: {e}")
+            trends[symbol] = {"price_1h_trend": "unknown", "trend_change_pct": 0}
+    return trends
+
+
 def run(debug: bool = False) -> dict:
     """Entry point principal."""
     log.info("=" * 50)
@@ -260,6 +297,18 @@ def run(debug: bool = False) -> dict:
 
     t0 = time.time()
     market = build_market_data(debug=debug)
+
+    # Add hourly trends for top tokens
+    try:
+        hourly = fetch_hourly_trends()
+        for symbol, trend_data in hourly.items():
+            if symbol in market.get("tokens", {}):
+                market["tokens"][symbol].update(trend_data)
+        trend_strs = [f"{s}={d.get('price_1h_trend', '?')}" for s, d in hourly.items()]
+        log.info(f"📊 Hourly trends: {', '.join(trend_strs)}")
+    except Exception as e:
+        log.warning(f"⚠️ Hourly trends failed: {e}")
+
     elapsed = time.time() - t0
 
     # Guardar
