@@ -60,7 +60,7 @@ def call_claude(prompt: str, system: str = "", max_tokens: int = 2000) -> str:
     data["messages"].append({"role": "user", "content": prompt})
 
     try:
-        r = requests.post(CLAUDE_BASE_URL, headers=headers, json=data, timeout=120)
+        r = requests.post(CLAUDE_BASE_URL, headers=headers, json=data, timeout=300)  # 5 min para videos largos
         r.raise_for_status()
         response = r.json()
         return response.get("content", [{}])[0].get("text", "")
@@ -514,15 +514,17 @@ def run_creator(dry_run: bool = False) -> dict:
             with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
                 future = executor.submit(gen_fn)
                 try:
-                    script = future.result(timeout=180)  # 180s max por guion (Claude puede tardar ~120s en scripts largos)
+                    # Timeout dinámico: shorts 3 min, videos largos 5 min
+                    timeout_seconds = 300 if item["type"] == "long" else 180
+                    script = future.result(timeout=timeout_seconds)
                 except concurrent.futures.TimeoutError:
-                    print(f"    ⏱️ Timeout generando '{item['topic'][:40]}' — saltando")
+                    print(f"    ⏱️ Timeout generando '{item['topic'][:40]}' ({timeout_seconds}s) — saltando")
                     scripts.append({
                         "id":     f"timeout_{int(time.time())}",
                         "type":   item["type"],
                         "title":  item["topic"],
                         "status": "timeout",
-                        "error":  "LLM timeout after 180s",
+                        "error":  f"LLM timeout after {timeout_seconds}s",
                     })
                     continue
                 except Exception as e:
@@ -539,13 +541,27 @@ def run_creator(dry_run: bool = False) -> dict:
             scripts.append(script)
             print(f"    ✅ '{script['title'][:55]}'")
             
-            # Save partial progress (crash protection)
+            # Save partial progress (crash protection) - ACCUMULATE instead of overwrite
             if scripts:
                 _valid = [s for s in scripts if s.get("status") not in ("timeout","error")]
                 if _valid:
                     _date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-                    partial = {"generated_at": datetime.now(timezone.utc).isoformat(), "date": _date, "plan": plan_id if 'plan_id' in dir() else "unknown", "scripts": _valid, "partial": True}
-                    (DATA_DIR / "guiones_latest.json").write_text(json.dumps(partial, indent=2, ensure_ascii=False))
+                    # Read existing partial to accumulate
+                    existing = {"scripts": []}
+                    existing_file = DATA_DIR / "guiones_latest.json"
+                    if existing_file.exists():
+                        try:
+                            existing = json.loads(existing_file.read_text())
+                        except:
+                            pass
+                    # Merge: add new scripts that don't already exist (by title)
+                    existing_titles = {s.get("title", "") for s in existing.get("scripts", [])}
+                    for s in _valid:
+                        if s.get("title", "") not in existing_titles:
+                            existing["scripts"].append(s)
+                    # Save accumulated
+                    partial = {"generated_at": datetime.now(timezone.utc).isoformat(), "date": _date, "plan": plan_id if 'plan_id' in dir() else "unknown", "scripts": existing["scripts"], "partial": True}
+                    existing_file.write_text(json.dumps(partial, indent=2, ensure_ascii=False))
             
             time.sleep(1)  # Rate limiting
         except Exception as e:
