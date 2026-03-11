@@ -338,6 +338,69 @@ def detect_velocity(current_videos: list, previous_file: Path) -> list:
     return sorted(rising, key=lambda x: x["view_delta"], reverse=True)[:5]
 
 
+# ══════════════════════════════════════════════════════════════════════════
+# RSS NEWS FEEDS
+# ══════════════════════════════════════════════════════════════════════════
+
+def fetch_rss_news() -> list:
+    """Fetch latest crypto news from RSS feeds (CoinDesk, CoinTelegraph, Decrypt)."""
+    import xml.etree.ElementTree as ET
+    
+    feeds = [
+        ("CoinDesk", "https://www.coindesk.com/arc/outboundfeeds/rss/"),
+        ("CoinTelegraph", "https://cointelegraph.com/rss"),
+        ("Decrypt", "https://decrypt.co/feed"),
+    ]
+    
+    articles = []
+    for source, url in feeds:
+        try:
+            resp = requests.get(url, timeout=10, headers={"User-Agent": "BitTrader-Scout/1.0"})
+            if resp.status_code != 200:
+                print(f"  ⚠️ RSS {source}: HTTP {resp.status_code}")
+                continue
+            root = ET.fromstring(resp.content)
+            items = root.findall('.//item')[:10]  # Top 10 per feed
+            for item in items:
+                title = item.findtext('title', '').strip()
+                link = item.findtext('link', '').strip()
+                pub_date = item.findtext('pubDate', '').strip()
+                desc = item.findtext('description', '').strip()[:200]
+                if title:
+                    articles.append({
+                        "source": source,
+                        "title": title,
+                        "link": link,
+                        "published": pub_date,
+                        "summary": desc,
+                    })
+            print(f"  ✅ RSS {source}: {len(items)} artículos")
+        except Exception as e:
+            print(f"  ⚠️ RSS {source} falló: {e}")
+    
+    return articles
+
+
+def filter_breaking_news(articles: list) -> list:
+    """Filtra noticias que podrían ser breaking/urgentes para contenido inmediato."""
+    breaking_keywords = [
+        "breaking", "crash", "surge", "pump", "dump", "hack", "ban", "sec",
+        "etf", "approval", "reject", "regulation", "arrest", "fraud",
+        "record", "all-time", "billion", "trillion", "collapse", "emergency",
+        "exploit", "vulnerability", "fork", "halving", "launch",
+    ]
+    
+    hot = []
+    for a in articles:
+        title_lower = a["title"].lower()
+        score = sum(1 for kw in breaking_keywords if kw in title_lower)
+        if score >= 1:
+            a["breaking_score"] = score
+            hot.append(a)
+    
+    return sorted(hot, key=lambda x: x.get("breaking_score", 0), reverse=True)[:5]
+
+
 def detect_saturated_topics(videos: list) -> list:
     """Detectar keywords que aparecen en múltiples losers."""
     losers = [v for v in videos if v.get("category") == "loser"]
@@ -479,8 +542,40 @@ def run_scout(skip_youtube: bool = False, no_llm: bool = False) -> dict:
         "saturated_avoid":   report["youtube"].get("saturated_topics", []),
     }
 
+    # ── RSS News ───────────────────────────────────────────────────────
+    print("\n📰 Buscando noticias crypto...")
+    try:
+        all_news = fetch_rss_news()
+        breaking = filter_breaking_news(all_news)
+        report["news"] = {
+            "articles": all_news[:15],  # Top 15 across all feeds
+            "breaking": breaking,
+            "total_fetched": len(all_news),
+        }
+        if breaking:
+            print(f"  🔥 {len(breaking)} noticias breaking detectadas!")
+            for b in breaking[:3]:
+                print(f"    → {b['title'][:80]}")
+    except Exception as e:
+        print(f"  ⚠️ RSS falló: {e}")
+        report["news"] = {"error": str(e)}
+
     # ── Urgent alert ─────────────────────────────────────────────────────
     alert = detect_urgent_alert(report["crypto"])
+    
+    # Also check breaking news for urgency
+    breaking_news = report.get("news", {}).get("breaking", [])
+    if breaking_news and not alert:
+        top_breaking = breaking_news[0]
+        if top_breaking.get("breaking_score", 0) >= 2:
+            alert = {
+                "urgent": True,
+                "alerts": [f"📰 BREAKING: {top_breaking['title'][:100]}"],
+                "suggested_content": f"Crea un short sobre: {top_breaking['title'][:80]}",
+                "news_source": top_breaking.get("link", ""),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            }
+    
     if alert:
         report["alert"] = alert
         print(f"\n🚨 ALERTA URGENTE DETECTADA: {alert['alerts']}")
