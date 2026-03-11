@@ -24,8 +24,8 @@
         "altseason",
         "criptos que suben"
       ],
-      "output_file": "output/2026-03-07-v3/short_1772925855_875/short_1772925855_875_final.mp4",
-      "duration": 19.4,
+      "output_file": "output/rhino_v1/akt/akt_rhino_final.mp4",
+      "duration": 50.5,
       "size_mb": 6.9,
       "status": "ready",
       "thumbnail": "output/2026-03-07-v3/short_1772925855_875/thumbnail.jpg"
@@ -47,8 +47,8 @@
         "altcoins bull run",
         "NFT mercado"
       ],
-      "output_file": "output/2026-03-07-v3/short_1772925869_724/short_1772925869_724_final.mp4",
-      "duration": 19.3,
+      "output_file": "output/rhino_v1/pengu/pengu_rhino_final.mp4",
+      "duration": 49.4,
       "size_mb": 7.1,
       "status": "ready",
       "thumbnail": "output/2026-03-07-v3/short_1772925869_724/thumbnail.jpg"
@@ -70,8 +70,8 @@
         "futuros",
         "prop firms"
       ],
-      "output_file": "output/2026-03-07-v3/short_1772925884_383/short_1772925884_383_final.mp4",
-      "duration": 17.4,
+      "output_file": "output/rhino_v1/traders90/traders90_rhino_final.mp4",
+      "duration": 48.8,
       "size_mb": 5.8,
       "status": "ready",
       "thumbnail": "output/2026-03-07-v3/short_1772925884_383/thumbnail.jpg"
@@ -93,8 +93,8 @@
         "cripto latino",
         "PI token"
       ],
-      "output_file": "output/2026-03-07-v3/short_1772925672_305/short_1772925672_305_final.mp4",
-      "duration": 19.6,
+      "output_file": "output/rhino_v1/pi/pi_rhino_final.mp4",
+      "duration": 49.8,
       "size_mb": 7.0,
       "status": "ready",
       "thumbnail": "output/2026-03-07-v3/short_1772925672_305/thumbnail.jpg"
@@ -172,8 +172,8 @@
         "16:9",
         "cinematic depth of field"
       ],
-      "output_file": "output/2026-03-07-v3/long_1772925728_400/long_1772925728_400_final.mp4",
-      "duration": 94.0,
+      "output_file": "output/rhino_v1/claude_trades/claude_trades_rhino_final.mp4",
+      "duration": 252.4,
       "size_mb": 29.5,
       "status": "ready",
       "thumbnail": "output/2026-03-07-v3/long_1772925728_400/thumbnail.jpg"
@@ -195,8 +195,8 @@
         "crypto noticias",
         "FTMO"
       ],
-      "output_file": "output/2026-03-07-v3/short_1772925742_739/short_1772925742_739_final.mp4",
-      "duration": 19.0,
+      "output_file": "output/rhino_v1/zec/zec_rhino_final.mp4",
+      "duration": 49.0,
       "size_mb": 6.7,
       "status": "ready",
       "thumbnail": "output/2026-03-07-v3/short_1772925742_739/thumbnail.jpg"
@@ -260,8 +260,8 @@
         "16:9",
         "photorealistic"
       ],
-      "output_file": "output/2026-03-07-v3/long_1772925781_782/long_1772925781_782_final.mp4",
-      "duration": 94.0,
+      "output_file": "output/rhino_v1/fondeada/fondeada_rhino_final.mp4",
+      "duration": 257.0,
       "size_mb": 28.9,
       "status": "ready",
       "thumbnail": "output/2026-03-07-v3/long_1772925781_782/thumbnail.jpg"
@@ -348,8 +348,8 @@
         "professional and aspirational aesthetic",
         "16:9."
       ],
-      "output_file": "output/2026-03-07-v3/long_1772925821_433/long_1772925821_433_final.mp4",
-      "duration": 94.0,
+      "output_file": "output/rhino_v1/bot_noticias/bot_noticias_rhino_final.mp4",
+      "duration": 272.7,
       "size_mb": 29.4,
       "status": "ready",
       "thumbnail": "output/2026-03-07-v3/long_1772925821_433/thumbnail.jpg"
@@ -366,15 +366,15 @@
     "errors": 0
   },
   "quality_check": {
-    "checked_at": "2026-03-08T01:30:57.020334+00:00",
-    "version": "2.0",
+    "checked_at": "2026-03-11T13:57:27.068957+00:00",
+    "version": "4.0",
     "passed": 8,
     "failed": 0,
     "pass_rate": "100%",
     "grades": {
-      "A": 6,
-      "B": 2,
-      "C": 0,
+      "A": 0,
+      "B": 3,
+      "C": 5,
       "F": 0
     }
   }
