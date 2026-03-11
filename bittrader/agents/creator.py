@@ -514,7 +514,7 @@ def run_creator(dry_run: bool = False) -> dict:
             with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
                 future = executor.submit(gen_fn)
                 try:
-                    script = future.result(timeout=90)  # 90s max por guion
+                    script = future.result(timeout=180)  # 180s max por guion (Claude puede tardar ~120s en scripts largos)
                 except concurrent.futures.TimeoutError:
                     print(f"    ⏱️ Timeout generando '{item['topic'][:40]}' — saltando")
                     scripts.append({
@@ -522,12 +522,31 @@ def run_creator(dry_run: bool = False) -> dict:
                         "type":   item["type"],
                         "title":  item["topic"],
                         "status": "timeout",
-                        "error":  "LLM timeout after 90s",
+                        "error":  "LLM timeout after 180s",
+                    })
+                    continue
+                except Exception as e:
+                    print(f"    ❌ Error generando '{item['topic'][:40]}': {e}")
+                    scripts.append({
+                        "id":     f"error_{int(time.time())}",
+                        "type":   item["type"],
+                        "title":  item["topic"],
+                        "status": "error",
+                        "error":  str(e)[:200],
                     })
                     continue
 
             scripts.append(script)
             print(f"    ✅ '{script['title'][:55]}'")
+            
+            # Save partial progress (crash protection)
+            if scripts:
+                _valid = [s for s in scripts if s.get("status") not in ("timeout","error")]
+                if _valid:
+                    _date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+                    partial = {"generated_at": datetime.now(timezone.utc).isoformat(), "date": _date, "plan": plan_id if 'plan_id' in dir() else "unknown", "scripts": _valid, "partial": True}
+                    (DATA_DIR / "guiones_latest.json").write_text(json.dumps(partial, indent=2, ensure_ascii=False))
+            
             time.sleep(1)  # Rate limiting
         except Exception as e:
             print(f"    ❌ Error generando '{item['topic'][:40]}': {e}")
