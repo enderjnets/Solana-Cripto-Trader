@@ -28,7 +28,7 @@
       "duration": 50.5,
       "size_mb": 6.9,
       "status": "ready",
-      "thumbnail": "output/2026-03-07-v3/short_1772925855_875/thumbnail.jpg"
+      "thumbnail": "output/rhino_v1/akt/thumbnail.jpg"
     },
     {
       "script_id": "short_1772925869_724",
@@ -51,7 +51,7 @@
       "duration": 49.4,
       "size_mb": 7.1,
       "status": "ready",
-      "thumbnail": "output/2026-03-07-v3/short_1772925869_724/thumbnail.jpg"
+      "thumbnail": "output/rhino_v1/pengu/thumbnail.jpg"
     },
     {
       "script_id": "short_1772925884_383",
@@ -74,7 +74,7 @@
       "duration": 48.8,
       "size_mb": 5.8,
       "status": "ready",
-      "thumbnail": "output/2026-03-07-v3/short_1772925884_383/thumbnail.jpg"
+      "thumbnail": "output/rhino_v1/pi/thumbnail.jpg"
     },
     {
       "script_id": "short_1772925672_305",
@@ -97,7 +97,7 @@
       "duration": 49.8,
       "size_mb": 7.0,
       "status": "ready",
-      "thumbnail": "output/2026-03-07-v3/short_1772925672_305/thumbnail.jpg"
+      "thumbnail": "output/rhino_v1/pi/thumbnail.jpg"
     },
     {
       "script_id": "long_1772925728_400",
@@ -176,7 +176,7 @@
       "duration": 252.4,
       "size_mb": 29.5,
       "status": "ready",
-      "thumbnail": "output/2026-03-07-v3/long_1772925728_400/thumbnail.jpg"
+      "thumbnail": "output/rhino_v1/claude_trades/thumbnail.jpg"
     },
     {
       "script_id": "short_1772925742_739",
@@ -199,7 +199,7 @@
       "duration": 49.0,
       "size_mb": 6.7,
       "status": "ready",
-      "thumbnail": "output/2026-03-07-v3/short_1772925742_739/thumbnail.jpg"
+      "thumbnail": "output/rhino_v1/zec/thumbnail.jpg"
     },
     {
       "script_id": "long_1772925781_782",
@@ -264,7 +264,7 @@
       "duration": 257.0,
       "size_mb": 28.9,
       "status": "ready",
-      "thumbnail": "output/2026-03-07-v3/long_1772925781_782/thumbnail.jpg"
+      "thumbnail": "output/rhino_v1/fondeada/thumbnail.jpg"
     },
     {
       "script_id": "long_1772925821_433",
@@ -352,7 +352,7 @@
       "duration": 272.7,
       "size_mb": 29.4,
       "status": "ready",
-      "thumbnail": "output/2026-03-07-v3/long_1772925821_433/thumbnail.jpg"
+      "thumbnail": "output/rhino_v1/bot_noticias/thumbnail.jpg"
     }
   ],
   "stats": {

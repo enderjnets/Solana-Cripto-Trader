@@ -15,6 +15,14 @@ import os
 sys.path.insert(0, str(Path(__file__).parent))
 import qwen_client
 
+# MrBeast Integration
+try:
+    from mrbeast_creator_integration import inject_mrbeast_short_prompt, inject_mrbeast_long_prompt
+    MRBEAST_ENABLED = True
+except ImportError:
+    MRBEAST_ENABLED = False
+    print("  ⚠️ MrBeast integration not available (mrbeast_creator_integration.py not found)")
+
 # ── Paths ──────────────────────────────────────────────────────────────────
 WORKSPACE  = Path("/home/enderj/.openclaw/workspace")
 BITTRADER  = WORKSPACE / "bittrader"
@@ -312,7 +320,11 @@ def generate_short_script(item: dict, scout: dict) -> dict:
     trend = [c["symbol"] for c in scout.get("crypto", {}).get("trending_coins", [])[:5]]
     patterns = winner_patterns_summary(scout)
 
-    prompt = f"""Crea un guión COMPLETO para un YouTube Short del canal BitTrader.
+    # Use MrBeast-enhanced prompt if available
+    if MRBEAST_ENABLED:
+        prompt = inject_mrbeast_short_prompt(item, scout)
+    else:
+        prompt = f"""Crea un guión COMPLETO para un YouTube Short del canal BitTrader.
 
 TEMA: {item['topic']}
 CATEGORÍA: {item['theme']} (educativo/controversial/noticias/ia_trading)
@@ -345,7 +357,11 @@ def generate_long_script(item: dict, scout: dict) -> dict:
     btc   = scout.get("crypto", {}).get("bitcoin", {})
     patterns = winner_patterns_summary(scout)
 
-    prompt = f"""Crea un guión COMPLETO para un video de YouTube del canal BitTrader (3-8 minutos).
+    # Use MrBeast-enhanced prompt if available
+    if MRBEAST_ENABLED:
+        prompt = inject_mrbeast_long_prompt(item, scout)
+    else:
+        prompt = f"""Crea un guión COMPLETO para un video de YouTube del canal BitTrader (3-8 minutos).
 
 TEMA: {item['topic']}
 CATEGORÍA: {item['theme']} (educativo/controversial/noticias/ia_trading)
