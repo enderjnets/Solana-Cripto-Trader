@@ -270,46 +270,68 @@ Diseña el nuevo agente y responde:
     def analyze_task(self, task: Dict[str, Any]) -> Dict[str, Any]:
         """Analyze a task and determine how to execute it"""
 
-        prompt = f"""Eres el Programmer Agent de BitTrader. Tu trabajo es analizar tareas y planificar su ejecución.
+        # Build simplified task info
+        task_info = f"Tarea: {task.get('task', 'Sin título')}"
+        if 'priority' in task:
+            task_info += f" (Prioridad: {task['priority']})"
+        if 'details' in task:
+            # Just include key info from details, not full JSON
+            task_info += "\n\nDetalles: "
+            for key in task['details']:
+                task_info += f"- {key}\n"
+        if 'project_path' in task:
+            task_info += f"\nRuta: {task['project_path']}"
 
-TAREA RECIBIDA:
-{task['task']}
+        prompt = f"""{task_info}
 
-Contexto: Eres un agente de programación que puede:
-1. Leer y modificar archivos Python en el sistema BitTrader
-2. Ejecutar comandos de shell para pruebas
-3. Crear nuevos scripts y agentes
-4. Modificar configuraciones
-
-Analiza la tarea y responde con un plan de ejecución en formato JSON:
+Analiza y responde EXCLUSIVAMENTE con JSON:
 {{
-  "task_type": "bug_fix" | "optimization" | "new_feature" | "config_change",
-  "files_affected": ["lista de archivos que necesitan cambios"],
-  "steps": [
-    "paso 1",
-    "paso 2",
-    "etc"
-  ],
+  "task_type": "bug_fix" | "optimization" | "new_feature" | "config_change" | "investigation",
+  "files_affected": ["lista de archivos"],
+  "steps": ["paso 1", "paso 2"],
   "estimated_complexity": "low" | "medium" | "high",
   "requires_user_approval": true | false
 }}
 
-Solo responde con el JSON.
+NO expliques nada. Solo JSON.
 """
 
         response = call_llm(
             prompt=prompt,
             system="Eres el Programmer Agent de BitTrader, un ingeniero de código experto.",
-            max_tokens=500
+            max_tokens=2000
         )
 
         try:
+            # Extract JSON from response (handle markdown code blocks)
+            # Try to find content between ```json and ```
+            if "```json" in response and "```" in response[response.find("```json") + 7:]:
+                json_start = response.find("```json") + 7
+                json_end = response.find("```", json_start)
+                if json_start != -1 and json_end > json_start:
+                    json_str = response[json_start:json_end].strip()
+                    return json.loads(json_str)
+
+            # Try to find content between ``` and ``` (without json keyword)
+            if "```" in response:
+                first_code = response.find("```")
+                first_code_end = response.find("\n", first_code)
+                last_code = response.rfind("```")
+                if first_code != -1 and last_code > first_code_end:
+                    json_str = response[first_code_end + 1:last_code].strip()
+                    # Try to find first { and last } within this block
+                    json_start = json_str.find("{")
+                    json_end = json_str.rfind("}") + 1
+                    if json_start != -1 and json_end > json_start:
+                        return json.loads(json_str[json_start:json_end])
+
+            # Fallback: try to find first { and last } in entire response
             json_start = response.find("{")
             json_end = response.rfind("}") + 1
             if json_start != -1 and json_end > json_start:
                 return json.loads(response[json_start:json_end])
-        except:
-            pass
+        except Exception as e:
+            print(f"    ⚠️ Error parsing JSON: {e}")
 
         return {
             "task_type": "unknown",
