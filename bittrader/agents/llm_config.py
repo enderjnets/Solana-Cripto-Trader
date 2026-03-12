@@ -63,11 +63,18 @@ def call_glm_5_coding(prompt: str, system: str = "", max_tokens: int = 2000) -> 
 
         # Parsear respuesta
         if "choices" in result and len(result["choices"]) > 0:
-            return result["choices"][0]["message"]["content"]
+            message = result["choices"][0]["message"]
+
+            # Try content first, then reasoning_content (GLM-4.7 feature)
+            content = message.get("content", "").strip()
+            if not content:
+                content = message.get("reasoning_content", "").strip()
+
+            return content if content else str(result)
         else:
             return str(result)
     except Exception as e:
-        print(f"    ⚠️ GLM-5 Coding error: {e}")
+        print(f"    ⚠️ GLM-4.7 Coding error: {e}")
         return None
 
 
@@ -95,6 +102,16 @@ def call_minimax_llm(prompt: str, system: str = "", max_tokens: int = 2000) -> s
         r = requests.post(MINIMAX_URL, headers=headers, json=payload, timeout=60)
         r.raise_for_status()
         data = r.json()
+
+        # Check for API errors (e.g., insufficient balance)
+        if "choices" not in data or data["choices"] is None:
+            # Check base_resp for error details
+            if "base_resp" in data and data["base_resp"].get("status_msg"):
+                print(f"    ⚠️ MiniMax error: {data['base_resp']['status_msg']}")
+            else:
+                print(f"    ⚠️ MiniMax error: No choices in response")
+            return None
+
         return data["choices"][0]["message"]["content"].strip()
     except Exception as e:
         print(f"    ⚠️ MiniMax error: {e}")

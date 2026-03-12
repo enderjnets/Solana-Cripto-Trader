@@ -184,17 +184,47 @@ Solo responde con el JSON, sin explicaciones adicionales.
         response = call_llm(
             prompt=prompt,
             system="Eres el CEO Agent de BitTrader, un orquestador de sistemas.",
-            max_tokens=500
+            max_tokens=1000
         )
 
+        # Check if LLM call failed
+        if response is None:
+            return {
+                "decision": "CONTINUE",
+                "reasoning": "All LLMs failed (GLM-4.7 + MiniMax)",
+                "actions": []
+            }
+
         try:
-            # Extract JSON from response
+            # Extract JSON from response (handle markdown code blocks)
+            # Try to find content between ```json and ```
+            if "```json" in response and "```" in response[response.find("```json") + 7:]:
+                json_start = response.find("```json") + 7
+                json_end = response.find("```", json_start)
+                if json_start != -1 and json_end > json_start:
+                    json_str = response[json_start:json_end].strip()
+                    return json.loads(json_str)
+
+            # Try to find content between ``` and ``` (without json keyword)
+            if "```" in response:
+                first_code = response.find("```")
+                first_code_end = response.find("\n", first_code)
+                last_code = response.rfind("```")
+                if first_code != -1 and last_code > first_code_end:
+                    json_str = response[first_code_end + 1:last_code].strip()
+                    # Try to find first { and last } within this block
+                    json_start = json_str.find("{")
+                    json_end = json_str.rfind("}") + 1
+                    if json_start != -1 and json_end > json_start:
+                        return json.loads(json_str[json_start:json_end])
+
+            # Fallback: try to find first { and last } in entire response
             json_start = response.find("{")
             json_end = response.rfind("}") + 1
             if json_start != -1 and json_end > json_start:
                 return json.loads(response[json_start:json_end])
-        except:
-            pass
+        except Exception as e:
+            print(f"    ⚠️ Error parsing JSON: {e}")
 
         # Fallback decision
         return {
