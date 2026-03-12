@@ -45,7 +45,12 @@ def import_agents():
     import strategy
     import executor
     import reporter
-    return market_data, risk_manager, strategy, executor, reporter
+    try:
+        import daily_target
+    except ImportError:
+        daily_target = None
+        log.warning("⚠️  daily_target.py no encontrado")
+    return market_data, risk_manager, strategy, executor, reporter, daily_target
 
 
 # ─── Watchdog ────────────────────────────────────────────────────────────────
@@ -145,11 +150,101 @@ def run_cycle(safe: bool = True, debug: bool = False, report_only: bool = False)
         if not ok:
             log.warning("⚠️  Executor falló")
         else:
-            opened = result.get("opened_this_cycle", 0)
-            closed = result.get("closed_this_cycle", 0)
-            capital = result.get("capital", 0)
-            wr = result.get("win_rate", 0)
-            log.info(f"   → Abiertos: {opened} | Cerrados: {closed} | Capital: ${capital:.2f} | WR: {wr:.1f}%")
+    # Cargar señales
+    signals_data = load_signals()
+    
+    # Daily target
+    target_result = evaluate_daily_target(portfolio_data, signals_data)
+    
+    log.info(f"   → P&L Diario: {target_result['daily_pnl_pct']:.2f}%")
+    log.info(f"   → Target: {target_result['target_pct']:.1f}%")
+    log.info(f"   → RSI: {target_result['market_conditions']['avg_rsi']:.1f}")
+    
+    if target_result["should_close_all"]:
+        log.info(f"   🚨 CERRAR TODO: {target_result['close_reason']}")
+        # TODO: Executor cierra todas las posiciones
+        results["daily_target"] = {
+            "ok": True,
+            "should_close": True,
+            "reason": target_result["close_reason"],
+            "positions_count": len(target_result["positions_to_close"])
+        }
+    else:
+        log.info("   ✅ Mantener posiciones")
+        log.info(f"   Faltan: {target_result['target_pct'] - result['daily_pnl_pct']:.2f}% para target")
+        results["daily_target"] = {"ok": True, "should_close": False}
+    
+    # Smart rotation
+    stale_positions = rm.check_stale_losing_positions(portfolio_data, max_hours=48, improvement_hours=12)
+    
+    if stale_positions:
+        log.info(f"   → {len(stale_positions)} posición(es) a cerrar:")
+        for pos in stale_positions:
+            log.info(f"     • {pos['symbol']}: {pos['reason']}")
+            # TODO: Executor cierra estas posiciones
+    else:
+        log.info("   → ✅ Sin posiciones a rotar")
+    
+    results["smart_rotation"] = {"ok": True, "closed": len(stale_positions) if stale_positions else 0}
+
+    # ── Paso 5: Reporter ─────────────────────────────────────────────
+
+        # ── Paso 4b: Smart Rotation (Opción 1) ───────────────────────────────
+        log.info("━" * 40)
+        log.info("🔄 [4b/5] Smart Rotation - Cerrar perdedoras >48h")
+        
+        # Cargar portfolio actual
+        portfolio_data = {}
+        if Path("data/portfolio.json").exists():
+            portfolio_data = json.loads(Path("data/portfolio.json").read_text())
+        
+        stale_positions = []
+        if portfolio_data:
+            stale_positions = rm.check_stale_losing_positions(
+                portfolio_data, 
+                max_hours=48, 
+                improvement_hours=12
+            )
+            
+            if stale_positions:
+                log.info(f"   → {len(stale_positions)} posición(es) a cerrar:")
+                for pos in stale_positions:
+                    log.info(f"     • {pos['symbol']}: {pos['reason']}")
+            else:
+                log.info("   → ✅ Sin posiciones rotar")
+        
+        results["smart_rotation"] = {"ok": True, "closed": len(stale_positions)}
+
+        # ── Paso 4c: Daily Profit Target (Opción 2) ──────────────────────────
+        log.info("━" * 40)
+        log.info("🎯 [4c/5] Daily Profit Target - IA evalúa cierre total")
+        
+        if daily_target:
+            # Cargar señales de mercado
+            signals_data = {}
+            if Path("data/signals_latest.json").exists():
+                signals_data = json.loads(Path("data/signals_latest.json").read_text())
+            
+            target_result = daily_target.evaluate_daily_target(portfolio_data, signals_data)
+            
+            log.info(f"   → P&L Diario: {target_result['daily_pnl_pct']:.2f}%")
+            log.info(f"   → Target: {target_result['target_pct']:.1f}%")
+            log.info(f"   → RSI: {target_result['market_conditions']['avg_rsi']:.1f}")
+            
+            if target_result["should_close_all"]:
+                log.info(f"   🚨 CERRAR TODO: {target_result['close_reason']}")
+                results["daily_target"] = {
+                    "ok": True,
+                    "should_close": True,
+                    "reason": target_result["close_reason"],
+                    "positions_count": len(target_result["positions_to_close"])
+                }
+            else:
+                log.info("   ✅ Mantener posiciones")
+                results["daily_target"] = {"ok": True, "should_close": False}
+        else:
+            log.warning("   ⚠️  Daily Target no disponible")
+            results["daily_target"] = {"ok": False, "error": "module_not_found"}
 
         # ── Paso 5: Reporter ─────────────────────────────────────────
         log.info("━" * 40)

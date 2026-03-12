@@ -10,7 +10,7 @@ Responsabilidades:
 - Tomar decisiones sobre creación de nuevos agentes
 - Reportar estado al usuario
 
-Modelo actual: GLM-5 (cambia a Claude Opus 4.6 el sábado 1PM)
+Modelo actual: GLM-4.7 (cambia a Claude Opus 4.6 el sábado 1PM)
 """
 import json
 import sys
@@ -35,8 +35,8 @@ CEO_STATE_FILE = DATA_DIR / "ceo_state.json"
 ORGANIZATION_FILE = DATA_DIR / "organization.json"
 
 # ── Model Config ───────────────────────────────────────────────────────────
-# Current: GLM-5, changes to Claude Opus 4.6 on Saturday 1PM
-CURRENT_MODEL = "glm-5"
+# Current: GLM-4.7, changes to Claude Opus 4.6 on Saturday 1PM
+CURRENT_MODEL = "glm-4.7"
 FUTURE_MODEL = "claude-opus-4-6"
 MODEL_SWITCH_TIME = "2026-03-14T13:00:00-06:00"  # Saturday 1PM Denver
 

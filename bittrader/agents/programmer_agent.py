@@ -17,7 +17,7 @@ Capacidades:
 - Súper creativo para soluciones
 - Auto-suficiente: debug, test, audit, improve
 
-Modelo actual: GLM-5 (cambia a Claude Opus 4.6 el sábado 1PM)
+Modelo actual: GLM-4.7 (cambia a Claude Opus 4.6 el sábado 1PM)
 """
 import json
 import subprocess
@@ -39,7 +39,7 @@ TASKS_FILE = DATA_DIR / "programmer_tasks.json"
 PROGRAMMER_STATE_FILE = DATA_DIR / "programmer_state.json"
 
 # ── Model Config ───────────────────────────────────────────────────────────
-CURRENT_MODEL = "glm-5"
+CURRENT_MODEL = "glm-4.7"
 FUTURE_MODEL = "claude-opus-4-6"
 MODEL_SWITCH_TIME = "2026-03-14T13:00:00-06:00"
 

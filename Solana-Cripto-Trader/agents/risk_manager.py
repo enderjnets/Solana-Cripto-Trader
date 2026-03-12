@@ -339,6 +339,68 @@ def evaluate_token(symbol: str, token_data: dict, capital: float,
     return result
 
 
+# ─── Smart Rotation (Opción 1) ───────────────────────────────────────────────
+
+def check_stale_losing_positions(portfolio: dict, max_hours: int = 48, improvement_hours: int = 12) -> list:
+    """
+    Detecta posiciones perdedoras que han estado abiertas > max_hours sin mejora.
+    Retorna lista de posiciones a cerrar.
+    """
+    positions_to_close = []
+    open_positions = [p for p in portfolio.get("positions", []) if p.get("status") == "open"]
+    
+    now = datetime.now(timezone.utc)
+    
+    for pos in open_positions:
+        # Verificar si es perdedora
+        pnl_pct = pos.get("pnl_pct", 0)
+        if pnl_pct >= 0:
+            continue  # Solo perdedoras
+        
+        # Verificar tiempo abierto
+        opened_at_str = pos.get("opened_at")
+        if not opened_at_str:
+            continue
+        
+        try:
+            opened_at = datetime.fromisoformat(opened_at_str.replace('Z', '+00:00'))
+            hours_open = (now - opened_at).total_seconds() / 3600
+            
+            if hours_open < max_hours:
+                continue  # No ha pasado suficiente tiempo
+            
+            # Verificar si ha mejorado en las últimas improvement_hours
+            # Si no tiene historial de P&L, asumimos que no ha mejorado
+            recent_pnl_history = pos.get("pnl_history", [])
+            if len(recent_pnl_history) > 0:
+                # Tomar el P&L de hace improvement_hours
+                cutoff_time = now - __import__('datetime').timedelta(hours=improvement_hours)
+                old_pnl = None
+                for entry in recent_pnl_history:
+                    entry_time = datetime.fromisoformat(entry.get("timestamp", "").replace('Z', '+00:00'))
+                    if entry_time <= cutoff_time:
+                        old_pnl = entry.get("pnl_pct", 0)
+                
+                if old_pnl is not None and pnl_pct > old_pnl:
+                    # Ha mejorado, no cerrar
+                    continue
+            
+            # Cumple todos los criterios: cerrar
+            positions_to_close.append({
+                "symbol": pos.get("symbol"),
+                "reason": f"STALE_LOSING: {hours_open:.1f}h abierto, P&L {pnl_pct:.2f}%",
+                "pnl_usd": pos.get("pnl_usd", 0),
+                "pnl_pct": pnl_pct,
+                "hours_open": hours_open
+            })
+            
+        except Exception as e:
+            log.warning(f"Error checking position {pos.get('symbol')}: {e}")
+            continue
+    
+    return positions_to_close
+
+
 # ─── Entry Point ─────────────────────────────────────────────────────────────
 
 def run(debug: bool = False) -> dict:

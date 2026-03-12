@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 🎨 BitTrader Creator — Agente Estratega Creativo
-Lee datos del Scout y genera guiones completos con GLM-5.
+Lee datos del Scout y genera guiones completos con GLM-4.7.
 Ejecutar: python3 agents/creator.py
 """
 import json
@@ -347,7 +347,7 @@ GUION:
 
 VIDEO_PROMPT: [Describe the SCENE in English for AI video generation. ALWAYS star the BitTrader rhino mascot doing something relevant to the topic. Include: what the rhino is doing, the setting, the mood. Example: "Anthropomorphic rhinoceros sitting at a trading desk watching green charts on multiple monitors, excited expression, neon-lit room, hyper-realistic 3D render, 9:16 vertical"]"""
 
-    print(f"    🤖 Generando short (GLM-5): {item['topic'][:50]}...")
+    print(f"    🤖 Generando short (GLM-4.7): {item['topic'][:50]}...")
     raw = call_llm(prompt, system=SYSTEM_PROMPT, max_tokens=800)
     return parse_script_response(raw, "short", item)
 
@@ -387,7 +387,7 @@ VIDEO_PROMPT_1: [Intro scene with BitTrader rhino mascot. Describe what rhino is
 VIDEO_PROMPT_2: [Main content scene with rhino mascot. Relevant action for the explanation section. Different setting from prompt 1. 16:9]
 VIDEO_PROMPT_3: [Closing/CTA scene with rhino mascot. Confident, forward-looking mood. 16:9]"""
 
-    print(f"    🤖 Generando video largo (GLM-5): {item['topic'][:50]}...")
+    print(f"    🤖 Generando video largo (GLM-4.7): {item['topic'][:50]}...")
     raw = call_llm(prompt, system=SYSTEM_PROMPT, max_tokens=2000)
     return parse_script_response(raw, "long", item)
 
@@ -491,7 +491,7 @@ def parse_script_response(raw: str, vtype: str, item: dict) -> dict:
 # ══════════════════════════════════════════════════════════════════════
 
 def run_creator(dry_run: bool = False) -> dict:
-    print("\n🎨 BitTrader Creator iniciando (GLM-5 primary)...")
+    print("\n🎨 BitTrader Creator iniciando (GLM-4.7 primary)...")
 
     scout = load_scout_data()
     if not scout and not dry_run:

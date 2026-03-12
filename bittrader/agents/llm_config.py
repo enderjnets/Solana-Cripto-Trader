@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
 BitTrader Agents — Shared LLM Configuration
-Z.ai GLM-5 Coding Plan (PRIMARY) + MiniMax fallback
+Z.ai GLM-4.7 Coding Plan (PRIMARY) + MiniMax fallback
+(Cambiado de GLM-5 a GLM-4.7 el 12 mar 2026 por API rate limit)
 """
 import json
 import os
@@ -19,7 +20,7 @@ KEYS_DIR = BITTRADER / "keys"
 
 ZAI_CODING_KEY = "863f222d3de340df8b6ff7e1e36ab216.DFOH1veovvWzaoFT"
 ZAI_CODING_BASE_URL = "https://api.z.ai/api/coding/paas/v4/chat/completions"
-ZAI_CODING_MODEL = "glm-5"  # GLM-5 es el nuevo flagship model
+ZAI_CODING_MODEL = "glm-4.7"  # Cambiado a GLM-4.7 por API rate limit (12 mar 2026)
 
 # ══════════════════════════════════════════════════════════════════════
 # MINIMAX M2.5 (FALLBACK)
