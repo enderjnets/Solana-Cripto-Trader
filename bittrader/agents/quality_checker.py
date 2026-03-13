@@ -90,7 +90,7 @@ THUMB_STANDARDS = {
 AUDIO_MIN_VOLUME_DB   = -40   # Below this = basically silence
 AUDIO_MAX_VOLUME_DB   = 0.0   # Above this = clipping (0.0dB is normal for TTS)
 AUDIO_MIN_SAMPLE_RATE = 22000  # Edge TTS genera 24000Hz mínimo; MiniMax corrupto usa 32000Hz
-AUDIO_SYNC_TOLERANCE  = 3.0   # Max seconds difference audio vs video (Ken Burns pipeline adds ~2s of freeze at end)
+AUDIO_SYNC_TOLERANCE  = 2.5   # Max seconds difference audio vs video (Ken Burns pipeline adds ~2s of freeze at end)
 
 # Visual standards
 MAX_BLACK_FRAME_PCT   = 30    # Max % of black frames allowed

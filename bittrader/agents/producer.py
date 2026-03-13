@@ -729,13 +729,13 @@ def assemble_video(clips: list, audio_path: Path, output_path: Path,
             if video_type == "short":
                 subtitle_filter = (
                     f",subtitles='{sub_escaped}':force_style="
-                    f"'FontName=DejaVu Sans,FontSize=22,PrimaryColour=&H0000FFFF,"
-                    f"OutlineColour=&H00000000,Outline=3,Shadow=0,Alignment=2,MarginV=250'"
+                    f"'FontName=DejaVu Sans,FontSize=100,PrimaryColour=&H0000FFFF,"
+                    f"OutlineColour=&H00000000,Outline=3,Shadow=0,Alignment=2,MarginV=400'"
                 )
             else:
                 subtitle_filter = (
                     f",subtitles='{sub_escaped}':force_style="
-                    f"'FontName=DejaVu Sans,FontSize=20,PrimaryColour=&H0000FFFF,"
+                    f"'FontName=DejaVu Sans,FontSize=65,PrimaryColour=&H0000FFFF,"
                     f"OutlineColour=&H00000000,Outline=3,Shadow=0,Alignment=2,MarginV=60'"
                 )
     
@@ -899,7 +899,7 @@ def make_fallback_video(audio_path: Path, output_path: Path, title: str,
             margin_v = "200" if video_type == "short" else "80"
             subtitle_filter = (
                 f",subtitles='{sub_escaped}':force_style="
-                f"'FontName=DejaVu Sans,FontSize=24,PrimaryColour=&H0000FFFF,"
+                f"'FontName=DejaVu Sans,FontSize=100,PrimaryColour=&H0000FFFF,"
                 f"OutlineColour=&H00000000,Outline=3,Shadow=0,Alignment=2,MarginV={margin_v}'"
             )
     
