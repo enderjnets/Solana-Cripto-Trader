@@ -15,7 +15,7 @@ BITTRADER = WORKSPACE / "bittrader"
 KEYS_DIR = BITTRADER / "keys"
 
 # ══════════════════════════════════════════════════════════════════════
-# ZAI GLM-5 CODING PLAN (PRIMARY)
+# ZAI GLM-4.7 CODING PLAN (PRIMARY)
 # ══════════════════════════════════════════════════════════════════════
 
 ZAI_CODING_KEY = "863f222d3de340df8b6ff7e1e36ab216.DFOH1veovvWzaoFT"
@@ -23,20 +23,21 @@ ZAI_CODING_BASE_URL = "https://api.z.ai/api/coding/paas/v4/chat/completions"
 ZAI_CODING_MODEL = "glm-4.7"  # Cambiado a GLM-4.7 por API rate limit (12 mar 2026)
 
 # ══════════════════════════════════════════════════════════════════════
-# MINIMAX M2.5 (FALLBACK)
+# MINIMAX M2.5 CODING PLAN (FALLBACK - Anthropic-compatible API)
 # ══════════════════════════════════════════════════════════════════════
 
-MINIMAX_KEY = json.loads((KEYS_DIR / "minimax.json").read_text())["minimax_api_key"]
-MINIMAX_URL = "https://api.minimax.io/v1/text/chatcompletion_v2"
-MINIMAX_MODEL = "MiniMax-Text-01"
+# Usar Coding Key (sk-cp-*) con endpoint Anthropic-compatible
+MINIMAX_KEY = json.loads((KEYS_DIR / "minimax.json").read_text())["minimax_coding_key"]
+MINIMAX_URL = "https://api.minimax.io/anthropic/v1/messages"
+MINIMAX_MODEL = "MiniMax-M2.5"
 
 # ══════════════════════════════════════════════════════════════════════
 # LLM CALL FUNCTIONS
-# ══════════════════════════════════════════════════════════════════════
+# ════════════════════════════════════════════════════════════════════════
 
 def call_glm_5_coding(prompt: str, system: str = "", max_tokens: int = 2000) -> str:
     """
-    Llama a GLM-5 via Z.ai Coding Plan (PRIMARY).
+    Llama a GLM-4.7 via Z.ai Coding Plan (PRIMARY).
     Endpoint: https://api.z.ai/api/coding/paas/v4/chat/completions
     """
     headers = {
@@ -79,40 +80,42 @@ def call_glm_5_coding(prompt: str, system: str = "", max_tokens: int = 2000) -> 
 
 
 def call_minimax_llm(prompt: str, system: str = "", max_tokens: int = 2000) -> str:
-    """Llama a MiniMax M2.5 (FALLBACK)."""
+    """Llama a MiniMax M2.5 via Anthropic-compatible API (FALLBACK)."""
     headers = {
         "Authorization": f"Bearer {MINIMAX_KEY}",
         "Content-Type": "application/json",
+        "anthropic-version": "2023-06-01",
     }
 
     messages = []
     if system:
-        messages.append({"role": "system", "content": system})
-    messages.append({"role": "user", "content": prompt})
+        messages.append({"role": "user", "content": f"{system}\n\n{prompt}"})
+    else:
+        messages.append({"role": "user", "content": prompt})
 
-    payload = {
+    data = {
         "model": MINIMAX_MODEL,
-        "messages": messages,
         "max_tokens": max_tokens,
-        "temperature": 0.85,
-        "top_p": 0.95,
+        "messages": messages,
     }
 
     try:
-        r = requests.post(MINIMAX_URL, headers=headers, json=payload, timeout=60)
+        r = requests.post(MINIMAX_URL, headers=headers, json=data, timeout=60)
         r.raise_for_status()
-        data = r.json()
+        result = r.json()
 
-        # Check for API errors (e.g., insufficient balance)
-        if "choices" not in data or data["choices"] is None:
-            # Check base_resp for error details
-            if "base_resp" in data and data["base_resp"].get("status_msg"):
-                print(f"    ⚠️ MiniMax error: {data['base_resp']['status_msg']}")
-            else:
-                print(f"    ⚠️ MiniMax error: No choices in response")
+        # Check for API errors
+        if result.get("type") == "error":
+            print(f"    ⚠️ MiniMax error: {result.get('error', {}).get('message', 'Unknown')}")
             return None
 
-        return data["choices"][0]["message"]["content"].strip()
+        # Parse response
+        if "content" in result and len(result["content"]) > 0:
+            return result["content"][0].get("text", "").strip()
+        else:
+            print(f"    ⚠️ MiniMax: No content in response")
+            return None
+
     except Exception as e:
         print(f"    ⚠️ MiniMax error: {e}")
         return None
@@ -121,15 +124,15 @@ def call_minimax_llm(prompt: str, system: str = "", max_tokens: int = 2000) -> s
 def call_llm(prompt: str, system: str = "", max_tokens: int = 2000) -> str:
     """
     Llama al LLM con fallback:
-    1. GLM-5 Coding (PRIMARY)
-    2. MiniMax M2.5 (FALLBACK)
+    1. GLM-4.7 Coding (PRIMARY)
+    2. MiniMax M2.5 Coding Plan (FALLBACK)
     """
-    # Intentar GLM-5 Coding primero
+    # Intentar GLM-4.7 Coding primero
     result = call_glm_5_coding(prompt, system, max_tokens)
     if result:
         return result
 
-    print("    ⚠️ GLM-5 Coding falló, intentando MiniMax fallback...")
+    print("    ⚠️ GLM-4.7 Coding falló, intentando MiniMax fallback...")
     result = call_minimax_llm(prompt, system, max_tokens)
     if result:
         return result
@@ -140,13 +143,20 @@ def call_llm(prompt: str, system: str = "", max_tokens: int = 2000) -> str:
 
 # ══════════════════════════════════════════════════════════════════════
 # EXPORTS
-# ══════════════════════════════════════════════════════════════════════
+# ════════════════════════════════════════════════════════════════════════
 
 if __name__ == "__main__":
     # Test
-    print("🧪 Test: GLM-5 Coding Plan...")
+    print("🧪 Test: GLM-4.7 Coding Plan...")
     result = call_glm_5_coding("Hola, preséntate en una frase.", "Eres un asistente útil.")
     if result:
-        print(f"✅ GLM-5: {result[:100]}")
+        print(f"✅ GLM-4.7: {result[:100]}")
     else:
-        print("❌ GLM-5 falló")
+        print("❌ GLM-4.7 falló")
+
+    print("\n🧪 Test: MiniMax Coding Plan fallback...")
+    result = call_minimax_llm("Hola, responde solo con la palabra EXITO", max_tokens=10)
+    if result:
+        print(f"✅ MiniMax: {result}")
+    else:
+        print("❌ MiniMax falló")

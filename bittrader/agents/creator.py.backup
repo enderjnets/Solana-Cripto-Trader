@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 🎨 BitTrader Creator — Agente Estratega Creativo
-Lee datos del Scout y genera guiones completos con GLM-4.7.
+Lee datos del Scout y genera guiones completos con GLM-5.
 Ejecutar: python3 agents/creator.py
 """
 import json
@@ -14,14 +14,6 @@ from pathlib import Path
 import os
 sys.path.insert(0, str(Path(__file__).parent))
 import qwen_client
-
-# MrBeast Integration (DISABLED - causes visible reasoning)
-try:
-    from mrbeast_creator_integration import inject_mrbeast_short_prompt, inject_mrbeast_long_prompt
-    MRBEAST_ENABLED = False  # Disabled to prevent visible reasoning
-except ImportError:
-    MRBEAST_ENABLED = False
-    print("  ⚠️ MrBeast integration not available (mrbeast_creator_integration.py not found)")
 
 # ── Paths ──────────────────────────────────────────────────────────────────
 WORKSPACE  = Path("/home/enderj/.openclaw/workspace")
@@ -194,14 +186,6 @@ REGLAS OBLIGATORIAS:
 - NO uses emojis en el guión de voz (el TTS los lee mal)
 - Escribe exactamente como se va a narrar, sin acotaciones ni didascalias
 
-TÍTULOS OPTIMIZADOS — Hooks que funcionan:
-- Curiosidad: "¿Por qué el 90% de traders pierde?"
-- Urgencia: "OJO: Este token puede explotar HOY"
-- Controversia: "La verdad de los bots de trading que nadie dice"
-- Números: "3 estrategias que multiplicaron mi capital 10x"
-- Negación: "Lo que NADIE te dice sobre los bots de trading"
-- Promesa: "Cómo gané $500 en 1 semana con este bot (VERDAD)"
-
 TEMAS DE IA + TRADING (prioridad alta):
 - Agentes de trading con Claude/GPT
 - Bots que monitorean noticias en tiempo real
@@ -328,27 +312,30 @@ def generate_short_script(item: dict, scout: dict) -> dict:
     trend = [c["symbol"] for c in scout.get("crypto", {}).get("trending_coins", [])[:5]]
     patterns = winner_patterns_summary(scout)
 
-    # Use MrBeast-enhanced prompt if available
-    if MRBEAST_ENABLED:
-        prompt = inject_mrbeast_short_prompt(item, scout)
-    else:
-        prompt = f"""Crea un guión para un YouTube Short.
+    prompt = f"""Crea un guión COMPLETO para un YouTube Short del canal BitTrader.
 
 TEMA: {item['topic']}
-CATEGORÍA: {item['theme']}
-BTC: ${btc.get('price_usd',0):,} ({btc.get('change_24h',0):+.1f}% 24h)
+CATEGORÍA: {item['theme']} (educativo/controversial/noticias/ia_trading)
+DATOS ACTUALES: BTC=${btc.get('price_usd',0):,} ({btc.get('change_24h',0):+.1f}% 24h)
+TRENDING AHORA: {', '.join(trend)}
 
-FORMATO (responde así):
+PATRONES DE TÍTULOS QUE FUNCIONAN EN NUESTRO CANAL:
+{patterns}
 
-TITULO: [título corto, max 50 chars]
-DESCRIPCION: [descripción 100-150 chars]
-TAGS: [8-10 tags]
+FORMATO REQUERIDO (responde exactamente así):
+TITULO: [título optimizado, máx 60 chars, sin emojis]
+DESCRIPCION: [descripción YouTube 100-150 chars con hashtags]
+TAGS: [8-10 tags separados por coma, incluir relevantes del tema]
 GUION:
-[Guión 100-130 palabras en español. Empieza con gancho. Termina con pregunta.]
+[El guión narrado, 100-140 palabras máximo. Estructura:
+- Gancho (primeras 5 palabras que enganchan)
+- Desarrollo del punto principal
+- Dato o ejemplo concreto
+- CTA con pregunta ("¿Tú qué opinas? Comenta abajo")]
 
-VIDEO_PROMPT: [Rhino mascot scene, 9:16]"""
+VIDEO_PROMPT: [Describe the SCENE in English for AI video generation. ALWAYS star the BitTrader rhino mascot doing something relevant to the topic. Include: what the rhino is doing, the setting, the mood. Example: "Anthropomorphic rhinoceros sitting at a trading desk watching green charts on multiple monitors, excited expression, neon-lit room, hyper-realistic 3D render, 9:16 vertical"]"""
 
-    print(f"    🤖 Generando short (GLM-4.7): {item['topic'][:50]}...")
+    print(f"    🤖 Generando short (GLM-5): {item['topic'][:50]}...")
     raw = call_llm(prompt, system=SYSTEM_PROMPT, max_tokens=800)
     return parse_script_response(raw, "short", item)
 
@@ -358,30 +345,33 @@ def generate_long_script(item: dict, scout: dict) -> dict:
     btc   = scout.get("crypto", {}).get("bitcoin", {})
     patterns = winner_patterns_summary(scout)
 
-    # Use MrBeast-enhanced prompt if available
-    if MRBEAST_ENABLED:
-        prompt = inject_mrbeast_long_prompt(item, scout)
-    else:
-        prompt = f"""Crea un guión para un video de YouTube (3-8 minutos).
+    prompt = f"""Crea un guión COMPLETO para un video de YouTube del canal BitTrader (3-8 minutos).
 
 TEMA: {item['topic']}
-CATEGORÍA: {item['theme']}
-BTC: ${btc.get('price_usd',0):,} ({btc.get('change_24h',0):+.1f}% 24h)
+CATEGORÍA: {item['theme']} (educativo/controversial/noticias/ia_trading)
+DATOS ACTUALES: BTC=${btc.get('price_usd',0):,} ({btc.get('change_24h',0):+.1f}% 24h)
 
-FORMATO (responde así):
+PATRONES QUE FUNCIONAN EN NUESTRO CANAL:
+{patterns}
 
-TITULO: [título corto, max 70 chars]
-DESCRIPCION: [descripción 200-300 chars]
-TAGS: [10-15 tags]
+FORMATO REQUERIDO (responde exactamente así):
+TITULO: [título optimizado, máx 70 chars]
+DESCRIPCION: [descripción YouTube completa, 200-300 chars, con hashtags]
+TAGS: [10-15 tags separados por coma, incluir relevantes del tema]
 
 GUIÓN COMPLETO:
-[Guión 400-700 palabras en español. Estructura: HOOK + PROBLEMA + EXPLICACION + EJEMPLOS + CTA]
+[Guión narrado completo, 400-700 palabras. Estructura:
+HOOK (30s): Enganche poderoso con pregunta o dato impactante
+PROBLEMA (45s): Por qué esto importa, el dolor del espectador
+EXPLICACION (2-3min): El contenido principal con ejemplos concretos
+EJEMPLOS (1-2min): Casos reales, números, comparaciones
+CTA (30s): Llamada a acción con pregunta para comentarios y pedir suscripción]
 
-VIDEO_PROMPT_1: [Rhino intro, 16:9]
-VIDEO_PROMPT_2: [Rhino main content, 16:9]
-VIDEO_PROMPT_3: [Rhino CTA, 16:9]"""
+VIDEO_PROMPT_1: [Intro scene with BitTrader rhino mascot. Describe what rhino is doing related to the topic hook. Setting, mood, action. Hyper-realistic 3D, 16:9]
+VIDEO_PROMPT_2: [Main content scene with rhino mascot. Relevant action for the explanation section. Different setting from prompt 1. 16:9]
+VIDEO_PROMPT_3: [Closing/CTA scene with rhino mascot. Confident, forward-looking mood. 16:9]"""
 
-    print(f"    🤖 Generando video largo (GLM-4.7): {item['topic'][:50]}...")
+    print(f"    🤖 Generando video largo (GLM-5): {item['topic'][:50]}...")
     raw = call_llm(prompt, system=SYSTEM_PROMPT, max_tokens=2000)
     return parse_script_response(raw, "long", item)
 
@@ -391,22 +381,11 @@ def parse_script_response(raw: str, vtype: str, item: dict) -> dict:
     import re
 
     def extract_field(key: str, text: str) -> str:
-        # Multiple patterns to find the field value
-        patterns = [
-            # Pattern 1: KEY: value (next line until next KEY)
-            rf"{key}\s*:\s*(.+?)(?=\n[A-Z_]+\s*:|\Z)",
-            # Pattern 2: **KEY:** value (with asterisks)
-            rf"\*?{key}\*?\*?:\s*(.+?)(?=\n\*?[A-Z_]+\*?\*?:|\Z)",
-            # Pattern 3: KEY\nvalue (colon on separate line)
-            rf"{key}\s*\n\s*(.+?)(?=\n[A-Z_]+\s*:|\n\Z)",
-        ]
-        for pat in patterns:
-            m = re.search(pat, text, re.DOTALL | re.IGNORECASE)
-            if m:
-                result = m.group(1).strip()
-                # Remove markdown bold
-                result = re.sub(r'\*+', '', result)
-                return result
+        # Try line-based first
+        pat = rf"^\*?\*?{key}\*?\*?:\s*(.+?)(?=\n\*?\*?[A-Z_]+\*?\*?:|\Z)"
+        m = re.search(pat, text, re.MULTILINE | re.DOTALL | re.IGNORECASE)
+        if m:
+            return m.group(1).strip().strip("*").strip()
         return ""
 
     title    = extract_field("TITULO", raw)
@@ -496,7 +475,7 @@ def parse_script_response(raw: str, vtype: str, item: dict) -> dict:
 # ══════════════════════════════════════════════════════════════════════
 
 def run_creator(dry_run: bool = False) -> dict:
-    print("\n🎨 BitTrader Creator iniciando (GLM-4.7 primary)...")
+    print("\n🎨 BitTrader Creator iniciando (GLM-5 primary)...")
 
     scout = load_scout_data()
     if not scout and not dry_run:
