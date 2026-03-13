@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """
 🎨 BitTrader Creator — Agente Estratega Creativo
-Lee datos del Scout y genera guiones completos con GLM-4.7.
+Lee datos del Scout y genera guiones completos con Claude Sonnet 4.6.
 Ejecutar: python3 agents/creator.py
+
+Fallback: Claude Sonnet → GLM-5 → MiniMax → Qwen
 """
 import json
 import random
@@ -34,10 +36,10 @@ DATA_DIR.mkdir(parents=True, exist_ok=True)
 CLAUDE_BASE_URL = "http://127.0.0.1:8443/v1/messages"
 CLAUDE_MODEL = "claude-sonnet-4-6"
 
-# GLM-4.7 Coding Plan - FALLBACK #1 (cuando Claude está rate-limited)
+# GLM-5 - FALLBACK #1 (cuando Claude está rate-limited)
 ZAI_CODING_KEY = "863f222d3de340df8b6ff7e1e36ab216.DFOH1veovvWzaoFT"
 ZAI_CODING_BASE_URL = "https://api.z.ai/api/coding/paas/v4/chat/completions"
-ZAI_CODING_MODEL = "glm-4.7"
+ZAI_CODING_MODEL = "glm-5"
 
 # MiniMax M2.5 - FALLBACK #2 (Anthropic API compatible)
 MINIMAX_KEY   = json.loads((BITTRADER / "keys/minimax.json").read_text())["minimax_coding_key"]
@@ -48,7 +50,7 @@ SCOUT_LATEST  = DATA_DIR / "scout_latest.json"
 
 
 # ══════════════════════════════════════════════════════════════════════
-# LLM CALLS (Claude Sonnet PRIMARY -> GLM-4.7 FALLBACK -> MiniMax FALLBACK)
+# LLM CALLS (Claude Sonnet PRIMARY -> GLM-5 FALLBACK -> MiniMax FALLBACK)
 # ══════════════════════════════════════════════════════════════════════
 
 def call_claude(prompt: str, system: str = "", max_tokens: int = 2000) -> str:
@@ -78,8 +80,8 @@ def call_claude(prompt: str, system: str = "", max_tokens: int = 2000) -> str:
         return None
 
 
-def call_glm_4_7(prompt: str, system: str = "", max_tokens: int = 2000) -> str:
-    """Llama a GLM-4.7 (FALLBACK #1)"""
+def call_glm_5(prompt: str, system: str = "", max_tokens: int = 2000) -> str:
+    """Llama a GLM-5 (FALLBACK #1)"""
     headers = {
         "Content-Type": "application/json",
         "Authorization": f"Bearer {ZAI_CODING_KEY}"
@@ -110,7 +112,7 @@ def call_glm_4_7(prompt: str, system: str = "", max_tokens: int = 2000) -> str:
             return reasoning if reasoning else content or str(response)
         return str(response)
     except Exception as e:
-        print(f"    ⚠️ GLM-4.7 error: {e}")
+        print(f"    ⚠️ GLM-5 error: {e}")
         return None
 
 
@@ -146,27 +148,24 @@ def call_minimax_llm(prompt: str, system: str = "", max_tokens: int = 2000) -> s
 
 
 def call_llm(prompt: str, system: str = "", max_tokens: int = 2000) -> str:
-    """Llama al LLM con fallback: Claude Sonnet -> GLM-4.7 -> MiniMax
+    """Llama al LLM con fallback: Claude Sonnet -> GLM-5 -> MiniMax
 
-    Si MRBEAST_ENABLED=True, salta GLM-4.7 (genera razonamiento visible)
-    Fallback directo: Claude Sonnet -> MiniMax -> Qwen
+    Fallback directo: Claude Sonnet -> GLM-5 -> MiniMax -> Qwen
+    MrBeast puede usar GLM-5 (a diferencia de GLM-4.7 que generaba razonamiento visible)
     """
     # 1. Intentar Claude Sonnet 4.6
     result = call_claude(prompt, system, max_tokens)
     if result:
         return result
 
-    # 2. GLM-4.7 FALLBACK (saltar si MrBeast habilitado)
-    if not MRBEAST_ENABLED:
-        print("    ⚠️ Claude Sonnet falló, intentando GLM-4.7 fallback...")
-        result = call_glm_4_7(prompt, system, max_tokens)
-        if result:
-            return result
-    else:
-        print("    ⚠️ Claude Sonnet falló, GLM-4.7 saltado (MrBeast habilitado)...")
+    # 2. Intentar GLM-5
+    print("    ⚠️ Claude Sonnet falló, intentando GLM-5 fallback...")
+    result = call_glm_5(prompt, system, max_tokens)
+    if result:
+        return result
 
     # 3. Intentar MiniMax
-    print("    ⚠️ Intentando MiniMax fallback...")
+    print("    ⚠️ GLM-5 falló, intentando MiniMax fallback...")
     result = call_minimax_llm(prompt, system, max_tokens)
     if result:
         return result
@@ -363,7 +362,7 @@ GUION:
 
 VIDEO_PROMPT: [Escena con BitTrader rhino. Describe qué hace el rinoceronte relacionado al tema "{item['topic']}", el escenario, el ambiente. Hyper-realistic 3D, 9:16 vertical, cinematic lighting]"""
 
-    print(f"    🤖 Generando short (GLM-4.7): {item['topic'][:50]}...")
+    print(f"    🤖 Generando short: {item['topic'][:50]}...")
     raw = call_llm(prompt, system=SYSTEM_PROMPT, max_tokens=2000)  # Aumentado de 800 a 2000
     return parse_script_response(raw, "short", item)
 
@@ -396,7 +395,7 @@ VIDEO_PROMPT_1: [Escena intro con BitTrader rhino. Describe qué hace relacionad
 VIDEO_PROMPT_2: [Escena principal con rhino mostrando la explicación del tema. 16:9 horizontal]
 VIDEO_PROMPT_3: [Escena final CTA con rhino confiado mirando al futuro. 16:9 horizontal]"""
 
-    print(f"    🤖 Generando video largo (GLM-4.7): {item['topic'][:50]}...")
+    print(f"    🤖 Generando video largo: {item['topic'][:50]}...")
     raw = call_llm(prompt, system=SYSTEM_PROMPT, max_tokens=2000)
     return parse_script_response(raw, "long", item)
 
@@ -406,7 +405,7 @@ def parse_script_response(raw: str, vtype: str, item: dict) -> dict:
     import re
 
     # Paso 1: Extraer solo la sección de formato (última ocurrencia de TITULO hacia adelante)
-    # Esto ignora el razonamiento visible que GLM-4.7 genera al principio
+    # Esto ignora el razonamiento visible que GLM-5 puede generar (si el modelo lo produce)
     formato_match = re.search(
         r'(?:^|\n)\s*TITULO\s*:.*$',
         raw,
@@ -525,7 +524,7 @@ def parse_script_response(raw: str, vtype: str, item: dict) -> dict:
 # ══════════════════════════════════════════════════════════════════════
 
 def run_creator(dry_run: bool = False) -> dict:
-    print("\n🎨 BitTrader Creator iniciando (GLM-4.7 primary)...")
+    print("\n🎨 BitTrader Creator iniciando (Claude Sonnet 4.6 primary)...")
 
     scout = load_scout_data()
     if not scout and not dry_run:
