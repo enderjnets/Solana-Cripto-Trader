@@ -15,10 +15,11 @@ import os
 sys.path.insert(0, str(Path(__file__).parent))
 import qwen_client
 
-# MrBeast Integration (DISABLED - causes visible reasoning)
+# MrBeast Integration (ENABLED with Claude Sonnet 4.6 - respects format, no visible reasoning)
 try:
     from mrbeast_creator_integration import inject_mrbeast_short_prompt, inject_mrbeast_long_prompt
-    MRBEAST_ENABLED = False  # Disabled to prevent visible reasoning
+    MRBEAST_ENABLED = True  # Enabled - Claude Sonnet respects format without visible reasoning
+    print("  ✅ MrBeast integration enabled (Claude Sonnet 4.6 primary)")
 except ImportError:
     MRBEAST_ENABLED = False
     print("  ⚠️ MrBeast integration not available (mrbeast_creator_integration.py not found)")
@@ -145,20 +146,27 @@ def call_minimax_llm(prompt: str, system: str = "", max_tokens: int = 2000) -> s
 
 
 def call_llm(prompt: str, system: str = "", max_tokens: int = 2000) -> str:
-    """Llama al LLM con fallback: Claude Sonnet -> GLM-4.7 -> MiniMax"""
+    """Llama al LLM con fallback: Claude Sonnet -> GLM-4.7 -> MiniMax
+
+    Si MRBEAST_ENABLED=True, salta GLM-4.7 (genera razonamiento visible)
+    Fallback directo: Claude Sonnet -> MiniMax -> Qwen
+    """
     # 1. Intentar Claude Sonnet 4.6
     result = call_claude(prompt, system, max_tokens)
     if result:
         return result
 
-    # 2. Intentar GLM-4.7
-    print("    ⚠️ Claude Sonnet falló, intentando GLM-4.7 fallback...")
-    result = call_glm_4_7(prompt, system, max_tokens)
-    if result:
-        return result
+    # 2. GLM-4.7 FALLBACK (saltar si MrBeast habilitado)
+    if not MRBEAST_ENABLED:
+        print("    ⚠️ Claude Sonnet falló, intentando GLM-4.7 fallback...")
+        result = call_glm_4_7(prompt, system, max_tokens)
+        if result:
+            return result
+    else:
+        print("    ⚠️ Claude Sonnet falló, GLM-4.7 saltado (MrBeast habilitado)...")
 
     # 3. Intentar MiniMax
-    print("    ⚠️ GLM-4.7 falló, intentando MiniMax fallback...")
+    print("    ⚠️ Intentando MiniMax fallback...")
     result = call_minimax_llm(prompt, system, max_tokens)
     if result:
         return result
