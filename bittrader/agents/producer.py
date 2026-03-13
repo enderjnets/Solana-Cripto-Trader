@@ -10,7 +10,7 @@ Mejoras v4.0:
 - TTS: Edge-TTS Jorge como primario (MiniMax genera estática para español)
 - Shorts: blur-fill en vez de barras negras (Hailuo no genera vertical nativo)
 - Logo BitTrader: overlay top-right, 240px (shorts) / 180px (longs)
-- Subtítulos: 78px (shorts) / 55px (longs) — legibles en móvil
+- Subtítulos: 100px (shorts) / 65px (longs) — aumentado para estilo viral
 - Video: aspect_ratio 9:16 pasado a Hailuo (sin efecto pero documentado)
 - Audio: 44100Hz AAC
 """
@@ -759,13 +759,13 @@ def assemble_video(clips: list, audio_path: Path, output_path: Path,
                 if video_type == "short":
                     sub_filter = (
                         f",subtitles='{sub_escaped}':force_style="
-                        f"'FontName=DejaVu Sans,FontSize=78,PrimaryColour=&H0000FFFF,"
-                        f"OutlineColour=&H00000000,Outline=3,Shadow=0,Alignment=2,MarginV=420'"
+                        f"'FontName=DejaVu Sans,FontSize=100,PrimaryColour=&H0000FFFF,"
+                        f"OutlineColour=&H00000000,Outline=3,Shadow=0,Alignment=2,MarginV=400'"
                     )
                 else:
                     sub_filter = (
                         f",subtitles='{sub_escaped}':force_style="
-                        f"'FontName=DejaVu Sans,FontSize=55,PrimaryColour=&H0000FFFF,"
+                        f"'FontName=DejaVu Sans,FontSize=65,PrimaryColour=&H0000FFFF,"
                         f"OutlineColour=&H00000000,Outline=3,Shadow=0,Alignment=2,MarginV=60'"
                     )
 
@@ -819,13 +819,13 @@ def assemble_video(clips: list, audio_path: Path, output_path: Path,
                 if video_type == "short":
                     subtitle_filter = (
                         f",subtitles='{sub_escaped}':force_style="
-                        f"'FontName=DejaVu Sans,FontSize=78,PrimaryColour=&H0000FFFF,"
-                        f"OutlineColour=&H00000000,Outline=3,Shadow=0,Alignment=2,MarginV=420'"
+                        f"'FontName=DejaVu Sans,FontSize=100,PrimaryColour=&H0000FFFF,"
+                        f"OutlineColour=&H00000000,Outline=3,Shadow=0,Alignment=2,MarginV=400'"
                     )
                 else:
                     subtitle_filter = (
                         f",subtitles='{sub_escaped}':force_style="
-                        f"'FontName=DejaVu Sans,FontSize=55,PrimaryColour=&H0000FFFF,"
+                        f"'FontName=DejaVu Sans,FontSize=65,PrimaryColour=&H0000FFFF,"
                         f"OutlineColour=&H00000000,Outline=3,Shadow=0,Alignment=2,MarginV=60'"
                     )
 
