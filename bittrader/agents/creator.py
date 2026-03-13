@@ -194,6 +194,11 @@ REGLAS OBLIGATORIAS:
 - NO uses emojis en el guión de voz (el TTS los lee mal)
 - Escribe exactamente como se va a narrar, sin acotaciones ni didascalias
 
+⚠️ CRÍTICO: NO generes razonamiento, análisis, ni pensamiento visible.
+- Responde DIRECTAMENTE con el formato solicitado
+- NO escribas "1. Analyze", "2. Drafting", "3. Selecting"
+- SOLO el formato: TITULO, DESCRIPCION, TAGS, GUION, VIDEO_PROMPT
+
 TÍTULOS OPTIMIZADOS — Hooks que funcionan:
 - Curiosidad: "¿Por qué el 90% de traders pierde?"
 - Urgencia: "OJO: Este token puede explotar HOY"
@@ -211,6 +216,8 @@ TEMAS DE IA + TRADING (prioridad alta):
 - Herramientas de IA para traders
 
 IDENTIDAD VISUAL — PERSONAJE MASCOTA:
+
+\n⚠️ CRÍTICO: NO generes razonamiento, análisis, ni pensamiento visible.\n- Responde DIRECTAMENTE con el formato solicitado\n- NO escribas "1. Analyze", "2. Drafting", "3. Selecting"\n- SOLO el formato: TITULO, DESCRIPCION, TAGS, GUION, VIDEO_PROMPT
 El canal BitTrader tiene un personaje mascota: un RINOCERONTE ANTROPOMÓRFICO 3D hiperrealista.
 Este rinoceronte es el protagonista de TODOS los videos — shorts y longs.
 Es inteligente, moderno, confiado. Siempre aparece en el contexto de la escena del guión.
@@ -349,7 +356,7 @@ GUION:
 VIDEO_PROMPT: [Rhino mascot scene, 9:16]"""
 
     print(f"    🤖 Generando short (GLM-4.7): {item['topic'][:50]}...")
-    raw = call_llm(prompt, system=SYSTEM_PROMPT, max_tokens=800)
+    raw = call_llm(prompt, system=SYSTEM_PROMPT, max_tokens=2000)  # Aumentado de 800 a 2000
     return parse_script_response(raw, "short", item)
 
 
@@ -389,6 +396,20 @@ VIDEO_PROMPT_3: [Rhino CTA, 16:9]"""
 def parse_script_response(raw: str, vtype: str, item: dict) -> dict:
     """Parsea la respuesta del LLM en estructura de datos."""
     import re
+
+    # Paso 1: Extraer solo la sección de formato (última ocurrencia de TITULO hacia adelante)
+    # Esto ignora el razonamiento visible que GLM-4.7 genera al principio
+    formato_match = re.search(
+        r'(?:^|\n)\s*TITULO\s*:.*$',
+        raw,
+        re.MULTILINE | re.DOTALL
+    )
+
+    if formato_match:
+        # Extraer desde la última ocurrencia de TITULO hasta el final
+        last_titulo_pos = raw.rfind('TITULO')
+        if last_titulo_pos != -1:
+            raw = raw[last_titulo_pos:]
 
     def extract_field(key: str, text: str) -> str:
         # Multiple patterns to find the field value
