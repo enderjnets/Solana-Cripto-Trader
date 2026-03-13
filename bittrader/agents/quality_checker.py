@@ -899,12 +899,8 @@ def check_thumbnail_deep(path: Path) -> dict:
             if left_brightness > 180:
                 warnings.append("Lado izquierdo muy claro — el texto podría no ser legible")
 
-            # Check top-left for logo area (should have some content)
-            logo_area = img.crop((0, 0, 100, 100))
-            logo_stat = ImageStat.Stat(logo_area)
-            logo_variance = sum(s ** 2 for s in logo_stat.stddev[:3]) / 3
-            if logo_variance < 50:
-                warnings.append("Zona del logo (arriba izquierda) podría no tener logo visible")
+            # Note: Logo is in top-right corner, so top-left is intentionally empty
+            # No warning needed for top-left area
 
             info["brightness"] = round(mean_brightness, 1)
             info["variance"] = round(total_variance, 1)
