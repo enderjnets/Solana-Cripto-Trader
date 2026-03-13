@@ -353,7 +353,7 @@ TAGS: [8-10 tags]
 GUION:
 [Guión 100-130 palabras en español. Empieza con gancho. Termina con pregunta.]
 
-VIDEO_PROMPT: [Rhino mascot scene, 9:16]"""
+VIDEO_PROMPT: [Escena con BitTrader rhino. Describe qué hace el rinoceronte relacionado al tema "{item['topic']}", el escenario, el ambiente. Hyper-realistic 3D, 9:16 vertical, cinematic lighting]"""
 
     print(f"    🤖 Generando short (GLM-4.7): {item['topic'][:50]}...")
     raw = call_llm(prompt, system=SYSTEM_PROMPT, max_tokens=2000)  # Aumentado de 800 a 2000
@@ -384,9 +384,9 @@ TAGS: [10-15 tags]
 GUIÓN COMPLETO:
 [Guión 400-700 palabras en español. Estructura: HOOK + PROBLEMA + EXPLICACION + EJEMPLOS + CTA]
 
-VIDEO_PROMPT_1: [Rhino intro, 16:9]
-VIDEO_PROMPT_2: [Rhino main content, 16:9]
-VIDEO_PROMPT_3: [Rhino CTA, 16:9]"""
+VIDEO_PROMPT_1: [Escena intro con BitTrader rhino. Describe qué hace relacionado al hook "{item['topic']}". 16:9 horizontal]
+VIDEO_PROMPT_2: [Escena principal con rhino mostrando la explicación del tema. 16:9 horizontal]
+VIDEO_PROMPT_3: [Escena final CTA con rhino confiado mirando al futuro. 16:9 horizontal]"""
 
     print(f"    🤖 Generando video largo (GLM-4.7): {item['topic'][:50]}...")
     raw = call_llm(prompt, system=SYSTEM_PROMPT, max_tokens=2000)
