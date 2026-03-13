@@ -366,15 +366,15 @@
     "errors": 0
   },
   "quality_check": {
-    "checked_at": "2026-03-11T13:57:27.068957+00:00",
+    "checked_at": "2026-03-13T05:36:07.581903+00:00",
     "version": "4.0",
     "passed": 8,
     "failed": 0,
     "pass_rate": "100%",
     "grades": {
       "A": 0,
-      "B": 3,
-      "C": 5,
+      "B": 0,
+      "C": 8,
       "F": 0
     }
   }

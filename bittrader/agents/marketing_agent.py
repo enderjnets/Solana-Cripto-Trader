@@ -68,44 +68,37 @@ class MarketingAgent:
     
     def analyze_market_trends(self, industry: str = "AI automation") -> Dict[str, Any]:
         """Analyze market trends for a specific industry"""
-        prompt = f"""Eres el Marketing Agent de BitTrader. Tu trabajo es analizar tendencias de mercado.
+        # Use text format instead of JSON for better GLM-4.7 compatibility
+        prompt = f"""Lista 3 tendencias de marketing para: {industry}
 
-INDUSTRIA: {industry}
+Formato de respuesta:
+TENDENCIA: [tendencia1]
+TENDENCIA: [tendencia2]
+TENDENCIA: [tendencia3]
 
-Analiza y responde con tendencias actuales en formato JSON:
-{{
-  "trends": ["tendencia 1", "tendencia 2"],
-  "opportunities": ["oportunidad 1", "oportunidad 2"],
-  "keywords": ["keyword 1", "keyword 2"],
-  "content_ideas": ["idea 1", "idea 2"],
-  "target_audience": "descripción del público objetivo",
-  "recommended_channels": ["canal 1", "canal 2"]
-}}
-
-Solo responde con el JSON.
-"""
+Sin explicaciones adicionales."""
         
-        response = call_llm(prompt, "Eres un experto en marketing digital.", max_tokens=1500)
+        response = call_llm(prompt, "", max_tokens=500)
         
         if response is None:
             return {"error": "LLM failed"}
         
-        try:
-            # Extract JSON from response
-            if "```json" in response:
-                json_start = response.find("```json") + 7
-                json_end = response.find("```", json_start)
-                if json_start != -1 and json_end > json_start:
-                    return json.loads(response[json_start:json_end].strip())
-            
-            json_start = response.find("{")
-            json_end = response.rfind("}") + 1
-            if json_start != -1 and json_end > json_start:
-                return json.loads(response[json_start:json_end])
-        except Exception as e:
-            print(f"    ⚠️ Error parsing JSON: {e}")
+        # Parse text response into structured data
+        trends = []
+        for line in response.split('\n'):
+            if 'TENDENCIA:' in line or 'tendencia' in line.lower():
+                # Extract text after colon or number
+                if ':' in line:
+                    trend = line.split(':', 1)[1].strip()
+                else:
+                    trend = line.strip()
+                if trend:
+                    trends.append(trend)
         
-        return {"error": "Could not parse response"}
+        return {
+            "trends": trends[:3] if trends else ["No trends extracted"],
+            "raw_response": response
+        }
     
     def generate_campaign_strategy(self, product: str, target: str, budget: str = "$500-1000/month") -> Dict[str, Any]:
         """Generate a complete marketing campaign strategy"""
@@ -136,7 +129,7 @@ Genera una estrategia en formato JSON:
 Solo responde con el JSON.
 """
         
-        response = call_llm(prompt, "Eres un estratega de marketing experto.", max_tokens=2000)
+        response = call_llm(prompt, "Eres un estratega de marketing experto.", max_tokens=800)
         
         if response is None:
             return {"error": "LLM failed"}
@@ -179,7 +172,7 @@ Genera análisis en formato JSON:
 Solo responde con el JSON.
 """
         
-        response = call_llm(prompt, "Eres un experto en B2B marketing y ventas.", max_tokens=1500)
+        response = call_llm(prompt, "Eres un experto en B2B marketing y ventas.", max_tokens=800)
         
         if response is None:
             return {"error": "LLM failed"}
@@ -202,28 +195,29 @@ Solo responde con el JSON.
     
     def generate_content_ideas(self, topic: str, platform: str = "LinkedIn", count: int = 5) -> List[str]:
         """Generate content ideas for a specific platform"""
-        prompt = f"""Genera {count} ideas de contenido para {platform} sobre: {topic}
+        prompt = f"""Dame {count} ideas de contenido para {platform} sobre: {topic}
 
-Responde con un JSON array de strings:
-["idea 1", "idea 2", "idea 3", ...]
+Formato:
+1. [primera idea]
+2. [segunda idea]
 
-Solo responde con el JSON array.
-"""
+Solo la lista."""
         
-        response = call_llm(prompt, "Eres un creador de contenido experto.", max_tokens=1000)
+        response = call_llm(prompt, "", max_tokens=500)
         
         if response is None:
             return []
         
-        try:
-            json_start = response.find("[")
-            json_end = response.rfind("]") + 1
-            if json_start != -1 and json_end > json_start:
-                return json.loads(response[json_start:json_end])
-        except:
-            pass
+        # Extract ideas from numbered list
+        ideas = []
+        for line in response.split('\n'):
+            line = line.strip()
+            if line and any(line.startswith(f'{i}.') for i in range(1, 10)):
+                idea = line.split('.', 1)[1].strip() if '.' in line else line
+                if idea:
+                    ideas.append(idea)
         
-        return []
+        return ideas[:count] if ideas else []
     
     def run(self) -> Dict[str, Any]:
         """Execute marketing analysis cycle"""
@@ -237,8 +231,65 @@ Solo responde con el JSON array.
         results = {
             "market_trends": None,
             "content_ideas": None,
+            "video_review": None,
             "status": "ok"
         }
+        
+        # Check if there's a pending video review task
+        marketing_task_file = DATA_DIR / "marketing_task.json"
+        if marketing_task_file.exists():
+            task = json.loads(marketing_task_file.read_text())
+            if task.get("status") == "pending" and "video" in task:
+                print("🎬 Revisando video pendiente...")
+                video_info = task["video"]
+                video_title = video_info.get("title", "Video sin título")
+                video_url = video_info.get("url", "")
+                
+                # Generate review prompt
+                if video_url:
+                    prompt = f"""Analiza este video de BitTrader:
+
+URL: {video_url}
+CANAL: BitTrader (@bittrader9259)
+
+Revisa y lista problemas/correcciones necesarias:
+1. Problemas técnicos (audio, video, subtítulos)
+2. Problemas de contenido
+3. Problemas de calidad
+4. Recomendaciones de mejora
+
+Responde en formato simple:
+PROBLEMAS: [lista de problemas]
+CORRECCIONES: [correcciones sugeridas]
+PRIORIDAD: [Alta/Media/Baja]"""
+                else:
+                    prompt = f"""Analiza este video para el canal BitTrader:
+
+VIDEO: "{video_title}"
+
+Evalúa problemas y correcciones necesarias.
+
+Responde:
+PROBLEMAS: [lista]
+CORRECCIONES: [sugerencias]
+PRIORIDAD: [Alta/Media/Baja]"""
+                
+                response = call_llm(prompt, "", max_tokens=600)
+                
+                if response:
+                    print(f"  ✅ Video analizado")
+                    results["video_review"] = {
+                        "video": video_title,
+                        "url": video_url,
+                        "analysis": response
+                    }
+                    # Mark task as completed
+                    task["status"] = "completed"
+                    task["completed_at"] = datetime.now(timezone.utc).isoformat()
+                    marketing_task_file.write_text(json.dumps(task, indent=2))
+                else:
+                    print("  ⚠️ Error analizando video")
+                print()
         
         # 1. Analyze market trends for Eco
         print("📊 Analizando tendencias de mercado...")

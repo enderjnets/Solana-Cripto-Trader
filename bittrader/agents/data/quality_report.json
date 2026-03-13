@@ -1,14 +1,14 @@
 {
-  "checked_at": "2026-03-08T01:30:57.020334+00:00",
-  "version": "2.0",
+  "checked_at": "2026-03-13T05:36:07.581903+00:00",
+  "version": "4.0",
   "total": 8,
   "passed": 8,
   "failed": 0,
   "pass_rate": "100%",
   "grades": {
-    "A": 6,
-    "B": 2,
-    "C": 0,
+    "A": 0,
+    "B": 0,
+    "C": 8,
     "F": 0
   },
   "results": [
@@ -16,12 +16,18 @@
       "title": "AKT explota mientras BTC cae un 1.4%",
       "type": "short",
       "issues": [],
-      "warnings": [],
+      "warnings": [
+        "🔄 Audio/Video ligera diferencia: 1.9s",
+        "📝 Subtítulos algo pequeños: 78px (recomendado: 100px para estilo viral)",
+        "🖼️ Contenido importante cerca de los bordes — puede ser cortado por UI de la plataforma (Instagram/TikTok/YouTube)",
+        "🖼️ Dimensiones incorrectas: 1080x1920 (necesita 1280x720)",
+        "⚠️ AI check failed: 429 Client Error: Too Many Requests for url: http://127.0.0.1:8443/v1/messages"
+      ],
       "passed": true,
       "details": {
         "audio_levels": {
-          "mean_volume_db": -7.4,
-          "max_volume_db": 0.0,
+          "mean_volume_db": -20.0,
+          "max_volume_db": -2.6,
           "issues": [],
           "warnings": []
         },
@@ -37,51 +43,91 @@
           "warnings": [],
           "passed": true
         },
-        "thumbnail": {
-          "exists": true,
-          "path": "output/2026-03-07-v3/short_1772925855_875/thumbnail.jpg",
-          "size_kb": 174,
-          "width": 1280,
-          "height": 720,
-          "format": "JPEG",
-          "brightness": 47.3,
-          "variance": 1589.9,
+        "subtitle_quality": {
+          "issues": [],
+          "warnings": [
+            "📝 Subtítulos algo pequeños: 78px (recomendado: 100px para estilo viral)"
+          ],
+          "passed": true
+        },
+        "framing": {
+          "issues": [],
+          "warnings": [
+            "🖼️ Contenido importante cerca de los bordes — puede ser cortado por UI de la plataforma (Instagram/TikTok/YouTube)"
+          ],
+          "passed": true
+        },
+        "audio_mix": {
           "issues": [],
           "warnings": [],
+          "high_freq_db": -32.2,
           "passed": true
+        },
+        "thumbnail": {
+          "exists": true,
+          "path": "/home/enderj/.openclaw/workspace/bittrader/agents/output/rhino_v1/akt/thumbnail.jpg",
+          "size_kb": 198,
+          "width": 1080,
+          "height": 1920,
+          "format": "JPEG",
+          "brightness": 65.1,
+          "variance": 4642.3,
+          "issues": [
+            "Dimensiones incorrectas: 1080x1920 (necesita 1280x720)"
+          ],
+          "warnings": [],
+          "passed": false
+        },
+        "ai_check": {
+          "ai_check": true,
+          "model": "claude-sonnet-4-6",
+          "scores": {},
+          "overall_score": 0,
+          "grade": "?",
+          "issues": [],
+          "warnings": [],
+          "observations": "",
+          "error": "429 Client Error: Too Many Requests for url: http://127.0.0.1:8443/v1/messages"
         }
       },
       "probe": {
-        "duration": 19.428,
-        "size_bytes": 7513157,
-        "bitrate": 3093743,
+        "duration": 50.533333,
+        "size_bytes": 9899461,
+        "bitrate": 1567197,
         "format": "mov,mp4,m4a,3gp,3g2,mj2",
         "video_codec": "h264",
         "width": 1080,
         "height": 1920,
-        "fps": 24.0,
-        "video_duration": 19.416667,
+        "fps": 30.0,
+        "video_duration": 50.533333,
         "audio_codec": "aac",
-        "audio_sample_rate": 32000,
-        "audio_duration": 19.428,
+        "audio_sample_rate": 24000,
+        "audio_duration": 48.597,
         "has_video": true,
         "has_audio": true
       },
-      "duration": 19.4,
-      "size_mb": 7.2,
+      "duration": 50.5,
+      "size_mb": 9.4,
       "resolution": "1080x1920",
-      "grade": "A"
+      "grade": "C"
     },
     {
       "title": "Por qué PENGU está subiendo mientras BTC cae",
       "type": "short",
       "issues": [],
-      "warnings": [],
+      "warnings": [
+        "🔄 Audio/Video ligera diferencia: 2.2s",
+        "📝 Subtítulos algo pequeños: 78px (recomendado: 100px para estilo viral)",
+        "🖼️ Contenido importante cerca de los bordes — puede ser cortado por UI de la plataforma (Instagram/TikTok/YouTube)",
+        "🖼️ Dimensiones incorrectas: 1080x1920 (necesita 1280x720)",
+        "🖼️ Zona del logo (arriba izquierda) podría no tener logo visible",
+        "⚠️ AI check failed: 429 Client Error: Too Many Requests for url: http://127.0.0.1:8443/v1/messages"
+      ],
       "passed": true,
       "details": {
         "audio_levels": {
-          "mean_volume_db": -7.4,
-          "max_volume_db": 0.0,
+          "mean_volume_db": -20.8,
+          "max_volume_db": -2.8,
           "issues": [],
           "warnings": []
         },
@@ -97,111 +143,93 @@
           "warnings": [],
           "passed": true
         },
-        "thumbnail": {
-          "exists": true,
-          "path": "output/2026-03-07-v3/short_1772925869_724/thumbnail.jpg",
-          "size_kb": 194,
-          "width": 1280,
-          "height": 720,
-          "format": "JPEG",
-          "brightness": 51.2,
-          "variance": 2695.2,
+        "subtitle_quality": {
+          "issues": [],
+          "warnings": [
+            "📝 Subtítulos algo pequeños: 78px (recomendado: 100px para estilo viral)"
+          ],
+          "passed": true
+        },
+        "framing": {
+          "issues": [],
+          "warnings": [
+            "🖼️ Contenido importante cerca de los bordes — puede ser cortado por UI de la plataforma (Instagram/TikTok/YouTube)"
+          ],
+          "passed": true
+        },
+        "audio_mix": {
           "issues": [],
           "warnings": [],
+          "high_freq_db": -32.7,
           "passed": true
+        },
+        "thumbnail": {
+          "exists": true,
+          "path": "/home/enderj/.openclaw/workspace/bittrader/agents/output/rhino_v1/pengu/thumbnail.jpg",
+          "size_kb": 211,
+          "width": 1080,
+          "height": 1920,
+          "format": "JPEG",
+          "brightness": 67.5,
+          "variance": 4168.5,
+          "issues": [
+            "Dimensiones incorrectas: 1080x1920 (necesita 1280x720)"
+          ],
+          "warnings": [
+            "Zona del logo (arriba izquierda) podría no tener logo visible"
+          ],
+          "passed": false
+        },
+        "ai_check": {
+          "ai_check": true,
+          "model": "claude-sonnet-4-6",
+          "scores": {},
+          "overall_score": 0,
+          "grade": "?",
+          "issues": [],
+          "warnings": [],
+          "observations": "",
+          "error": "429 Client Error: Too Many Requests for url: http://127.0.0.1:8443/v1/messages"
         }
       },
       "probe": {
-        "duration": 19.291667,
-        "size_bytes": 7666733,
-        "bitrate": 3179293,
+        "duration": 49.4,
+        "size_bytes": 11125465,
+        "bitrate": 1801694,
         "format": "mov,mp4,m4a,3gp,3g2,mj2",
         "video_codec": "h264",
         "width": 1080,
         "height": 1920,
-        "fps": 24.0,
-        "video_duration": 19.291667,
+        "fps": 30.0,
+        "video_duration": 49.4,
         "audio_codec": "aac",
-        "audio_sample_rate": 32000,
-        "audio_duration": 19.264,
+        "audio_sample_rate": 44100,
+        "audio_duration": 47.159002,
         "has_video": true,
         "has_audio": true
       },
-      "duration": 19.3,
-      "size_mb": 7.3,
+      "duration": 49.4,
+      "size_mb": 10.6,
       "resolution": "1080x1920",
-      "grade": "A"
+      "grade": "C"
     },
     {
       "title": "El 90% de traders pierde por esto",
       "type": "short",
       "issues": [],
-      "warnings": [],
+      "warnings": [
+        "🔄 Audio/Video ligera diferencia: 2.1s",
+        "📝 Subtítulos algo pequeños: 78px (recomendado: 100px para estilo viral)",
+        "🖼️ Contenido importante cerca de los bordes — puede ser cortado por UI de la plataforma (Instagram/TikTok/YouTube)",
+        "🖼️ Dimensiones incorrectas: 1080x1920 (necesita 1280x720)",
+        "🖼️ Zona del logo (arriba izquierda) podría no tener logo visible",
+        "⚠️ AI check failed: 429 Client Error: Too Many Requests for url: http://127.0.0.1:8443/v1/messages"
+      ],
       "passed": true,
       "details": {
         "audio_levels": {
-          "mean_volume_db": -7.4,
-          "max_volume_db": 0.0,
-          "issues": [],
-          "warnings": []
-        },
-        "black_frames": {
-          "black_pct": 0.0,
-          "black_seconds": 0,
-          "issues": [],
-          "warnings": []
-        },
-        "scene_changes": 2,
-        "subtitles": {
-          "issues": [],
-          "warnings": [],
-          "passed": true
-        },
-        "thumbnail": {
-          "exists": true,
-          "path": "output/2026-03-07-v3/short_1772925884_383/thumbnail.jpg",
-          "size_kb": 206,
-          "width": 1280,
-          "height": 720,
-          "format": "JPEG",
-          "brightness": 50.6,
-          "variance": 2347.7,
-          "issues": [],
-          "warnings": [],
-          "passed": true
-        }
-      },
-      "probe": {
-        "duration": 17.375,
-        "size_bytes": 6265499,
-        "bitrate": 2884834,
-        "format": "mov,mp4,m4a,3gp,3g2,mj2",
-        "video_codec": "h264",
-        "width": 1080,
-        "height": 1920,
-        "fps": 24.0,
-        "video_duration": 17.375,
-        "audio_codec": "aac",
-        "audio_sample_rate": 32000,
-        "audio_duration": 17.344,
-        "has_video": true,
-        "has_audio": true
-      },
-      "duration": 17.4,
-      "size_mb": 6.0,
-      "resolution": "1080x1920",
-      "grade": "A"
-    },
-    {
-      "title": "PI coin +13%: ¿trampa o despegue real?",
-      "type": "short",
-      "issues": [],
-      "warnings": [],
-      "passed": true,
-      "details": {
-        "audio_levels": {
-          "mean_volume_db": -7.4,
-          "max_volume_db": 0.0,
+          "mean_volume_db": -20.6,
+          "max_volume_db": -2.2,
           "issues": [],
           "warnings": []
         },
@@ -217,51 +245,93 @@
           "warnings": [],
           "passed": true
         },
-        "thumbnail": {
-          "exists": true,
-          "path": "output/2026-03-07-v3/short_1772925672_305/thumbnail.jpg",
-          "size_kb": 199,
-          "width": 1280,
-          "height": 720,
-          "format": "JPEG",
-          "brightness": 57.1,
-          "variance": 5475.6,
+        "subtitle_quality": {
+          "issues": [],
+          "warnings": [
+            "📝 Subtítulos algo pequeños: 78px (recomendado: 100px para estilo viral)"
+          ],
+          "passed": true
+        },
+        "framing": {
+          "issues": [],
+          "warnings": [
+            "🖼️ Contenido importante cerca de los bordes — puede ser cortado por UI de la plataforma (Instagram/TikTok/YouTube)"
+          ],
+          "passed": true
+        },
+        "audio_mix": {
           "issues": [],
           "warnings": [],
+          "high_freq_db": -32.7,
           "passed": true
+        },
+        "thumbnail": {
+          "exists": true,
+          "path": "/home/enderj/.openclaw/workspace/bittrader/agents/output/rhino_v1/pi/thumbnail.jpg",
+          "size_kb": 208,
+          "width": 1080,
+          "height": 1920,
+          "format": "JPEG",
+          "brightness": 86.1,
+          "variance": 5013.3,
+          "issues": [
+            "Dimensiones incorrectas: 1080x1920 (necesita 1280x720)"
+          ],
+          "warnings": [
+            "Zona del logo (arriba izquierda) podría no tener logo visible"
+          ],
+          "passed": false
+        },
+        "ai_check": {
+          "ai_check": true,
+          "model": "claude-sonnet-4-6",
+          "scores": {},
+          "overall_score": 0,
+          "grade": "?",
+          "issues": [],
+          "warnings": [],
+          "observations": "",
+          "error": "429 Client Error: Too Many Requests for url: http://127.0.0.1:8443/v1/messages"
         }
       },
       "probe": {
-        "duration": 19.541667,
-        "size_bytes": 7487702,
-        "bitrate": 3065327,
+        "duration": 48.766667,
+        "size_bytes": 9124247,
+        "bitrate": 1496800,
         "format": "mov,mp4,m4a,3gp,3g2,mj2",
         "video_codec": "h264",
         "width": 1080,
         "height": 1920,
-        "fps": 24.0,
-        "video_duration": 19.541667,
+        "fps": 30.0,
+        "video_duration": 48.766667,
         "audio_codec": "aac",
-        "audio_sample_rate": 32000,
-        "audio_duration": 19.52,
+        "audio_sample_rate": 44100,
+        "audio_duration": 46.649002,
         "has_video": true,
         "has_audio": true
       },
-      "duration": 19.5,
-      "size_mb": 7.1,
+      "duration": 48.8,
+      "size_mb": 8.7,
       "resolution": "1080x1920",
-      "grade": "A"
+      "grade": "C"
     },
     {
-      "title": "Le di mis trades a Claude y los resultados me sorprendieron",
-      "type": "long",
+      "title": "PI coin +13%: ¿trampa o despegue real?",
+      "type": "short",
       "issues": [],
-      "warnings": [],
+      "warnings": [
+        "🔄 Audio/Video ligera diferencia: 1.7s",
+        "📝 Subtítulos algo pequeños: 78px (recomendado: 100px para estilo viral)",
+        "🖼️ Contenido importante cerca de los bordes — puede ser cortado por UI de la plataforma (Instagram/TikTok/YouTube)",
+        "🖼️ Dimensiones incorrectas: 1080x1920 (necesita 1280x720)",
+        "🖼️ Zona del logo (arriba izquierda) podría no tener logo visible",
+        "⚠️ AI check failed: 429 Client Error: Too Many Requests for url: http://127.0.0.1:8443/v1/messages"
+      ],
       "passed": true,
       "details": {
         "audio_levels": {
-          "mean_volume_db": -7.4,
-          "max_volume_db": 0.0,
+          "mean_volume_db": -20.6,
+          "max_volume_db": -2.4,
           "issues": [],
           "warnings": []
         },
@@ -271,59 +341,194 @@
           "issues": [],
           "warnings": []
         },
-        "scene_changes": 15,
+        "scene_changes": 3,
         "subtitles": {
           "issues": [],
           "warnings": [],
           "passed": true
         },
-        "thumbnail": {
-          "exists": true,
-          "path": "output/2026-03-07-v3/long_1772925728_400/thumbnail.jpg",
-          "size_kb": 185,
-          "width": 1280,
-          "height": 720,
-          "format": "JPEG",
-          "brightness": 60.5,
-          "variance": 3271.8,
+        "subtitle_quality": {
+          "issues": [],
+          "warnings": [
+            "📝 Subtítulos algo pequeños: 78px (recomendado: 100px para estilo viral)"
+          ],
+          "passed": true
+        },
+        "framing": {
+          "issues": [],
+          "warnings": [
+            "🖼️ Contenido importante cerca de los bordes — puede ser cortado por UI de la plataforma (Instagram/TikTok/YouTube)"
+          ],
+          "passed": true
+        },
+        "audio_mix": {
           "issues": [],
           "warnings": [],
+          "high_freq_db": -32.7,
           "passed": true
+        },
+        "thumbnail": {
+          "exists": true,
+          "path": "/home/enderj/.openclaw/workspace/bittrader/agents/output/rhino_v1/pi/thumbnail.jpg",
+          "size_kb": 208,
+          "width": 1080,
+          "height": 1920,
+          "format": "JPEG",
+          "brightness": 86.1,
+          "variance": 5013.3,
+          "issues": [
+            "Dimensiones incorrectas: 1080x1920 (necesita 1280x720)"
+          ],
+          "warnings": [
+            "Zona del logo (arriba izquierda) podría no tener logo visible"
+          ],
+          "passed": false
+        },
+        "ai_check": {
+          "ai_check": true,
+          "model": "claude-sonnet-4-6",
+          "scores": {},
+          "overall_score": 0,
+          "grade": "?",
+          "issues": [],
+          "warnings": [],
+          "observations": "",
+          "error": "429 Client Error: Too Many Requests for url: http://127.0.0.1:8443/v1/messages"
         }
       },
       "probe": {
-        "duration": 94.0,
-        "size_bytes": 32433034,
-        "bitrate": 2760258,
+        "duration": 49.833333,
+        "size_bytes": 10025372,
+        "bitrate": 1609424,
+        "format": "mov,mp4,m4a,3gp,3g2,mj2",
+        "video_codec": "h264",
+        "width": 1080,
+        "height": 1920,
+        "fps": 30.0,
+        "video_duration": 49.833333,
+        "audio_codec": "aac",
+        "audio_sample_rate": 44100,
+        "audio_duration": 48.158005,
+        "has_video": true,
+        "has_audio": true
+      },
+      "duration": 49.8,
+      "size_mb": 9.6,
+      "resolution": "1080x1920",
+      "grade": "C"
+    },
+    {
+      "title": "Le di mis trades a Claude y los resultados me sorprendieron",
+      "type": "long",
+      "issues": [],
+      "warnings": [
+        "🔄 Audio/Video ligera diferencia: 2.1s",
+        "🖼️ Dimensiones incorrectas: 1920x1080 (necesita 1280x720)",
+        "🖼️ Zona del logo (arriba izquierda) podría no tener logo visible",
+        "⚠️ AI check failed: 429 Client Error: Too Many Requests for url: http://127.0.0.1:8443/v1/messages"
+      ],
+      "passed": true,
+      "details": {
+        "audio_levels": {
+          "mean_volume_db": -20.0,
+          "max_volume_db": -1.4,
+          "issues": [],
+          "warnings": []
+        },
+        "black_frames": {
+          "black_pct": 0.0,
+          "black_seconds": 0,
+          "issues": [],
+          "warnings": []
+        },
+        "scene_changes": 1,
+        "subtitles": {
+          "issues": [],
+          "warnings": [],
+          "passed": true
+        },
+        "subtitle_quality": {
+          "issues": [],
+          "warnings": [],
+          "passed": true
+        },
+        "framing": {
+          "issues": [],
+          "warnings": [],
+          "passed": true
+        },
+        "audio_mix": {
+          "issues": [],
+          "warnings": [],
+          "high_freq_db": -31.3,
+          "passed": true
+        },
+        "thumbnail": {
+          "exists": true,
+          "path": "/home/enderj/.openclaw/workspace/bittrader/agents/output/rhino_v1/claude_trades/thumbnail.jpg",
+          "size_kb": 226,
+          "width": 1920,
+          "height": 1080,
+          "format": "JPEG",
+          "brightness": 66.7,
+          "variance": 5256.8,
+          "issues": [
+            "Dimensiones incorrectas: 1920x1080 (necesita 1280x720)"
+          ],
+          "warnings": [
+            "Zona del logo (arriba izquierda) podría no tener logo visible"
+          ],
+          "passed": false
+        },
+        "ai_check": {
+          "ai_check": true,
+          "model": "claude-sonnet-4-6",
+          "scores": {},
+          "overall_score": 0,
+          "grade": "?",
+          "issues": [],
+          "warnings": [],
+          "observations": "",
+          "error": "429 Client Error: Too Many Requests for url: http://127.0.0.1:8443/v1/messages"
+        }
+      },
+      "probe": {
+        "duration": 252.4,
+        "size_bytes": 29998541,
+        "bitrate": 950825,
         "format": "mov,mp4,m4a,3gp,3g2,mj2",
         "video_codec": "h264",
         "width": 1920,
         "height": 1080,
-        "fps": 24.0,
-        "video_duration": 94.0,
+        "fps": 30.0,
+        "video_duration": 252.4,
         "audio_codec": "aac",
-        "audio_sample_rate": 32000,
-        "audio_duration": 93.984,
+        "audio_sample_rate": 24000,
+        "audio_duration": 250.325,
         "has_video": true,
         "has_audio": true
       },
-      "duration": 94.0,
-      "size_mb": 30.9,
+      "duration": 252.4,
+      "size_mb": 28.6,
       "resolution": "1920x1080",
-      "grade": "A"
+      "grade": "C"
     },
     {
       "title": "ZEC cae 7%: ¿el fin de las privacy coins?",
       "type": "short",
       "issues": [],
       "warnings": [
-        "📝 Texto detectado en múltiples zonas verticales — posible subtítulos duplicados"
+        "🔄 Audio/Video ligera diferencia: 2.0s",
+        "📝 Subtítulos algo pequeños: 78px (recomendado: 100px para estilo viral)",
+        "🖼️ Contenido importante cerca de los bordes — puede ser cortado por UI de la plataforma (Instagram/TikTok/YouTube)",
+        "🖼️ Dimensiones incorrectas: 1080x1920 (necesita 1280x720)",
+        "⚠️ AI check failed: 429 Client Error: Too Many Requests for url: http://127.0.0.1:8443/v1/messages"
       ],
       "passed": true,
       "details": {
         "audio_levels": {
-          "mean_volume_db": -7.4,
-          "max_volume_db": 0.0,
+          "mean_volume_db": -20.3,
+          "max_volume_db": -2.9,
           "issues": [],
           "warnings": []
         },
@@ -336,56 +541,92 @@
         "scene_changes": 3,
         "subtitles": {
           "issues": [],
+          "warnings": [],
+          "passed": true
+        },
+        "subtitle_quality": {
+          "issues": [],
           "warnings": [
-            "📝 Texto detectado en múltiples zonas verticales — posible subtítulos duplicados"
+            "📝 Subtítulos algo pequeños: 78px (recomendado: 100px para estilo viral)"
           ],
+          "passed": true
+        },
+        "framing": {
+          "issues": [],
+          "warnings": [
+            "🖼️ Contenido importante cerca de los bordes — puede ser cortado por UI de la plataforma (Instagram/TikTok/YouTube)"
+          ],
+          "passed": true
+        },
+        "audio_mix": {
+          "issues": [],
+          "warnings": [],
+          "high_freq_db": -32.0,
           "passed": true
         },
         "thumbnail": {
           "exists": true,
-          "path": "output/2026-03-07-v3/short_1772925742_739/thumbnail.jpg",
-          "size_kb": 237,
-          "width": 1280,
-          "height": 720,
+          "path": "/home/enderj/.openclaw/workspace/bittrader/agents/output/rhino_v1/zec/thumbnail.jpg",
+          "size_kb": 214,
+          "width": 1080,
+          "height": 1920,
           "format": "JPEG",
-          "brightness": 67.8,
-          "variance": 4842.5,
+          "brightness": 104.2,
+          "variance": 7814.2,
+          "issues": [
+            "Dimensiones incorrectas: 1080x1920 (necesita 1280x720)"
+          ],
+          "warnings": [],
+          "passed": false
+        },
+        "ai_check": {
+          "ai_check": true,
+          "model": "claude-sonnet-4-6",
+          "scores": {},
+          "overall_score": 0,
+          "grade": "?",
           "issues": [],
           "warnings": [],
-          "passed": true
+          "observations": "",
+          "error": "429 Client Error: Too Many Requests for url: http://127.0.0.1:8443/v1/messages"
         }
       },
       "probe": {
-        "duration": 18.958333,
-        "size_bytes": 7234798,
-        "bitrate": 3052925,
+        "duration": 49.033333,
+        "size_bytes": 9518487,
+        "bitrate": 1552982,
         "format": "mov,mp4,m4a,3gp,3g2,mj2",
         "video_codec": "h264",
         "width": 1080,
         "height": 1920,
-        "fps": 24.0,
-        "video_duration": 18.958333,
+        "fps": 30.0,
+        "video_duration": 49.033333,
         "audio_codec": "aac",
-        "audio_sample_rate": 32000,
-        "audio_duration": 18.944,
+        "audio_sample_rate": 44100,
+        "audio_duration": 47.02,
         "has_video": true,
         "has_audio": true
       },
-      "duration": 19.0,
-      "size_mb": 6.9,
+      "duration": 49.0,
+      "size_mb": 9.1,
       "resolution": "1080x1920",
-      "grade": "B"
+      "grade": "C"
     },
     {
       "title": "De $0 a cuenta fondeada en 30 días (plan real paso a paso)",
       "type": "long",
       "issues": [],
-      "warnings": [],
+      "warnings": [
+        "🔄 Audio/Video ligera diferencia: 2.0s",
+        "🖼️ Dimensiones incorrectas: 1920x1080 (necesita 1280x720)",
+        "🖼️ Zona del logo (arriba izquierda) podría no tener logo visible",
+        "⚠️ AI check failed: 502 Server Error: Bad Gateway for url: http://127.0.0.1:8443/v1/messages"
+      ],
       "passed": true,
       "details": {
         "audio_levels": {
-          "mean_volume_db": -7.4,
-          "max_volume_db": 0.0,
+          "mean_volume_db": -20.6,
+          "max_volume_db": -1.9,
           "issues": [],
           "warnings": []
         },
@@ -395,59 +636,92 @@
           "issues": [],
           "warnings": []
         },
-        "scene_changes": 15,
+        "scene_changes": 1,
         "subtitles": {
           "issues": [],
           "warnings": [],
           "passed": true
         },
-        "thumbnail": {
-          "exists": true,
-          "path": "output/2026-03-07-v3/long_1772925781_782/thumbnail.jpg",
-          "size_kb": 222,
-          "width": 1280,
-          "height": 720,
-          "format": "JPEG",
-          "brightness": 57.3,
-          "variance": 2697.9,
+        "subtitle_quality": {
           "issues": [],
           "warnings": [],
           "passed": true
+        },
+        "framing": {
+          "issues": [],
+          "warnings": [],
+          "passed": true
+        },
+        "audio_mix": {
+          "issues": [],
+          "warnings": [],
+          "high_freq_db": -31.8,
+          "passed": true
+        },
+        "thumbnail": {
+          "exists": true,
+          "path": "/home/enderj/.openclaw/workspace/bittrader/agents/output/rhino_v1/fondeada/thumbnail.jpg",
+          "size_kb": 179,
+          "width": 1920,
+          "height": 1080,
+          "format": "JPEG",
+          "brightness": 66.5,
+          "variance": 3996.0,
+          "issues": [
+            "Dimensiones incorrectas: 1920x1080 (necesita 1280x720)"
+          ],
+          "warnings": [
+            "Zona del logo (arriba izquierda) podría no tener logo visible"
+          ],
+          "passed": false
+        },
+        "ai_check": {
+          "ai_check": true,
+          "model": "claude-sonnet-4-6",
+          "scores": {},
+          "overall_score": 0,
+          "grade": "?",
+          "issues": [],
+          "warnings": [],
+          "observations": "",
+          "error": "502 Server Error: Bad Gateway for url: http://127.0.0.1:8443/v1/messages"
         }
       },
       "probe": {
-        "duration": 94.0,
-        "size_bytes": 32195733,
-        "bitrate": 2740062,
+        "duration": 256.966667,
+        "size_bytes": 30816389,
+        "bitrate": 959389,
         "format": "mov,mp4,m4a,3gp,3g2,mj2",
         "video_codec": "h264",
         "width": 1920,
         "height": 1080,
-        "fps": 24.0,
-        "video_duration": 94.0,
+        "fps": 30.0,
+        "video_duration": 256.966667,
         "audio_codec": "aac",
-        "audio_sample_rate": 32000,
-        "audio_duration": 93.984,
+        "audio_sample_rate": 44100,
+        "audio_duration": 254.931995,
         "has_video": true,
         "has_audio": true
       },
-      "duration": 94.0,
-      "size_mb": 30.7,
+      "duration": 257.0,
+      "size_mb": 29.4,
       "resolution": "1920x1080",
-      "grade": "A"
+      "grade": "C"
     },
     {
       "title": "El bot que lee noticias y ejecuta tus trades solo (sin errores)",
       "type": "long",
       "issues": [],
       "warnings": [
-        "🖼️ Miniatura oscura (brillo: 39/255)"
+        "🖼️ Dimensiones incorrectas: 1920x1080 (necesita 1280x720)",
+        "🖼️ Zona del logo (arriba izquierda) podría no tener logo visible",
+        "⚠️ AI check failed: 429 Client Error: Too Many Requests for url: http://127.0.0.1:8443/v1/messages"
       ],
       "passed": true,
       "details": {
         "audio_levels": {
-          "mean_volume_db": -7.4,
-          "max_volume_db": 0.0,
+          "mean_volume_db": -20.5,
+          "max_volume_db": -2.6,
           "issues": [],
           "warnings": []
         },
@@ -457,48 +731,77 @@
           "issues": [],
           "warnings": []
         },
-        "scene_changes": 18,
+        "scene_changes": 1,
         "subtitles": {
           "issues": [],
           "warnings": [],
           "passed": true
         },
+        "subtitle_quality": {
+          "issues": [],
+          "warnings": [],
+          "passed": true
+        },
+        "framing": {
+          "issues": [],
+          "warnings": [],
+          "passed": true
+        },
+        "audio_mix": {
+          "issues": [],
+          "warnings": [],
+          "high_freq_db": -32.5,
+          "passed": true
+        },
         "thumbnail": {
           "exists": true,
-          "path": "output/2026-03-07-v3/long_1772925821_433/thumbnail.jpg",
-          "size_kb": 196,
-          "width": 1280,
-          "height": 720,
+          "path": "/home/enderj/.openclaw/workspace/bittrader/agents/output/rhino_v1/bot_noticias/thumbnail.jpg",
+          "size_kb": 227,
+          "width": 1920,
+          "height": 1080,
           "format": "JPEG",
-          "brightness": 39.3,
-          "variance": 3448.6,
-          "issues": [],
-          "warnings": [
-            "Miniatura oscura (brillo: 39/255)"
+          "brightness": 66.4,
+          "variance": 5241.2,
+          "issues": [
+            "Dimensiones incorrectas: 1920x1080 (necesita 1280x720)"
           ],
-          "passed": true
+          "warnings": [
+            "Zona del logo (arriba izquierda) podría no tener logo visible"
+          ],
+          "passed": false
+        },
+        "ai_check": {
+          "ai_check": true,
+          "model": "claude-sonnet-4-6",
+          "scores": {},
+          "overall_score": 0,
+          "grade": "?",
+          "issues": [],
+          "warnings": [],
+          "observations": "",
+          "error": "429 Client Error: Too Many Requests for url: http://127.0.0.1:8443/v1/messages"
         }
       },
       "probe": {
-        "duration": 111.471,
-        "size_bytes": 37557412,
-        "bitrate": 2695403,
+        "duration": 272.718005,
+        "size_bytes": 32303713,
+        "bitrate": 947607,
         "format": "mov,mp4,m4a,3gp,3g2,mj2",
         "video_codec": "h264",
         "width": 1920,
         "height": 1080,
-        "fps": 24.0,
-        "video_duration": 111.458333,
+        "fps": 30.0,
+        "video_duration": 272.7,
         "audio_codec": "aac",
-        "audio_sample_rate": 32000,
-        "audio_duration": 111.471,
+        "audio_sample_rate": 44100,
+        "audio_duration": 272.718005,
         "has_video": true,
         "has_audio": true
       },
-      "duration": 111.5,
-      "size_mb": 35.8,
+      "duration": 272.7,
+      "size_mb": 30.8,
       "resolution": "1920x1080",
-      "grade": "B"
+      "grade": "C"
     }
   ]
 }

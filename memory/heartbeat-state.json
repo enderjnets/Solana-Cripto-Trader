@@ -1,43 +1,32 @@
 {
   "lastChecks": {
-    "system": 1741971600,
-    "trading": 1741971600,
-    "communications": 1741971600,
-    "calendar": 1741971600,
-    "openclaw": 1741971600
+    "system": 1741976100,
+    "trading": 1741976100,
+    "communications": 1741976100,
+    "calendar": 1741976100,
+    "openclaw": 1741976100
   },
   "alerts": [],
   "pendingTasks": [
+    "Jueves 7:30 AM: Pick up Susannah aeropuerto (recordatorio 6AM)",
+    "Viernes 9:15 AM: Pick up Dustin +3 aeropuerto ($123)",
     "Sábado 1PM: Cambio automático GLM-5 → Opus 4.6",
-    "Jueves 7:30 AM: Pick up Susannah aeropuerto",
     "GO-PASS dispute: deadline 15 marzo",
     "Hilton Grand Vacations: llamar para confirmar cambio fecha"
   ],
-  "lastHeartbeat": "2026-03-11T20:50:00-06:00",
-  "notifiedEvents": ["susannah_airport_2026-03-12"],
+  "lastHeartbeat": "2026-03-11T21:15:00-06:00",
+  "notifiedEvents": ["susannah_airport_2026-03-12", "dustin_airport_2026-03-13"],
   "systemScore": "100/100",
+  "solanaBot": {
+    "status": "ACTIVE",
+    "mode": "paper_drift",
+    "capital": 496.85,
+    "drawdown": 0.63,
+    "openPositions": 3,
+    "pnl": -2.67
+  },
   "youtubeOauth": {
     "status": "COMPLETE",
-    "auto_refresh": "Daily 8AM",
-    "captions_uploaded": 3
-  },
-  "completedToday": [
-    "CEO Agent creado",
-    "Engineer Agent creado (el genio)",
-    "MrBeast Optimizer Agent creado",
-    "MrBeast Creator Integration completado",
-    "Creator Agent modificado con MrBeast tactics",
-    "Sistema de agentes jerárquico implementado",
-    "Análisis completo Playbook MrBeast",
-    "Subtítulos subidos a 3 videos largos",
-    "Organization.json actualizado",
-    "Git commits realizados",
-    "Auditoría total del sistema completada",
-    "Engineer Agent revisó y corrigió problemas",
-    "A/B testing thumbnails creado",
-    "YouTube Analytics integration creado",
-    "YouTube OAuth regenerado con scopes completos",
-    "Auto-refresh OAuth diario programado",
-    "Score 100/100 alcanzado"
-  ]
+    "auto_refresh": "Daily 8AM"
+  }
 }
