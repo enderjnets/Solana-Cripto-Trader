@@ -82,10 +82,18 @@ class CEOAgent:
             return {"error": "No production file found"}
 
         data = json.loads(PRODUCTION_FILE.read_text())
+        # Extract stats with fallbacks
+        stats = data.get("stats", {})
+        videos = data.get("videos", [])
+        
+        # Count shorts vs longs from videos list
+        shorts_count = sum(1 for v in videos if v.get("type") == "short")
+        longs_count = sum(1 for v in videos if v.get("type") == "long")
+        
         return {
-            "total_videos": data["stats"]["total"],
-            "shorts": data["stats"]["shorts"],
-            "longs": data["stats"]["longs"],
+            "total_videos": stats.get("total", len(videos)),
+            "shorts": stats.get("shorts", shorts_count),
+            "longs": stats.get("longs", longs_count),
             "quality_pass_rate": data.get("quality_check", {}).get("pass_rate", "N/A"),
             "produced_at": data.get("produced_at", "N/A")
         }
