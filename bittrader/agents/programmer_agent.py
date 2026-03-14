@@ -39,7 +39,7 @@ TASKS_FILE = DATA_DIR / "programmer_tasks.json"
 PROGRAMMER_STATE_FILE = DATA_DIR / "programmer_state.json"
 
 # ── Model Config ───────────────────────────────────────────────────────────
-CURRENT_MODEL = "glm-4.7"
+CURRENT_MODEL = "claude-opus-4-6"
 FUTURE_MODEL = "claude-opus-4-6"
 MODEL_SWITCH_TIME = "2026-03-14T13:00:00-06:00"
 

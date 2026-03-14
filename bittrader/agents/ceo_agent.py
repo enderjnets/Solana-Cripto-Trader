@@ -36,7 +36,7 @@ ORGANIZATION_FILE = DATA_DIR / "organization.json"
 
 # ── Model Config ───────────────────────────────────────────────────────────
 # Current: GLM-4.7, changes to Claude Opus 4.6 on Saturday 1PM
-CURRENT_MODEL = "glm-4.7"
+CURRENT_MODEL = "claude-sonnet-4-6"
 FUTURE_MODEL = "claude-opus-4-6"
 MODEL_SWITCH_TIME = "2026-03-14T13:00:00-06:00"  # Saturday 1PM Denver
 

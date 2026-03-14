@@ -34,7 +34,7 @@ CAMPAIGNS_FILE = DATA_DIR / "marketing_campaigns.json"
 
 # ── Model Config ───────────────────────────────────────────────────────────
 # Current: GLM-4.7, changes to Sonnet 4.6 on Saturday 1PM
-CURRENT_MODEL = "glm-4.7"
+CURRENT_MODEL = "claude-sonnet-4-6"
 FUTURE_MODEL = "claude-sonnet-4-6"
 MODEL_SWITCH_TIME = "2026-03-14T13:00:00-06:00"  # Saturday 1PM Denver
 
