@@ -257,29 +257,43 @@ def action_regenerate_video(script_id: str, original_topic: str) -> str:
     queue = [v for v in queue if v.get("script_id") != script_id]
     QUEUE_FILE.write_text(json.dumps(queue, indent=2))
 
-    # Step 2: Re-run creator (will pick up topics from scout data)
+    # Step 2: Inject topic into regen_queue.json and run full pipeline
     try:
-        result = subprocess.run(
-            [sys.executable, str(BASE / "creator.py")],
-            capture_output=True, text=True, timeout=300,
-            cwd=str(BASE)
-        )
-        if result.returncode == 0:
-            # Step 3: Run producer
-            result2 = subprocess.run(
-                [sys.executable, str(BASE / "producer.py")],
-                capture_output=True, text=True, timeout=600,
-                cwd=str(BASE)
-            )
-            if result2.returncode == 0:
-                log_action("regenerate_video", {"script_id": script_id}, "SUCCESS")
-                return "SUCCESS"
-            else:
-                log_action("regenerate_video", {"script_id": script_id}, f"PRODUCER_FAILED: {result2.stderr[:100]}")
-                return f"PRODUCER_FAILED"
-        else:
-            log_action("regenerate_video", {"script_id": script_id}, f"CREATOR_FAILED: {result.stderr[:100]}")
-            return f"CREATOR_FAILED"
+        import time as _time
+        regen_file = DATA_DIR / "regen_queue.json"
+        regen_data = json.loads(regen_file.read_text()) if regen_file.exists() else {"scripts": []}
+
+        # Add this topic to regen queue if not already there
+        existing_topics = [s.get("original_topic","") for s in regen_data.get("scripts",[])]
+        if original_topic not in existing_topics:
+            regen_data["scripts"].append({
+                "id":             f"regen_{int(_time.time())}",
+                "type":           "short" if "short" in script_id else "long",
+                "theme":          "noticia",
+                "priority":       "alta",
+                "title":          original_topic,
+                "original_topic": original_topic,
+                "status":         "needs_regen",
+                "script":         "",
+                "created_at":     datetime.now(timezone.utc).isoformat(),
+            })
+            regen_file.write_text(json.dumps(regen_data, indent=2))
+
+        # Run creator → producer pipeline
+        for cmd, timeout in [
+            ([sys.executable, str(BASE / "creator.py")], 300),
+            ([sys.executable, str(BASE / "producer.py")], 600),
+            ([sys.executable, str(BASE / "pipeline_guardian.py"), "--audit"], 60),
+            ([sys.executable, str(BASE / "queue_processor.py")], 300),
+        ]:
+            r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, cwd=str(BASE))
+            if r.returncode != 0:
+                step = Path(cmd[1]).stem
+                log_action("regenerate_video", {"script_id": script_id}, f"{step.upper()}_FAILED: {r.stderr[:100]}")
+                return f"{step.upper()}_FAILED"
+
+        log_action("regenerate_video", {"script_id": script_id}, "SUCCESS")
+        return "SUCCESS"
     except Exception as e:
         log_action("regenerate_video", {"script_id": script_id}, f"ERROR: {e}")
         return f"ERROR: {e}"
