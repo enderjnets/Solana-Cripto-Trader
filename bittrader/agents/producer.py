@@ -1134,7 +1134,7 @@ def produce_single(script: dict, output_dir: Path, use_ai_video: bool = True) ->
             time.sleep(2)  # Rate limit
         
         if clips:
-        print(f"    🐛 DEBUG: Entering assemble_video path (clips={len(clips)})")
+            print(f"    🐛 DEBUG: Entering assemble_video path (clips={len(clips)})")
             print(f"    🔧 Ensamblando {len(clips)} clips + audio...")
             success = assemble_video(
                 clips, audio_path, video_path, title, duration,
@@ -1151,6 +1151,7 @@ def produce_single(script: dict, output_dir: Path, use_ai_video: bool = True) ->
                     video_type, script_text, output_dir
                 )
         else:
+            print(f"    🐛 DEBUG: Entering fallback path (no clips)")
             print(f"    ⚠️ No se generaron clips, usando fallback...")
             success = make_fallback_video(
                 audio_path, video_path, title, duration,
@@ -1158,6 +1159,7 @@ def produce_single(script: dict, output_dir: Path, use_ai_video: bool = True) ->
             )
     else:
         # Text-only fallback
+        print(f"    🐛 DEBUG: Entering fallback path (use_ai_video=False)")
         success = make_fallback_video(
             audio_path, video_path, title, duration,
             video_type, script_text, output_dir
