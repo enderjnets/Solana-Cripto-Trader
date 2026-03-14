@@ -1,25 +1,5 @@
 [
   {
-    "script_id": "short_1773470150_254",
-    "title": "PI se hunde -29% en 24h (24 caracteres - OK)",
-    "description": "#crypto #trading #short_1773470150_254",
-    "type": "short",
-    "tags": [
-      "crypto",
-      "trading",
-      "shorts"
-    ],
-    "output_file": "/home/enderj/.openclaw/workspace/bittrader/agents/output/2026-03-14/short_1773470150_254/short_1773470150_254.mp4",
-    "duration": 12.7,
-    "size_mb": 0.3,
-    "status": "failed_video_quality",
-    "thumbnail": "/home/enderj/.openclaw/workspace/bittrader/agents/output/2026-03-14/short_1773470150_254/short_1773470150_254_thumbnail.jpg",
-    "scheduled_date": "2026-03-14T15:09:33.741197+00:00",
-    "video_id": null,
-    "uploaded_at": "2026-03-14T15:09:39.950457+00:00",
-    "error": "Visual black - mostly black frames (RGB: 13,13,10)"
-  },
-  {
     "script_id": "short_1773470200_200",
     "title": "TRUMP Coin: \u00bfEstafa o MILLONES?",
     "description": "#crypto #trading #short_1773470200_200",
@@ -44,12 +24,12 @@
     "script_id": "short_1773470306_372",
     "title": "NEIRO explota: Qu\u00e9 est\u00e1 pasando",
     "type": "short",
-    "status": "failed",
+    "status": "ready",
     "thumbnail_ready": true,
-    "scheduled_date": "2026-03-14T18:00:00+00:00",
+    "scheduled_date": "2026-03-15T15:00:00+00:00",
     "produced_at": "2026-03-14T16:37:57.626201+00:00",
     "thumbnail_path": "/home/enderj/.openclaw/workspace/bittrader/agents/data/thumbnails/short_1773470306_372_thumbnail.jpg",
-    "error": "'output_file'"
+    "error": null
   },
   {
     "script_id": "long_1773470394_349",
