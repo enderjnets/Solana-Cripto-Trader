@@ -1,0 +1,12 @@
+{
+  "date": "2026-03-14",
+  "starting_capital": 243.2882,
+  "target_pct": 0.02,
+  "max_loss_pct": 0.01,
+  "target_reached": false,
+  "target_usd": 4.87,
+  "max_loss_usd": 2.43,
+  "closed_at": null,
+  "enabled": true,
+  "updated_at": "2026-03-14T22:50:56.813982+00:00"
+}

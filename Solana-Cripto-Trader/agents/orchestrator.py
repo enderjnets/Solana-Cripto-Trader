@@ -111,7 +111,7 @@ def run_cycle(safe=True, debug=False):
     if portfolio_data:
         try:
             stale_positions = rm.check_stale_losing_positions(
-                portfolio_data, max_hours=48, improvement_hours=12
+                portfolio_data, max_hours=72, improvement_hours=24
             )
         except Exception as e:
             log.warning(f"   ⚠️ Error: {e}")
