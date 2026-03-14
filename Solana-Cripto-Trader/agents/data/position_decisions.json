@@ -1,0 +1,55 @@
+{
+  "timestamp": "2026-03-14T23:00:00.408310+00:00",
+  "decisions": [
+    {
+      "symbol": "GOAT",
+      "direction": "long",
+      "action": "CLOSE",
+      "confidence": 0.7,
+      "alignment": "SPLIT (quant=REDUCE, llm=CLOSE)",
+      "quant_score": 45,
+      "quant_action": "REDUCE",
+      "quant_reasons": [
+        "TP_MODERADO (1.11%)",
+        "RR_MALO (0.18x)",
+        "GANANCIA_ALTA (9.9%)"
+      ],
+      "llm_action": "CLOSE",
+      "llm_confidence": 0.87,
+      "llm_reasoning": "El TP est\u00e1 a solo 1.11% con un R/R restante de 0.18x, lo que hace que el riesgo/recompensa sea extremadamente desfavorable para mantener la posici\u00f3n. Con un Fear & Greed de 15/100 (miedo extremo) y tendencia neutral de baja confianza, la ganancia actual del 9.91% sobre margen debe asegurarse cerrando la posici\u00f3n.",
+      "llm_source": "llm_claude_sonnet",
+      "pnl_usd": 12.383,
+      "pnl_pct": 9.9064,
+      "dist_tp_pct": 1.115,
+      "dist_sl_pct": 6.107,
+      "rr_remaining": 0.183,
+      "hours_open": 0,
+      "evaluated_at": "2026-03-14T22:59:57.174376+00:00"
+    },
+    {
+      "symbol": "SOL",
+      "direction": "long",
+      "action": "CLOSE",
+      "confidence": 1.0,
+      "alignment": "ALIGNED",
+      "quant_score": 60,
+      "quant_action": "CLOSE",
+      "quant_reasons": [
+        "TP_CERCA (0.55%)",
+        "RR_MALO (0.08x)",
+        "GANANCIA_ALTA (11.7%)"
+      ],
+      "llm_action": "CLOSE",
+      "llm_confidence": 0.92,
+      "llm_reasoning": "El TP est\u00e1 a solo 0.55% con un R/R residual de 0.08x, activando la regla de cierre inmediato por proximidad al objetivo. Con Fear & Greed en 15 (miedo extremo) y tendencia neutral de baja confianza, mantener la posici\u00f3n solo expone el 11.66% de ganancia acumulada a un reversal innecesario.",
+      "llm_source": "llm_claude_sonnet",
+      "pnl_usd": 14.5696,
+      "pnl_pct": 11.6556,
+      "dist_tp_pct": 0.55,
+      "dist_sl_pct": 6.632,
+      "rr_remaining": 0.083,
+      "hours_open": 0,
+      "evaluated_at": "2026-03-14T23:00:00.408182+00:00"
+    }
+  ]
+}
