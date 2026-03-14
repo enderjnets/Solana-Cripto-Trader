@@ -1,0 +1,25 @@
+{
+  "blocked_spammers": [
+    {
+      "number": "+17205121753",
+      "reason": "Bitcoin/Crypto automated spammer script",
+      "type": "forwarded_spam",
+      "status": "PENDING_MANUAL_BLOCK",
+      "date_added": "2026-03-09T10:45:00"
+    }
+  ],
+  "whitelist": [
+    {
+      "number": "+16159751056",
+      "name": "Yonathan Luzardo (Yona)",
+      "reason": "Friend - intentional security testing",
+      "status": "VERIFIED"
+    },
+    {
+      "number": "+17208387940",
+      "name": "Maggie (Esposa)",
+      "reason": "Family member",
+      "status": "VERIFIED"
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+[
+  {
+    "date": "2026-03-14T08:28:58.567272",
+    "person": "Maggie Quintero (Baika)",
+    "relationship": "Esposa de Ender",
+    "business": "I Capelli Salon (nail/hair salon, Denver)",
+    "last_contact": "Hace 3 d\u00edas (mensaje enviado)",
+    "status": "PENDIENTE - Dijo que lo revisar\u00eda, sin respuesta a\u00fan",
+    "next_action": "Seguimiento o cambio de estrategia"
+  },
+  {
+    "date": "2026-03-14T08:31:29.575527",
+    "person": "Maggie Quintero (Baika)",
+    "decision": "Esperar 1-2 d\u00edas m\u00e1s antes de seguimiento",
+    "reason": "Opci\u00f3n 3 elegida por usuario",
+    "followup_date": "2026-03-16T08:31:29.575534",
+    "next_action": "Opci\u00f3n B - Pregunta directa si no hay respuesta en 2 d\u00edas"
+  }
+]

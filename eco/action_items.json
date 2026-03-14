@@ -1,0 +1,49 @@
+[
+  {
+    "priority": "ALTA",
+    "task": "Seguimiento con Maggie",
+    "deadline": "2026-03-16",
+    "options": [
+      "Llamar por tel\u00e9fono (si tiene n\u00famero)",
+      "Enviar mensaje breve recordatorio",
+      "Preguntar directamente: \u00bfSigues interesada? Si no, entender\u00e9 y buscar\u00e9 otros clientes."
+    ]
+  },
+  {
+    "priority": "ALTA",
+    "task": "Investigar negocios en Aurora/Fraser St.",
+    "deadline": "2026-03-15",
+    "subtasks": [
+      "Google Maps search: salons, spas, restaurants en Aurora 80016",
+      "Identificar 10-15 negocios potenciales",
+      "Recopilar: nombre, direcci\u00f3n, tel\u00e9fono, tipo de negocio"
+    ]
+  },
+  {
+    "priority": "MEDIA",
+    "task": "Crear materiales de marketing",
+    "deadline": "2026-03-17",
+    "deliverables": [
+      "Folleto/brochure de Eco (1 p\u00e1gina)",
+      "Tarjeta de presentaci\u00f3n digital",
+      "Demo reel corto (30-60 segundos)",
+      "Lista de servicios con precios"
+    ]
+  },
+  {
+    "priority": "MEDIA",
+    "task": "Unirse a Aurora Chamber of Commerce",
+    "deadline": "2026-03-20",
+    "benefits": [
+      "Networking con due\u00f1os de negocios locales",
+      "Acceso a eventos y mixers",
+      "Credibilidad como negocio local"
+    ]
+  },
+  {
+    "priority": "BAJA",
+    "task": "Preparar demo para salones espec\u00edficamente",
+    "deadline": "2026-03-18",
+    "focus": "Sistema de booking automatizado + recordatorios SMS/email"
+  }
+]

@@ -1,21 +1,22 @@
 {
   "lastChecks": {
-    "system": 1741976100,
-    "trading": 1741976100,
-    "communications": 1741976100,
-    "calendar": 1741976100,
-    "openclaw": 1741976100
+    "system": 1773419640,
+    "trading": 1773419640,
+    "communications": 1773419640,
+    "calendar": 1773419640,
+    "openclaw": 1773419640
   },
   "alerts": [],
   "pendingTasks": [
-    "Jueves 7:30 AM: Pick up Susannah aeropuerto (recordatorio 6AM)",
-    "Viernes 9:15 AM: Pick up Dustin +3 aeropuerto ($123)",
+    "Viernes 20 Marzo 3:30 PM: Pick up Dustin +3 aeropuerto ($123) - YA EN CALENDARIO",
     "Sábado 1PM: Cambio automático GLM-5 → Opus 4.6",
     "GO-PASS dispute: deadline 15 marzo",
-    "Hilton Grand Vacations: llamar para confirmar cambio fecha"
+    "Hilton Grand Vacations: llamar para confirmar cambio fecha",
+    "BitTrader: Probar Creator Agent con títulos en inglés",
+    "BitTrader: Generar videos nuevos con títulos en inglés"
   ],
-  "lastHeartbeat": "2026-03-11T21:15:00-06:00",
-  "notifiedEvents": ["susannah_airport_2026-03-12", "dustin_airport_2026-03-13"],
+  "lastHeartbeat": "2026-03-13T10:34:00-06:00",
+  "notifiedEvents": ["susannah_airport_2026-03-12", "dustin_airport_2026-03-20", "bittrader_meeting_2026-03-13"],
   "systemScore": "100/100",
   "solanaBot": {
     "status": "ACTIVE",

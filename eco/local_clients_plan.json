@@ -1,0 +1,32 @@
+{
+  "location": "Aurora, Colorado 80016 (6000 S. Fraser St.)",
+  "radius": "5-10 millas alrededor de Fraser St.",
+  "target_businesses": [
+    "Salons (nail, hair, beauty)",
+    "Spas",
+    "Restaurants (peque\u00f1os/medianos)",
+    "Retail shops (boutiques, tiendas locales)",
+    "Service businesses (mec\u00e1nicas, limpiezas, etc.)"
+  ],
+  "strategies": [
+    "Visita en persona con folleto de servicios",
+    "Ofrecer demo gratuita de automatizaci\u00f3n",
+    "Enfocarse en problemas espec\u00edficos de cada negocio",
+    "Networking en eventos locales (Chamber of Commerce, etc.)"
+  ],
+  "value_proposition": {
+    "problem": "Los due\u00f1os de negocios pierden tiempo en tareas administrativas repetitivas",
+    "solution": "Automatizaci\u00f3n con IA para booking, recordatorios, marketing, inventario",
+    "benefits": [
+      "Ahorra 10-20 horas/semana",
+      "Reduce errores de programaci\u00f3n",
+      "Aumenta retenci\u00f3n de clientes con comunicaci\u00f3n automatizada",
+      "Mejora marketing sin esfuerzo extra"
+    ]
+  },
+  "pricing_model": [
+    "$300-500 setup inicial",
+    "$100-200/mes por mantenimiento",
+    "Paquete piloto para Maggie: $200 total (descuento familiar)"
+  ]
+}

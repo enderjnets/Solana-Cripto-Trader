@@ -597,6 +597,76 @@ def fetch_coin_logo(symbol: str) -> Path | None:
         return None
 
 
+def validate_video_quality(video_path: Path) -> bool:
+    """Validate that video has visible content (not black)."""
+    try:
+        from PIL import Image, ImageStat
+        
+        print(f"      🔍 Validando calidad visual...")
+        
+        # Get video dimensions and duration
+        probe = subprocess.run(
+            ["ffprobe", "-v", "error", "-select_streams", "v:0",
+             "-show_entries", "stream=width,height,duration",
+             "-of", "csv=p=0", str(video_path)],
+            capture_output=True, text=True, timeout=30
+        )
+        
+        dims = probe.stdout.strip().split(",")
+        if len(dims) >= 3:
+            w, h, dur = int(dims[0]), int(dims[1]), float(dims[2])
+            print(f"      📐 Video: {w}x{h}, {dur:.1f}s")
+        
+        # Extract 5 evenly spaced frames
+        frame_dir = video_path.parent / "quality_check"
+        frame_dir.mkdir(exist_ok=True)
+        
+        total_brightness = 0
+        frame_count = 0
+        
+        for i in range(1, 6):
+            frame_path = frame_dir / f"check_{i}.jpg"
+            timestamp = i * 2  # Check at 2, 4, 6, 8, 10 seconds
+            
+            subprocess.run([
+                "ffmpeg", "-y", "-ss", str(timestamp), "-i", str(video_path),
+                "-vframes", "1", "-q:v", "2", str(frame_path)
+            ], capture_output=True, timeout=30)
+            
+            if frame_path.exists():
+                img = Image.open(frame_path)
+                stat = ImageStat.Stat(img)
+                r, g, b = stat.mean
+                brightness = (r + g + b) / 3
+                total_brightness += brightness
+                frame_count += 1
+                
+                print(f"      🎞️  Frame {i}: brightness={brightness:.1f} (RGB: {r:.1f},{g:.1f},{b:.1f})")
+                
+                # If any frame is too dark (<30), video is invalid
+                if brightness < 30:
+                    print(f"      ❌ Frame {i} too dark: brightness={brightness:.1f} < 30")
+                    return False
+            else:
+                print(f"      ⚠️  Frame {i} extraction failed")
+                return False
+        
+        # Average brightness
+        avg_brightness = total_brightness / frame_count if frame_count > 0 else 0
+        print(f"      ✅ Quality check passed - avg brightness: {avg_brightness:.1f}")
+        
+        # Clean up
+        import shutil
+        shutil.rmtree(frame_dir, ignore_errors=True)
+        
+        return True
+        
+    except Exception as e:
+        print(f"      ⚠️  Quality validation error: {e}")
+        # If validation fails, assume bad quality
+        return False
+
+
 def assemble_video(clips: list, audio_path: Path, output_path: Path, 
                    title: str, duration: float, video_type: str,
                    script_text: str, script_dir: Path,
@@ -856,6 +926,11 @@ def assemble_video(clips: list, audio_path: Path, output_path: Path,
         print(f"      ❌ Assembly failed: {r2.stderr[:200]}")
         return False
     
+    # NEW: Validate video quality (check for black video)
+    if not validate_video_quality(output_path):
+        print(f"      ❌ Video quality check failed - video too dark")
+        return False
+    
     return output_path.exists()
 
 
@@ -864,7 +939,8 @@ def make_fallback_video(audio_path: Path, output_path: Path, title: str,
                         script_dir: Path) -> bool:
     """Fallback: generate video with colored background + text (no AI clips)."""
     
-    BG_COLORS = ["#0a0a0a", "#0d1117", "#1a1a2e", "#16213e", "#0f3460"]
+    # FIXED: Use lighter colors to avoid black video detection
+    BG_COLORS = ["#1e3a5f", "#0d47a1", "#1565c0", "#1976d2", "#2196f3"]  # Brighter blues
     ACCENT_COLORS = ["#FFD700", "#00FF88", "#FF6B35", "#00D4FF", "#FF3366"]
     
     bg = random.choice(BG_COLORS)
@@ -909,6 +985,75 @@ def make_fallback_video(audio_path: Path, output_path: Path, title: str,
         "-i", str(audio_path),
         "-vf", (f"drawtext=text='{safe_title}':fontcolor={accent}:fontsize={title_size}:"
                 f"x=(w-text_w)/2:y={title_y}:font=DejaVu Sans Bold:borderw=3:bordercolor=black"
+                f"{subtitle_filter}"),
+        "-c:v", "libx264", "-preset", "fast", "-crf", "23",
+        "-c:a", "aac", "-b:a", "192k",
+        "-shortest", "-movflags", "+faststart",
+        str(output_path)
+    ]
+    
+    result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+    
+    # NEW: Validate video quality for fallback too
+    if result.returncode == 0 and output_path.exists():
+        if validate_video_quality(output_path):
+            return True
+        else:
+            print(f"      ❌ Fallback video quality check failed - regenerating with brighter background...")
+            # Try again with even brighter background
+            return _retry_fallback_brighter(audio_path, output_path, title, duration, video_type, script_text, script_dir)
+    
+    return False
+
+
+def _retry_fallback_brighter(audio_path: Path, output_path: Path, title: str,
+                              duration: float, video_type: str, script_text: str,
+                              script_dir: Path) -> bool:
+    """Retry fallback with very bright background."""
+    BG_COLORS = ["#FFD700", "#FFA500", "#FF6347", "#4CAF50", "#00BCD4"]  # Very bright colors
+    ACCENT_COLORS = ["#000000", "#333333", "#555555", "#777777", "#000000"]  # Dark text
+    
+    bg = random.choice(BG_COLORS)
+    accent = random.choice(ACCENT_COLORS)
+    
+    sub_path = None
+    if HAS_KARAOKE:
+        try:
+            sub_path = generate_karaoke_subs(
+                audio_path, script_text, script_dir, video_type,
+                style="word_highlight", use_whisper=True
+            )
+        except Exception:
+            pass
+    
+    if not sub_path or not sub_path.exists():
+        sub_path = script_dir / "subtitles.srt"
+        create_srt_from_text(script_text, duration, sub_path)
+    
+    size = "1080x1920" if video_type == "short" else "1920x1080"
+    safe_title = title.replace("'", "'\\''").replace('"', '\\"').replace(':', ' -')
+    title_y = "120" if video_type == "short" else "60"
+    title_size = "44" if video_type == "short" else "52"
+    
+    subtitle_filter = ""
+    if sub_path.exists():
+        sub_escaped = str(sub_path).replace("'", "'\\''").replace(":", "\\:")
+        if sub_path.suffix == ".ass":
+            subtitle_filter = f",ass='{sub_escaped}'"
+        else:
+            margin_v = "200" if video_type == "short" else "80"
+            subtitle_filter = (
+                f",subtitles='{sub_escaped}':force_style="
+                f"'FontName=DejaVu Sans,FontSize=100,PrimaryColour=&H00000000,"
+                f"OutlineColour=&H00FFFFFF,Outline=3,Shadow=0,Alignment=2,MarginV={margin_v}'"
+            )
+    
+    cmd = [
+        "ffmpeg", "-y",
+        "-f", "lavfi", "-i", f"color=c={bg}:s={size}:d={duration}:r=30",
+        "-i", str(audio_path),
+        "-vf", (f"drawtext=text='{safe_title}':fontcolor={accent}:fontsize={title_size}:"
+                f"x=(w-text_w)/2:y={title_y}:font=DejaVu Sans Bold:borderw=3:bordercolor=white"
                 f"{subtitle_filter}"),
         "-c:v", "libx264", "-preset", "fast", "-crf", "23",
         "-c:a", "aac", "-b:a", "192k",

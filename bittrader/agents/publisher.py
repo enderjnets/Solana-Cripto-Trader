@@ -50,12 +50,12 @@ def get_youtube_client():
 
     d = json.loads(YT_CREDS.read_text())
     creds = Credentials(
-        token=d["access_token"],
+        token=d.get("token") or d.get("access_token"),  # Soporta ambos formatos
         refresh_token=d["refresh_token"],
         token_uri=d["token_uri"],
         client_id=d["client_id"],
         client_secret=d["client_secret"],
-        scopes=d.get("scope", "").split()
+        scopes=d.get("scopes", d.get("scope", "")).split() if isinstance(d.get("scopes", d.get("scope", "")), str) else d.get("scopes", d.get("scope", []))
     )
     if creds.expired and creds.refresh_token:
         creds.refresh(Request())
@@ -408,6 +408,22 @@ def run_publisher(production_file: Path = None, video_ids: list = None,
 
     for video in videos_to_upload:
         title = video.get("title", "")
+        sched_date = video.get("scheduled_date")
+
+        # Check scheduled date (for queue-based uploads)
+        if process_queue and sched_date:
+            from datetime import datetime, timezone
+            now = datetime.now(timezone.utc)
+            try:
+                sched_dt = datetime.fromisoformat(sched_date)
+                if sched_dt.tzinfo is None:
+                    sched_dt = sched_dt.replace(tzinfo=timezone.utc)
+                if sched_dt > now:
+                    print(f"  ⏭️  Omitiendo (futuro): {title[:40]} ({sched_dt.strftime('%Y-%m-%d %H:%M')})")
+                    queue_pending.append({**video, "skip_reason": "future_scheduled"})
+                    continue
+            except Exception:
+                pass  # If date parsing fails, continue with upload
 
         # Check duplicate topic today
         if check_duplicate_topic(title, uploaded_today):

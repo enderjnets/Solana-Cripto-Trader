@@ -1,0 +1,56 @@
+{
+  "search_date": "2026-03-15 (ma\u00f1ana)",
+  "location": "Aurora, CO 80016 - 5-10 millas de 6000 S. Fraser St.",
+  "search_methods": [
+    "Google Maps: 'salons near Aurora CO 80016'",
+    "Google Maps: 'spas near Aurora CO 80016'",
+    "Google Maps: 'restaurants near Aurora CO 80016'",
+    "Yelp: b\u00fasqueda local por categor\u00eda",
+    "Aurora Chamber of Commerce directory"
+  ],
+  "target_count": "15-20 negocios",
+  "required_info": [
+    "Nombre del negocio",
+    "Direcci\u00f3n completa",
+    "Tel\u00e9fono",
+    "Horario (si disponible)",
+    "Website (si tiene)",
+    "Google Reviews count/rating"
+  ],
+  "categories_to_search": [
+    {
+      "category": "Nail Salons",
+      "priority": "ALTA"
+    },
+    {
+      "category": "Hair Salons",
+      "priority": "ALTA"
+    },
+    {
+      "category": "Spas",
+      "priority": "ALTA"
+    },
+    {
+      "category": "Beauty Salons",
+      "priority": "ALTA"
+    },
+    {
+      "category": "Restaurants (independientes)",
+      "priority": "MEDIA"
+    },
+    {
+      "category": "Retail shops (boutiques)",
+      "priority": "MEDIA"
+    },
+    {
+      "category": "Auto services",
+      "priority": "BAJA"
+    }
+  ],
+  "outreach_plan": {
+    "day_1": "Recopilar 15-20 negocios con informaci\u00f3n",
+    "day_2": "Crear outreach script personalizado",
+    "day_3": "Contactar top 5 negocios",
+    "day_4": "Contactar siguientes 5-10 negocios"
+  }
+}
