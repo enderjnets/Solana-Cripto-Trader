@@ -444,7 +444,7 @@ Solo responde con el JSON.
         print(f"  Razón: {decision['reasoning']}")
         print()
 
-        # Execute actions
+        # Execute actions via LLM decision
         if decision['actions']:
             print("⚡ Ejecutando acciones:")
             for action in decision['actions']:
@@ -459,6 +459,17 @@ Solo responde con el JSON.
                 elif action_type == 'wait':
                     print(f"  ⏳ Esperando: {action['reason']}")
 
+        # ── AUTONOMOUS BRAIN: runs regardless of LLM decision ─────────────
+        print()
+        print("🧠 Autonomous Brain — auto-diagnóstico y acciones autónomas...")
+        try:
+            from autonomous_brain import run_autonomous_cycle
+            brain_report = run_autonomous_cycle(dry_run=False, verbose=True)
+            print(f"  Brain: {brain_report['actions_taken']} acciones | {brain_report['issues_found']} issues")
+        except Exception as e:
+            print(f"  ⚠️ Autonomous Brain error: {e}")
+            brain_report = {"actions_taken": 0, "issues_found": 0, "actions": []}
+
         # Save state
         self.save_state()
 
@@ -468,9 +479,10 @@ Solo responde con el JSON.
         print("=" * 80)
 
         return {
-            "health": health,
-            "decision": decision,
-            "model": self.model
+            "health":        health,
+            "decision":      decision,
+            "brain_report":  brain_report,
+            "model":         self.model
         }
 
 

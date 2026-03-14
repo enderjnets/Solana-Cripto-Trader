@@ -1,0 +1,26 @@
+[
+  {
+    "timestamp": "2026-03-14T23:41:52.236112+00:00",
+    "action": "regenerate_video",
+    "details": {
+      "script_id": "short_1773470306_372"
+    },
+    "result": "CREATOR_FAILED: usage: creator.py [-h] [--dry-run]\ncreator.py: error: unrecognized arguments: --topic NEIRO explota:"
+  },
+  {
+    "timestamp": "2026-03-14T23:41:52.337792+00:00",
+    "action": "regenerate_video",
+    "details": {
+      "script_id": "long_1773470394_349"
+    },
+    "result": "CREATOR_FAILED: usage: creator.py [-h] [--dry-run]\ncreator.py: error: unrecognized arguments: --topic SUI y DOT caer"
+  },
+  {
+    "timestamp": "2026-03-14T23:41:52.439704+00:00",
+    "action": "regenerate_video",
+    "details": {
+      "script_id": "short_1773470428_706"
+    },
+    "result": "CREATOR_FAILED: usage: creator.py [-h] [--dry-run]\ncreator.py: error: unrecognized arguments: --topic \u00bfQu\u00e9 es BTC (B"
+  }
+]
