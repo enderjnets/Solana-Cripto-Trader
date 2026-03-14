@@ -326,28 +326,68 @@ def edge_tts_fallback(text: str, output_path: Path) -> float:
 
 
 def clean_script_for_tts(text: str) -> str:
-    """Strip structural headers and video prompts — produce pure narration for TTS.
-    
-    Removes: GUIÓN COMPLETO:, HOOK (30s):, PROBLEMA (45s):, EXPLICACION (2-3min):,
-    CTA (30s):, VIDEO_PROMPT_N:, **bold section headers**, etc.
-    This is a safety net — creator.py should already return clean text.
+    """Strip ALL structural markers — produce pure narration for TTS.
+
+    ELIMINATES (en todas sus formas):
+      - Section headers standalone: HOOK (30s):, PROBLEMA:, DESARROLLO:, etc.
+      - Inline prefixes: "Gancho:", "--- HOOK :", "TÍTULO:", "TÍTULO: NEIRO:", etc.
+      - Dashed prefixes: "--- HOOK :", "--- SECCIÓN :", "--- INTRO :"
+      - Markdown bold headers: **HOOK**, **Desarrollo**
+      - VIDEO_PROMPT_N: lines
+      - GUIÓN COMPLETO: header
+      - Numbered markdown steps: "1. **Analyze...**", "2. **Write...**"
     """
     import re
-    # Remove GUION/GUIÓN COMPLETO: header
-    text = re.sub(r'^GU[IÍ](?:O|Ó)N(?:\s+COMPLETO)?\s*:\s*\n?', '', text, flags=re.MULTILINE | re.IGNORECASE)
-    # Remove section timing headers: HOOK (30s):, PROBLEMA (45s):, CTA (30s):, etc.
+
+    # 1. Remove GUION/GUIÓN COMPLETO: header
+    text = re.sub(r'^GU[IÍ](?:O|Ó)N(?:\s+COMPLETO)?\s*:\s*\n?', '', text,
+                  flags=re.MULTILINE | re.IGNORECASE)
+
+    # 2. Remove VIDEO_PROMPT lines
+    text = re.sub(r'^VIDEO_PROMPT[_\d]*:.*$', '', text,
+                  flags=re.MULTILINE | re.IGNORECASE)
+
+    # 3. Remove dashed section markers: "--- HOOK :", "--- INTRO :", etc.
+    text = re.sub(r'^[ \t]*-{2,}[ \t]*[A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑa-z ]+[ \t]*:[ \t]*', '',
+                  text, flags=re.MULTILINE)
+
+    # 4. Remove section header lines (standalone or inline prefix):
+    #    Matches: "HOOK (30s):", "Gancho:", "Desarrollo:", "CTA:", "TÍTULO:", etc.
+    SECTION_WORDS = (
+        r'HOOK|GANCHO|INTRO(?:DUCCION|DUCTION)?|PROBLEMA|PROBLEM|'
+        r'EXPLICACION|EXPLANATION|DESARROLLO|DEVELOPMENT|'
+        r'EJEMPLOS?|EXAMPLES?|CTA|CONCLUSION|OUTRO|CUERPO|BODY|'
+        r'SOLUCION|SOLUTION|T[IÍ]TULO?|SECTION|DATO\s+IMPACTANTE|'
+        r'REFLEXION|LLAMADA\s+A\s+LA\s+ACCION|CIERRE'
+    )
+    # Standalone full-line header (with optional timing): "HOOK (30s):"
     text = re.sub(
-        r'^[ \t]*\*?\*?\s*(?:HOOK|INTRO|INTRODUCTION|PROBLEMA|PROBLEM|EXPLICACION|EXPLANATION|'
-        r'EJEMPLOS|EXAMPLES|CTA|CONCLUSION|OUTRO|CUERPO|BODY|DESARROLLO|SECTION)\s*'
-        r'(?:\([^)]*\))?\s*\*?\*?\s*:[ \t]*$',
+        rf'^[ \t]*\*{{0,2}}(?:{SECTION_WORDS})\*{{0,2}}\s*(?:\([^)]*\))?\s*:[ \t]*$',
         '', text, flags=re.MULTILINE | re.IGNORECASE
     )
-    # Remove VIDEO_PROMPT lines
-    text = re.sub(r'^VIDEO_PROMPT[_\d]*:.*$', '', text, flags=re.MULTILINE | re.IGNORECASE)
-    # Remove standalone **bold** header lines
+    # Inline prefix at start of line: "Gancho: \"Trump lanzó..." → just the quote stays
+    text = re.sub(
+        rf'^[ \t]*\*{{0,2}}(?:{SECTION_WORDS})\*{{0,2}}\s*(?:\([^)]*\))?\s*:[ \t]+',
+        '', text, flags=re.MULTILINE | re.IGNORECASE
+    )
+
+    # 5. Remove standalone **bold** header lines
     text = re.sub(r'^\*\*[^*\n]+\*\*\s*$', '', text, flags=re.MULTILINE)
-    # Collapse multiple blank lines
+
+    # 6. Remove markdown bold/italic inline
+    text = re.sub(r'\*{1,3}([^*\n]+)\*{1,3}', r'\1', text)
+
+    # 7. Remove numbered LLM meta-steps: "1. **Analyze the Request:**"
+    text = re.sub(r'^\d+\.\s+\*?\*?[A-Z][^\n]{0,60}\*?\*?:\s*$', '', text,
+                  flags=re.MULTILINE)
+
+    # 8. Remove bullet sub-items that are LLM metadata (start with * **Role:**)
+    text = re.sub(r'^\s*\*\s+\*\*(?:Role|Format|Tone|Style|Output)[^:]*\*\*.*$', '',
+                  text, flags=re.MULTILINE | re.IGNORECASE)
+
+    # 9. Collapse multiple blank lines
     text = re.sub(r'\n{3,}', '\n\n', text)
+
     return text.strip()
 
 
