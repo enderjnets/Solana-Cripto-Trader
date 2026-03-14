@@ -295,20 +295,39 @@ def upload_video(yt, video: dict, scout_data: dict = None) -> dict:
     thumb_uploaded = False
     thumb_path = None
 
-    # Check for thumbnail in video data or directory
+    # Check for thumbnail — search multiple locations automatically
+    DATA_DIR_LOCAL = Path(__file__).parent / "data" / "thumbnails"
+    sid = video.get("script_id", video_path.stem)
+
+    thumb_candidates = []
+    # 1. Explicit thumbnail_path in queue entry (highest priority)
+    if video.get("thumbnail_path"):
+        thumb_candidates.append(Path(video["thumbnail_path"]))
+    # 2. Legacy 'thumbnail' field
     if video.get("thumbnail"):
-        thumb_path = Path(video["thumbnail"])
-    else:
-        # Look in video directory
-        video_dir = video_path.parent
-        for candidate in ["thumbnail.jpg", "thumbnail.png", "thumbnail_final.jpg"]:
-            p = video_dir / candidate
-            if p.exists():
-                thumb_path = p
-                break
+        thumb_candidates.append(Path(video["thumbnail"]))
+    # 3. data/thumbnails/ directory
+    for ext in ["jpg", "png"]:
+        thumb_candidates.append(DATA_DIR_LOCAL / f"{sid}_thumbnail.{ext}")
+    # 4. Same directory as video
+    video_dir = video_path.parent
+    for candidate in ["thumbnail.jpg", "thumbnail.png", "thumbnail_final.jpg",
+                       f"{sid}_thumbnail.jpg", f"{sid}_thumbnail.png"]:
+        thumb_candidates.append(video_dir / candidate)
+
+    # Pick first existing
+    for tc in thumb_candidates:
+        if tc.exists():
+            thumb_path = tc
+            print(f"    🖼️  Thumbnail encontrado: {tc.name}")
+            break
 
     if thumb_path and thumb_path.exists():
         thumb_uploaded = set_thumbnail(yt, video_id, thumb_path)
+        if not thumb_uploaded:
+            print(f"    ⚠️  Thumbnail upload falló — video quedará sin miniatura")
+    else:
+        print(f"    ⚠️  Sin thumbnail disponible para {sid}")
 
     return {
         "video_id":    video_id,

@@ -253,10 +253,27 @@ def main():
             
             log(f"✅ Video subido: {video_id}", "INFO")
             
-            # Upload thumbnail
-            thumb_path = video_data.get("thumbnail")
+            # Upload thumbnail — busca en múltiples ubicaciones automáticamente
+            sid = video_data.get("script_id", "")
+            thumb_path = None
+            thumb_candidates = [
+                video_data.get("thumbnail_path",""),
+                video_data.get("thumbnail",""),
+                str(DATA_DIR / "thumbnails" / f"{sid}_thumbnail.jpg"),
+                str(DATA_DIR / "thumbnails" / f"{sid}_thumbnail.png"),
+            ]
+            for tc in thumb_candidates:
+                if tc and Path(tc).exists():
+                    thumb_path = tc
+                    break
+
             if thumb_path:
+                log(f"🖼️ Subiendo thumbnail: {Path(thumb_path).name}", "INFO")
                 upload_thumbnail(yt, video_id, thumb_path)
+                queue[i]["thumbnail_uploaded"] = True
+            else:
+                log(f"⚠️ Sin thumbnail para {sid} — video sin miniatura personalizada", "WARNING")
+                queue[i]["thumbnail_uploaded"] = False
             
             # Update status
             queue[i].update({
