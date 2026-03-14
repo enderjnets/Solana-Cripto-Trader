@@ -181,6 +181,21 @@ def main():
     
     log(f"Videos en cola: {len(queue)}", "INFO")
 
+    # ── PIPELINE GUARDIAN: Gate check before any upload ───────────────────
+    try:
+        sys.path.insert(0, str(BITTRADER / "agents"))
+        from pipeline_guardian import audit_queue, verify_uploaded
+        log("🛡️ Pipeline Guardian: auditando queue...", "INFO")
+        summary = audit_queue(auto_fix=True, verbose=False)
+        # Reload queue after fixes
+        queue = json.loads(QUEUE_FILE.read_text())
+        log(f"   Guardian: {summary['ready']} ready | {summary['fixed']} fixed | {summary['blocked']} blocked", "INFO")
+        _guardian_available = True
+    except Exception as e:
+        log(f"⚠️ Pipeline Guardian no disponible: {e}", "WARNING")
+        _guardian_available = False
+        def verify_uploaded(vid_id, title, thumb_ok): return {}
+
     # Filter videos ready to upload
     ready_to_upload = []
     for i, item in enumerate(queue):
@@ -190,6 +205,9 @@ def main():
         # Skip if already uploaded or not ready
         if status in ["uploaded", "published", "uploading"]:
             continue
+        if status == "blocked":
+            log(f"Item {i}: BLOCKED by Guardian — {item.get('gate_issues',[])} — skipping", "WARNING")
+            continue
         if status != "ready":
             log(f"Item {i}: status='{status}' - skipping", "DEBUG")
             continue
@@ -197,7 +215,6 @@ def main():
         # Check scheduled date
         if sched_date:
             sched_dt = datetime.fromisoformat(sched_date)
-            # Convert to UTC for comparison if needed
             if sched_dt.tzinfo is None:
                 sched_dt = sched_dt.replace(tzinfo=timezone.utc)
             
@@ -207,7 +224,6 @@ def main():
             else:
                 log(f"Item {i}: Future - scheduled={sched_date}", "DEBUG")
         else:
-            # No scheduled date - upload now
             ready_to_upload.append((i, item))
             log(f"Item {i}: Ready (no scheduled date)", "DEBUG")
 
@@ -284,6 +300,12 @@ def main():
             
             uploaded.append(video_id)
             log(f"Estado actualizado a 'uploaded'", "INFO")
+
+            # ── POST-UPLOAD VERIFICATION ──────────────────────────────────
+            thumb_ok = queue[i].get("thumbnail_uploaded", False)
+            verify_uploaded(video_id, video_data.get("title","?"), thumb_ok)
+            if not thumb_ok:
+                log(f"⚠️ POST-UPLOAD: {video_id} subió SIN thumbnail — acción requerida", "WARNING")
 
         except Exception as e:
             err_str = str(e)

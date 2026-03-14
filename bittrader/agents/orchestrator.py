@@ -80,9 +80,33 @@ def step_producer(args, creator_result: dict = None) -> dict:
     return run_producer()
 
 
+def step_thumbnail(args, producer_result: dict = None) -> dict:
+    print("\n" + "═"*50)
+    print("PASO 3b/5: 🖼️  THUMBNAIL AGENT")
+    print("═"*50)
+    try:
+        from thumbnail_agent_huggingface import run as run_thumbnail
+        return run_thumbnail()
+    except Exception as e:
+        print(f"  ⚠️ Thumbnail Agent error: {e}")
+        return {"error": str(e)}
+
+
+def step_quality_gate(args, thumbnail_result: dict = None) -> dict:
+    print("\n" + "═"*50)
+    print("PASO 3c/5: 🛡️  PIPELINE GUARDIAN — Quality Gate")
+    print("═"*50)
+    from pipeline_guardian import audit_queue
+    summary = audit_queue(auto_fix=True, verbose=True)
+    print(f"\n  ✅ Ready: {summary['ready']}  |  🔧 Fixed: {summary['fixed']}  |  🚫 Blocked: {summary['blocked']}")
+    if summary["blocked"] > 0:
+        print(f"  ⚠️  {summary['blocked']} video(s) no pasaron el gate — no se subirán")
+    return summary
+
+
 def step_publisher(args, producer_result: dict = None) -> dict:
     print("\n" + "═"*50)
-    print("PASO 4/4: 📤 PUBLISHER")
+    print("PASO 5/5: 📤 PUBLISHER")
     print("═"*50)
     from publisher import run_publisher
     prod_file = None
@@ -242,6 +266,23 @@ def main():
                     print(f"\n❌ Producer falló: {e}")
                     traceback.print_exc()
                     results["producer"] = {"error": str(e)}
+
+        # ── Thumbnail Agent ──────────────────────────────────────────────
+        if args.full or args.produce_only:
+            if not results.get("producer", {}).get("error"):
+                try:
+                    results["thumbnail"] = step_thumbnail(args, results.get("producer"))
+                except Exception as e:
+                    print(f"\n⚠️ Thumbnail Agent falló: {e} — continuando sin thumbnails generados")
+                    results["thumbnail"] = {"error": str(e)}
+
+        # ── Quality Gate (Pipeline Guardian) ─────────────────────────────
+        if args.full or args.produce_only:
+            try:
+                results["quality_gate"] = step_quality_gate(args, results.get("thumbnail"))
+            except Exception as e:
+                print(f"\n⚠️ Quality Gate falló: {e} — continuando sin verificación")
+                results["quality_gate"] = {"error": str(e)}
 
         # ── Publisher ────────────────────────────────────────────────────
         if args.full or args.publish_only or args.process_queue:
