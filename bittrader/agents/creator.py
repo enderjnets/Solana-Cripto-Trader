@@ -400,6 +400,82 @@ VIDEO_PROMPT_3: [Escena final CTA con rhino confiado mirando al futuro. 16:9 hor
     return parse_script_response(raw, "long", item)
 
 
+def _validate_script_content(guion: str, title: str, topic: str) -> tuple:
+    """
+    Valida que el guión generado sea contenido real y no basura del LLM.
+    Retorna (is_valid: bool, reason: str)
+    
+    DETECTA:
+    - Prompt leakage: respuesta cruda del LLM con instrucciones del sistema
+    - Template leakage: estructura del prompt en vez del contenido
+    - Respuesta vacía o demasiado corta
+    - Guión en idioma incorrecto (inglés cuando debería ser español)
+    """
+    import re
+
+    if not guion or len(guion.strip()) < 50:
+        return False, "EMPTY_OR_TOO_SHORT"
+
+    text = guion.strip()
+
+    # ── Señales de prompt leakage ──────────────────────────────────────────
+    CONTAMINATION_PATTERNS = [
+        # LLM responding to the prompt instead of writing the script
+        r"el usuario quiere",
+        r"RESPOND ONLY WITH",
+        r"respond only with",
+        r"Analyze the Request",
+        r"analyze the request",
+        r"\*\*Role:\*\*",
+        r"\*\*Format:\*\*",
+        r"You are a",
+        r"you are a scriptwriter",
+        # Template structure leaked
+        r"~\d+ palabras",
+        r"~\d+ words",
+        r"Gancho inmediato",
+        r"especifica: TITULO",
+        r"especific[ao]: TITULO",
+        r"TITULO,\s*DESCRIPCION,\s*TAGS",
+        # Markdown instruction headers
+        r"^\d+\.\s+\*\*Analyze",
+        r"^\d+\.\s+\*\*Write",
+        # System prompt fragments
+        r"Eres el guionista",
+        r"Eres un guionista",
+        r"canal de YouTube llamado BitTrader",
+        r"formato obligatorio",
+    ]
+
+    for pattern in CONTAMINATION_PATTERNS:
+        if re.search(pattern, text, re.IGNORECASE | re.MULTILINE):
+            return False, f"PROMPT_CONTAMINATION: matched '{pattern[:40]}'"
+
+    # ── Debe estar en español ──────────────────────────────────────────────
+    spanish_words = ["que", "con", "para", "como", "este", "pero", "por", "una",
+                     "los", "las", "del", "más", "también", "cuando", "todo"]
+    english_only  = ["the ", "this ", "that ", "with ", "from ", "will ", "about "]
+
+    spanish_count = sum(1 for w in spanish_words if f" {w} " in text.lower())
+    english_count = sum(1 for w in english_only if w in text.lower())
+
+    if english_count > 5 and spanish_count < 3:
+        return False, f"WRONG_LANGUAGE: english_count={english_count}, spanish_count={spanish_count}"
+
+    # ── Debe mencionar el tema o ser razonablemente largo ─────────────────
+    topic_words = [w.lower() for w in topic.split() if len(w) > 3]
+    topic_hits   = sum(1 for w in topic_words if w in text.lower())
+
+    # If very long and no prompt contamination, consider valid even without topic match
+    if len(text) > 500:
+        return True, "OK"
+
+    if topic_hits == 0 and len(text) < 200:
+        return False, f"OFF_TOPIC: none of {topic_words[:3]} found in short script"
+
+    return True, "OK"
+
+
 def parse_script_response(raw: str, vtype: str, item: dict) -> dict:
     """Parsea la respuesta del LLM en estructura de datos."""
     import re
@@ -503,6 +579,21 @@ def parse_script_response(raw: str, vtype: str, item: dict) -> dict:
     if not tags:
         tags = ["crypto", "trading", "bitcoin", "shorts", "finanzas"]
 
+    # ── CONTENT VALIDATION: reject contaminated/empty scripts ────────────
+    is_valid, reason = _validate_script_content(guion, title, item.get("topic",""))
+    if not is_valid:
+        print(f"    ❌ SCRIPT INVÁLIDO ({reason}) — marcando como error para re-generación")
+        return {
+            "id":             f"{vtype}_{int(time.time())}_{random.randint(100,999)}",
+            "type":           vtype,
+            "title":          item.get("topic", "unknown")[:60],
+            "status":         "invalid_content",
+            "error":          f"Script validation failed: {reason}",
+            "raw_response":   raw[:500],  # Keep for debugging
+            "original_topic": item["topic"],
+            "created_at":     datetime.now(timezone.utc).isoformat(),
+        }
+
     return {
         "id":            f"{vtype}_{int(time.time())}_{random.randint(100,999)}",
         "type":          vtype,
@@ -516,6 +607,7 @@ def parse_script_response(raw: str, vtype: str, item: dict) -> dict:
         "original_topic": item["topic"],
         "status":        "pending",
         "created_at":    datetime.now(timezone.utc).isoformat(),
+        "content_validated": True,
     }
 
 

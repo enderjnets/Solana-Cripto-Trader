@@ -1083,7 +1083,32 @@ def produce_single(script: dict, output_dir: Path, use_ai_video: bool = True) ->
     title = script.get("title", "BitTrader")
     script_text = script.get("script", "")
     video_type = script.get("type", "short")
-    
+
+    # ── PRODUCER CONTENT GUARD: reject contaminated scripts ───────────────
+    CONTAMINATION_SIGNALS = [
+        "el usuario quiere",
+        "RESPOND ONLY WITH",
+        "respond only with",
+        "Analyze the Request",
+        "~130 palabras",
+        "~60 palabras",
+        "especifica: TITULO",
+        "You are a scriptwriter",
+        "Eres el guionista",
+        "formato obligatorio",
+        "canal de YouTube llamado BitTrader",
+        "**Role:**",
+        "**Format:**",
+    ]
+    contaminated = next((s for s in CONTAMINATION_SIGNALS if s.lower() in script_text.lower()), None)
+    if contaminated:
+        print(f"    🚫 PRODUCER GUARD: script contaminado detectado ('{contaminated[:40]}')")
+        print(f"       Script preview: {script_text[:150]}")
+        return {"status": "error", "error": f"CONTAMINATED_SCRIPT: '{contaminated[:40]}' found in script text"}
+
+    if len(script_text.strip()) < 50:
+        return {"status": "error", "error": f"EMPTY_SCRIPT: script too short ({len(script_text)} chars)"}
+
     # ── STEP 1: Generate Audio ──
     print(f"    🔊 Generando audio ({video_type})...")
     audio_path = output_dir / f"{script_id}.mp3"
