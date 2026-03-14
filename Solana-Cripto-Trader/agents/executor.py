@@ -24,6 +24,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
+try:
+    from compound_engine import update_compound_capital
+    _COMPOUND_ENABLED = True
+except ImportError:
+    _COMPOUND_ENABLED = False
+
 # ─── Configuración ───────────────────────────────────────────────────────────
 
 BASE_DIR = Path(__file__).parent
@@ -537,6 +543,16 @@ def paper_update_positions(portfolio: dict, market: dict, history: list) -> list
 
             history.append({**pos})
             closed.append(pos)
+
+            # 📈 Compound Engine: actualizar capital base tras cada cierre
+            if _COMPOUND_ENABLED:
+                try:
+                    state = update_compound_capital(net_pnl)
+                    log.info(f"   📈 Compound: capital_base=${state['capital_base']:.2f} | "
+                             f"return={state['total_return_pct']:.2f}% | "
+                             f"cycles={state['compound_cycles']}")
+                except Exception as e:
+                    log.warning(f"   ⚠️ Compound update error: {e}")
         else:
             remaining.append(pos)
 

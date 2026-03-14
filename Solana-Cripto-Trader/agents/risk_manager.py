@@ -32,6 +32,17 @@ except ImportError:
     def call_llm(prompt, system="", max_tokens=2000):
         return None
 
+try:
+    from compound_engine import (
+        calculate_compound_position_size,
+        get_compound_sizing_for_risk_manager,
+        update_compound_capital,
+        calculate_kelly_risk_pct,
+    )
+    COMPOUND_ENABLED = True
+except ImportError:
+    COMPOUND_ENABLED = False
+
 # ─── Configuración ───────────────────────────────────────────────────────────
 
 BASE_DIR = Path(__file__).parent
@@ -327,9 +338,17 @@ def evaluate_token(symbol: str, token_data: dict, capital: float,
         result["reason"] = f"MAX_POSICIONES ({MAX_OPEN_POSITIONS})"
         return result
 
-    # Calcular tamaño de posición con leverage del auto_learner
+    # Calcular tamaño de posición — Compound Engine (si disponible) o fallback
     effective_leverage = load_auto_learner_leverage()
-    sizing = calculate_position_size(capital, price, leverage=effective_leverage)
+    if COMPOUND_ENABLED:
+        history = []
+        th_file = DATA_DIR / "trade_history.json"
+        if th_file.exists():
+            history = json.loads(th_file.read_text())
+        sizing = calculate_compound_position_size(capital, price, effective_leverage, history)
+        log.info(f"   📈 Compound sizing: capital=${capital:.2f} → margen=${sizing['margin_usd']:.2f} (kelly={sizing['kelly_risk_pct']:.2f}%)")
+    else:
+        sizing = calculate_position_size(capital, price, leverage=effective_leverage)
 
     if sizing["margin_usd"] < MIN_POSITION_USD:
         result["reason"] = f"MARGEN_MUY_PEQUEÑO (${sizing['margin_usd']:.2f})"
