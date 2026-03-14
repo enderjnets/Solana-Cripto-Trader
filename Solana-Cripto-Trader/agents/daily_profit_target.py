@@ -130,6 +130,96 @@ class DailyProfitState:
         }
         self.save()
 
+    def get_daily_summary(self, portfolio: dict) -> dict:
+        """Genera el resumen diario del trading"""
+        # Obtener posiciones cerradas hoy del history
+        history = portfolio.get("paper_history", [])
+        today = datetime.now(timezone.utc).date().isoformat()
+
+        # Filtrar trades de hoy
+        trades_today = []
+        best_trade = {"pnl_value": -float('inf')}
+        worst_trade = {"pnl_value": float('inf')}
+
+        for trade in history:
+            if trade.get("status") == "closed" and "close_time" in trade:
+                close_date = trade["close_time"][:10]
+                if close_date == today:
+                    trades_today.append(trade)
+
+                    # Mejor trade
+                    if trade.get("pnl_final", 0) > best_trade.get("pnl_final", -float('inf')):
+                        best_trade = trade
+
+                    # Peor trade
+                    if trade.get("pnl_final", 0) < worst_trade.get("pnl_final", float('inf')):
+                        worst_trade = trade
+
+        # Calcular métricas
+        wins = len([t for t in trades_today if t.get("pnl_final", 0) > 0])
+        losses = len([t for t in trades_today if t.get("pnl_final", 0) <= 0])
+        win_rate = (wins / len(trades_today)) * 100 if trades_today else 0.0
+
+        # Calcular fees totales
+        total_fees = sum(t.get("total_fees", 0) for t in trades_today)
+
+        return {
+            "date": today,
+            "capital_inicial": self.daily_start_balance,
+            "profit_usd": self.daily_profit_usd,
+            "profit_pct": self.daily_profit_pct * 100,
+            "posiciones_cerradas": self.positions_closed_today,
+            "trades_ejecutados": self.trades_today,
+            "wins": wins,
+            "losses": losses,
+            "win_rate": win_rate,
+            "total_fees": total_fees,
+            "best_trade": best_trade if best_trade.get("token") else None,
+            "worst_trade": worst_trade if worst_trade.get("token") else None,
+            "last_decision": self.last_decision,
+            "target_alcanzado": self.daily_profit_pct >= 0.05,
+            "tier_final": self.current_tier
+        }
+
+    def send_daily_report(self, summary: dict) -> str:
+        """Genera el texto del reporte diario"""
+        report = f"""
+📊 RESUMEN DIARIO DE TRADING - {summary['date']}
+
+💰 Capital Inicial: ${summary['capital_inicial']:.2f}
+💵 Profit Total: ${summary['profit_usd']:.2f} ({summary['profit_pct']:.2f}%)
+
+📈 Posiciones: {summary['posiciones_cerradas']} cerradas, {summary['trades_ejecutados']} trades
+✅ Wins: {summary['wins']} | ❌ Losses: {summary['losses']}
+📊 Win Rate: {summary['win_rate']:.1f}%
+
+💸 Fees Totales: ${summary['total_fees']:.2f}
+
+"""
+        if summary['best_trade']:
+            bt = summary['best_trade']
+            report += f"""
+🏆 Mejor Trade: {bt['token']} ({bt['direction']})
+   P&L: ${bt.get('pnl_final', 0):.2f} ({bt.get('pnl_pct', 0)*100:.2f}%)
+"""
+
+        if summary['worst_trade']:
+            wt = summary['worst_trade']
+            report += f"""
+📉 Peor Trade: {wt['token']} ({wt['direction']})
+   P&L: ${wt.get('pnl_final', 0):.2f} ({wt.get('pnl_pct', 0)*100:.2f}%)
+"""
+
+        report += f"""
+🎯 Objetivo 5%: {'✅ ALCANZADO' if summary['target_alcanzado'] else '❌ NO ALCANZADO'}
+📊 Tier Final: {summary['tier_final']}
+
+🤖 Última Decisión Risk Manager: {summary['last_decision'].get('decision', 'N/A')}
+   Razón: {summary['last_decision'].get('reason', 'N/A')}
+"""
+
+        return report
+
 # ============================================================================
 # EVALUADOR DE PORTFOLIO
 # ============================================================================
