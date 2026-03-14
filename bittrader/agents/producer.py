@@ -1078,6 +1078,7 @@ def load_scripts() -> dict:
 
 def produce_single(script: dict, output_dir: Path, use_ai_video: bool = True) -> dict:
     """Produce a complete video from a script."""
+    print(f"    🐛 DEBUG: produce_single() STARTED for script: {script.get('id')}")
     script_id = script.get("id", f"video_{int(time.time())}")
     title = script.get("title", "BitTrader")
     script_text = script.get("script", "")
@@ -1133,6 +1134,7 @@ def produce_single(script: dict, output_dir: Path, use_ai_video: bool = True) ->
             time.sleep(2)  # Rate limit
         
         if clips:
+        print(f"    🐛 DEBUG: Entering assemble_video path (clips={len(clips)})")
             print(f"    🔧 Ensamblando {len(clips)} clips + audio...")
             success = assemble_video(
                 clips, audio_path, video_path, title, duration,
@@ -1163,6 +1165,18 @@ def produce_single(script: dict, output_dir: Path, use_ai_video: bool = True) ->
     
     if not success or not video_path.exists():
         return {"status": "error", "error": "Video generation failed completely"}
+    
+    # NEW: CRITICAL - Validate video quality at the END (common to ALL paths)
+    print(f"    🔍 Final quality check (validate_video_quality at produce_single end)...")
+    if not validate_video_quality(video_path):
+        print(f"    ❌ Video quality check FAILED - regenerating with bright fallback...")
+        # Force fallback with very bright background
+        success = _retry_fallback_brighter(
+            audio_path, video_path, title, duration,
+            video_type, script_text, output_dir
+        )
+        if not success or not video_path.exists():
+            return {"status": "error", "error": "Video quality check failed and retry failed"}
     
     size_mb = video_path.stat().st_size / (1024 * 1024)
     
