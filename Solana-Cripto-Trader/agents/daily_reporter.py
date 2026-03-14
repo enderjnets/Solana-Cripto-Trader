@@ -69,13 +69,11 @@ def check_and_send_daily_report():
     # Marcar reporte enviado
     state.record_decision(
         "DAILY_REPORT_SENT",
-        f"Reporte diario enviado con {summary['trades_ejecutados']} trades"
+        f"Reporte diario enviado con {summary['trades_ejecutados']} trades (Profit NETO: ${summary['profit_net_usd']:.2f})"
     )
 
     # Generar texto del reporte
-    report_text = summary.get("report", "")
-    if not report_text:
-        report_text = state.send_daily_report(summary)
+    report_text = state.send_daily_report(summary)
 
     # Enviar a Telegram
     print(f"Enviando reporte diario a Telegram...")

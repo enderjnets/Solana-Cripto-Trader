@@ -138,8 +138,8 @@ class DailyProfitState:
 
         # Filtrar trades de hoy
         trades_today = []
-        best_trade = {"pnl_value": -float('inf')}
-        worst_trade = {"pnl_value": float('inf')}
+        best_trade = {"pnl_final": -float('inf')}
+        worst_trade = {"pnl_final": float('inf')}
 
         for trade in history:
             if trade.get("status") == "closed" and "close_time" in trade:
@@ -147,27 +147,35 @@ class DailyProfitState:
                 if close_date == today:
                     trades_today.append(trade)
 
-                    # Mejor trade
-                    if trade.get("pnl_final", 0) > best_trade.get("pnl_final", -float('inf')):
+                    # Mejor trade (P&L neto después de fees)
+                    pnl_net = trade.get("pnl_final", 0) - trade.get("total_fees", 0)
+                    if pnl_net > best_trade.get("pnl_final", -float('inf')):
+                        trade["pnl_net"] = pnl_net
                         best_trade = trade
 
-                    # Peor trade
-                    if trade.get("pnl_final", 0) < worst_trade.get("pnl_final", float('inf')):
+                    # Peor trade (P&L neto después de fees)
+                    if pnl_net < worst_trade.get("pnl_final", float('inf')):
+                        trade["pnl_net"] = pnl_net
                         worst_trade = trade
 
         # Calcular métricas
-        wins = len([t for t in trades_today if t.get("pnl_final", 0) > 0])
-        losses = len([t for t in trades_today if t.get("pnl_final", 0) <= 0])
+        wins = len([t for t in trades_today if t.get("pnl_final", 0) > t.get("total_fees", 0)])
+        losses = len([t for t in trades_today if t.get("pnl_final", 0) <= t.get("total_fees", 0)])
         win_rate = (wins / len(trades_today)) * 100 if trades_today else 0.0
 
         # Calcular fees totales
         total_fees = sum(t.get("total_fees", 0) for t in trades_today)
 
+        # Profit bruto y neto
+        profit_gross = sum(t.get("pnl_final", 0) for t in trades_today)
+        profit_net = profit_gross - total_fees
+
         return {
             "date": today,
             "capital_inicial": self.daily_start_balance,
-            "profit_usd": self.daily_profit_usd,
-            "profit_pct": self.daily_profit_pct * 100,
+            "profit_gross_usd": profit_gross,
+            "profit_net_usd": profit_net,
+            "profit_pct": self.daily_profit_pct * 100,  # Ya es neto (actualizado en update_profit)
             "posiciones_cerradas": self.positions_closed_today,
             "trades_ejecutados": self.trades_today,
             "wins": wins,
@@ -177,7 +185,7 @@ class DailyProfitState:
             "best_trade": best_trade if best_trade.get("token") else None,
             "worst_trade": worst_trade if worst_trade.get("token") else None,
             "last_decision": self.last_decision,
-            "target_alcanzado": self.daily_profit_pct >= 0.05,
+            "target_alcanzado": self.daily_profit_pct >= 0.05,  # 5% neto
             "tier_final": self.current_tier
         }
 
@@ -187,31 +195,33 @@ class DailyProfitState:
 📊 RESUMEN DIARIO DE TRADING - {summary['date']}
 
 💰 Capital Inicial: ${summary['capital_inicial']:.2f}
-💵 Profit Total: ${summary['profit_usd']:.2f} ({summary['profit_pct']:.2f}%)
+💵 Profit Bruto: ${summary['profit_gross_usd']:.2f}
+💸 Fees Totales: ${summary['total_fees']:.2f}
+💵 Profit NETO (después de fees): ${summary['profit_net_usd']:.2f} ({summary['profit_pct']:.2f}%)
 
 📈 Posiciones: {summary['posiciones_cerradas']} cerradas, {summary['trades_ejecutados']} trades
 ✅ Wins: {summary['wins']} | ❌ Losses: {summary['losses']}
 📊 Win Rate: {summary['win_rate']:.1f}%
 
-💸 Fees Totales: ${summary['total_fees']:.2f}
-
 """
         if summary['best_trade']:
             bt = summary['best_trade']
+            pnl_net = bt.get('pnl_net', bt.get('pnl_final', 0))
             report += f"""
 🏆 Mejor Trade: {bt['token']} ({bt['direction']})
-   P&L: ${bt.get('pnl_final', 0):.2f} ({bt.get('pnl_pct', 0)*100:.2f}%)
+   P&L: ${pnl_net:.2f} ({bt.get('pnl_pct', 0)*100:.2f}%)
 """
 
         if summary['worst_trade']:
             wt = summary['worst_trade']
+            pnl_net = wt.get('pnl_net', wt.get('pnl_final', 0))
             report += f"""
 📉 Peor Trade: {wt['token']} ({wt['direction']})
-   P&L: ${wt.get('pnl_final', 0):.2f} ({wt.get('pnl_pct', 0)*100:.2f}%)
+   P&L: ${pnl_net:.2f} ({wt.get('pnl_pct', 0)*100:.2f}%)
 """
 
         report += f"""
-🎯 Objetivo 5%: {'✅ ALCANZADO' if summary['target_alcanzado'] else '❌ NO ALCANZADO'}
+🎯 Objetivo 5% neto: {'✅ ALCANZADO' if summary['target_alcanzado'] else '❌ NO ALCANZADO'}
 📊 Tier Final: {summary['tier_final']}
 
 🤖 Última Decisión Risk Manager: {summary['last_decision'].get('decision', 'N/A')}
@@ -235,29 +245,35 @@ class PortfolioEvaluator:
             return json.loads(PORTFOLIO_FILE.read_text())
         return {}
 
-    def calculate_total_pnl(self, portfolio: dict) -> Tuple[float, float]:
+    def calculate_total_pnl(self, portfolio: dict) -> Tuple[float, float, float]:
         """
-        Calcula el P&L total del portfolio
+        Calcula el P&L total del portfolio (GROSS y NET)
 
         Returns:
-            (pnl_usd, pnl_pct) - P&L en USD y porcentaje
+            (pnl_gross_usd, pnl_net_usd, pnl_net_pct)
+            - pnl_gross_usd: P&L bruto (antes de fees)
+            - pnl_net_usd: P&L neto (después de fees)
+            - pnl_net_pct: Porcentaje de profit neto
         """
         positions = portfolio.get("positions", [])
         capital_initial = portfolio.get("initial_capital", 500.0)
 
-        total_pnl = 0.0
+        # P&L bruto de posiciones abiertas
+        pnl_gross = 0.0
+        total_fees_open = 0.0
         for pos in positions:
             if pos.get("status") == "open":
-                total_pnl += pos.get("pnl_usd", 0.0)
+                pnl_gross += pos.get("pnl_usd", 0.0)
+                total_fees_open += pos.get("trading_fee", 0.0)
+                total_fees_open += pos.get("total_fees", 0.0)
 
-        # Equity real = capital_libre + invertido + P&L abierto
-        capital_free = portfolio.get("capital_usd", 0.0)
-        total_invested = sum(p.get("margin_usd", 0.0) for p in positions if p.get("status") == "open")
-        total_equity = capital_free + total_invested + total_pnl
+        # P&L neto = P&L bruto - fees
+        pnl_net = pnl_gross - total_fees_open
 
-        pnl_pct = (total_pnl / capital_initial) if capital_initial > 0 else 0.0
+        # Porcentaje de profit neto (después de fees)
+        pnl_net_pct = (pnl_net / capital_initial) if capital_initial > 0 else 0.0
 
-        return total_pnl, pnl_pct
+        return pnl_gross, pnl_net, pnl_net_pct
 
     def evaluate_all_positive_threshold(self, portfolio: dict, threshold_pct: float = 0.01) -> bool:
         """
@@ -361,9 +377,9 @@ class ProfitRiskManager:
         """
         self.state.check_new_day()
 
-        # Calcular profit actual
-        total_pnl_usd, total_pnl_pct = self.evaluator.calculate_total_pnl(portfolio)
-        self.state.update_profit(total_pnl_usd, 0)  # Actualizar con equity real
+        # Calcular profit actual (NETO después de fees)
+        pnl_gross_usd, pnl_net_usd, pnl_net_pct = self.evaluator.calculate_total_pnl(portfolio)
+        self.state.update_profit(pnl_net_usd, 0)  # Actualizar con profit neto
 
         # Contar posiciones
         positive_count = self.evaluator.count_positive_positions(portfolio)
@@ -378,8 +394,9 @@ class ProfitRiskManager:
             "new_tier": self.state.current_tier,
             "confidence": 0.5,
             "metrics": {
-                "total_pnl_usd": total_pnl_usd,
-                "total_pnl_pct": total_pnl_pct * 100,
+                "pnl_gross_usd": pnl_gross_usd,
+                "pnl_net_usd": pnl_net_usd,
+                "pnl_net_pct": pnl_net_pct * 100,
                 "positive_positions": positive_count,
                 "negative_positions": negative_count,
                 "total_positions": total_positions
@@ -390,46 +407,46 @@ class ProfitRiskManager:
         all_positive = self.evaluator.evaluate_all_positive_threshold(portfolio, 0.01)
 
         if all_positive:
-            # Evaluar tier actual
+            # Evaluar tier actual (basado en profit NETO después de fees)
             current_tier_value = TARGETS.get(self.state.current_tier, 0.01)
 
-            if total_pnl_pct >= 0.05:  # 5% alcanzado
+            if pnl_net_pct >= 0.05:  # 5% neto alcanzado
                 result["action"] = "CLOSE_ALL"
-                result["reason"] = f"Objetivo diario alcanzado ({total_pnl_pct*100:.2f}% >= 5%)"
+                result["reason"] = f"Objetivo diario neto alcanzado ({pnl_net_pct*100:.2f}% >= 5%)"
                 result["confidence"] = 0.95
                 result["target_positions"] = [p["id"] for p in portfolio.get("positions", []) if p.get("status") == "open"]
 
-            elif total_pnl_pct >= 0.03:  # 3% - dejar correr o cerrar
+            elif pnl_net_pct >= 0.03:  # 3% neto - dejar correr o cerrar
                 # Risk decision: si ya tuvimos un buen run, cerrar
-                if self.state.trades_today >= 5 and total_pnl_pct > 0.04:
+                if self.state.trades_today >= 5 and pnl_net_pct > 0.04:
                     result["action"] = "CLOSE_ALL"
-                    result["reason"] = f"3% alcanzado con buen run (+{total_pnl_pct*100:.2f}%, {self.state.trades_today} trades)"
+                    result["reason"] = f"3% neto alcanzado con buen run (+{pnl_net_pct*100:.2f}%, {self.state.trades_today} trades)"
                     result["confidence"] = 0.7
                     result["target_positions"] = [p["id"] for p in portfolio.get("positions", []) if p.get("status") == "open"]
                 else:
                     result["action"] = "CONTINUE"
-                    result["reason"] = f"3% alcanzado, dejar correr hacia 5% (actual: {total_pnl_pct*100:.2f}%)"
+                    result["reason"] = f"3% neto alcanzado, dejar correr hacia 5% (actual: {pnl_net_pct*100:.2f}%)"
                     result["confidence"] = 0.6
 
-            elif total_pnl_pct >= 0.02:  # 2% - dejar correr
+            elif pnl_net_pct >= 0.02:  # 2% neto - dejar correr
                 result["action"] = "CONTINUE"
-                result["reason"] = f"2% asegurado, dejar correr hacia 3-5% (actual: {total_pnl_pct*100:.2f}%)"
+                result["reason"] = f"2% neto asegurado, dejar correr hacia 3-5% (actual: {pnl_net_pct*100:.2f}%)"
                 result["confidence"] = 0.7
 
-            else:  # 1% - asegurarlo
+            else:  # 1% neto - asegurarlo
                 # Risk decision: cerrar para asegurar o dejar correr
-                if positive_count == total_positions and total_pnl_pct < 0.015:
+                if positive_count == total_positions and pnl_net_pct < 0.015:
                     result["action"] = "CLOSE_ALL"
-                    result["reason"] = f"1% asegurado para evitar riesgos (actual: {total_pnl_pct*100:.2f}%)"
+                    result["reason"] = f"1% neto asegurado para evitar riesgos (actual: {pnl_net_pct*100:.2f}%)"
                     result["confidence"] = 0.75
                     result["target_positions"] = [p["id"] for p in portfolio.get("positions", []) if p.get("status") == "open"]
                 else:
                     result["action"] = "CONTINUE"
-                    result["reason"] = f"1% alcanzado, dejando correr hacia 2%+ (actual: {total_pnl_pct*100:.2f}%)"
+                    result["reason"] = f"1% neto alcanzado, dejando correr hacia 2%+ (actual: {pnl_net_pct*100:.2f}%)"
                     result["confidence"] = 0.65
 
         # CONDICIÓN 2: Posiciones negativas → considerar cerrar las peores
-        elif negative_count > 0 and total_pnl_pct < 0:
+        elif negative_count > 0 and pnl_net_pct < 0:
             worst = self.evaluator.get_worst_position(portfolio)
             if worst and worst.get("pnl_pct", 0) < -0.02:  # Perdiendo más de 2%
                 result["action"] = "CLOSE_WORST"
