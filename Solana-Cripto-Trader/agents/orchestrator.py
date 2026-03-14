@@ -162,6 +162,45 @@ def run_cycle(safe=True, debug=False):
             log.warning(f"   ⚠️ Error: {e}")
             results["daily_target"] = {"ok": False}
     
+    # Paso 4d: Position Decisions (LLM + Quant)
+    log.info("━" * 40)
+    log.info("🧠 [4d/5] Position Decisions — LLM + Quant")
+    try:
+        market_data_for_dec = {}
+        market_file = DATA_DIR / "market_latest.json"
+        if market_file.exists():
+            market_data_for_dec = json.loads(market_file.read_text())
+
+        research_data = {}
+        research_file = DATA_DIR / "research_latest.json"
+        if research_file.exists():
+            research_data = json.loads(research_file.read_text())
+
+        if portfolio_data and portfolio_data.get("positions"):
+            decisions = rm.evaluate_position_decision(portfolio_data, market_data_for_dec, research_data)
+            close_recs  = [d for d in decisions if d["action"] == "CLOSE"  and d["confidence"] >= 0.70]
+            reduce_recs = [d for d in decisions if d["action"] == "REDUCE" and d["confidence"] >= 0.70]
+
+            if close_recs:
+                log.info(f"   🔴 CERRAR ({len(close_recs)}): {', '.join(d['symbol'] for d in close_recs)}")
+            if reduce_recs:
+                log.info(f"   🟡 REDUCIR ({len(reduce_recs)}): {', '.join(d['symbol'] for d in reduce_recs)}")
+            if not close_recs and not reduce_recs:
+                log.info(f"   🟢 MANTENER todas las posiciones")
+
+            results["position_decisions"] = {
+                "ok": True,
+                "evaluated": len(decisions),
+                "close_signals": len(close_recs),
+                "reduce_signals": len(reduce_recs),
+            }
+        else:
+            log.info("   ℹ️  Sin posiciones abiertas")
+            results["position_decisions"] = {"ok": True, "evaluated": 0}
+    except Exception as e:
+        log.warning(f"   ⚠️ Error en position decisions: {e}")
+        results["position_decisions"] = {"ok": False}
+
     # Paso 5: Reporter
     log.info("━" * 40)
     log.info("📊 [5/5] Reporter")

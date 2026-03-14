@@ -4,9 +4,16 @@
 Calcula tamaños de posición, stop loss, take profit y límites de exposición.
 Usa Kelly Criterion simplificado (2% riesgo por trade).
 
+NUEVA FUNCIÓN: evaluate_position_decision()
+  → Usa LLM (Claude Sonnet 4.6) + métricas cuantitativas para decidir
+    si una posición abierta debe CERRARSE, MANTENERSE o REDUCIRSE.
+  → Factores: distancia TP/SL, P&L, horas abiertas, tendencia, Fear & Greed,
+    RSI, momentum reciente y ratio riesgo/beneficio restante.
+
 Uso:
     python3 risk_manager.py          # Genera risk_report.json
     python3 risk_manager.py --debug  # Con output detallado
+    python3 risk_manager.py --decide # Evalúa todas las posiciones abiertas
 """
 
 import os
@@ -18,6 +25,12 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional, List, Dict
+
+try:
+    from llm_config import call_llm
+except ImportError:
+    def call_llm(prompt, system="", max_tokens=2000):
+        return None
 
 # ─── Configuración ───────────────────────────────────────────────────────────
 
@@ -401,6 +414,304 @@ def check_stale_losing_positions(portfolio: dict, max_hours: int = 48, improveme
     return positions_to_close
 
 
+# ─── Intelligent Position Decision ──────────────────────────────────────────
+
+DECISIONS_FILE = DATA_DIR / "position_decisions.json"
+
+
+def _quant_score(pos: dict, market: dict, research: dict) -> dict:
+    """
+    Calcula un score cuantitativo de -100 a +100 para una posición abierta.
+    Positivo = señal de CERRAR (tomar ganancias / cortar pérdidas)
+    Negativo = señal de MANTENER (dejar correr)
+    """
+    symbol      = pos["symbol"]
+    direction   = pos["direction"]
+    entry       = pos["entry_price"]
+    current     = pos["current_price"]
+    sl          = pos["sl_price"]
+    tp          = pos["tp_price"]
+    pnl_pct     = pos.get("pnl_pct", 0)
+    margin      = pos.get("margin_usd", 0)
+    leverage    = pos.get("leverage", 3)
+
+    score       = 0
+    reasons     = []
+
+    # ── Factor 1: Distancia al TP (0-40 pts) ──────────────────────────────
+    if direction == "long":
+        dist_tp_pct = (tp - current) / current * 100 if tp > current else 0
+        dist_sl_pct = (current - sl) / current * 100 if current > sl else 0
+    else:
+        dist_tp_pct = (current - tp) / current * 100 if current > tp else 0
+        dist_sl_pct = (sl - current) / current * 100 if sl > current else 0
+
+    # Muy cerca del TP → cerrar para asegurar ganancia
+    if dist_tp_pct < 0.5:
+        score += 40
+        reasons.append(f"TP_MUY_CERCA ({dist_tp_pct:.2f}%)")
+    elif dist_tp_pct < 1.0:
+        score += 25
+        reasons.append(f"TP_CERCA ({dist_tp_pct:.2f}%)")
+    elif dist_tp_pct < 2.0:
+        score += 10
+        reasons.append(f"TP_MODERADO ({dist_tp_pct:.2f}%)")
+
+    # Muy cerca del SL → cerrar para limitar pérdida
+    if dist_sl_pct < 0.3:
+        score += 45
+        reasons.append(f"SL_PELIGRO ({dist_sl_pct:.2f}%)")
+    elif dist_sl_pct < 0.7:
+        score += 25
+        reasons.append(f"SL_CERCA ({dist_sl_pct:.2f}%)")
+
+    # ── Factor 2: Risk/Reward restante ────────────────────────────────────
+    if dist_sl_pct > 0:
+        rr_remaining = dist_tp_pct / dist_sl_pct
+        if rr_remaining < 0.5:
+            score += 20
+            reasons.append(f"RR_MALO ({rr_remaining:.2f}x)")
+        elif rr_remaining > 2.0:
+            score -= 15
+            reasons.append(f"RR_BUENO ({rr_remaining:.2f}x)")
+
+    # ── Factor 3: Horas abierto ───────────────────────────────────────────
+    opened_at_str = pos.get("opened_at", "")
+    hours_open = 0
+    if opened_at_str:
+        try:
+            opened_at = datetime.fromisoformat(opened_at_str.replace('Z', '+00:00'))
+            hours_open = (datetime.now(timezone.utc) - opened_at).total_seconds() / 3600
+        except Exception:
+            pass
+
+    if hours_open > 96:
+        score += 20
+        reasons.append(f"MUY_ANTIGUA ({hours_open:.0f}h)")
+    elif hours_open > 48:
+        score += 10
+        reasons.append(f"ANTIGUA ({hours_open:.0f}h)")
+
+    # ── Factor 4: P&L actual ──────────────────────────────────────────────
+    # Posición muy ganadora → asegurar + de la mitad
+    if pnl_pct > 8:
+        score += 15
+        reasons.append(f"GANANCIA_ALTA ({pnl_pct:.1f}%)")
+
+    # Posición perdedora sin señal de recuperación
+    if pnl_pct < -5:
+        score += 20
+        reasons.append(f"PERDIDA_ALTA ({pnl_pct:.1f}%)")
+
+    # ── Factor 5: Tendencia de mercado ────────────────────────────────────
+    trend      = research.get("trend", "NEUTRAL").upper()
+    confidence = research.get("confidence", 0.5)
+
+    if direction == "long" and trend == "BEARISH" and confidence > 0.6:
+        score += 20
+        reasons.append(f"TENDENCIA_EN_CONTRA (BEARISH {confidence:.0%})")
+    elif direction == "short" and trend == "BULLISH" and confidence > 0.6:
+        score += 20
+        reasons.append(f"TENDENCIA_EN_CONTRA (BULLISH {confidence:.0%})")
+    elif direction == "long" and trend == "BULLISH" and confidence > 0.6:
+        score -= 15
+        reasons.append(f"TENDENCIA_FAVOR (BULLISH {confidence:.0%})")
+    elif direction == "short" and trend == "BEARISH" and confidence > 0.6:
+        score -= 15
+        reasons.append(f"TENDENCIA_FAVOR (BEARISH {confidence:.0%})")
+
+    # ── Factor 6: Fear & Greed ────────────────────────────────────────────
+    fg = market.get("fear_greed", {}).get("value", 50)
+    if fg > 80 and direction == "long":
+        score += 10
+        reasons.append(f"EUFORIA_EXTREMA (F&G={fg})")
+    elif fg < 20 and direction == "short":
+        score += 10
+        reasons.append(f"PANICO_EXTREMO (F&G={fg})")
+
+    return {
+        "symbol": symbol,
+        "score": score,
+        "reasons": reasons,
+        "dist_tp_pct": round(dist_tp_pct, 3),
+        "dist_sl_pct": round(dist_sl_pct, 3),
+        "hours_open": round(hours_open, 1),
+        "pnl_pct": round(pnl_pct, 2),
+        "rr_remaining": round(dist_tp_pct / dist_sl_pct, 3) if dist_sl_pct > 0 else 0,
+    }
+
+
+def _llm_decision(pos: dict, quant: dict, market: dict, research: dict) -> dict:
+    """
+    Pide al LLM (Claude Sonnet 4.6) su recomendación basada en el análisis cuantitativo.
+    Retorna: {"action": "CLOSE"|"HOLD"|"REDUCE", "confidence": 0-1, "reasoning": str}
+    """
+    symbol    = pos["symbol"]
+    direction = pos["direction"].upper()
+    entry     = pos["entry_price"]
+    current   = pos["current_price"]
+    sl        = pos["sl_price"]
+    tp        = pos["tp_price"]
+    pnl_usd   = pos.get("pnl_usd", 0)
+    pnl_pct   = pos.get("pnl_pct", 0)
+    leverage  = pos.get("leverage", 3)
+
+    prompt = f"""Eres un gestor de riesgo experto en crypto. Analiza esta posición y decide: CLOSE, HOLD o REDUCE.
+
+POSICIÓN ACTUAL:
+- Symbol: {symbol}
+- Dirección: {direction}
+- Entrada: ${entry:.6f}
+- Precio actual: ${current:.6f}
+- Stop Loss: ${sl:.6f} ({quant['dist_sl_pct']:.2f}% de distancia)
+- Take Profit: ${tp:.6f} ({quant['dist_tp_pct']:.2f}% de distancia)
+- P&L actual: ${pnl_usd:.2f} ({pnl_pct:.2f}% sobre margen)
+- Leverage: {leverage}x
+- Horas abierta: {quant['hours_open']:.1f}h
+- R/R restante: {quant['rr_remaining']:.2f}x
+
+ANÁLISIS CUANTITATIVO:
+- Score: {quant['score']}/100 (>50 = señal de cerrar)
+- Factores: {', '.join(quant['reasons']) if quant['reasons'] else 'ninguno'}
+
+CONTEXTO DE MERCADO:
+- Tendencia: {research.get('trend', 'NEUTRAL')} (confianza: {research.get('confidence', 0.5):.0%})
+- Fear & Greed: {market.get('fear_greed', {}).get('value', 50)}/100
+
+REGLAS DE DECISIÓN:
+1. CLOSE si: TP a <1% Y score>30, O SL a <0.5%, O R/R < 0.5x Y perdedor
+2. HOLD si: buena tendencia a favor, R/R > 1.5x, posición ganadora con runway
+3. REDUCE si: ganancia >8% pero aún tiene potencial — cerrar 50% y mover SL a entrada
+
+Responde SOLO en JSON válido:
+{{"action": "CLOSE|HOLD|REDUCE", "confidence": 0.0-1.0, "reasoning": "máx 2 oraciones"}}"""
+
+    system = "Eres un risk manager de crypto. Responde siempre con JSON válido únicamente, sin markdown."
+
+    response = call_llm(prompt, system=system, max_tokens=300)
+
+    if not response:
+        # Fallback cuantitativo si LLM falla
+        if quant["score"] >= 50:
+            action = "CLOSE"
+        elif quant["score"] >= 25:
+            action = "REDUCE"
+        else:
+            action = "HOLD"
+        return {
+            "action": action,
+            "confidence": 0.6,
+            "reasoning": f"Decisión cuantitativa (LLM no disponible). Score: {quant['score']}",
+            "source": "quantitative_fallback"
+        }
+
+    # Parse JSON response
+    try:
+        # Strip markdown if present
+        text = response.strip()
+        if "```" in text:
+            text = text.split("```")[1]
+            if text.startswith("json"):
+                text = text[4:]
+        text = text.strip()
+        result = json.loads(text)
+        result["source"] = "llm_claude_sonnet"
+        return result
+    except Exception:
+        # Try extracting action from text
+        action = "HOLD"
+        if "CLOSE" in response.upper():
+            action = "CLOSE"
+        elif "REDUCE" in response.upper():
+            action = "REDUCE"
+        return {
+            "action": action,
+            "confidence": 0.5,
+            "reasoning": response[:200],
+            "source": "llm_text_fallback"
+        }
+
+
+def evaluate_position_decision(portfolio: dict, market: dict, research: dict) -> list:
+    """
+    Evalúa CADA posición abierta y genera una recomendación de acción.
+
+    Para cada posición:
+    1. Calcula score cuantitativo (distancias TP/SL, R/R, horas, tendencia)
+    2. Consulta al LLM con todo el contexto
+    3. Combina ambos para generar recomendación final
+
+    Retorna lista de decisiones con:
+        symbol, action (CLOSE/HOLD/REDUCE), confidence, score, reasoning
+    """
+    open_positions = [p for p in portfolio.get("positions", []) if p.get("status") == "open"]
+
+    if not open_positions:
+        return []
+
+    decisions = []
+
+    for pos in open_positions:
+        symbol = pos["symbol"]
+        log.info(f"   🧠 Evaluando {symbol}...")
+
+        # Step 1: Quantitative analysis
+        quant = _quant_score(pos, market, research)
+
+        # Step 2: LLM recommendation
+        llm_rec = _llm_decision(pos, quant, market, research)
+
+        # Step 3: Combine (LLM has 60% weight, quant has 40%)
+        # If both agree → high confidence final decision
+        # If they disagree → use LLM but lower confidence
+        quant_action = "CLOSE" if quant["score"] >= 50 else ("REDUCE" if quant["score"] >= 25 else "HOLD")
+        llm_action   = llm_rec.get("action", "HOLD")
+
+        if quant_action == llm_action:
+            final_action     = llm_action
+            final_confidence = min(1.0, llm_rec.get("confidence", 0.7) * 1.2)  # boost when aligned
+            alignment        = "ALIGNED"
+        else:
+            # LLM wins but with reduced confidence
+            final_action     = llm_action
+            final_confidence = llm_rec.get("confidence", 0.6) * 0.8
+            alignment        = f"SPLIT (quant={quant_action}, llm={llm_action})"
+
+        decision = {
+            "symbol":           symbol,
+            "direction":        pos["direction"],
+            "action":           final_action,
+            "confidence":       round(final_confidence, 2),
+            "alignment":        alignment,
+            "quant_score":      quant["score"],
+            "quant_action":     quant_action,
+            "quant_reasons":    quant["reasons"],
+            "llm_action":       llm_action,
+            "llm_confidence":   llm_rec.get("confidence", 0),
+            "llm_reasoning":    llm_rec.get("reasoning", ""),
+            "llm_source":       llm_rec.get("source", "unknown"),
+            "pnl_usd":          pos.get("pnl_usd", 0),
+            "pnl_pct":          pos.get("pnl_pct", 0),
+            "dist_tp_pct":      quant["dist_tp_pct"],
+            "dist_sl_pct":      quant["dist_sl_pct"],
+            "rr_remaining":     quant["rr_remaining"],
+            "hours_open":       quant["hours_open"],
+            "evaluated_at":     datetime.now(timezone.utc).isoformat(),
+        }
+        decisions.append(decision)
+
+        icon = "🔴" if final_action == "CLOSE" else ("🟡" if final_action == "REDUCE" else "🟢")
+        log.info(f"   {icon} {symbol}: {final_action} (conf {final_confidence:.0%}) — {llm_rec.get('reasoning', '')[:80]}")
+
+    # Save decisions
+    DECISIONS_FILE.write_text(json.dumps({
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "decisions": decisions
+    }, indent=2))
+
+    return decisions
+
+
 # ─── Entry Point ─────────────────────────────────────────────────────────────
 
 def run(debug: bool = False) -> dict:
@@ -501,8 +812,38 @@ def run(debug: bool = False) -> dict:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Risk Manager Agent")
-    parser.add_argument("--debug", action="store_true", help="Output detallado por token")
+    parser.add_argument("--debug",  action="store_true", help="Output detallado por token")
+    parser.add_argument("--decide", action="store_true", help="Evalúa todas las posiciones abiertas con LLM")
     args = parser.parse_args()
 
-    run(debug=args.debug)
+    if args.decide:
+        log.info("=" * 50)
+        log.info("🧠 RISK MANAGER — Evaluando decisiones de posiciones")
+        log.info("=" * 50)
+        portfolio = load_portfolio()
+        market    = load_market()
+        research  = load_research()
+        decisions = evaluate_position_decision(portfolio, market, research)
+
+        if not decisions:
+            log.info("ℹ️  No hay posiciones abiertas para evaluar")
+        else:
+            print("\n" + "=" * 60)
+            print("📋 RECOMENDACIONES DE POSICIONES")
+            print("=" * 60)
+            for d in decisions:
+                icon = "🔴" if d["action"] == "CLOSE" else ("🟡" if d["action"] == "REDUCE" else "🟢")
+                print(f"\n{icon} {d['symbol']} {d['direction'].upper()}")
+                print(f"   Acción:     {d['action']} (confianza: {d['confidence']:.0%})")
+                print(f"   Score:      {d['quant_score']}/100 | R/R restante: {d['rr_remaining']:.2f}x")
+                print(f"   TP dist:    {d['dist_tp_pct']:.2f}% | SL dist: {d['dist_sl_pct']:.2f}%")
+                print(f"   P&L:        ${d['pnl_usd']:.2f} ({d['pnl_pct']:.2f}%)")
+                print(f"   Horas:      {d['hours_open']:.1f}h")
+                print(f"   Razones:    {', '.join(d['quant_reasons']) if d['quant_reasons'] else 'ninguna'}")
+                print(f"   LLM:        {d['llm_reasoning']}")
+                print(f"   Alineación: {d['alignment']}")
+            print(f"\n💾 Guardado en: {DECISIONS_FILE}")
+    else:
+        run(debug=args.debug)
+
     sys.exit(0)
