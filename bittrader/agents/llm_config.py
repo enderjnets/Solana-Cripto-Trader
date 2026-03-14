@@ -14,6 +14,54 @@ WORKSPACE = Path("/home/enderj/.openclaw/workspace")
 BITTRADER = WORKSPACE / "bittrader"
 KEYS_DIR = BITTRADER / "keys"
 
+
+# ══════════════════════════════════════════════════════════════════════
+# CLAUDE SONNET 4.6 (PRIMARY for MrBeast Agent)
+# ══════════════════════════════════════════════════════════════════════
+
+CLAUDE_BASE_URL = "http://127.0.0.1:8443/v1/messages"
+CLAUDE_MODEL = "claude-sonnet-4-6"
+
+def call_claude_sonnet(prompt: str, system: str = "", max_tokens: int = 2000) -> str:
+    """
+    Llama a Claude Sonnet 4.6 vía OpenClaw Gateway (PRIMARY for MrBeast Agent).
+    Endpoint: http://127.0.0.1:8443/v1/messages
+    """
+    import requests
+    
+    headers = {
+        "Content-Type": "application/json",
+        "anthropic-version": "2023-06-01"
+    }
+    
+    messages = []
+    if system:
+        messages.append({"role": "user", "content": system})
+    messages.append({"role": "user", "content": prompt})
+    
+    data = {
+        "model": CLAUDE_MODEL,
+        "max_tokens": max_tokens,
+        "messages": messages
+    }
+    
+    try:
+        response = requests.post(CLAUDE_BASE_URL, json=data, headers=headers, timeout=60)
+        response.raise_for_status()
+        result = response.json()
+        
+        if "content" in result:
+            for block in result["content"]:
+                if block.get("type") == "text":
+                    return block["text"]
+            return result.get("content", [{}])[0].get("text", "")
+        else:
+            return str(result)
+    except Exception as e:
+        print(f"    ⚠️ Claude Sonnet error: {e}")
+        return None
+
+
 # ══════════════════════════════════════════════════════════════════════
 # ZAI GLM-4.7 CODING PLAN (PRIMARY)
 # ══════════════════════════════════════════════════════════════════════
@@ -123,11 +171,17 @@ def call_minimax_llm(prompt: str, system: str = "", max_tokens: int = 2000) -> s
 
 def call_llm(prompt: str, system: str = "", max_tokens: int = 2000) -> str:
     """
-    Llama al LLM con fallback:
-    1. GLM-4.7 Coding (PRIMARY)
-    2. MiniMax M2.5 Coding Plan (FALLBACK)
+    Llama al LLM con fallback (MrBeast Agent optimized):
+    1. Claude Sonnet 4.6 (PRIMARY for MrBeast)
+    2. GLM-4.7 Coding (FALLBACK)
+    3. MiniMax M2.5 Coding Plan (FINAL FALLBACK)
     """
-    # Intentar GLM-4.7 Coding primero
+    # Intentar Claude Sonnet 4.6 primero
+    result = call_claude_sonnet(prompt, system, max_tokens)
+    if result:
+        return result
+
+    print("    ⚠️ Claude Sonnet falló, intentando GLM-4.7 Coding fallback...")
     result = call_glm_5_coding(prompt, system, max_tokens)
     if result:
         return result
