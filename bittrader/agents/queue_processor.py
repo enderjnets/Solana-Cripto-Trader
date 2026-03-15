@@ -24,6 +24,7 @@ WORKSPACE  = Path("/home/enderj/.openclaw/workspace")
 BITTRADER  = WORKSPACE / "bittrader"
 DATA_DIR   = BITTRADER / "agents/data"
 DATA_DIR.mkdir(parents=True, exist_ok=True)
+QUEUE_FILE = DATA_DIR / "upload_queue.json"
 
 # YouTube env
 sys.path.insert(0, str(WORKSPACE / "youtube_env/lib/python3.13/site-packages"))
