@@ -291,14 +291,21 @@ def make_quality_decision(
     critical_failures = []
     warnings = []
 
-    # Find script output directory
+    # Find script output directory — ONLY match the most recent version
+    # Critical: if a video was deleted+regenerated, the OLD dir still exists on disk.
+    # We must verify against what's actually in the queue (output_file path).
     if script_dir is None:
-        today = datetime.now().strftime("%Y-%m-%d")
-        for date_dir in sorted((BASE / "output").iterdir(), reverse=True) if (BASE / "output").exists() else []:
-            candidate = date_dir / script_id
-            if candidate.exists():
-                script_dir = candidate
-                break
+        # Prefer the output_file path from queue (most accurate)
+        output_file = queue_entry.get("output_file","")
+        if output_file and Path(output_file).exists():
+            script_dir = Path(output_file).parent
+        else:
+            # Fallback: scan output dirs newest-first
+            for date_dir in sorted((BASE / "output").iterdir(), reverse=True) if (BASE / "output").exists() else []:
+                candidate = date_dir / script_id
+                if candidate.exists():
+                    script_dir = candidate
+                    break
 
     # ── Check 1: Subtitle contamination ──────────────────────────────────
     if script_dir and script_dir.exists():

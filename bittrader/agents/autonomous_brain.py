@@ -224,10 +224,19 @@ def read_full_system_status() -> dict:
             })
 
     # Issue: no content uploaded today
+    # Count videos uploaded OR that were uploaded then deleted by QA (still produced today)
     today = datetime.now().strftime("%Y-%m-%d")
     uploaded_today = [v for v in q.get("uploaded",[])
-                      if today in str(v.get("uploaded_at",""))]
-    if len(uploaded_today) < 1:
+                      if today in str(v.get("uploaded_at","") or v.get("created_at",""))]
+    # Also count needs_regeneration (was uploaded today but QA removed — will regen tomorrow)
+    produced_today = uploaded_today + [
+        v for v in q.get("ready",[]) + [
+            x for x in (json.loads(QUEUE_FILE.read_text()) if QUEUE_FILE.exists() else [])
+            if x.get("status") in ("needs_regeneration","needs_regeneration_confirmed")
+        ]
+        if today in str(v.get("created_at",""))
+    ]
+    if len(produced_today) < 1 and len(uploaded_today) < 1:
         status["issues"].append({
             "type":     "NO_UPLOADS_TODAY",
             "priority": "HIGH",

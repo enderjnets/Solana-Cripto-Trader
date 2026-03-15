@@ -1,7 +1,7 @@
 [
   {
     "script_id": "short_1773470200_200",
-    "title": "TRUMP Coin: ¿Estafa o MILLONES?",
+    "title": "TRUMP Coin: \u00bfEstafa o MILLONES?",
     "description": "#crypto #trading #short_1773470200_200",
     "type": "short",
     "tags": [
@@ -12,7 +12,7 @@
     "output_file": "/home/enderj/.openclaw/workspace/bittrader/agents/output/2026-03-14/short_1773470200_200/short_1773470200_200.mp4",
     "duration": 25.8,
     "size_mb": 1.0,
-    "status": "uploaded",
+    "status": "needs_regeneration_confirmed",
     "thumbnail": "/home/enderj/.openclaw/workspace/bittrader/agents/output/2026-03-14/short_1773470200_200/short_1773470200_200_thumbnail.jpg",
     "scheduled_date": "2026-03-14T23:18:59.810152+00:00",
     "verified_quality": true,
@@ -25,13 +25,16 @@
     "deleted_at": "2026-03-14T23:52:34.088727+00:00",
     "gate_passed": true,
     "gate_checked_at": "2026-03-15T00:00:01.850222+00:00",
-    "thumbnail_uploaded": true
+    "thumbnail_uploaded": true,
+    "quality_decision": "Subtitle contamination detected: SUBTITLE: SUBTITLE_CONTAMINATION \u2014 'gancho:'",
+    "quality_decided_at": "2026-03-15T01:01:04.889644+00:00",
+    "note": "False positive by QA Agent \u2014 read old .ass dir, not new upload"
   },
   {
     "script_id": "long_1773511946",
-    "title": "Cómo crear un Bot de Trading con Claude AI (sin saber programar) — MT5",
+    "title": "C\u00f3mo crear un Bot de Trading con Claude AI (sin saber programar) \u2014 MT5",
     "type": "long",
-    "status": "uploaded",
+    "status": "needs_regeneration_confirmed",
     "thumbnail_ready": true,
     "thumbnail_path": "/home/enderj/.openclaw/workspace/bittrader/agents/data/thumbnails/long_1773511946_thumbnail.jpg",
     "produced_at": "2026-03-14T18:15:36.023768+00:00",
@@ -44,7 +47,10 @@
     "deleted_at": "2026-03-14T23:52:34.088745+00:00",
     "gate_passed": true,
     "gate_checked_at": "2026-03-15T00:00:01.850531+00:00",
-    "thumbnail_uploaded": true
+    "thumbnail_uploaded": true,
+    "quality_decision": "Subtitle contamination detected: SUBTITLE: SUBTITLE_CONTAMINATION \u2014 '--- hook :'",
+    "quality_decided_at": "2026-03-15T01:01:07.108783+00:00",
+    "note": "False positive by QA Agent \u2014 read old .ass dir, not new upload"
   },
   {
     "script_id": "short_1773531747_880",
@@ -62,40 +68,55 @@
   },
   {
     "script_id": "short_1773532377_122",
-    "title": "Circle le ganó a BlackRock en $11B",
+    "title": "Circle le gan\u00f3 a BlackRock en $11B",
     "type": "short",
-    "status": "duplicate_skipped",
+    "status": "blocked",
     "output_file": "/home/enderj/.openclaw/workspace/bittrader/agents/output/2026-03-14/short_1773532377_122/short_1773532377_122.mp4",
     "thumbnail_path": "",
     "thumbnail_ready": false,
     "scheduled_date": "2026-03-16T00:00:26.555058+00:00",
-    "created_at": "2026-03-15T00:00:26.555064+00:00"
+    "created_at": "2026-03-15T00:00:26.555064+00:00",
+    "gate_passed": false,
+    "gate_issues": [
+      "NO_THUMBNAIL: No thumbnail found for short_1773532377_122 (checked 5 locations)"
+    ],
+    "gate_checked_at": "2026-03-15T01:00:01.946821+00:00"
   },
   {
     "script_id": "short_1773532397_293",
     "title": "Circle Supera a BlackRock con $11B",
     "type": "short",
-    "status": "duplicate_skipped",
+    "status": "blocked",
     "output_file": "/home/enderj/.openclaw/workspace/bittrader/agents/output/2026-03-14/short_1773532397_293/short_1773532397_293.mp4",
     "thumbnail_path": "",
     "thumbnail_ready": false,
     "scheduled_date": "2026-03-16T00:00:26.555204+00:00",
-    "created_at": "2026-03-15T00:00:26.555209+00:00"
+    "created_at": "2026-03-15T00:00:26.555209+00:00",
+    "gate_passed": false,
+    "gate_issues": [
+      "NO_THUMBNAIL: No thumbnail found for short_1773532397_293 (checked 5 locations)"
+    ],
+    "gate_checked_at": "2026-03-15T01:00:01.947122+00:00"
   },
   {
     "script_id": "short_1773532464_668",
     "title": "Circle vence a BlackRock en $11B",
     "type": "short",
-    "status": "duplicate_skipped",
+    "status": "blocked",
     "output_file": "/home/enderj/.openclaw/workspace/bittrader/agents/output/2026-03-14/short_1773532464_668/short_1773532464_668.mp4",
     "thumbnail_path": "",
     "thumbnail_ready": false,
     "scheduled_date": "2026-03-16T00:00:26.555348+00:00",
-    "created_at": "2026-03-15T00:00:26.555353+00:00"
+    "created_at": "2026-03-15T00:00:26.555353+00:00",
+    "gate_passed": false,
+    "gate_issues": [
+      "NO_THUMBNAIL: No thumbnail found for short_1773532464_668 (checked 5 locations)"
+    ],
+    "gate_checked_at": "2026-03-15T01:00:01.947495+00:00"
   },
   {
     "script_id": "short_1773532415_711",
-    "title": "PI Network cayó -20% en 24 horas",
+    "title": "PI Network cay\u00f3 -20% en 24 horas",
     "type": "short",
     "status": "uploaded",
     "output_file": "/home/enderj/.openclaw/workspace/bittrader/agents/output/2026-03-14/short_1773532415_711/short_1773532415_711.mp4",
