@@ -459,6 +459,19 @@ Solo responde con el JSON.
                 elif action_type == 'wait':
                     print(f"  ⏳ Esperando: {action['reason']}")
 
+        # ── QUALITY AGENT: runs FIRST — channel guardian ──────────────────
+        print()
+        print("🎬 Quality Agent — auditoría autónoma del canal...")
+        try:
+            from quality_agent import run_quality_cycle
+            qa_report = run_quality_cycle(execute=True)
+            print(f"  QA: {qa_report['approved']} approved | "
+                  f"{qa_report.get('deleted',0)+qa_report.get('regenerated',0)} deleted/regen | "
+                  f"{qa_report['held']} held")
+        except Exception as e:
+            print(f"  ⚠️ Quality Agent error: {e}")
+            qa_report = {"approved": 0, "deleted": 0, "held": 0}
+
         # ── AUTONOMOUS BRAIN: runs regardless of LLM decision ─────────────
         print()
         print("🧠 Autonomous Brain — auto-diagnóstico y acciones autónomas...")

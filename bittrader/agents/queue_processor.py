@@ -197,6 +197,16 @@ def main():
         _guardian_available = False
         def verify_uploaded(vid_id, title, thumb_ok): return {}
 
+    # ── QUALITY AGENT: pre-load gate ────────────────────────────────────
+    try:
+        from quality_agent import gate_before_upload
+        _qa_available = True
+        log("🎬 Quality Agent: disponible para gate pre-upload", "INFO")
+    except Exception as e:
+        log(f"⚠️ Quality Agent no disponible: {e}", "WARNING")
+        _qa_available = False
+        def gate_before_upload(script_id, entry): return True
+
     # Filter videos ready to upload
     ready_to_upload = []
     for i, item in enumerate(queue):
@@ -206,8 +216,10 @@ def main():
         # Skip if already uploaded or not ready
         if status in ["uploaded", "published", "uploading"]:
             continue
-        if status == "blocked":
-            log(f"Item {i}: BLOCKED by Guardian — {item.get('gate_issues',[])} — skipping", "WARNING")
+        if status in ("blocked", "held_by_quality_agent", "deleted_by_quality_agent",
+                      "needs_regeneration", "deleted_contaminated", "deleted_header_bug",
+                      "duplicate_skipped"):
+            log(f"Item {i}: status='{status}' — skipping", "DEBUG")
             continue
         if status != "ready":
             log(f"Item {i}: status='{status}' - skipping", "DEBUG")
@@ -220,11 +232,23 @@ def main():
                 sched_dt = sched_dt.replace(tzinfo=timezone.utc)
             
             if sched_dt <= now:
+                # ── Quality Agent gate ────────────────────────────────
+                script_id = item.get("script_id","")
+                if _qa_available and not gate_before_upload(script_id, item):
+                    log(f"Item {i}: ⛔ BLOCKED by Quality Agent — {item.get('title','?')[:40]}", "WARNING")
+                    item["status"] = "held_by_quality_agent"
+                    continue
                 ready_to_upload.append((i, item))
                 log(f"Item {i}: Ready - scheduled={sched_date}, now={now.isoformat()}", "DEBUG")
             else:
                 log(f"Item {i}: Future - scheduled={sched_date}", "DEBUG")
         else:
+            # ── Quality Agent gate (no scheduled date) ────────────────
+            script_id = item.get("script_id","")
+            if _qa_available and not gate_before_upload(script_id, item):
+                log(f"Item {i}: ⛔ BLOCKED by Quality Agent — {item.get('title','?')[:40]}", "WARNING")
+                item["status"] = "held_by_quality_agent"
+                continue
             ready_to_upload.append((i, item))
             log(f"Item {i}: Ready (no scheduled date)", "DEBUG")
 
