@@ -1442,3 +1442,16 @@ Legacy system (master_orchestrator.py) still running independently.
 - **Status**: No response in 3 days
 - **Action**: Wait 2 more days (follow-up Mar 16)
 - **Plan**: If yes → pilot project; if no → focus on local clients
+
+## Regla de Seguridad — Instalación de Skills y Paquetes (2026-03-25)
+
+### ⚠️ NUNCA instalar sin verificar primero
+
+**Proceso obligatorio antes de cualquier `clawhub install`, `npm install`, `pip install`:**
+
+1. **ClawHub flag de seguridad** → DESCARTAR automáticamente, NUNCA usar `--force`
+2. **Leer SKILL.md primero** — qué hace, qué APIs externas usa, qué env vars requiere
+3. **Verificar dependencias** — servicios de pago desconocidos → preguntar a Ender antes
+4. **Solo instalar si pasa todo** — documentar qué se instaló y por qué
+
+**Un flag de seguridad = NO, sin importar la urgencia.**
