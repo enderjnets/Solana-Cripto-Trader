@@ -62,18 +62,43 @@ def _cb_record_failure():
 
 
 # ══════════════════════════════════════════════════════════════════════
-# PRIMARY: Claude Sonnet 4.6 via OpenClaw Gateway
+# PRIMARY: Claude Sonnet 4.6 via Direct Anthropic API
+# Fix 2026-03-23: Gateway port 8443 was wrong (18789 is dashboard, not API)
+#                 Now using api.anthropic.com directly with key from config
 # ══════════════════════════════════════════════════════════════════════
 
-CLAUDE_BASE_URL = "http://127.0.0.1:8443/v1/messages"
+CLAUDE_BASE_URL = "https://api.anthropic.com/v1/messages"
 CLAUDE_MODEL    = "claude-sonnet-4-6"
 
 
+def _get_claude_key() -> tuple:
+    """Load Anthropic API key + extra headers from openclaw config."""
+    try:
+        import json as _json
+        cfg_path = Path.home() / ".openclaw" / "openclaw.json"
+        if cfg_path.exists():
+            cfg = _json.loads(cfg_path.read_text())
+            # Structure: models.providers.claude
+            provider = cfg.get("models", {}).get("providers", {}).get("claude", {})
+            key = provider.get("apiKey", "")
+            headers_extra = provider.get("headers", {})
+            return key, headers_extra
+    except Exception:
+        pass
+    return "", {}
+
+
 def call_claude_sonnet(prompt: str, system: str = "", max_tokens: int = 2000) -> str:
-    """Claude Sonnet 4.6 via OpenClaw Gateway — PRIMARY"""
+    """Claude Sonnet 4.6 via Direct Anthropic API — PRIMARY"""
+    api_key, extra_headers = _get_claude_key()
+    if not api_key:
+        print("    ⚠️ Claude Sonnet: No API key found in openclaw config")
+        return None
     headers = {
         "Content-Type": "application/json",
-        "anthropic-version": "2023-06-01"
+        "x-api-key": api_key,
+        "anthropic-version": "2023-06-01",
+        **extra_headers
     }
     messages = [{"role": "user", "content": prompt}]
     data = {"model": CLAUDE_MODEL, "max_tokens": max_tokens, "messages": messages}
@@ -83,8 +108,9 @@ def call_claude_sonnet(prompt: str, system: str = "", max_tokens: int = 2000) ->
         r = requests.post(CLAUDE_BASE_URL, headers=headers, json=data, timeout=60)
         r.raise_for_status()
         result = r.json()
-        if "content" in result:
-            texts = [c["text"] for c in result["content"] if c.get("type") == "text"]
+        content = result.get("content")
+        if content and isinstance(content, list):
+            texts = [c["text"] for c in content if c.get("type") == "text"]
             if texts:
                 return "\n".join(texts)
         return None
@@ -100,6 +126,54 @@ def call_claude_sonnet(prompt: str, system: str = "", max_tokens: int = 2000) ->
 MINIMAX_KEY   = json.loads((KEYS_DIR / "minimax.json").read_text())["minimax_api_key"]
 MINIMAX_URL   = "https://api.minimax.io/anthropic/v1/messages"
 MINIMAX_MODEL = "MiniMax-M2.5"
+
+# ── OpenRouter config ──────────────────────────────────────────────────────
+OPENROUTER_URL   = "https://openrouter.ai/api/v1/chat/completions"
+NEMOTRON_MODEL   = "nvidia/nemotron-3-super-120b-a12b:free"
+
+
+def _get_openrouter_key() -> str:
+    try:
+        import json as _json
+        cfg_path = Path.home() / ".openclaw" / "openclaw.json"
+        if cfg_path.exists():
+            cfg = _json.loads(cfg_path.read_text())
+            return cfg.get("models", {}).get("providers", {}).get("openrouter", {}).get("apiKey", "")
+    except Exception:
+        pass
+    return ""
+
+
+def call_nemotron(prompt: str, system: str = "", max_tokens: int = 2000) -> str:
+    """NVIDIA Nemotron Super 120B via OpenRouter (FREE) — PRIMARY"""
+    api_key = _get_openrouter_key()
+    if not api_key:
+        print("    ⚠️ Nemotron: No OpenRouter API key found")
+        return None
+    messages = []
+    if system:
+        messages.append({"role": "system", "content": system})
+    messages.append({"role": "user", "content": prompt})
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json"
+    }
+    data = {
+        "model": NEMOTRON_MODEL,
+        "messages": messages,
+        "max_tokens": max(max_tokens, 500)  # Nemotron needs min ~500 tokens
+    }
+    try:
+        r = requests.post(OPENROUTER_URL, headers=headers, json=data, timeout=60)
+        r.raise_for_status()
+        result = r.json()
+        content = result["choices"][0]["message"].get("content")
+        if content:
+            return content
+        return None
+    except Exception as e:
+        print(f"    ⚠️ Nemotron error: {e}")
+        return None
 
 
 def call_minimax(prompt: str, system: str = "", max_tokens: int = 2000) -> str:
@@ -121,8 +195,9 @@ def call_minimax(prompt: str, system: str = "", max_tokens: int = 2000) -> str:
         r = requests.post(MINIMAX_URL, headers=headers, json=data, timeout=60)
         r.raise_for_status()
         result = r.json()
-        if "content" in result:
-            texts = [c["text"] for c in result["content"] if c.get("type") == "text"]
+        content = result.get("content")
+        if content and isinstance(content, list):
+            texts = [c["text"] for c in content if c.get("type") == "text"]
             if texts:
                 return "\n".join(texts)
         return None
@@ -138,20 +213,21 @@ def call_minimax(prompt: str, system: str = "", max_tokens: int = 2000) -> str:
 def call_llm(prompt: str, system: str = "", max_tokens: int = 2000) -> str:
     """
     Fallback chain:
-    1. Claude Sonnet 4.6 (PRIMARY - OpenClaw Gateway)
-    2. MiniMax M2.5 (FALLBACK)
+    1. MiniMax M2.5 via direct API (PRIMARY - reliable, paid)
+    2. Claude Sonnet 4.6 via direct Anthropic API (FALLBACK)
+    Updated: 2026-03-25 — Removed Nemotron (OpenRouter account routing broken → always 404)
     """
     if _cb_is_open():
         return None
 
-    # Try Claude first
-    result = call_claude_sonnet(prompt, system, max_tokens)
+    # Try MiniMax first (direct API, reliable)
+    result = call_minimax(prompt, system, max_tokens)
     if result:
         _cb_record_success()
         return result
 
-    print("    ⚠️ Claude Sonnet falló — intentando MiniMax fallback...")
-    result = call_minimax(prompt, system, max_tokens)
+    print("    ⚠️ MiniMax falló — intentando Claude Sonnet fallback...")
+    result = call_claude_sonnet(prompt, system, max_tokens)
     if result:
         _cb_record_success()
         return result

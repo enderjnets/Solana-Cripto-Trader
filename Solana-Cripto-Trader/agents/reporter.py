@@ -176,7 +176,12 @@ def queue_alert(message: str):
     alerts = []
     if ALERTS_FILE.exists():
         try:
-            alerts = json.loads(ALERTS_FILE.read_text())
+            raw = json.loads(ALERTS_FILE.read_text())
+            # BUG FIX: pending_alerts.json may be a dict {"alerts": [...]} instead of a list
+            if isinstance(raw, list):
+                alerts = raw
+            elif isinstance(raw, dict):
+                alerts = raw.get("alerts", [])
         except Exception:
             alerts = []
     alerts.append({"ts": datetime.now(ZoneInfo("America/Denver")).isoformat(), "msg": message})
