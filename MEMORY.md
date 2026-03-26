@@ -1499,3 +1499,22 @@ professional studio lighting, 4K cinematic, high contrast, sharp focus
 4. **Solo instalar si pasa todo** — documentar qué se instaló y por qué
 
 **Un flag de seguridad = NO, sin importar la urgencia.**
+
+## BitTrader — Video de Referencia APROBADO (2026-03-25)
+
+### Video: "Cómo los Bots de Trading Ganan Dinero Mientras Duermes" 
+- **ID YouTube**: jW-xjSxv6Dc
+- **Calificación de Ender**: ⭐⭐⭐⭐⭐ — "uno de los mejores que he visto, me gustó todo"
+- **Lo que funcionó perfectamente**:
+  - La voz usada → es la MEJOR según Ender (documentar cuál fue)
+  - Los clips de video → perfectos, bien sincronizados con el narrador
+  - Producción general → nivel profesional
+- **Lo que faltó**: Logo BitTrader en el video + thumbnail (corregido)
+- **Acción**: Este video es el ESTÁNDAR DE REFERENCIA para producción futura
+
+### Instrucción al equipo de producción:
+Cuando produzcan un video nuevo, deben replicar la calidad de `jW-xjSxv6Dc`:
+- Misma voz (verificar qué voz se usó en ese video)
+- Mismo estilo de selección de clips (relevantes, sin repetición)
+- Mismo ritmo de narración
+- Siempre incluir logo BitTrader en el video + thumbnail con estilo oficial
