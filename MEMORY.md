@@ -12,6 +12,54 @@
 - Automatización de sistemas
 - Integración IA local
 
+## BitTrader Thumbnails — Estándares y Lecciones Aprendidas (2026-03-25)
+
+### 🔴 Reglas de Calidad — NO NEGOCIABLES
+
+#### Toda thumbnail DEBE tener:
+1. **Persona real con expresión dramática** — sin cara = fallback, fallback = subóptimo
+2. **Texto grande con borde negro 12px** (MrBeast style)
+3. **Logo BitTrader top-left**
+4. **@bittrader9259 top-right**
+5. **Brightness > 30** (validación automática)
+6. **Ratio 16:9 / 1280×720** (NUNCA estirar)
+
+#### ❌ Errores que ya ocurrieron y NO deben repetirse:
+- Videos subidos sin thumbnail custom → YouTube pone frame azul/negro genérico
+- Thumbnail generada pero no subida/aplicada al video
+- Fallback activado sin intentar Hugging Face SDXL primero
+- Pipeline marcando video como `success` sin verificar que la thumbnail quedó en YouTube
+
+### 🔧 Protocolo de Verificación Post-Upload (OBLIGATORIO)
+
+Después de subir cualquier video a YouTube, el pipeline DEBE:
+1. Verificar via API que el video tiene `maxresdefault` thumbnail (no la auto-generada)
+2. Si falta thumbnail → generar con SDXL (HF API) + subir inmediatamente
+3. Loguear resultado: `thumbnail_uploaded: true/false` en upload_queue.json
+4. Si la thumbnail falla 3 veces → alerta a Ender
+
+### 🎨 Orden de intentos para generar personas (SDXL):
+1. `stabilityai/stable-diffusion-xl-base-1.0` (calidad alta)
+2. `black-forest-labs/FLUX.1-schnell` (rápido)
+3. `runwayml/stable-diffusion-v1-5` (backup)
+4. **Solo si los 3 fallan** → usar fallback con fondo sólido + gradiente (y alertar)
+
+### ✅ Thumbnail aprobada por Ender (25 marzo 2026)
+- Video: "Cómo empezar en cripto con $100" (`QrYrom05HzQ`)
+- Generada con SDXL: hombre latino sonriendo con billetes, monedas de oro de fondo
+- Brightness: 82.6 | Tamaño: 1280×720 | Aprobada y subida ✅
+- Script usado: `/tmp/gen_thumb_100.py` (referencia para futuros thumbnails)
+
+### 📋 Prompt base para thumbnails de cripto (funciona bien con SDXL):
+```
+excited young latin man holding $100 bill, looking at camera with big smile,
+dramatic expression, cryptocurrency charts in background, green and gold colors,
+professional studio lighting, 4K cinematic, high contrast, sharp focus
+```
+Adaptar: cambiar objeto ($100 → phone, laptop), colores según tema, expresión según contenido.
+
+---
+
 ## BitTrader Thumbnails — Método Oficial (2026-03-12)
 
 ### Script principal
