@@ -1443,6 +1443,50 @@ Legacy system (master_orchestrator.py) still running independently.
 - **Action**: Wait 2 more days (follow-up Mar 16)
 - **Plan**: If yes → pilot project; if no → focus on local clients
 
+## BitTrader Thumbnail — Estilo Oficial Aprobado (2026-03-25) ⭐
+
+### Thumbnail aprobada por Ender — "AUTOMATIZA TU TRADING" (Python + LLM)
+Esta thumbnail es el **estándar de referencia** para todos los videos futuros de BitTrader.
+
+### Estructura visual obligatoria:
+- **Fondo**: oscuro (negro/azul muy oscuro) con gradiente sutil
+- **Persona**: lado derecho, ocupa 40-50% del canvas, mirando a cámara con sonrisa o expresión dramática
+- **Overlay gradiente**: lado izquierdo para contraste del texto (oscuro → transparente)
+- **Borde**: dorado fino (#F5A623) todo el perímetro
+- **Badge** (esquina superior izquierda): color temático (verde para tech, amarillo para $$$, rojo para alerta)
+
+### Jerarquía de texto (de arriba a abajo):
+1. **Línea 1** — 1-2 palabras MUY GRANDES en dorado (#F5A623), fuente ~110-115px bold → el hook principal
+2. **Línea 2** — 2-3 palabras grandes en BLANCO, fuente ~90-95px bold → complemento del hook
+3. **Línea 3** — frase descriptiva en blanco, fuente ~50px → "con Python y LLM"
+4. **Línea 4** — subtexto en color temático (verde, etc.), fuente ~40px → "sin saber programar"
+
+### Reglas de texto:
+- Borde negro 12px en todo el texto (stroke)
+- Máximo 3-4 palabras por línea
+- El hook principal debe ser 1-2 palabras que se lean en 1 segundo
+- Texto posicionado en el LADO IZQUIERDO (persona en la derecha)
+
+### Branding:
+- Logo BitTrader: esquina inferior izquierda (60px de alto)
+- @bittrader9259: esquina superior derecha, blanco con stroke negro
+
+### SDXL Prompt base (adaptar por tema):
+```
+excited young latin [profesión] man [acción], looking at camera with big smile,
+[fondo temático], [colores del tema] colors,
+professional studio lighting, 4K cinematic, high contrast, sharp focus
+```
+
+### Colores por tema:
+- **Python/Tech**: verde neón (#00C850) + dorado
+- **Cripto/$$$**: dorado + verde
+- **Pérdidas/Alerta**: rojo + dorado  
+- **Principiantes**: verde + amarillo
+- **Análisis**: azul + dorado
+
+---
+
 ## Regla de Seguridad — Instalación de Skills y Paquetes (2026-03-25)
 
 ### ⚠️ NUNCA instalar sin verificar primero
