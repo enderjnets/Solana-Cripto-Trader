@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "skills": {
+    "youtube-shorts-automation": {
+      "version": "1.0.0",
+      "installedAt": 1774495337589
+    },
+    "vectcut": {
+      "version": "1.1.6",
+      "installedAt": 1774495348794
+    }
+  }
+}

@@ -146,21 +146,135 @@ def extract_frame(video_path: Path, output_path: Path, time_sec: float = 2.0) ->
     return result.returncode == 0 and output_path.exists()
 
 
+def is_frame_usable(frame_path: Path) -> bool:
+    """
+    FIX 3: Validate that a video frame is not a generic black/blue frame.
+    Returns True only if the frame has meaningful color variety.
+    Criteria: avg_b < 150 AND color variance > 30
+    """
+    try:
+        img = Image.open(frame_path).convert("RGB")
+        img_small = img.resize((64, 36), Image.LANCZOS)  # Fast check on small sample
+        pixels = list(img_small.getdata())
+        if not pixels:
+            return False
+
+        avg_r = sum(p[0] for p in pixels) / len(pixels)
+        avg_g = sum(p[1] for p in pixels) / len(pixels)
+        avg_b = sum(p[2] for p in pixels) / len(pixels)
+
+        # Check if too blue (narration video blue background)
+        if avg_b > 150 and avg_b > avg_r * 1.8:
+            print(f"    ⚠️ Frame rejazado: fondo azul genérico (avg_b={avg_b:.0f}, avg_r={avg_r:.0f})")
+            return False
+
+        # Check color variance — monocromatic frames are unusable
+        import statistics
+        all_channels = [p[0] for p in pixels] + [p[1] for p in pixels] + [p[2] for p in pixels]
+        variance = statistics.variance(all_channels)
+        if variance < 30:
+            print(f"    ⚠️ Frame rechazado: imagen monocromática (varianza={variance:.1f})")
+            return False
+
+        avg_brightness = 0.299 * avg_r + 0.587 * avg_g + 0.114 * avg_b
+        if avg_brightness < 15:
+            print(f"    ⚠️ Frame rechazado: demasiado oscuro (brightness={avg_brightness:.1f})")
+            return False
+
+        return True
+    except Exception as e:
+        print(f"    ⚠️ Error validando frame: {e}")
+        return False
+
+
+def generate_hf_person_image(output_path: Path, prompt: str = None) -> bool:
+    """
+    FIX 3: Generate a person image via HuggingFace SDXL API.
+    Used as the right-side visual in thumbnails instead of a video frame.
+    """
+    if prompt is None:
+        prompt = (
+            "shocked surprised businessman looking at phone screen, dramatic expression, "
+            "stock market charts green going up, gold and green colors, professional studio "
+            "lighting, 4K cinematic, high contrast, sharp focus"
+        )
+
+    HF_API_KEY = os.environ.get(
+        "HF_API_KEY",
+        "HF_TOKEN_REMOVED"
+    )
+    HF_ENDPOINT = "https://router.huggingface.co/hf-inference/models/stabilityai/stable-diffusion-xl-base-1.0"
+
+    try:
+        headers = {"Authorization": f"Bearer {HF_API_KEY}"}
+        payload = {
+            "inputs": prompt,
+            "parameters": {
+                "width": 512,
+                "height": 512,
+                "num_inference_steps": 30,
+            }
+        }
+        print(f"    🤖 Generando imagen HF SDXL...")
+        resp = requests.post(HF_ENDPOINT, headers=headers, json=payload, timeout=120)
+        if resp.status_code == 200 and resp.headers.get("content-type", "").startswith("image"):
+            output_path.write_bytes(resp.content)
+            size_kb = output_path.stat().st_size / 1024
+            print(f"    ✅ Imagen HF generada: {size_kb:.0f}KB")
+            return True
+        else:
+            print(f"    ⚠️ HF API error {resp.status_code}: {resp.text[:200]}")
+    except Exception as e:
+        print(f"    ⚠️ HF SDXL error: {e}")
+    return False
+
+
+def create_gradient_background() -> Image.Image:
+    """
+    FIX 3: Create a solid gradient background for thumbnails.
+    Dark navy-to-black gradient — avoids any dependency on video frames.
+    """
+    bg = Image.new("RGB", (THUMB_W, THUMB_H), (10, 10, 20))
+    draw = ImageDraw.Draw(bg)
+
+    # Vertical gradient: dark navy top → black bottom
+    for y in range(THUMB_H):
+        ratio = y / THUMB_H
+        r = int(5 + 15 * (1 - ratio))
+        g = int(5 + 20 * (1 - ratio))
+        b = int(20 + 60 * (1 - ratio))
+        draw.line([(0, y), (THUMB_W, y)], fill=(r, g, b))
+
+    return bg
+
+
 def create_thumbnail(
     title: str,
     subtitle: str,
     bg_image_path: Path,
     output_path: Path,
     title_color: tuple = GOLD,
-    video_type: str = "long"
+    video_type: str = "long",
+    person_image_path: Path = None,
 ) -> bool:
-    """Create a professional BitTrader thumbnail."""
-    
+    """
+    Create a professional BitTrader thumbnail.
+    FIX 3: Uses gradient background + HF-generated person image.
+    Video frames are only used if they pass usability validation.
+    """
+
     # ── Background ──
-    if bg_image_path and bg_image_path.exists():
+    # FIX 3: Prefer gradient background over video frame
+    # Only use bg_image_path if it passes the usability check
+    use_frame = (
+        bg_image_path is not None
+        and bg_image_path.exists()
+        and is_frame_usable(bg_image_path)
+    )
+
+    if use_frame:
         bg = Image.open(bg_image_path).convert("RGB")
         bg = bg.resize((THUMB_W, THUMB_H), Image.LANCZOS)
-        
         # Darken left side for text readability (gradient)
         overlay = Image.new("RGBA", (THUMB_W, THUMB_H), (0, 0, 0, 0))
         ov_draw = ImageDraw.Draw(overlay)
@@ -170,7 +284,30 @@ def create_thumbnail(
             ov_draw.line([(x, 0), (x, THUMB_H)], fill=(0, 0, 0, alpha))
         bg = Image.alpha_composite(bg.convert("RGBA"), overlay).convert("RGB")
     else:
-        bg = Image.new("RGB", (THUMB_W, THUMB_H), BLACK)
+        # FIX 3: Use gradient background (no generic video frames)
+        bg = create_gradient_background()
+
+    # ── Person image (right side) — HF generated or provided ──
+    person_img = None
+    if person_image_path and person_image_path.exists():
+        try:
+            person_img = Image.open(person_image_path).convert("RGBA")
+        except Exception:
+            person_img = None
+
+    if person_img:
+        # Resize to fit right half of thumbnail
+        person_h = THUMB_H
+        person_w = int(person_img.width * (person_h / person_img.height))
+        person_img = person_img.resize((person_w, person_h), Image.LANCZOS)
+        # Paste on right side (no mask if no alpha)
+        paste_x = THUMB_W - min(person_w, THUMB_W // 2 + 80)
+        if person_img.mode == "RGBA":
+            bg.paste(person_img, (paste_x, 0), person_img)
+        else:
+            bg_rgba = bg.convert("RGBA")
+            bg_rgba.paste(person_img.convert("RGBA"), (paste_x, 0))
+            bg = bg_rgba.convert("RGB")
     
     draw = ImageDraw.Draw(bg)
     
@@ -298,27 +435,38 @@ def run_thumbnail_agent(limit: int = 10, types: str = "all") -> dict:
         subtitle = thumb_data.get("subtitle", "")
         print(f"    📝 \"{headline}\" | \"{subtitle}\"")
         
-        # ── Step 2: Extract background frame from video ──
+        # ── Step 2: Try to extract background frame from video (FIX 3: validate before use) ──
         bg_frame = script_dir / "thumb_bg.jpg"
+        person_image = script_dir / "thumb_person.jpg"
+
         if video_path.exists():
             # Extract frame at 3 seconds (after intro)
-            extract_frame(video_path, bg_frame, time_sec=3.0)
-        
+            frame_ok = extract_frame(video_path, bg_frame, time_sec=3.0)
+            if frame_ok and not is_frame_usable(bg_frame):
+                # FIX 3: Frame is a generic blue/black frame — discard it
+                print(f"    ⚠️ Frame del video rechazado — usando fondo gradiente")
+                bg_frame.unlink(missing_ok=True)
+
+        # ── Step 2b: Generate person image via HF SDXL (FIX 3) ──
+        if not person_image.exists():
+            generate_hf_person_image(person_image)
+
         # ── Step 3: Generate thumbnail ──
         print(f"    🎨 Generando miniatura...")
         color_idx = i % len(TITLE_COLORS)
         success = create_thumbnail(
             title=headline,
             subtitle=subtitle,
-            bg_image_path=bg_frame,
+            bg_image_path=bg_frame if bg_frame.exists() else None,
             output_path=thumb_path,
             title_color=TITLE_COLORS[color_idx],
-            video_type=vtype
+            video_type=vtype,
+            person_image_path=person_image if person_image.exists() else None,
         )
-        
-        # Clean up bg frame
-        if bg_frame.exists():
-            bg_frame.unlink(missing_ok=True)
+
+        # Clean up temp files
+        bg_frame.unlink(missing_ok=True)
+        person_image.unlink(missing_ok=True)
         
         if success:
             size_kb = thumb_path.stat().st_size / 1024

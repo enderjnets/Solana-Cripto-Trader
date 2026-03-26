@@ -69,7 +69,7 @@ def check_output_file(entry: dict) -> tuple[bool, str]:
 
 
 def check_thumbnail(entry: dict) -> tuple[bool, str]:
-    """Rule 2: thumbnail must exist on disk"""
+    """Rule 2: thumbnail must exist on disk and pass visual quality checks."""
     sid = entry.get("script_id", "")
 
     # Search order: thumbnail_path → thumbnail → data/thumbnails/ → video dir
@@ -89,6 +89,25 @@ def check_thumbnail(entry: dict) -> tuple[bool, str]:
 
     for c in candidates:
         if c.exists() and c.stat().st_size > 5_000:
+            # FIX 2: Visual validation — reject black/blue generic frames
+            try:
+                from PIL import Image
+                img = Image.open(c).convert("RGB")
+                pixels = list(img.getdata())
+                if pixels:
+                    avg_b = sum(p[2] for p in pixels) / len(pixels)
+                    avg_r = sum(p[0] for p in pixels) / len(pixels)
+                    avg_brightness = sum(
+                        0.299 * p[0] + 0.587 * p[1] + 0.114 * p[2]
+                        for p in pixels
+                    ) / len(pixels)
+                    if avg_brightness < 30:
+                        return False, f"Thumbnail demasiado oscura (frame negro genérico, brightness={avg_brightness:.1f})"
+                    if avg_b > avg_r * 1.8 and avg_b > 80:
+                        return False, f"Thumbnail parece frame azul genérico del video (avg_b={avg_b:.0f}, avg_r={avg_r:.0f})"
+            except Exception as pil_err:
+                # If PIL check fails, fall back to accepting the file
+                pass
             return True, str(c)
 
     return False, f"No thumbnail found for {sid} (checked {len(candidates)} locations)"
@@ -248,32 +267,63 @@ def audit_queue(auto_fix: bool = True, verbose: bool = True) -> dict:
 
 # ── Post-upload verification ──────────────────────────────────────────────────
 
-def verify_uploaded(video_id: str, title: str, thumbnail_uploaded: bool) -> dict:
+def verify_uploaded(video_id: str, title: str, thumbnail_uploaded: bool,
+                    youtube_client=None) -> dict:
     """
     Called by queue_processor after every upload.
     Verifies the upload was complete: video + thumbnail.
-    Logs any missing items so they can be retried.
+    FIX 1: Uses real YouTube API to confirm custom thumbnail presence.
     """
     issues = []
     if not video_id:
         issues.append("No YouTube video_id returned")
-    if not thumbnail_uploaded:
+
+    # FIX 1: Verify via real YouTube API whether the video has a custom thumbnail
+    api_has_custom_thumb = None
+    if video_id and youtube_client is not None:
+        try:
+            yt_response = youtube_client.videos().list(
+                part="snippet", id=video_id
+            ).execute()
+            items = yt_response.get("items", [])
+            if items:
+                thumbnails = items[0]["snippet"].get("thumbnails", {})
+                # YouTube sets 'maxres' only for custom thumbnails
+                api_has_custom_thumb = "maxres" in thumbnails
+                if not api_has_custom_thumb:
+                    issues.append(
+                        f"YouTube API: {video_id} no tiene thumbnail custom (solo auto-generada) — auto-fix requerido"
+                    )
+                    print(f"  ⚠️ {video_id} sin thumbnail custom en YouTube — activando auto-fix flag")
+                else:
+                    print(f"  ✅ YouTube API confirma thumbnail custom presente: {video_id}")
+            else:
+                issues.append(f"YouTube API: video {video_id} no encontrado en la respuesta")
+        except Exception as e:
+            # Non-fatal: log but don't block
+            issues.append(f"YouTube API verify error: {str(e)[:120]}")
+
+    # Fallback: use the flag from the upload step if API check wasn't done
+    if api_has_custom_thumb is None and not thumbnail_uploaded:
         issues.append("Thumbnail was NOT uploaded — video live without custom thumbnail")
 
+    thumbnail_ok = api_has_custom_thumb if api_has_custom_thumb is not None else thumbnail_uploaded
+
     result = {
-        "video_id":          video_id,
-        "title":             title[:50],
-        "thumbnail_ok":      thumbnail_uploaded,
-        "issues":            issues,
-        "verified_at":       datetime.now(timezone.utc).isoformat(),
-        "post_upload_ok":    len(issues) == 0,
+        "video_id":           video_id,
+        "title":              title[:50],
+        "thumbnail_ok":       thumbnail_ok,
+        "api_verified":       api_has_custom_thumb,
+        "issues":             issues,
+        "verified_at":        datetime.now(timezone.utc).isoformat(),
+        "post_upload_ok":     len(issues) == 0,
     }
 
     # Log to post_upload_verifications.json
     log_file = DATA_DIR / "post_upload_verifications.json"
-    log = json.loads(log_file.read_text()) if log_file.exists() else []
-    log.append(result)
-    log_file.write_text(json.dumps(log[-50:], indent=2))  # Keep last 50
+    existing = json.loads(log_file.read_text()) if log_file.exists() else []
+    existing.append(result)
+    log_file.write_text(json.dumps(existing[-50:], indent=2))  # Keep last 50
 
     return result
 

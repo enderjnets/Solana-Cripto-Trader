@@ -171,7 +171,16 @@ def inject_rhino(prompt: str, video_type: str) -> str:
 
 
 def generate_video_prompts(script: dict) -> list:
-    """Use LLM to generate video clip prompts — always starring the BitTrader rhino mascot."""
+    """Generate per-segment video prompts with narrator-sync and zero repetition.
+
+    FIX v4.1:
+    - Splits long scripts into N timed segments (one prompt per segment)
+    - Each prompt is generated from the ACTUAL NARRATION TEXT for that segment
+    - Ensures semantic sync: visual matches what narrator is saying at that moment
+    - All prompts are unique — no repetition tracking needed (different text → different scene)
+    - For shorts: 3 segment-synced prompts
+    - For longs: 1 prompt per ~60s segment (8-12 prompts for a 10-min video)
+    """
     title = script.get("title", "")
     text = script.get("script", "")
     video_type = script.get("type", "short")
@@ -179,49 +188,200 @@ def generate_video_prompts(script: dict) -> list:
 
     # Use pre-generated prompts from creator.py if available (already have rhino injected)
     if existing_prompts:
-        return [inject_rhino(p, video_type) for p in existing_prompts]
+        # Deduplicate existing prompts before using them
+        seen = set()
+        unique_prompts = []
+        for p in existing_prompts:
+            key = p.strip().lower()[:80]
+            if key not in seen:
+                seen.add(key)
+                unique_prompts.append(p)
+        return [inject_rhino(p, video_type) for p in unique_prompts]
 
-    num_clips = 3 if video_type == "short" else 6
     aspect = "9:16 vertical" if video_type == "short" else "16:9 horizontal"
+
+    # ── Split script into timed segments for narrator sync ────────────────
+    # For shorts: 3 segments; for longs: 1 per ~60s (estimate ~130 wpm)
+    words = text.split()
+    word_count = len(words)
+    words_per_min = 130
+    total_min = word_count / words_per_min
+
+    if video_type == "short":
+        num_segments = 3
+    else:
+        # 1 prompt per 60s, min 4, max 16
+        num_segments = max(4, min(16, int(total_min) + 1))
+
+    # Split text evenly into segments
+    seg_size = max(1, len(words) // num_segments)
+    segments = []
+    for i in range(num_segments):
+        start = i * seg_size
+        end = start + seg_size if i < num_segments - 1 else len(words)
+        seg_text = " ".join(words[start:end])
+        segments.append(seg_text)
 
     system = (
         "You are a video director for BitTrader YouTube channel. "
         "The channel mascot is an anthropomorphic rhinoceros — a confident, modern trader. "
-        "EVERY scene must feature this rhino character as the main subject."
+        "EVERY scene must feature this rhino character as the main subject. "
+        "CRITICAL: Each prompt MUST visually represent what the narrator is SAYING in that segment. "
+        "Never repeat the same scene description — each clip must be visually distinct."
     )
-    prompt = f"""Generate {num_clips} video prompts for this script. Each clip is 6 seconds.
-Clips are AI-generated with MiniMax Hailuo. Describe cinematic scenes.
+
+    segments_json = json.dumps(
+        [{"segment": i+1, "narrator_text": seg[:200]} for i, seg in enumerate(segments)],
+        ensure_ascii=False
+    )
+
+    prompt = f"""Generate {num_segments} video clip prompts for this YouTube video.
+Each clip is 6 seconds. CRITICAL: each prompt must visually match what the narrator says in that segment.
 
 Title: {title}
-Script (first 400 chars): {text[:400]}
+Video type: {video_type} ({aspect})
 
-Response format (JSON array, NO comments):
+Narrator segments (each becomes one clip):
+{segments_json}
+
+Response format (JSON array of {num_segments} strings, NO comments):
 [
-  "Anthropomorphic rhinoceros [doing X related to topic], [setting], [mood], hyper-realistic 3D render, {aspect}, dramatic cinematic lighting, dark background",
+  "Anthropomorphic rhinoceros [action matching segment 1 narration], [setting], [mood], hyper-realistic 3D render, {aspect}, dramatic cinematic lighting, dark background",
   ...
 ]
 
-RULES:
-- EVERY prompt MUST feature the BitTrader anthropomorphic rhinoceros as main character
-- Scenes must relate to the video topic (crypto/trading/finance/AI)
-- Vary settings: trading desk, city street, crypto exchange, phone, server room, etc.
-- Include: mood, lighting, camera angle, character action
-- NO text overlays in clips (subtitles added separately)
-- Prompts in ENGLISH
+SYNC RULES (mandatory):
+- If narrator says "Bitcoin subiendo" → show rhino at trading desk with green charts rising
+- If narrator says "empezar con $100" → show rhino holding dollar bills or mobile wallet
+- If narrator says "riesgo/pérdida" → show rhino looking at red chart, concerned expression
+- If narrator says "estrategia DCA" → show rhino marking a calendar, systematic approach
+- If narrator says "error/mistake" → show rhino face-palming or looking at phone in shock
+- If narrator says "exchange/Coinbase" → show rhino using phone/laptop with exchange UI
+
+ANTI-REPETITION RULES (mandatory):
+- NO two prompts can have the same setting (trading desk, city, phone, etc.)
+- NO two prompts can have the same rhino action
+- NO two prompts can have the same lighting/mood
+- Vary: indoor/outdoor, day/night, close-up/wide shot, action/contemplation
+
+OUTPUT: JSON array only, no other text.
 """
 
-    result = call_llm(prompt, system, max_tokens=1200)
+    result = call_llm(prompt, system, max_tokens=num_segments * 120 + 200)
     if result:
         try:
             json_match = re.search(r'\[.*?\]', result, re.DOTALL)
             if json_match:
                 prompts = json.loads(json_match.group())
                 if isinstance(prompts, list) and len(prompts) >= 2:
-                    return [inject_rhino(p, video_type) for p in prompts[:num_clips]]
+                    # Final dedup pass — ensure no two prompts are too similar
+                    unique = _dedup_prompts(prompts[:num_segments])
+                    return [inject_rhino(p, video_type) for p in unique]
         except Exception:
             pass
 
-    return get_fallback_prompts(video_type)
+    # Fallback: generate segment-specific prompts without LLM
+    return _segment_fallback_prompts(segments, video_type)
+
+
+def _dedup_prompts(prompts: list) -> list:
+    """Remove near-duplicate prompts (same first 60 chars after normalization)."""
+    seen = set()
+    result = []
+    for p in prompts:
+        key = re.sub(r'\s+', ' ', p.strip().lower())[:60]
+        if key not in seen:
+            seen.add(key)
+            result.append(p)
+    return result if result else prompts
+
+
+def _segment_fallback_prompts(segments: list, video_type: str) -> list:
+    """Generate fallback prompts from segment keywords without LLM."""
+    base = RHINO_BASE_SHORT if video_type == "short" else RHINO_BASE_LONG
+    aspect = "9:16" if video_type == "short" else "16:9"
+
+    # Keyword → scene mapping for semantic sync
+    KEYWORD_SCENES = [
+        (["bitcoin", "btc"], "holding a golden Bitcoin coin with dramatic orange glow, city skyline at night behind"),
+        (["ethereum", "eth"], "examining a glowing Ethereum crystal on a holographic display, tech lab"),
+        (["exchange", "coinbase", "binance", "comprar", "buy"], "using smartphone to navigate a crypto exchange app, green purchase confirmed screen"),
+        (["$100", "100 dolar", "empezar", "principiante", "beginner"], "holding a $100 bill transforming into digital coins, warm golden light"),
+        (["dca", "dollar cost", "semana", "week", "calendar"], "marking dates on a calendar with a pen, planning crypto purchases systematically"),
+        (["riesgo", "risk", "pérdida", "loss", "caer", "red"], "staring at a red crashing chart on a large monitor, concerned expression, red ambient light"),
+        (["subir", "ganancia", "profit", "green", "alcista", "bull"], "celebrating in front of multiple green profit charts, triumphant pose, golden lighting"),
+        (["error", "mistake", "fomo", "panic", "liquidar"], "face-palming at a phone showing a bad trade, dramatic tense lighting"),
+        (["wallet", "hardware", "ledger", "security", "seguridad"], "carefully placing crypto hardware wallet in a secure box, focused expression"),
+        (["telegram", "scam", "estafa", "señales", "signal"], "pointing at a suspicious phone message with a warning look, dark moody setting"),
+        (["leverage", "apalancamiento"], "standing next to a giant multiplier dial set to 100x, cautionary expression, warning lights"),
+        (["estrategia", "strategy", "plan"], "drawing a strategic plan on a whiteboard with crypto symbols, confident pose"),
+        (["exchange", "registro", "verificar", "kyc"], "completing identity verification on a laptop, official-looking process, clean office"),
+        (["altcoin", "solana", "bnb", "top 10"], "browsing a holographic list of top crypto coins, analytical expression, data streams"),
+        (["wallet", "cold storage", "guardar"], "securing digital assets in a vault with blockchain locks, dramatic lighting"),
+    ]
+
+    fallback_settings = [
+        "trading desk with multiple monitors showing crypto charts",
+        "modern city rooftop at sunset with holographic data displays",
+        "futuristic server room with blue digital streams",
+        "minimalist home office with warm morning light",
+        "dark command center with wall-sized trading screens",
+        "crypto conference stage under dramatic spotlights",
+        "high-tech mobile workstation in a coffee shop",
+        "financial district street with digital billboard displays",
+        "underground crypto bunker with glowing hardware",
+        "penthouse office overlooking a digital city skyline",
+        "outdoor plaza with giant holographic crypto charts",
+        "studio workspace with portfolio data projections",
+        "open-plan office with green trading terminals",
+        "garage setup with multiple screens and hardware wallets",
+        "train or transit with mobile crypto setup",
+        "zen garden with floating digital asset symbols",
+    ]
+
+    used_settings = set()
+    prompts = []
+
+    for i, seg in enumerate(segments):
+        seg_lower = seg.lower()
+
+        # Find best matching scene from keyword map
+        scene_desc = None
+        for keywords, scene in KEYWORD_SCENES:
+            if any(kw in seg_lower for kw in keywords):
+                scene_desc = scene
+                break
+
+        # Pick a setting that hasn't been used
+        setting = None
+        for s in fallback_settings:
+            if s not in used_settings:
+                setting = s
+                used_settings.add(s)
+                break
+        if not setting:
+            setting = f"unique location {i+1}, dramatic cinematic environment"
+
+        if scene_desc:
+            prompt = f"Anthropomorphic rhinoceros {scene_desc}, {setting}, {base}"
+        else:
+            # Generic but unique
+            actions = [
+                "analyzing holographic candlestick charts",
+                "pointing confidently at rising price data",
+                "checking portfolio on dual monitors",
+                "reviewing blockchain transaction data",
+                "calculating trading strategy on a tablet",
+                "celebrating a successful trade execution",
+                "studying market patterns with focused expression",
+                "typing trading commands on a glowing keyboard",
+            ]
+            action = actions[i % len(actions)]
+            prompt = f"Anthropomorphic rhinoceros {action}, {setting}, {aspect} aspect ratio, {base}"
+
+        prompts.append(prompt)
+
+    return prompts
 
 
 def get_fallback_prompts(video_type: str) -> list:
@@ -773,15 +933,36 @@ def assemble_video(clips: list, audio_path: Path, output_path: Path,
             )
         normalized_clips.append(norm_clip)
 
-    # Calculate how many times to loop clips to fill audio duration
+    # FIX v4.1: Anti-repetition — never loop the same clip pool.
+    # Instead, shuffle and extend WITHOUT exact repeats until duration is covered.
+    # Strategy: cycle through clips in shuffled order, never the same clip twice in a row.
     clip_duration = VIDEO_DURATION  # 6s per clip
     total_clip_time = len(normalized_clips) * clip_duration
-    loops_needed = max(1, int(duration / total_clip_time) + 1)
-    
+    clips_needed = max(len(normalized_clips), int(duration / clip_duration) + 2)
+
     concat_lines = []
-    for _ in range(loops_needed):
-        for clip in normalized_clips:
+    extended_clips = list(normalized_clips)  # start with original set
+    last_clip = None
+
+    if len(normalized_clips) >= 2:
+        # Extend with shuffled rounds until we have enough clips
+        while len(extended_clips) < clips_needed:
+            round_clips = list(normalized_clips)
+            random.shuffle(round_clips)
+            # Avoid same clip appearing consecutively at round boundary
+            if last_clip and round_clips and round_clips[0] == last_clip:
+                round_clips[0], round_clips[-1] = round_clips[-1], round_clips[0]
+            extended_clips.extend(round_clips)
+
+        for clip in extended_clips[:clips_needed]:
             concat_lines.append(f"file '{clip}'")
+            last_clip = clip
+    else:
+        # Only 1 clip — unavoidable repeat, but note it
+        print(f"      ⚠️ Only 1 clip available — repetition unavoidable")
+        for _ in range(clips_needed):
+            for clip in normalized_clips:
+                concat_lines.append(f"file '{clip}'")
     
     concat_path.write_text('\n'.join(concat_lines))
     
@@ -974,6 +1155,328 @@ def assemble_video(clips: list, audio_path: Path, output_path: Path,
     return output_path.exists()
 
 
+def make_local_clips_video(audio_path: Path, output_path: Path, title: str,
+                            duration: float, video_type: str, script_text: str,
+                            script_dir: Path,
+                            coin_logo_path: Path | None = None) -> bool:
+    """
+    Fallback using REAL local video clips from bg_videos_cache_local/.
+    Uses Ken Burns + concat + subs — no solid color backgrounds.
+    This replaces make_fallback_video() as the primary fallback when AI clips fail.
+    """
+    import random as _random
+
+    # ── Pick the right clip library ──────────────────────────────────────
+    target_w, target_h = (1080, 1920) if video_type == "short" else (1920, 1080)
+
+    if video_type == "short":
+        clips_dir = DATA_DIR / "bg_videos_cache_local"
+        pattern = "short_*.mp4"
+    else:
+        clips_dir = DATA_DIR / "bg_videos_cache_local"
+        pattern = "*.mp4"  # use any clip, will be scaled
+
+    all_clips = sorted(clips_dir.glob(pattern))
+    if not all_clips:
+        # Fall back to local images with Ken Burns
+        return _make_kenburns_fallback(audio_path, output_path, title, duration,
+                                       video_type, script_text, script_dir, coin_logo_path)
+
+    # ── Select enough clips to fill the duration ──────────────────────────
+    # Each clip is ~5s, shuffle for variety
+    selected = _random.sample(all_clips, min(len(all_clips), max(5, int(duration / 5) + 2)))
+
+    # ── Normalize / stretch each clip to target resolution ────────────────
+    norm_dir = script_dir / "clips_local_norm"
+    norm_dir.mkdir(exist_ok=True)
+    normed = []
+
+    for i, clip in enumerate(selected):
+        out_clip = norm_dir / f"norm_{i:02d}.mp4"
+        # Scale to fill target (blur-fill for shorts to avoid black bars)
+        if video_type == "short":
+            vf = (
+                f"[0:v]scale={target_w}:{target_h}:force_original_aspect_ratio=increase,"
+                f"crop={target_w}:{target_h}[scaled];"
+                f"[scaled]split[a][b];"
+                f"[b]scale={target_w}:{target_h},avgblur=30[bg];"
+                f"[bg][a]overlay=(W-w)/2:(H-h)/2:format=auto[v]"
+            )
+            cmd = ["ffmpeg", "-y", "-i", str(clip),
+                   "-filter_complex", vf, "-map", "[v]",
+                   "-c:v", "libx264", "-preset", "fast", "-crf", "23",
+                   "-an", str(out_clip)]
+        else:
+            cmd = ["ffmpeg", "-y", "-i", str(clip),
+                   "-vf", f"scale={target_w}:{target_h}:force_original_aspect_ratio=increase,crop={target_w}:{target_h}",
+                   "-c:v", "libx264", "-preset", "fast", "-crf", "23",
+                   "-an", str(out_clip)]
+
+        r = subprocess.run(cmd, capture_output=True, timeout=60)
+        if r.returncode == 0 and out_clip.exists():
+            normed.append(out_clip)
+
+    if not normed:
+        return _make_kenburns_fallback(audio_path, output_path, title, duration,
+                                       video_type, script_text, script_dir, coin_logo_path)
+
+    # ── Loop clips to fill full audio duration ────────────────────────────
+    # Repeat the list until we have enough total duration
+    loop_clips = []
+    total_dur = 0.0
+    while total_dur < duration + 2:
+        for c in normed:
+            probe = subprocess.run(
+                ["ffprobe", "-v", "quiet", "-show_entries", "format=duration",
+                 "-of", "default=noprint_wrappers=1:nokey=1", str(c)],
+                capture_output=True, text=True, timeout=10)
+            d = float(probe.stdout.strip() or "5")
+            loop_clips.append(c)
+            total_dur += d
+            if total_dur >= duration + 2:
+                break
+
+    # ── Concat clips ──────────────────────────────────────────────────────
+    concat_path = script_dir / "concat_local.txt"
+    concat_path.write_text("\n".join(f"file '{c}'" for c in loop_clips))
+
+    intermediate = script_dir / "local_clips_concat.mp4"
+    r = subprocess.run([
+        "ffmpeg", "-y", "-f", "concat", "-safe", "0",
+        "-i", str(concat_path),
+        "-c:v", "libx264", "-preset", "fast", "-crf", "23", "-an",
+        str(intermediate)
+    ], capture_output=True, timeout=300)
+
+    if r.returncode != 0 or not intermediate.exists():
+        return _make_kenburns_fallback(audio_path, output_path, title, duration,
+                                       video_type, script_text, script_dir, coin_logo_path)
+
+    # ── Generate subtitles ────────────────────────────────────────────────
+    sub_path = None
+    if HAS_KARAOKE:
+        try:
+            sub_path = generate_karaoke_subs(
+                audio_path, script_text, script_dir, video_type,
+                style="word_highlight", use_whisper=True
+            )
+        except Exception:
+            pass
+    if not sub_path or not sub_path.exists():
+        sub_path = script_dir / "subtitles_local.srt"
+        create_srt_from_text(script_text, duration, sub_path)
+
+    # ── Build filter_complex for overlays + subs ──────────────────────────
+    BT_LOGO = WORKSPACE / "videos/BIBLIOTECA/bittrader_logo.png"
+    inputs = ["-i", str(intermediate), "-i", str(audio_path)]
+    filter_parts = []
+    map_video = "[0:v]"
+    input_idx = 2
+
+    if BT_LOGO.exists():
+        logo_size = 240 if video_type == "short" else 180
+        inputs += ["-i", str(BT_LOGO)]
+        filter_parts.append(
+            f"[{input_idx}:v]scale={logo_size}:-1,format=rgba,colorchannelmixer=aa=0.85[btlogo]"
+        )
+        filter_parts.append(f"{map_video}[btlogo]overlay=W-w-25:25:format=auto[vbt]")
+        map_video = "[vbt]"
+        input_idx += 1
+
+    if coin_logo_path and coin_logo_path.exists():
+        coin_size = 100 if video_type == "short" else 80
+        inputs += ["-i", str(coin_logo_path)]
+        filter_parts.append(
+            f"[{input_idx}:v]scale={coin_size}:-1,format=rgba,colorchannelmixer=aa=0.90[coin]"
+        )
+        filter_parts.append(f"{map_video}[coin]overlay=25:H-h-25:format=auto[vcoin]")
+        map_video = "[vcoin]"
+        input_idx += 1
+
+    if sub_path and sub_path.exists():
+        sub_esc = str(sub_path).replace("'", "'\\''").replace(":", "\\:")
+        if sub_path.suffix == ".ass":
+            filter_parts.append(f"{map_video}ass='{sub_esc}'[vfinal]")
+            map_video = "[vfinal]"
+        else:
+            margin_v = "400" if video_type == "short" else "80"
+            font_size = "100" if video_type == "short" else "65"
+            subs_filter = (
+                f"subtitles='{sub_esc}':force_style="
+                f"'FontName=DejaVu Sans,FontSize={font_size},PrimaryColour=&H0000FFFF,"
+                f"OutlineColour=&H00000000,Outline=3,Shadow=0,Alignment=2,MarginV={margin_v}'"
+            )
+            filter_parts.append(f"{map_video}{subs_filter}[vfinal]")
+            map_video = "[vfinal]"
+
+    filter_complex = ";".join(filter_parts) if filter_parts else None
+
+    cmd = ["ffmpeg", "-y"] + inputs
+    if filter_complex:
+        cmd += ["-filter_complex", filter_complex, "-map", map_video, "-map", "1:a"]
+    else:
+        cmd += ["-map", "0:v", "-map", "1:a"]
+    cmd += [
+        "-c:v", "libx264", "-preset", "fast", "-crf", "23",
+        "-c:a", "aac", "-b:a", "192k", "-ar", "44100",
+        "-shortest", "-movflags", "+faststart",
+        str(output_path)
+    ]
+
+    r = subprocess.run(cmd, capture_output=True, timeout=600)
+    intermediate.unlink(missing_ok=True)
+    concat_path.unlink(missing_ok=True)
+
+    if r.returncode != 0 or not output_path.exists():
+        return _make_kenburns_fallback(audio_path, output_path, title, duration,
+                                       video_type, script_text, script_dir, coin_logo_path)
+
+    print(f"      ✅ Local clips video assembled: {output_path.stat().st_size/1024/1024:.1f}MB")
+    return True
+
+
+def _make_kenburns_fallback(audio_path: Path, output_path: Path, title: str,
+                              duration: float, video_type: str, script_text: str,
+                              script_dir: Path,
+                              coin_logo_path: Path | None = None) -> bool:
+    """
+    Ken Burns fallback: use local images with zoom/pan animation.
+    Better than solid color but simpler than AI video.
+    """
+    import random as _random
+
+    target_w, target_h = (1080, 1920) if video_type == "short" else (1920, 1080)
+    imgs_dir = DATA_DIR / "bg_images_cache_local"
+    all_imgs = sorted(imgs_dir.glob("*.png")) + sorted(imgs_dir.glob("*.jpg"))
+
+    if not all_imgs:
+        # True last resort: solid color
+        return make_fallback_video(audio_path, output_path, title, duration,
+                                   video_type, script_text, script_dir)
+
+    # Pick enough images
+    n_needed = max(3, int(duration / 5) + 2)
+    selected = (_random.sample(all_imgs, min(len(all_imgs), n_needed))
+                if len(all_imgs) >= n_needed else all_imgs * (n_needed // len(all_imgs) + 1))
+    selected = selected[:n_needed]
+
+    KB_STYLES = [
+        f"zoompan=z='min(zoom+0.0008,1.3)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=150:s={target_w}x{target_h}:fps=30",
+        f"zoompan=z='if(lte(zoom,1.0),1.3,zoom-0.0008)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=150:s={target_w}x{target_h}:fps=30",
+        f"zoompan=z='1.25':x='if(lte(on,1),0,min(x+2,iw/5))':y='ih/2-(ih/zoom/2)':d=150:s={target_w}x{target_h}:fps=30",
+        f"zoompan=z='1.25':x='if(lte(on,1),iw/5,max(x-2,0))':y='ih/2-(ih/zoom/2)':d=150:s={target_w}x{target_h}:fps=30",
+    ]
+
+    kb_dir = script_dir / "kb_clips_fallback"
+    kb_dir.mkdir(exist_ok=True)
+    kb_clips = []
+
+    for i, img in enumerate(selected):
+        kbout = kb_dir / f"kb_{i:02d}.mp4"
+        scale_vf = (
+            f"scale={target_w}:{target_h}:force_original_aspect_ratio=increase,"
+            f"crop={target_w}:{target_h},"
+            f"{KB_STYLES[i % len(KB_STYLES)]}"
+        )
+        r = subprocess.run([
+            "ffmpeg", "-y", "-loop", "1", "-i", str(img),
+            "-vf", scale_vf,
+            "-t", "5",
+            "-c:v", "libx264", "-preset", "fast", "-crf", "23",
+            "-pix_fmt", "yuv420p", "-an", str(kbout)
+        ], capture_output=True, timeout=60)
+        if r.returncode == 0 and kbout.exists():
+            kb_clips.append(kbout)
+
+    if not kb_clips:
+        return make_fallback_video(audio_path, output_path, title, duration,
+                                   video_type, script_text, script_dir)
+
+    # Loop until enough duration
+    loop_clips = []
+    total_dur = 0.0
+    while total_dur < duration + 2:
+        for c in kb_clips:
+            loop_clips.append(c)
+            total_dur += 5.0
+            if total_dur >= duration + 2:
+                break
+
+    concat_path = script_dir / "concat_kb_fallback.txt"
+    concat_path.write_text("\n".join(f"file '{c}'" for c in loop_clips))
+
+    intermediate = script_dir / "kb_concat_fallback.mp4"
+    r = subprocess.run([
+        "ffmpeg", "-y", "-f", "concat", "-safe", "0",
+        "-i", str(concat_path),
+        "-c:v", "libx264", "-preset", "fast", "-crf", "23", "-an",
+        str(intermediate)
+    ], capture_output=True, timeout=300)
+
+    if r.returncode != 0 or not intermediate.exists():
+        return make_fallback_video(audio_path, output_path, title, duration,
+                                   video_type, script_text, script_dir)
+
+    # Subtitles
+    sub_path = None
+    if HAS_KARAOKE:
+        try:
+            sub_path = generate_karaoke_subs(audio_path, script_text, script_dir, video_type,
+                                              style="word_highlight", use_whisper=True)
+        except Exception:
+            pass
+    if not sub_path or not sub_path.exists():
+        sub_path = script_dir / "subtitles_kb.srt"
+        create_srt_from_text(script_text, duration, sub_path)
+
+    BT_LOGO = WORKSPACE / "videos/BIBLIOTECA/bittrader_logo.png"
+    inputs = ["-i", str(intermediate), "-i", str(audio_path)]
+    filter_parts = []
+    map_video = "[0:v]"
+    input_idx = 2
+
+    if BT_LOGO.exists():
+        logo_size = 240 if video_type == "short" else 180
+        inputs += ["-i", str(BT_LOGO)]
+        filter_parts.append(f"[{input_idx}:v]scale={logo_size}:-1,format=rgba,colorchannelmixer=aa=0.85[btlogo]")
+        filter_parts.append(f"{map_video}[btlogo]overlay=W-w-25:25:format=auto[vbt]")
+        map_video = "[vbt]"
+        input_idx += 1
+
+    if sub_path and sub_path.exists():
+        sub_esc = str(sub_path).replace("'", "'\\''").replace(":", "\\:")
+        if sub_path.suffix == ".ass":
+            filter_parts.append(f"{map_video}ass='{sub_esc}'[vfinal]")
+            map_video = "[vfinal]"
+        else:
+            margin_v = "400" if video_type == "short" else "80"
+            font_size = "100" if video_type == "short" else "65"
+            subs_filter = (
+                f"subtitles='{sub_esc}':force_style="
+                f"'FontName=DejaVu Sans,FontSize={font_size},PrimaryColour=&H0000FFFF,"
+                f"OutlineColour=&H00000000,Outline=3,Shadow=0,Alignment=2,MarginV={margin_v}'"
+            )
+            filter_parts.append(f"{map_video}{subs_filter}[vfinal]")
+            map_video = "[vfinal]"
+
+    filter_complex = ";".join(filter_parts) if filter_parts else None
+    cmd = ["ffmpeg", "-y"] + inputs
+    if filter_complex:
+        cmd += ["-filter_complex", filter_complex, "-map", map_video, "-map", "1:a"]
+    else:
+        cmd += ["-map", "0:v", "-map", "1:a"]
+    cmd += [
+        "-c:v", "libx264", "-preset", "fast", "-crf", "23",
+        "-c:a", "aac", "-b:a", "192k", "-ar", "44100",
+        "-shortest", "-movflags", "+faststart",
+        str(output_path)
+    ]
+    r = subprocess.run(cmd, capture_output=True, timeout=600)
+    intermediate.unlink(missing_ok=True)
+    concat_path.unlink(missing_ok=True)
+    return r.returncode == 0 and output_path.exists()
+
+
 def make_fallback_video(audio_path: Path, output_path: Path, title: str,
                         duration: float, video_type: str, script_text: str,
                         script_dir: Path) -> bool:
@@ -1125,25 +1628,52 @@ def produce_single(script: dict, output_dir: Path, use_ai_video: bool = True) ->
     video_type = script.get("type", "short")
 
     # ── PRODUCER CONTENT GUARD: reject contaminated scripts ───────────────
+    # These signals indicate the script contains LLM prompt/template text
+    # instead of actual video narration content.
     CONTAMINATION_SIGNALS = [
+        # LLM meta-instructions leaking into script
         "el usuario quiere",
+        "el usuario necesita",
+        "el usuario pide",
         "RESPOND ONLY WITH",
         "respond only with",
         "Analyze the Request",
         "~130 palabras",
         "~60 palabras",
+        "~150 palabras",
+        "~200 palabras",
         "especifica: TITULO",
+        "especifico: TITULO",
+        "TITULO, DESCRIPCION, TAGS",
+        "VIDEO_PROMPT_",
+        "VIDEO_PROMPT:",
         "You are a scriptwriter",
+        "You are an expert",
         "Eres el guionista",
+        "Eres un experto",
         "formato obligatorio",
         "canal de YouTube llamado BitTrader",
         "**Role:**",
         "**Format:**",
+        "**Output:**",
+        "**Tone:**",
+        # Prompt template placeholders literally in script
+        "específico: TITULO",
+        "TITULO:",
+        "DESCRIPCION:",
+        "TAGS:",
+        "GUION:",
+        "GUIÓN:",
+        # System prompt leak patterns
+        "necesito seguir todas las reglas",
+        "guión completo para un video",
+        "siguiendo el formato",
+        "sin texto adicional",
     ]
     contaminated = next((s for s in CONTAMINATION_SIGNALS if s.lower() in script_text.lower()), None)
     if contaminated:
         print(f"    🚫 PRODUCER GUARD: script contaminado detectado ('{contaminated[:40]}')")
-        print(f"       Script preview: {script_text[:150]}")
+        print(f"       Script preview: {script_text[:200]}")
         return {"status": "error", "error": f"CONTAMINATED_SCRIPT: '{contaminated[:40]}' found in script text"}
 
     if len(script_text.strip()) < 50:
@@ -1210,24 +1740,27 @@ def produce_single(script: dict, output_dir: Path, use_ai_video: bool = True) ->
                 size_mb = video_path.stat().st_size / (1024 * 1024)
                 print(f"    ✅ Video final: {size_mb:.1f}MB")
             else:
-                print(f"    ⚠️ Ensamble falló, usando fallback...")
-                success = make_fallback_video(
+                print(f"    ⚠️ Ensamble falló, usando local clips fallback...")
+                success = make_local_clips_video(
                     audio_path, video_path, title, duration,
-                    video_type, script_text, output_dir
+                    video_type, script_text, output_dir,
+                    coin_logo_path=coin_logo_path
                 )
         else:
-            print(f"    🐛 DEBUG: Entering fallback path (no clips)")
-            print(f"    ⚠️ No se generaron clips, usando fallback...")
-            success = make_fallback_video(
+            print(f"    🐛 DEBUG: Entering local clips fallback (no AI clips generated)")
+            print(f"    ⚠️ No se generaron clips con Hailuo — usando clips locales reales...")
+            success = make_local_clips_video(
                 audio_path, video_path, title, duration,
-                video_type, script_text, output_dir
+                video_type, script_text, output_dir,
+                coin_logo_path=coin_logo_path
             )
     else:
-        # Text-only fallback
-        print(f"    🐛 DEBUG: Entering fallback path (use_ai_video=False)")
-        success = make_fallback_video(
+        # Text-only mode — still use local clips, not solid color
+        print(f"    🐛 DEBUG: use_ai_video=False — usando clips locales reales...")
+        success = make_local_clips_video(
             audio_path, video_path, title, duration,
-            video_type, script_text, output_dir
+            video_type, script_text, output_dir,
+            coin_logo_path=coin_logo_path
         )
     
     if not success or not video_path.exists():
@@ -1236,14 +1769,15 @@ def produce_single(script: dict, output_dir: Path, use_ai_video: bool = True) ->
     # NEW: CRITICAL - Validate video quality at the END (common to ALL paths)
     print(f"    🔍 Final quality check (validate_video_quality at produce_single end)...")
     if not validate_video_quality(video_path):
-        print(f"    ❌ Video quality check FAILED - regenerating with bright fallback...")
-        # Force fallback with very bright background
-        success = _retry_fallback_brighter(
+        print(f"    ❌ Video quality check FAILED - retrying with local clips...")
+        # Re-try with local clips (NOT solid color)
+        success = make_local_clips_video(
             audio_path, video_path, title, duration,
-            video_type, script_text, output_dir
+            video_type, script_text, output_dir,
+            coin_logo_path=coin_logo_path
         )
         if not success or not video_path.exists():
-            return {"status": "error", "error": "Video quality check failed and retry failed"}
+            return {"status": "error", "error": "Video quality check failed and local clips retry failed"}
     
     size_mb = video_path.stat().st_size / (1024 * 1024)
     

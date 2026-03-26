@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Black Volt Mobility — Business Card</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+
+  <style>
+    /* ============================================================
+       VARIABLES & RESET
+       ============================================================ */
+    :root {
+      --void-black:    #0A0A0F;
+      --obsidian:      #1C1C2E;
+      --electric:      #00E5FF;
+      --silver:        #B8C0CC;
+      --white:         #F0F4F8;
+      --pure-white:    #FFFFFF;
+      /* Tarjeta estándar: 85mm × 55mm @ 96dpi → ~321px × 208px
+         Para preview usamos escala 3× → 963px × 624px */
+      --card-w:        321px;
+      --card-h:        208px;
+      --scale:         3;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #111118;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      gap: 60px;
+      padding: 60px 40px;
+      font-family: 'Inter', sans-serif;
+    }
+
+    h2 {
+      font-family: 'Rajdhani', sans-serif;
+      font-weight: 600;
+      font-size: 13px;
+      letter-spacing: 4px;
+      color: var(--silver);
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+
+    .card-wrapper {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+    }
+
+    /* ============================================================
+       CARD BASE
+       ============================================================ */
+    .card {
+      width:  calc(var(--card-w) * var(--scale));
+      height: calc(var(--card-h) * var(--scale));
+      border-radius: 14px;
+      position: relative;
+      overflow: hidden;
+      box-shadow:
+        0 0 0 1px rgba(0,229,255,0.12),
+        0 20px 60px rgba(0,0,0,0.8),
+        0 0 80px rgba(0,229,255,0.06);
+    }
+
+    /* ============================================================
+       CARD FRONT
+       ============================================================ */
+    .card-front {
+      background: linear-gradient(135deg, #0A0A0F 0%, #131325 60%, #1C1C2E 100%);
+    }
+
+    /* Efecto de textura sutil */
+    .card-front::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background:
+        repeating-linear-gradient(
+          90deg,
+          transparent,
+          transparent 39px,
+          rgba(255,255,255,0.012) 39px,
+          rgba(255,255,255,0.012) 40px
+        ),
+        repeating-linear-gradient(
+          0deg,
+          transparent,
+          transparent 39px,
+          rgba(255,255,255,0.012) 39px,
+          rgba(255,255,255,0.012) 40px
+        );
+    }
+
+    /* Línea de acento superior izquierda */
+    .card-front::after {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      background: linear-gradient(90deg,
+        transparent 0%,
+        var(--electric) 20%,
+        var(--electric) 60%,
+        transparent 100%
+      );
+      opacity: 0.8;
+    }
+
+    /* Halo eléctrico en esquina superior derecha */
+    .card-front .halo {
+      position: absolute;
+      top: -80px; right: -80px;
+      width: 250px; height: 250px;
+      background: radial-gradient(circle, rgba(0,229,255,0.08) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    /* Contenido del frente */
+    .card-front .content {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      padding: 42px 52px;
+    }
+
+    /* Logo área — icono + wordmark horizontal */
+    .logo-area {
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      margin-bottom: auto;
+    }
+
+    /* Ícono SVG inline — hexágono + rayo */
+    .logo-icon {
+      width: 54px;
+      height: 54px;
+      flex-shrink: 0;
+    }
+
+    .wordmark {
+      display: flex;
+      flex-direction: column;
+      line-height: 1;
+    }
+
+    .wordmark-top {
+      font-family: 'Rajdhani', sans-serif;
+      font-weight: 700;
+      font-size: 26px;
+      letter-spacing: 5px;
+      color: var(--white);
+      text-transform: uppercase;
+    }
+
+    .wordmark-divider {
+      width: 100%;
+      height: 1px;
+      background: var(--electric);
+      margin: 5px 0;
+      opacity: 0.85;
+    }
+
+    .wordmark-bottom {
+      font-family: 'Inter', sans-serif;
+      font-weight: 500;
+      font-size: 10px;
+      letter-spacing: 5px;
+      color: var(--silver);
+      text-transform: uppercase;
+    }
+
+    /* Separador central */
+    .front-divider {
+      width: 100%;
+      height: 1px;
+      background: linear-gradient(90deg, var(--electric), transparent);
+      margin: 28px 0 24px;
+      opacity: 0.4;
+    }
+
+    /* Info del propietario */
+    .owner-info {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .owner-name {
+      font-family: 'Rajdhani', sans-serif;
+      font-weight: 700;
+      font-size: 28px;
+      letter-spacing: 3px;
+      color: var(--white);
+      text-transform: uppercase;
+    }
+
+    .owner-title {
+      font-family: 'Inter', sans-serif;
+      font-weight: 400;
+      font-size: 12px;
+      letter-spacing: 2px;
+      color: var(--electric);
+      text-transform: uppercase;
+    }
+
+    /* Tagline en el frente */
+    .front-tagline {
+      margin-top: auto;
+      font-family: 'Inter', sans-serif;
+      font-style: italic;
+      font-size: 11px;
+      color: var(--silver);
+      letter-spacing: 1px;
+      opacity: 0.7;
+    }
+
+    /* Acento angular decorativo — esquina inferior derecha */
+    .corner-accent {
+      position: absolute;
+      bottom: 0; right: 0;
+      width: 0; height: 0;
+      border-style: solid;
+      border-width: 0 0 70px 70px;
+      border-color: transparent transparent rgba(0,229,255,0.06) transparent;
+    }
+
+    /* ============================================================
+       CARD BACK
+       ============================================================ */
+    .card-back {
+      background: linear-gradient(160deg, #1C1C2E 0%, #0E0E1F 50%, #0A0A0F 100%);
+    }
+
+    .card-back::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse at 30% 50%, rgba(0,229,255,0.05) 0%, transparent 60%);
+    }
+
+    /* Línea de acento inferior */
+    .card-back::after {
+      content: '';
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      height: 3px;
+      background: linear-gradient(90deg,
+        transparent 0%,
+        var(--electric) 30%,
+        var(--electric) 70%,
+        transparent 100%
+      );
+      opacity: 0.7;
+    }
+
+    /* Contenido del reverso */
+    .card-back .content {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 42px 52px;
+      gap: 0;
+    }
+
+    /* Cada línea de contacto */
+    .contact-line {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 10px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+    }
+
+    .contact-line:last-of-type {
+      border-bottom: none;
+    }
+
+    .contact-icon {
+      width: 30px;
+      height: 30px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .contact-icon svg {
+      width: 16px;
+      height: 16px;
+      fill: var(--electric);
+      opacity: 0.9;
+    }
+
+    .contact-text {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+    }
+
+    .contact-label {
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 8px;
+      font-weight: 600;
+      letter-spacing: 3px;
+      color: var(--electric);
+      text-transform: uppercase;
+      opacity: 0.7;
+    }
+
+    .contact-value {
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      font-weight: 400;
+      color: var(--white);
+      letter-spacing: 0.5px;
+    }
+
+    /* Logo pequeño en el reverso (marca de agua) */
+    .back-watermark {
+      position: absolute;
+      top: 28px;
+      right: 40px;
+      opacity: 0.12;
+    }
+
+    .back-watermark svg {
+      width: 40px;
+      height: 40px;
+    }
+
+    /* Etiqueta de servicio */
+    .service-badge {
+      position: absolute;
+      bottom: 18px;
+      right: 44px;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 3px;
+    }
+
+    .service-badge-text {
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 2px;
+      color: var(--electric);
+      text-transform: uppercase;
+      opacity: 0.6;
+    }
+
+    /* ============================================================
+       PRINT STYLES
+       ============================================================ */
+    @media print {
+      body {
+        background: white;
+        padding: 0;
+        gap: 20mm;
+      }
+
+      .card {
+        --scale: 1 !important;
+        width:  85mm;
+        height: 55mm;
+        border-radius: 4px;
+        box-shadow: none;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+        page-break-after: always;
+      }
+
+      h2 { display: none; }
+    }
+
+    /* ============================================================
+       NOTA DE PRINT
+       ============================================================ */
+    .print-note {
+      font-family: 'Inter', sans-serif;
+      font-size: 11px;
+      color: rgba(184,192,204,0.4);
+      letter-spacing: 1px;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ======================== FRENTE ======================== -->
+  <div class="card-wrapper">
+    <h2>Front — Frente</h2>
+
+    <div class="card card-front">
+      <div class="halo"></div>
+      <div class="corner-accent"></div>
+
+      <div class="content">
+
+        <!-- LOGO HORIZONTAL -->
+        <div class="logo-area">
+          <!-- Ícono: hexágono + rayo -->
+          <svg class="logo-icon" viewBox="0 0 106 116" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <filter id="glow-front" x="-30%" y="-30%" width="160%" height="160%">
+                <feGaussianBlur stdDeviation="2.5" result="blur"/>
+                <feMerge><feMergeNode in="blur"/><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+              </filter>
+            </defs>
+            <!-- Hexágono de fondo -->
+            <polygon points="53,4 99,28 99,74 53,98 7,74 7,28" fill="#0D0D1A"/>
+            <!-- Borde cyan del hexágono -->
+            <polygon points="53,4 99,28 99,74 53,98 7,74 7,28" fill="none" stroke="#00E5FF" stroke-width="2" opacity="0.7"/>
+            <!-- Rayo superior -->
+            <polygon points="68,14 42,56 57,56" fill="#00E5FF" filter="url(#glow-front)" opacity="0.95"/>
+            <!-- Rayo inferior -->
+            <polygon points="57,56 32,56 47,88" fill="#00E5FF" filter="url(#glow-front)" opacity="0.95"/>
+            <!-- Núcleo blanco sutil -->
+            <polygon points="66,18 44,55 55,55" fill="#FFFFFF" opacity="0.2"/>
+          </svg>
+
+          <div class="wordmark">
+            <span class="wordmark-top">Black Volt</span>
+            <div class="wordmark-divider"></div>
+            <span class="wordmark-bottom">Mobility LLC</span>
+          </div>
+        </div>
+
+        <div class="front-divider"></div>
+
+        <!-- PROPIETARIO -->
+        <div class="owner-info">
+          <div class="owner-name">Ender Ocando</div>
+          <div class="owner-title">Owner &amp; Operator</div>
+        </div>
+
+        <div class="front-tagline">Silent Power. Premium Arrival.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================== REVERSO ======================== -->
+  <div class="card-wrapper">
+    <h2>Back — Reverso</h2>
+
+    <div class="card card-back">
+
+      <!-- Marca de agua del ícono -->
+      <div class="back-watermark">
+        <svg viewBox="0 0 106 116" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <polygon points="53,4 99,28 99,74 53,98 7,74 7,28" fill="none" stroke="#00E5FF" stroke-width="3"/>
+          <polygon points="68,14 42,56 57,56" fill="#00E5FF" opacity="0.8"/>
+          <polygon points="57,56 32,56 47,88" fill="#00E5FF" opacity="0.8"/>
+        </svg>
+      </div>
+
+      <div class="content">
+
+        <!-- Teléfono -->
+        <div class="contact-line">
+          <div class="contact-icon">
+            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1C10.6 21 3 13.4 3 4c0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1L6.6 10.8z"/>
+            </svg>
+          </div>
+          <div class="contact-text">
+            <span class="contact-label">Phone</span>
+            <span class="contact-value">+1 (720) 512-1753</span>
+          </div>
+        </div>
+
+        <!-- Email -->
+        <div class="contact-line">
+          <div class="contact-icon">
+            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/>
+            </svg>
+          </div>
+          <div class="contact-text">
+            <span class="contact-label">Email</span>
+            <span class="contact-value">blackvoltmobility@gmail.com</span>
+          </div>
+        </div>
+
+        <!-- Servicio -->
+        <div class="contact-line">
+          <div class="contact-icon">
+            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.5 16c-.83 0-1.5-.67-1.5-1.5S5.67 13 6.5 13s1.5.67 1.5 1.5S7.33 16 6.5 16zm11 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zM5 11l1.5-4.5h11L19 11H5z"/>
+            </svg>
+          </div>
+          <div class="contact-text">
+            <span class="contact-label">Service</span>
+            <span class="contact-value">Executive Black Car Service</span>
+          </div>
+        </div>
+
+        <!-- Vehículo -->
+        <div class="contact-line">
+          <div class="contact-icon">
+            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path d="M7 4h10l3 7H4L7 4zm-3.8 8h17.6c.7 0 1.2.6 1.2 1.3l-.5 3.7c-.1.5-.5.9-1 1H18l-.5-1.5h-11L6 18H4.5c-.5 0-.9-.4-1-.9L3 13.3C3 12.6 3.5 12 4.2 12zM7.5 13c-.8 0-1.5.7-1.5 1.5S6.7 16 7.5 16 9 15.3 9 14.5 8.3 13 7.5 13zm9 0c-.8 0-1.5.7-1.5 1.5s.7 1.5 1.5 1.5 1.5-.7 1.5-1.5-.7-1.5-1.5-1.5z"/>
+            </svg>
+          </div>
+          <div class="contact-text">
+            <span class="contact-label">Vehicle</span>
+            <span class="contact-value">2024 Kia EV9 &nbsp;·&nbsp; Uber Black · LUX</span>
+          </div>
+        </div>
+
+        <!-- Ubicación -->
+        <div class="contact-line">
+          <div class="contact-icon">
+            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+            </svg>
+          </div>
+          <div class="contact-text">
+            <span class="contact-label">Area</span>
+            <span class="contact-value">Denver &amp; Aurora, CO &nbsp;·&nbsp; DIA Airport</span>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Badge de servicio -->
+      <div class="service-badge">
+        <span class="service-badge-text">⚡ Electric &nbsp;·&nbsp; Premium</span>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Nota de impresión -->
+  <p class="print-note">
+    Print size: 85mm × 55mm &nbsp;|&nbsp; Recommended finish: Matte lamination + UV Spot varnish on logo
+  </p>
+
+</body>
+</html>

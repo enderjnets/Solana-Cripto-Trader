@@ -1,16 +1,895 @@
 {
+  "generated_at": "2026-03-26T02:38:48.262493+00:00",
+  "date": "2026-03-26",
+  "plan": [
+    {
+      "type": "short",
+      "priority": "urgente",
+      "theme": "noticias",
+      "topic": "📰 BREAKING: Franklin Templeton, Ondo to launch tokenized ETFs with 24/7 trading via crypto wallets",
+      "crypto_data": {}
+    },
+    {
+      "type": "short",
+      "priority": "alta",
+      "theme": "ia_trading",
+      "topic": "Claude AI creó un bot de trading en 10 minutos — ¿funciona?",
+      "crypto_data": {
+        "global": {},
+        "trending_coins": [
+          {
+            "id": "binancecoin",
+            "name": "BNB",
+            "symbol": "BNB",
+            "rank": 4
+          },
+          {
+            "id": "bittensor",
+            "name": "Bittensor",
+            "symbol": "TAO",
+            "rank": 33
+          },
+          {
+            "id": "siren-2",
+            "name": "Siren",
+            "symbol": "SIREN",
+            "rank": 50
+          },
+          {
+            "id": "pudgy-penguins",
+            "name": "Pudgy Penguins",
+            "symbol": "PENGU",
+            "rank": 105
+          },
+          {
+            "id": "tezos",
+            "name": "Tezos",
+            "symbol": "XTZ",
+            "rank": 112
+          },
+          {
+            "id": "monad",
+            "name": "Monad",
+            "symbol": "MON",
+            "rank": 137
+          },
+          {
+            "id": "backpack",
+            "name": "Backpack",
+            "symbol": "BP",
+            "rank": 475
+          },
+          {
+            "id": "bitcoin",
+            "name": "Bitcoin",
+            "symbol": "BTC",
+            "rank": 1
+          },
+          {
+            "id": "rain",
+            "name": "Rain",
+            "symbol": "RAIN",
+            "rank": 25
+          },
+          {
+            "id": "tether-gold",
+            "name": "Tether Gold",
+            "symbol": "XAUT",
+            "rank": 37
+          }
+        ],
+        "top_movers": [],
+        "trending_nfts": [
+          "Doodles",
+          "Lil Pudgys",
+          "Ordinal Maxi Biz (OMB)",
+          "Mutant Ape Yacht Club",
+          "Bitcoin Shrooms"
+        ],
+        "trending_categories": [
+          "Tokenized Commodities",
+          "Tokenized Assets",
+          "Four.meme Ecosystem (BNB Memes)",
+          "Binance Alpha Spotlight",
+          "Real World Assets (RWA)"
+        ]
+      }
+    },
+    {
+      "type": "long",
+      "priority": "alta",
+      "theme": "ia_trading",
+      "topic": "Agentes de trading con IA: el futuro de la automatización",
+      "crypto_data": {
+        "global": {},
+        "trending_coins": [
+          {
+            "id": "binancecoin",
+            "name": "BNB",
+            "symbol": "BNB",
+            "rank": 4
+          },
+          {
+            "id": "bittensor",
+            "name": "Bittensor",
+            "symbol": "TAO",
+            "rank": 33
+          },
+          {
+            "id": "siren-2",
+            "name": "Siren",
+            "symbol": "SIREN",
+            "rank": 50
+          },
+          {
+            "id": "pudgy-penguins",
+            "name": "Pudgy Penguins",
+            "symbol": "PENGU",
+            "rank": 105
+          },
+          {
+            "id": "tezos",
+            "name": "Tezos",
+            "symbol": "XTZ",
+            "rank": 112
+          },
+          {
+            "id": "monad",
+            "name": "Monad",
+            "symbol": "MON",
+            "rank": 137
+          },
+          {
+            "id": "backpack",
+            "name": "Backpack",
+            "symbol": "BP",
+            "rank": 475
+          },
+          {
+            "id": "bitcoin",
+            "name": "Bitcoin",
+            "symbol": "BTC",
+            "rank": 1
+          },
+          {
+            "id": "rain",
+            "name": "Rain",
+            "symbol": "RAIN",
+            "rank": 25
+          },
+          {
+            "id": "tether-gold",
+            "name": "Tether Gold",
+            "symbol": "XAUT",
+            "rank": 37
+          }
+        ],
+        "top_movers": [],
+        "trending_nfts": [
+          "Doodles",
+          "Lil Pudgys",
+          "Ordinal Maxi Biz (OMB)",
+          "Mutant Ape Yacht Club",
+          "Bitcoin Shrooms"
+        ],
+        "trending_categories": [
+          "Tokenized Commodities",
+          "Tokenized Assets",
+          "Four.meme Ecosystem (BNB Memes)",
+          "Binance Alpha Spotlight",
+          "Real World Assets (RWA)"
+        ]
+      }
+    },
+    {
+      "type": "short",
+      "priority": "alta",
+      "theme": "ia_trading",
+      "topic": "La IA que predice movimientos del mercado antes que nadie",
+      "crypto_data": {
+        "global": {},
+        "trending_coins": [
+          {
+            "id": "binancecoin",
+            "name": "BNB",
+            "symbol": "BNB",
+            "rank": 4
+          },
+          {
+            "id": "bittensor",
+            "name": "Bittensor",
+            "symbol": "TAO",
+            "rank": 33
+          },
+          {
+            "id": "siren-2",
+            "name": "Siren",
+            "symbol": "SIREN",
+            "rank": 50
+          },
+          {
+            "id": "pudgy-penguins",
+            "name": "Pudgy Penguins",
+            "symbol": "PENGU",
+            "rank": 105
+          },
+          {
+            "id": "tezos",
+            "name": "Tezos",
+            "symbol": "XTZ",
+            "rank": 112
+          },
+          {
+            "id": "monad",
+            "name": "Monad",
+            "symbol": "MON",
+            "rank": 137
+          },
+          {
+            "id": "backpack",
+            "name": "Backpack",
+            "symbol": "BP",
+            "rank": 475
+          },
+          {
+            "id": "bitcoin",
+            "name": "Bitcoin",
+            "symbol": "BTC",
+            "rank": 1
+          },
+          {
+            "id": "rain",
+            "name": "Rain",
+            "symbol": "RAIN",
+            "rank": 25
+          },
+          {
+            "id": "tether-gold",
+            "name": "Tether Gold",
+            "symbol": "XAUT",
+            "rank": 37
+          }
+        ],
+        "top_movers": [],
+        "trending_nfts": [
+          "Doodles",
+          "Lil Pudgys",
+          "Ordinal Maxi Biz (OMB)",
+          "Mutant Ape Yacht Club",
+          "Bitcoin Shrooms"
+        ],
+        "trending_categories": [
+          "Tokenized Commodities",
+          "Tokenized Assets",
+          "Four.meme Ecosystem (BNB Memes)",
+          "Binance Alpha Spotlight",
+          "Real World Assets (RWA)"
+        ]
+      }
+    },
+    {
+      "type": "short",
+      "priority": "media",
+      "theme": "noticia",
+      "topic": "BNB está en tendencia — ¿vale la pena comprar?",
+      "crypto_data": {
+        "global": {},
+        "trending_coins": [
+          {
+            "id": "binancecoin",
+            "name": "BNB",
+            "symbol": "BNB",
+            "rank": 4
+          },
+          {
+            "id": "bittensor",
+            "name": "Bittensor",
+            "symbol": "TAO",
+            "rank": 33
+          },
+          {
+            "id": "siren-2",
+            "name": "Siren",
+            "symbol": "SIREN",
+            "rank": 50
+          },
+          {
+            "id": "pudgy-penguins",
+            "name": "Pudgy Penguins",
+            "symbol": "PENGU",
+            "rank": 105
+          },
+          {
+            "id": "tezos",
+            "name": "Tezos",
+            "symbol": "XTZ",
+            "rank": 112
+          },
+          {
+            "id": "monad",
+            "name": "Monad",
+            "symbol": "MON",
+            "rank": 137
+          },
+          {
+            "id": "backpack",
+            "name": "Backpack",
+            "symbol": "BP",
+            "rank": 475
+          },
+          {
+            "id": "bitcoin",
+            "name": "Bitcoin",
+            "symbol": "BTC",
+            "rank": 1
+          },
+          {
+            "id": "rain",
+            "name": "Rain",
+            "symbol": "RAIN",
+            "rank": 25
+          },
+          {
+            "id": "tether-gold",
+            "name": "Tether Gold",
+            "symbol": "XAUT",
+            "rank": 37
+          }
+        ],
+        "top_movers": [],
+        "trending_nfts": [
+          "Doodles",
+          "Lil Pudgys",
+          "Ordinal Maxi Biz (OMB)",
+          "Mutant Ape Yacht Club",
+          "Bitcoin Shrooms"
+        ],
+        "trending_categories": [
+          "Tokenized Commodities",
+          "Tokenized Assets",
+          "Four.meme Ecosystem (BNB Memes)",
+          "Binance Alpha Spotlight",
+          "Real World Assets (RWA)"
+        ]
+      }
+    },
+    {
+      "type": "short",
+      "priority": "media",
+      "theme": "noticia",
+      "topic": "TAO está en tendencia — ¿vale la pena comprar?",
+      "crypto_data": {
+        "global": {},
+        "trending_coins": [
+          {
+            "id": "binancecoin",
+            "name": "BNB",
+            "symbol": "BNB",
+            "rank": 4
+          },
+          {
+            "id": "bittensor",
+            "name": "Bittensor",
+            "symbol": "TAO",
+            "rank": 33
+          },
+          {
+            "id": "siren-2",
+            "name": "Siren",
+            "symbol": "SIREN",
+            "rank": 50
+          },
+          {
+            "id": "pudgy-penguins",
+            "name": "Pudgy Penguins",
+            "symbol": "PENGU",
+            "rank": 105
+          },
+          {
+            "id": "tezos",
+            "name": "Tezos",
+            "symbol": "XTZ",
+            "rank": 112
+          },
+          {
+            "id": "monad",
+            "name": "Monad",
+            "symbol": "MON",
+            "rank": 137
+          },
+          {
+            "id": "backpack",
+            "name": "Backpack",
+            "symbol": "BP",
+            "rank": 475
+          },
+          {
+            "id": "bitcoin",
+            "name": "Bitcoin",
+            "symbol": "BTC",
+            "rank": 1
+          },
+          {
+            "id": "rain",
+            "name": "Rain",
+            "symbol": "RAIN",
+            "rank": 25
+          },
+          {
+            "id": "tether-gold",
+            "name": "Tether Gold",
+            "symbol": "XAUT",
+            "rank": 37
+          }
+        ],
+        "top_movers": [],
+        "trending_nfts": [
+          "Doodles",
+          "Lil Pudgys",
+          "Ordinal Maxi Biz (OMB)",
+          "Mutant Ape Yacht Club",
+          "Bitcoin Shrooms"
+        ],
+        "trending_categories": [
+          "Tokenized Commodities",
+          "Tokenized Assets",
+          "Four.meme Ecosystem (BNB Memes)",
+          "Binance Alpha Spotlight",
+          "Real World Assets (RWA)"
+        ]
+      }
+    },
+    {
+      "type": "short",
+      "priority": "media",
+      "theme": "noticia",
+      "topic": "SIREN está en tendencia — ¿vale la pena comprar?",
+      "crypto_data": {
+        "global": {},
+        "trending_coins": [
+          {
+            "id": "binancecoin",
+            "name": "BNB",
+            "symbol": "BNB",
+            "rank": 4
+          },
+          {
+            "id": "bittensor",
+            "name": "Bittensor",
+            "symbol": "TAO",
+            "rank": 33
+          },
+          {
+            "id": "siren-2",
+            "name": "Siren",
+            "symbol": "SIREN",
+            "rank": 50
+          },
+          {
+            "id": "pudgy-penguins",
+            "name": "Pudgy Penguins",
+            "symbol": "PENGU",
+            "rank": 105
+          },
+          {
+            "id": "tezos",
+            "name": "Tezos",
+            "symbol": "XTZ",
+            "rank": 112
+          },
+          {
+            "id": "monad",
+            "name": "Monad",
+            "symbol": "MON",
+            "rank": 137
+          },
+          {
+            "id": "backpack",
+            "name": "Backpack",
+            "symbol": "BP",
+            "rank": 475
+          },
+          {
+            "id": "bitcoin",
+            "name": "Bitcoin",
+            "symbol": "BTC",
+            "rank": 1
+          },
+          {
+            "id": "rain",
+            "name": "Rain",
+            "symbol": "RAIN",
+            "rank": 25
+          },
+          {
+            "id": "tether-gold",
+            "name": "Tether Gold",
+            "symbol": "XAUT",
+            "rank": 37
+          }
+        ],
+        "top_movers": [],
+        "trending_nfts": [
+          "Doodles",
+          "Lil Pudgys",
+          "Ordinal Maxi Biz (OMB)",
+          "Mutant Ape Yacht Club",
+          "Bitcoin Shrooms"
+        ],
+        "trending_categories": [
+          "Tokenized Commodities",
+          "Tokenized Assets",
+          "Four.meme Ecosystem (BNB Memes)",
+          "Binance Alpha Spotlight",
+          "Real World Assets (RWA)"
+        ]
+      }
+    },
+    {
+      "type": "short",
+      "priority": "baja",
+      "theme": "controversial",
+      "topic": "¿FTMO es una estafa? Lo que nadie te dice de las prop firms",
+      "crypto_data": {
+        "global": {},
+        "trending_coins": [
+          {
+            "id": "binancecoin",
+            "name": "BNB",
+            "symbol": "BNB",
+            "rank": 4
+          },
+          {
+            "id": "bittensor",
+            "name": "Bittensor",
+            "symbol": "TAO",
+            "rank": 33
+          },
+          {
+            "id": "siren-2",
+            "name": "Siren",
+            "symbol": "SIREN",
+            "rank": 50
+          },
+          {
+            "id": "pudgy-penguins",
+            "name": "Pudgy Penguins",
+            "symbol": "PENGU",
+            "rank": 105
+          },
+          {
+            "id": "tezos",
+            "name": "Tezos",
+            "symbol": "XTZ",
+            "rank": 112
+          },
+          {
+            "id": "monad",
+            "name": "Monad",
+            "symbol": "MON",
+            "rank": 137
+          },
+          {
+            "id": "backpack",
+            "name": "Backpack",
+            "symbol": "BP",
+            "rank": 475
+          },
+          {
+            "id": "bitcoin",
+            "name": "Bitcoin",
+            "symbol": "BTC",
+            "rank": 1
+          },
+          {
+            "id": "rain",
+            "name": "Rain",
+            "symbol": "RAIN",
+            "rank": 25
+          },
+          {
+            "id": "tether-gold",
+            "name": "Tether Gold",
+            "symbol": "XAUT",
+            "rank": 37
+          }
+        ],
+        "top_movers": [],
+        "trending_nfts": [
+          "Doodles",
+          "Lil Pudgys",
+          "Ordinal Maxi Biz (OMB)",
+          "Mutant Ape Yacht Club",
+          "Bitcoin Shrooms"
+        ],
+        "trending_categories": [
+          "Tokenized Commodities",
+          "Tokenized Assets",
+          "Four.meme Ecosystem (BNB Memes)",
+          "Binance Alpha Spotlight",
+          "Real World Assets (RWA)"
+        ]
+      }
+    },
+    {
+      "type": "short",
+      "priority": "media",
+      "theme": "educativo",
+      "topic": "¿Qué es BNB (BNB) y por qué está en tendencia ahora?",
+      "crypto_data": {
+        "global": {},
+        "trending_coins": [
+          {
+            "id": "binancecoin",
+            "name": "BNB",
+            "symbol": "BNB",
+            "rank": 4
+          },
+          {
+            "id": "bittensor",
+            "name": "Bittensor",
+            "symbol": "TAO",
+            "rank": 33
+          },
+          {
+            "id": "siren-2",
+            "name": "Siren",
+            "symbol": "SIREN",
+            "rank": 50
+          },
+          {
+            "id": "pudgy-penguins",
+            "name": "Pudgy Penguins",
+            "symbol": "PENGU",
+            "rank": 105
+          },
+          {
+            "id": "tezos",
+            "name": "Tezos",
+            "symbol": "XTZ",
+            "rank": 112
+          },
+          {
+            "id": "monad",
+            "name": "Monad",
+            "symbol": "MON",
+            "rank": 137
+          },
+          {
+            "id": "backpack",
+            "name": "Backpack",
+            "symbol": "BP",
+            "rank": 475
+          },
+          {
+            "id": "bitcoin",
+            "name": "Bitcoin",
+            "symbol": "BTC",
+            "rank": 1
+          },
+          {
+            "id": "rain",
+            "name": "Rain",
+            "symbol": "RAIN",
+            "rank": 25
+          },
+          {
+            "id": "tether-gold",
+            "name": "Tether Gold",
+            "symbol": "XAUT",
+            "rank": 37
+          }
+        ],
+        "top_movers": [],
+        "trending_nfts": [
+          "Doodles",
+          "Lil Pudgys",
+          "Ordinal Maxi Biz (OMB)",
+          "Mutant Ape Yacht Club",
+          "Bitcoin Shrooms"
+        ],
+        "trending_categories": [
+          "Tokenized Commodities",
+          "Tokenized Assets",
+          "Four.meme Ecosystem (BNB Memes)",
+          "Binance Alpha Spotlight",
+          "Real World Assets (RWA)"
+        ]
+      }
+    },
+    {
+      "type": "short",
+      "priority": "media",
+      "theme": "educativo",
+      "topic": "¿Qué es TAO (Bittensor) y por qué está en tendencia ahora?",
+      "crypto_data": {
+        "global": {},
+        "trending_coins": [
+          {
+            "id": "binancecoin",
+            "name": "BNB",
+            "symbol": "BNB",
+            "rank": 4
+          },
+          {
+            "id": "bittensor",
+            "name": "Bittensor",
+            "symbol": "TAO",
+            "rank": 33
+          },
+          {
+            "id": "siren-2",
+            "name": "Siren",
+            "symbol": "SIREN",
+            "rank": 50
+          },
+          {
+            "id": "pudgy-penguins",
+            "name": "Pudgy Penguins",
+            "symbol": "PENGU",
+            "rank": 105
+          },
+          {
+            "id": "tezos",
+            "name": "Tezos",
+            "symbol": "XTZ",
+            "rank": 112
+          },
+          {
+            "id": "monad",
+            "name": "Monad",
+            "symbol": "MON",
+            "rank": 137
+          },
+          {
+            "id": "backpack",
+            "name": "Backpack",
+            "symbol": "BP",
+            "rank": 475
+          },
+          {
+            "id": "bitcoin",
+            "name": "Bitcoin",
+            "symbol": "BTC",
+            "rank": 1
+          },
+          {
+            "id": "rain",
+            "name": "Rain",
+            "symbol": "RAIN",
+            "rank": 25
+          },
+          {
+            "id": "tether-gold",
+            "name": "Tether Gold",
+            "symbol": "XAUT",
+            "rank": 37
+          }
+        ],
+        "top_movers": [],
+        "trending_nfts": [
+          "Doodles",
+          "Lil Pudgys",
+          "Ordinal Maxi Biz (OMB)",
+          "Mutant Ape Yacht Club",
+          "Bitcoin Shrooms"
+        ],
+        "trending_categories": [
+          "Tokenized Commodities",
+          "Tokenized Assets",
+          "Four.meme Ecosystem (BNB Memes)",
+          "Binance Alpha Spotlight",
+          "Real World Assets (RWA)"
+        ]
+      }
+    }
+  ],
   "scripts": [
     {
-      "id": "long_1773511946",
-      "title": "Cómo crear un Bot de Trading con Claude AI (sin saber programar) — MT5",
-      "script": "---\n\nHOOK (30s):\n\nSi sabes programar, crear un bot de trading es fácil. Pero si no tienes experiencia en código, MetaTrader 5 parece chino. Y lo peor: el trading no espera. Una noticia del Fed sale, el mercado se mueve, y si no reaccionas en segundos, perdés la oportunidad. Hoy te voy a mostrar cómo crear un bot de trading automatizado usando Claude AI, sin escribir una sola línea de código. Y sí, esto funciona con MT5, el mismo broker que usan los pros.\n\nPROBLEMA (45s):\n\nEl problema real del trading no es el análisis. Es la velocidad de ejecución. Tú podés ser el mejor analista del mundo, leer todos los indicadores, entender perfectamente la macroeconomía, pero si te toma 5 minutos procesar una noticia y ejecutar una orden, ya llegaste tarde. Los traders institucionales tienen sistemas que leen noticias en milisegundos y ejecutan automáticamente. Tú estás compitiendo contra eso. Y hasta hace poco, la única opción era o ser programador o contratar uno. Eso cambió.\n\nSOLUCIÓN (2-3 min):\n\nClaude AI no es solo un chatbot. Es un modelo de lenguaje que puede escribir código, analizar datos y tomar decisiones lógicas. Lo que te voy a mostrar hoy es cómo conectar Claude con MetaTrader 5 sin programar. El proceso tiene 4 pasos. Paso 1: Configurar Claude. Vas a Anthropic, creás una cuenta de API, y obtenés una clave de acceso. Esa clave es lo que permite que cualquier sistema se comunique con Claude. Paso 2: Configurar MetaTrader. En MT5, vas a la pestaña de herramientas, buscás la opción de API, y activás el permiso para conexiones externas. Esto permite que aplicaciones externas envíen órdenes a tu cuenta. Paso 3: Crear el bridge. Esta es la parte clave. En lugar de programar MQL5, el lenguaje específico de MetaTrader, vas a usar una plantilla. Esa plantilla ya está escrita. Lo único que tenés que hacer es decirle a Claude qué estrategia querés, y él genera el código específico para ti. Paso 4: Conectar y probar. Una vez que Claude genera el código, lo pegás en MetaTrader, activás el bot, y lo dejás correr en una cuenta demo primero.\n\nEJEMPLOS (1-2 min):\n\nPonélo en práctica. Le pedí a Claude: crea un bot que compre cuando el precio cruce la media móvil de 20 períodos y venda cuando el RSI supere 70. En 15 segundos generó el código completo, funcionando, optimizado para MT5. Otro ejemplo. Bot que detecte noticias del CPI y cierre todas las posiciones 30 segundos antes del anuncio. Protección de volatilidad automática sin programar. Claude entendió el contexto, ajustó el código, y el resultado fue un bot que protege tu cuenta de los eventos de alto impacto.\n\nCTA (30s):\n\nLa barrera de entrada al trading automatizado desapareció. Ya no necesitás ser programador. Claude AI es tu socio técnico. En la descripción te dejo el enlace exacto a la guía paso a paso, más la plantilla de código lista para usar. Comentá qué tipo de estrategia querés automatizar primero: tendencias, rupturas, noticias, o scalping. Suscríbete para no perderte el próximo video donde te muestro cómo conectar tu bot de Claude con datos en tiempo real del mercado.",
+      "id": "short_1774492258_436",
+      "type": "short",
+      "title": "📰 BREAKING: Franklin Templeton, Ondo to launch tokenized ETF",
+      "status": "invalid_content",
+      "error": "Script validation failed: PROMPT_CONTAMINATION: matched 'el usuario quiere'",
+      "raw_response": "El usuario quiere un guión para un YouTube Short sobre la noticia de Franklin Templeton y Ondo lanzando ETFs tokenizados con trading 24/7.\n\nReglas clave:\n- Español neutro/latino\n- Máximo 50 segundos (~130 palabras)\n- Título menos de 50 caracteres\n- Gancho inmediato\n- Usar \"TÚ\" más que \"YO\"\n- Bucle narrativo al final\n- NO emojis en el guión de voz\n- Personaje mascota: rinoceronte antropomórfico 3D hiperrealista\n- NO mostrar razonamiento, solo el formato solicitado\n\nTema: Franklin Templeton + Ondo",
+      "original_topic": "📰 BREAKING: Franklin Templeton, Ondo to launch tokenized ETFs with 24/7 trading via crypto wallets",
+      "created_at": "2026-03-26T02:30:58.306718+00:00"
+    },
+    {
+      "id": "short_1774492305_779",
+      "type": "short",
+      "title": "Claude AI creó un bot de trading en 10 minutos — ¿funciona?",
+      "status": "invalid_content",
+      "error": "Script validation failed: PROMPT_CONTAMINATION: matched 'el usuario quiere'",
+      "raw_response": "El usuario quiere un guión completo para un YouTube Short del canal BitTrader. El tema es sobre Claude AI creando un bot de trading en 10 minutos.\n\nNecesito seguir las reglas:\n1. Español neutro/latino\n2. Tono directo, energético\n3. Máximo 50 segundos al leerlo (≈130 palabras)\n4. Terminar con CTA con pregunta\n5. NO emojis en el guión de voz\n6. Escribir exactamente como se va a narrar\n7. NO mostrar razonamiento visible\n8. Incluir el personaje mascota: rinoceronte antropomórfico 3D hiperrealista\n\nR",
+      "original_topic": "Claude AI creó un bot de trading en 10 minutos — ¿funciona?",
+      "created_at": "2026-03-26T02:31:45.106829+00:00"
+    },
+    {
+      "id": "long_1774492410_187",
       "type": "long",
-      "status": "produced",
-      "created_at": "2026-03-14T18:12:26.481877+00:00",
-      "produced_at": "2026-03-14T18:15:04.094443+00:00",
-      "output_file": "/home/enderj/.openclaw/workspace/bittrader/agents/output/2026-03-14/long_1773511946/long_1773511946.mp4",
-      "audio_file": "/home/enderj/.openclaw/workspace/bittrader/agents/output/2026-03-14/long_1773511946/long_1773511946.mp3",
-      "video_duration": 200.0
+      "title": "Agentes de trading con IA: el futuro de la automatización",
+      "status": "invalid_content",
+      "error": "Script validation failed: PROMPT_CONTAMINATION: matched 'el usuario quiere'",
+      "raw_response": "El usuario quiere un guión completo para un video de YouTube de 3-5 minutos del canal BitTrader. El tema es \"Agentes de trading con IA: el futuro de la automatización\".\n\nDebo seguir las reglas:\n1. Español neutro/latino\n2. Tono directo, energético\n3. Estructura clara con ejemplos reales\n4. CTA con pregunta al final\n5. Sin emojis en el guión de voz\n6. Sin razonamiento visible - SOLO el formato solicitado\n7. El personaje mascota es un RINOCERONTE ANTROPOMÓRFICO 3D hiperrealista\n8. Reglas MrBeast: t",
+      "original_topic": "Agentes de trading con IA: el futuro de la automatización",
+      "created_at": "2026-03-26T02:33:30.027934+00:00"
+    },
+    {
+      "id": "short_1774492450_976",
+      "type": "short",
+      "title": "La IA que predice movimientos del mercado antes que nadie",
+      "status": "invalid_content",
+      "error": "Script validation failed: PROMPT_CONTAMINATION: matched 'Gancho inmediato'",
+      "raw_response": "TITULO: Algo con menos de 50 caracteres, con número o gancho\n- \"Esta IA predice el mercado ANTES\" (35 chars) ✓\n- \"La IA que ve el futuro del trading\" (34 chars) ✓\n- \"Predice el mercado ANTES que nadie\" (34 chars) ✓\n\nDESCRIPCION: 100-150 chars con hashtags\n\nTAGS: 8-10 tags\n\nGUION: \n- Gancho inmediato\n- Desarrollo\n- Dato impactante\n- CTA con pregunta\n- Bucle final: \"...y lo que pasó después te sorprenderá\"\n\nVIDEO_PROMPT: Escena con el rinoceronte, hyper-realistic 3D, 9:16 vertical\n\nVamos a escribi",
+      "original_topic": "La IA que predice movimientos del mercado antes que nadie",
+      "created_at": "2026-03-26T02:34:10.415058+00:00"
+    },
+    {
+      "id": "short_1774492521_553",
+      "type": "short",
+      "title": "BNB está en tendencia — ¿vale la pena comprar?",
+      "status": "invalid_content",
+      "error": "Script validation failed: PROMPT_CONTAMINATION: matched 'Gancho inmediato'",
+      "raw_response": "El usuario quiere un guión completo para un YouTube Short sobre BNB que está en tendencia y si vale la pena comprar.\n\nTema: BNB está en tendencia — ¿vale la pena comprar?\nCategoría: noticia\n\nReglas a seguir:\n1. Título menos de 50 caracteres\n2. Gancho inmediato\n3. Usar \"TÚ\" más que \"YO\"\n4. Bucle narrativo: terminar con \"...y lo que pasó después te sorprenderá\"\n5. Español neutro/latino\n6. Máximo 50 segundos (≈130 palabras)\n7. Sin emojis en el guión\n8. CTA con pregunta\n9. Video prompt con el rinoce",
+      "original_topic": "BNB está en tendencia — ¿vale la pena comprar?",
+      "created_at": "2026-03-26T02:35:21.952926+00:00"
+    },
+    {
+      "id": "short_1774492560_220",
+      "type": "short",
+      "title": "TAO está en tendencia — ¿vale la pena comprar?",
+      "status": "invalid_content",
+      "error": "Script validation failed: PROMPT_CONTAMINATION: matched 'Gancho inmediato'",
+      "raw_response": "El usuario quiere un guión completo para un YouTube Short sobre TAO (Bittensor), que está en tendencia. Necesito seguir todas las reglas:\n\n1. Español neutro/latino\n2. Tono directo, energético\n3. Máximo 50 segundos (≈130 palabras)\n4. CTA con pregunta\n5. Sin emojis en el guión\n6. Título menos de 50 caracteres\n7. Gancho inmediato\n8. Usar \"TÚ\" más que \"YO\"\n9. Bucle narrativo al final\n10. El VIDEO_PROMPT debe incluir el rinoceronte antropomórfico 3D como protagonista\n\nTAO es el token de Bittensor, un",
+      "original_topic": "TAO está en tendencia — ¿vale la pena comprar?",
+      "created_at": "2026-03-26T02:36:00.452036+00:00"
+    },
+    {
+      "id": "short_1774492597_347",
+      "type": "short",
+      "title": "SIREN está en tendencia — ¿vale la pena comprar?",
+      "status": "invalid_content",
+      "error": "Script validation failed: PROMPT_CONTAMINATION: matched 'Gancho inmediato'",
+      "raw_response": "El usuario quiere un guión completo para un YouTube Short sobre SIREN, que está en tendencia. Necesito seguir todas las reglas:\n\n1. Español neutro/latino\n2. Tono directo, energético\n3. Máximo 50 segundos (≈130 palabras)\n4. CTA con pregunta\n5. Sin emojis en el guión\n6. Sin razonamiento visible - SOLO el formato\n7. Reglas MrBeast: título <50 chars, gancho inmediato, \"tú\" más que \"yo\", bucle narrativo\n8. Video prompt con el rinoceronte antropomórfico 3D\n\nTema: SIREN está en tendencia - ¿vale la pen",
+      "original_topic": "SIREN está en tendencia — ¿vale la pena comprar?",
+      "created_at": "2026-03-26T02:36:37.416185+00:00"
+    },
+    {
+      "id": "short_1774492650_980",
+      "type": "short",
+      "title": "¿FTMO es una estafa? Lo que nadie te dice de las prop firms",
+      "status": "invalid_content",
+      "error": "Script validation failed: PROMPT_CONTAMINATION: matched 'el usuario quiere'",
+      "raw_response": "El usuario quiere un guión completo para un YouTube Short del canal BitTrader sobre si FTMO es una estafa. Necesito seguir todas las reglas:\n\n1. Español neutro/latino (no español de España)\n2. Tono directo, energético, sin relleno\n3. Máximo 50 segundos al leerlo (≈130 palabras)\n4. Sin emojis en el guión de voz\n5. Escribir exactamente como se va a narrar\n6. NO generar razonamiento visible\n7. Título menos de 50 caracteres\n8. Gancho inmediato\n9. USA \"TÚ\" más que \"YO\"\n10. Bucle narrativo al final\n11",
+      "original_topic": "¿FTMO es una estafa? Lo que nadie te dice de las prop firms",
+      "created_at": "2026-03-26T02:37:30.096040+00:00"
+    },
+    {
+      "id": "short_1774492690_663",
+      "type": "short",
+      "title": "¿Qué es BNB (BNB) y por qué está en tendencia ahora?",
+      "status": "invalid_content",
+      "error": "Script validation failed: PROMPT_CONTAMINATION: matched 'el usuario quiere'",
+      "raw_response": "El usuario quiere un guión completo para un YouTube Short sobre BNB (BNB). Necesito seguir todas las reglas:\n\n1. Español neutro/latino\n2. Tono directo, energético\n3. Máximo 50 segundos (≈130 palabras)\n4. Título menos de 50 caracteres\n5. Gancho inmediato\n6. Usar \"TÚ\" más que \"YO\"\n7. Bucle narrativo al final\n8. CTA con pregunta\n9. Sin emojis en el guión de voz\n10. Video prompt con el rinoceronte mascota\n\nTema: ¿Qué es BNB y por qué está en tendencia ahora?\n\nVoy a crear contenido educativo sobre BN",
+      "original_topic": "¿Qué es BNB (BNB) y por qué está en tendencia ahora?",
+      "created_at": "2026-03-26T02:38:10.399301+00:00"
+    },
+    {
+      "id": "short_1774492727_539",
+      "type": "short",
+      "title": "¿Qué es TAO (Bittensor) y por qué está en tendencia ahora?",
+      "status": "invalid_content",
+      "error": "Script validation failed: PROMPT_CONTAMINATION: matched 'Gancho inmediato'",
+      "raw_response": "El usuario quiere un guión completo para un YouTube Short sobre TAO (Bittensor). Necesito seguir todas las reglas:\n\n1. Español neutro/latino\n2. Tono directo, energético\n3. Máximo 50 segundos (≈130 palabras)\n4. CTA con pregunta\n5. Sin emojis en el guión de voz\n6. Sin didascalias ni acotaciones\n7. Reglas MrBeast: título <50 chars, gancho inmediato, usar \"TÚ\", bucle narrativo\n8. El personaje es un rinoceronte antropomórfico 3D hiperrealista\n\nTema: ¿Qué es TAO (Bittensor) y por qué está en tendencia",
+      "original_topic": "¿Qué es TAO (Bittensor) y por qué está en tendencia ahora?",
+      "created_at": "2026-03-26T02:38:47.261235+00:00"
     }
-  ]
+  ],
+  "stats": {
+    "total": 10,
+    "shorts": 9,
+    "longs": 1,
+    "errors": 0
+  }
 }

@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700&family=Inter:wght@400;500&display=swap');
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 88.9mm; height: 50.8mm;
+    background: #0A0A0F;
+    font-family: 'Rajdhani', 'Helvetica Neue', sans-serif;
+    overflow: hidden;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+  }
+  .line-top { position: absolute; top: 0; left: 3mm; right: 3mm; height: 0.8mm; background: linear-gradient(90deg, transparent, #00E5FF, transparent); }
+  .line-bottom { position: absolute; bottom: 0; left: 3mm; right: 3mm; height: 0.8mm; background: linear-gradient(90deg, transparent, #00E5FF, transparent); }
+  .bolt-wrap { margin-bottom: 2mm; filter: drop-shadow(0 0 3mm rgba(0,229,255,0.6)); }
+  .wordmark { font-size: 16px; font-weight: 700; color: #F0F4F8; letter-spacing: 4px; text-transform: uppercase; margin-bottom: 1.5mm; }
+  .tagline { font-size: 7px; color: #00E5FF; font-family: 'Inter', sans-serif; font-style: italic; margin-bottom: 3mm; letter-spacing: 0.5px; }
+  .web { font-size: 5.5px; color: #4B5563; font-family: 'Inter', sans-serif; letter-spacing: 1px; text-transform: uppercase; }
+</style>
+</head>
+<body>
+  <div class="line-top"></div>
+  <div class="line-bottom"></div>
+  <div class="bolt-wrap">
+    <svg width="12mm" height="16mm" viewBox="0 0 50 80"><polygon points="35,5 15,45 28,45 10,75 45,30 30,30" fill="#00E5FF"/></svg>
+  </div>
+  <div class="wordmark">BLACK VOLT</div>
+  <div class="tagline">Silent Power. Premium Arrival.</div>
+  <div class="web">blackvoltmobility.com &nbsp;|&nbsp; Denver, CO</div>
+</body>
+</html>

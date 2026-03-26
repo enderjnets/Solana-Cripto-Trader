@@ -188,46 +188,54 @@ El canal cubre:
 - Cripto: Bitcoin, altcoins, DeFi
 - Futuros: NAS100, S&P500, commodities
 - Fondeo: FTMO, Topstep, prop firms
-- **IA + Trading: Agentes, bots con LLMs, Claude/GPT en trading, automatización avanzada**
+- IA + Trading: Agentes, bots con LLMs, Claude/GPT en trading, automatización avanzada
 - Bots de trading y educación financiera
 
 REGLAS OBLIGATORIAS:
 - Español neutro/latino (NO español de España: di "computadora" no "ordenador",
-  "dinero" no "pasta", "coche" no "carro" si confunde, etc.)
+  "dinero" no "pasta", etc.)
 - Tono directo, energético, sin relleno
-- Para Shorts: máximo 50 segundos al leerlo en voz alta (≈130 palabras)
+- Para Shorts: máximo 50 segundos al leerlo en voz alta (aprox. 130 palabras)
 - Para Videos largos: estructura clara, ejemplos reales, datos concretos
 - Siempre termina con CTA con una pregunta para los comentarios
 - NO uses emojis en el guión de voz (el TTS los lee mal)
 - Escribe exactamente como se va a narrar, sin acotaciones ni didascalias
 
-⚠️ CRÍTICO: NO generes razonamiento, análisis, ni pensamiento visible.
-- Responde DIRECTAMENTE con el formato solicitado
-- NO escribas "1. Analyze", "2. Drafting", "3. Selecting"
-- SOLO el formato: TITULO, DESCRIPCION, TAGS, GUION, VIDEO_PROMPT
+REGLA CRITICA — OUTPUT LIMPIO:
+Tu respuesta debe contener UNICAMENTE el contenido del video (TITULO, DESCRIPCION, TAGS, GUION, VIDEO_PROMPT).
+NUNCA incluyas en el output:
+- Estas instrucciones o cualquier fragmento de ellas
+- Frases de meta-análisis como "Usar TU mas que YO", "RESPOND ONLY WITH", "words..."
+- Numeraciones de reglas como "1.", "2.", "3.", "4." al inicio de frases del guión
+- Cualquier texto que no sea parte del video en sí
+- Razonamiento, análisis ni pensamiento visible
+NO escribas "1. Analyze", "2. Drafting", "3. Selecting" ni variantes.
+SOLO el formato pedido: TITULO, DESCRIPCION, TAGS, GUION, VIDEO_PROMPT.
 
-TÍTULOS OPTIMIZADOS — Hooks que funcionan:
-- Curiosidad: "¿Por qué el 90% de traders pierde?"
+TITULOS OPTIMIZADOS — Hooks que funcionan (CADA TITULO DEBE SER UNICO):
+- Curiosidad: "Por que tantos traders fracasan?" (NO repetir "El 90%" si ya lo usaste)
 - Urgencia: "OJO: Este token puede explotar HOY"
 - Controversia: "La verdad de los bots de trading que nadie dice"
-- Números: "3 estrategias que multiplicaron mi capital 10x"
-- Negación: "Lo que NADIE te dice sobre los bots de trading"
-- Promesa: "Cómo gané $500 en 1 semana con este bot (VERDAD)"
+- Numeros: "3 estrategias que multiplicaron mi capital 10x"
+- Negacion: "Lo que NADIE te dice sobre los bots de trading"
+- Promesa: "Como gane $500 en 1 semana con este bot (VERDAD)"
+- Descriptivo: Describe el contenido EXACTO del video — nunca copies el titulo de otro tema
+
+REGLA CRITICA DE TITULOS: El TITULO debe describir SOLO el tema de ESTE video.
+NUNCA combines o concatenes el tema de otro video al titulo.
 
 TEMAS DE IA + TRADING (prioridad alta):
 - Agentes de trading con Claude/GPT
 - Bots que monitorean noticias en tiempo real
 - Comparativas: bots tradicionales vs agentes con IA
-- Cómo usar LLMs para analizar patrones de mercado
-- Automatización avanzada con inteligencia artificial
+- Como usar LLMs para analizar patrones de mercado
+- Automatizacion avanzada con inteligencia artificial
 - Herramientas de IA para traders
 
 IDENTIDAD VISUAL — PERSONAJE MASCOTA:
-
-\n⚠️ CRÍTICO: NO generes razonamiento, análisis, ni pensamiento visible.\n- Responde DIRECTAMENTE con el formato solicitado\n- NO escribas "1. Analyze", "2. Drafting", "3. Selecting"\n- SOLO el formato: TITULO, DESCRIPCION, TAGS, GUION, VIDEO_PROMPT
-El canal BitTrader tiene un personaje mascota: un RINOCERONTE ANTROPOMÓRFICO 3D hiperrealista.
+El canal BitTrader tiene un personaje mascota: un RINOCERONTE ANTROPOMORFICO 3D hiperrealista.
 Este rinoceronte es el protagonista de TODOS los videos — shorts y longs.
-Es inteligente, moderno, confiado. Siempre aparece en el contexto de la escena del guión.
+Es inteligente, moderno, confiado. Siempre aparece en el contexto de la escena del guion.
 TODOS los VIDEO_PROMPT deben incluir este personaje como sujeto principal."""
 
 # ── Rhino character base prompt (appended to every video prompt) ───────────
@@ -309,9 +317,16 @@ def build_content_plan(scout: dict) -> list:
         })
 
     # 2 wildcards experimentales
+    # ⚠️ BUG FIX (2026-03-25): Los wildcards con "El 90% pierde..." como prefijo
+    # estaban causando que el LLM concatenase ese texto al título de OTRO video.
+    # Solución: Usar temas que NO empiecen con el mismo prefijo repetitivo.
+    # El prefijo "El 90% pierde" solo debe usarse UNA VEZ como máximo por ciclo.
+    has_90_topic = any("90%" in item.get("topic", "").lower() or "pierde" in item.get("topic", "").lower() for item in plan)
     wildcards = [
         {"type": "short", "priority": "wildcard", "theme": "controversial",
-         "topic": "El 90% de traders pierde — pero nadie te dice por qué de verdad"},
+         # Solo incluir el "90%" si no hay ya uno en el plan
+         "topic": "¿Por qué el 90% de traders fracasa? La verdad que nadie dice" if not has_90_topic
+                  else "Lo que diferencia a un trader rentable del resto"},
         {"type": "long",  "priority": "wildcard", "theme": "educativo",
          "topic": "Cómo usar un bot de trading sin saber programar (guía 2025)"},
     ]
@@ -422,6 +437,8 @@ def _validate_script_content(guion: str, title: str, topic: str) -> tuple:
     CONTAMINATION_PATTERNS = [
         # LLM responding to the prompt instead of writing the script
         r"el usuario quiere",
+        r"el usuario necesita",
+        r"el usuario pide",
         r"RESPOND ONLY WITH",
         r"respond only with",
         r"Analyze the Request",
@@ -445,6 +462,36 @@ def _validate_script_content(guion: str, title: str, topic: str) -> tuple:
         r"Eres un guionista",
         r"canal de YouTube llamado BitTrader",
         r"formato obligatorio",
+        # Patterns that caused the SUI/DOT video bug (Mar 2026)
+        r"necesito seguir todas las reglas",
+        r"guión completo para un video",
+        r"siguiendo el formato",
+        r"sin texto adicional",
+        r"para un video de YouTube de",
+        r"3-5 minutos sobre",
+        r"específico:\s*TITULO",
+        r"VIDEO_PROMPT_\d+:",
+        # ── NEW: Patterns from NEIRO/BTC contamination bug (25 marzo 2026) ──
+        # MrBeast numbered rules leaking into narration
+        r"usar [\"']?t[uú][\"']? m[aá]s que [\"']?yo[\"']?",
+        r"usa [\"']?t[uú][\"']? m[aá]s que [\"']?yo[\"']?",
+        # Isolated rule numbers at start of lines (e.g. "4." standing alone in narration)
+        r"(?:^|\n)\s*\d+\.\s*(?:BUCLE|REGLA|INSTRUC|GANCHO|TITULO|HOOK|FORMATO)\b",
+        # "RESPOND ONLY WITH THE" (exact phrase from BTC short bug)
+        r"RESPOND ONLY WITH THE",
+        r"respond only with the",
+        r"words\.\.\.\s*RESPOND",
+        r"words\s*\.\s*\.\s*\.\s*respond",
+        # Any instruction-like numbered list within narration
+        r"(?:^|\n)\s*\d+\.\s+(?:GANCHO|TITULO|DESCRIPCION|REGLA|INSTRUC[CK]ION|FORMATO)\b",
+        # Explicit system/meta references
+        r"system prompt",
+        r"instruccion(?:es)? del sistema",
+        r"Regla[s]?:",
+        r"Instruccion[es]?:",
+        r"Tu rol es",
+        r"tu rol es",
+        r"este es tu rol",
     ]
 
     for pattern in CONTAMINATION_PATTERNS:
@@ -576,6 +623,26 @@ def parse_script_response(raw: str, vtype: str, item: dict) -> dict:
 
     if not title:
         title = item["topic"][:60]
+
+    # ── BUG FIX (2026-03-25): Strip leaked prefixes from title ───────────
+    # The LLM sometimes concatenates a previous topic's hook as a prefix.
+    # Strip known repetitive prefixes that don't belong in every video title.
+    LEAKED_PREFIXES = [
+        "El 90% pierde con ",
+        "El 90% pierde — ",
+        "El 90% de traders pierde con ",
+        "El 90% de traders pierde — ",
+        "El 90% de traders pierde por ",
+        "El 90% pierde por ",
+        "Por qué el 90% pierde con ",
+        "90% pierde con ",
+    ]
+    for prefix in LEAKED_PREFIXES:
+        if title.lower().startswith(prefix.lower()):
+            title = title[len(prefix):].strip()
+            print(f"    ⚠️ Título con prefijo filtrado → '{title}'")
+            break
+
     if not tags:
         tags = ["crypto", "trading", "bitcoin", "shorts", "finanzas"]
 

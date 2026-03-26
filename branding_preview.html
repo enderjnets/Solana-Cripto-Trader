@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Brand Preview — Eko AI & Black Volt</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=Inter:wght@300;400;500;600&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Inter', sans-serif; background: #0f0f14; color: #f0f4f8; }
+
+  /* NAV */
+  nav {
+    position: sticky; top: 0; z-index: 100;
+    background: rgba(15,15,20,0.95); backdrop-filter: blur(12px);
+    border-bottom: 1px solid #1c1c2e;
+    display: flex; align-items: center; gap: 2rem;
+    padding: 1rem 2rem;
+  }
+  nav span { font-size: 0.75rem; letter-spacing: 2px; color: #64748b; text-transform: uppercase; }
+  nav a { color: #94a3b8; text-decoration: none; font-size: 0.85rem; transition: color .2s; }
+  nav a:hover { color: #f0f4f8; }
+
+  /* SECTIONS */
+  section { padding: 5rem 2rem; max-width: 1100px; margin: 0 auto; }
+  .section-label {
+    font-size: 0.7rem; letter-spacing: 3px; text-transform: uppercase;
+    margin-bottom: 0.5rem;
+  }
+  h1 { font-size: 3rem; font-weight: 800; line-height: 1.1; margin-bottom: 1rem; }
+  h2 { font-size: 1.8rem; font-weight: 700; margin-bottom: 2rem; }
+  h3 { font-size: 1rem; font-weight: 600; margin-bottom: 0.75rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; }
+  p { color: #94a3b8; line-height: 1.7; margin-bottom: 1rem; }
+
+  /* DIVIDER */
+  .divider { border: none; border-top: 1px solid #1c1c2e; margin: 0; }
+
+  /* ====== EKO AI SECTION ====== */
+  #eko { background: linear-gradient(180deg, #0B4FD8 0%, #0f0f14 100%); padding-top: 6rem; }
+  #eko .section-label { color: #10B981; }
+  #eko h1 { color: #f8fafc; }
+
+  .eko-logo-box {
+    background: #0F172A; border-radius: 20px;
+    padding: 3rem; margin: 2rem 0;
+    border: 1px solid rgba(11,79,216,0.3);
+    display: flex; flex-direction: column; gap: 2rem;
+  }
+  .logo-variant { display: flex; flex-direction: column; gap: 0.5rem; }
+  .logo-variant label { font-size: 0.7rem; color: #64748b; letter-spacing: 2px; text-transform: uppercase; }
+  .logo-bg-dark { background: #0F172A; padding: 2rem; border-radius: 12px; display: inline-flex; }
+  .logo-bg-light { background: #F8FAFC; padding: 2rem; border-radius: 12px; display: inline-flex; }
+
+  /* Color palette */
+  .palette { display: flex; gap: 1rem; flex-wrap: wrap; margin: 1.5rem 0; }
+  .swatch { width: 80px; }
+  .swatch-color { width: 80px; height: 60px; border-radius: 10px; margin-bottom: 0.5rem; }
+  .swatch-name { font-size: 0.7rem; color: #94a3b8; font-weight: 600; }
+  .swatch-hex { font-size: 0.65rem; color: #64748b; font-family: monospace; }
+
+  /* Tagline */
+  .tagline-box {
+    background: rgba(11,79,216,0.1); border: 1px solid rgba(11,79,216,0.3);
+    border-radius: 12px; padding: 2rem; margin: 1.5rem 0;
+  }
+  .tagline-main { font-size: 2rem; font-weight: 700; font-family: 'Plus Jakarta Sans'; color: #f8fafc; }
+  .tagline-sub { font-size: 1rem; color: #64748b; margin-top: 0.5rem; }
+  .tagline-alt { font-size: 0.9rem; color: #94a3b8; margin-top: 1.5rem; }
+  .tagline-alt span { display: block; margin-bottom: 0.3rem; }
+
+  /* Business card */
+  .cards-row { display: flex; gap: 2rem; flex-wrap: wrap; margin: 2rem 0; }
+  .card-wrapper { display: flex; flex-direction: column; gap: 0.5rem; }
+  .card-wrapper label { font-size: 0.7rem; color: #64748b; letter-spacing: 2px; text-transform: uppercase; }
+
+  /* EKO card */
+  .eko-card-front {
+    width: 340px; height: 200px; border-radius: 12px;
+    background: #0F172A; border: 1px solid rgba(11,79,216,0.4);
+    padding: 1.5rem; position: relative; overflow: hidden;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+  }
+  .eko-card-front::before {
+    content: ''; position: absolute; top: -40px; right: -40px;
+    width: 160px; height: 160px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(11,79,216,0.3) 0%, transparent 70%);
+  }
+  .eko-card-front .co-name { font-size: 0.65rem; letter-spacing: 3px; color: #0B4FD8; text-transform: uppercase; margin-bottom: 0.5rem; }
+  .eko-card-front .person-name { font-size: 1.2rem; font-weight: 700; color: #f8fafc; }
+  .eko-card-front .person-title { font-size: 0.75rem; color: #64748b; margin-bottom: 1rem; }
+  .eko-card-front .contacts { font-size: 0.7rem; color: #94a3b8; line-height: 1.8; }
+  .eko-card-front .contacts .ai-badge {
+    display: inline-block; background: #10B981; color: #fff;
+    font-size: 0.55rem; padding: 1px 5px; border-radius: 3px;
+    margin-left: 4px; vertical-align: middle; font-weight: 600;
+  }
+  .eko-card-back {
+    width: 340px; height: 200px; border-radius: 12px;
+    background: linear-gradient(135deg, #0B4FD8 0%, #0A3FB8 100%);
+    padding: 1.5rem; position: relative; overflow: hidden;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    display: flex; flex-direction: column; justify-content: space-between;
+  }
+  .eko-card-back::after {
+    content: ''; position: absolute; bottom: -30px; left: -30px;
+    width: 120px; height: 120px; border-radius: 50%;
+    background: rgba(255,255,255,0.05);
+  }
+  .eko-card-back .tagline { font-size: 1rem; font-weight: 700; color: #fff; }
+  .eko-card-back .pills { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+  .eko-card-back .pill {
+    font-size: 0.65rem; padding: 4px 10px; border-radius: 20px;
+    border: 1px solid rgba(255,255,255,0.3); color: rgba(255,255,255,0.8);
+  }
+  .eko-card-back .website { font-size: 0.7rem; color: rgba(255,255,255,0.5); }
+
+  /* ====== BLACK VOLT SECTION ====== */
+  #blackvolt { background: linear-gradient(180deg, #000005 0%, #0f0f14 100%); padding-top: 6rem; }
+  #blackvolt .section-label { color: #00E5FF; }
+  #blackvolt h1 { font-family: 'Rajdhani', sans-serif; letter-spacing: 4px; text-transform: uppercase; }
+
+  .bv-logo-box {
+    background: #0A0A0F; border-radius: 20px;
+    padding: 3rem; margin: 2rem 0;
+    border: 1px solid rgba(0,229,255,0.15);
+  }
+
+  .bv-tagline-box {
+    background: rgba(0,229,255,0.05); border: 1px solid rgba(0,229,255,0.2);
+    border-radius: 12px; padding: 2rem; margin: 1.5rem 0;
+  }
+  .bv-tagline-main { font-size: 2rem; font-weight: 700; font-family: 'Rajdhani', sans-serif; color: #f0f4f8; letter-spacing: 2px; }
+  .bv-tagline-sub { font-size: 1rem; color: #00E5FF; margin-top: 0.3rem; font-style: italic; opacity: 0.8; }
+
+  /* BV card */
+  .bv-card-front {
+    width: 340px; height: 200px; border-radius: 12px;
+    background: linear-gradient(135deg, #0A0A0F 0%, #1C1C2E 100%);
+    border: 1px solid rgba(0,229,255,0.2);
+    padding: 1.5rem; position: relative; overflow: hidden;
+    font-family: 'Rajdhani', sans-serif;
+  }
+  .bv-card-front::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0;
+    height: 1px; background: linear-gradient(90deg, transparent, #00E5FF, transparent);
+  }
+  .bv-card-front .co-name { font-size: 0.6rem; letter-spacing: 4px; color: #00E5FF; text-transform: uppercase; margin-bottom: 0.3rem; font-family: 'Inter', sans-serif; }
+  .bv-card-front .person-name { font-size: 1.4rem; font-weight: 700; color: #f0f4f8; letter-spacing: 2px; text-transform: uppercase; }
+  .bv-card-front .person-title { font-size: 0.7rem; color: #64748b; letter-spacing: 2px; margin-bottom: 0.8rem; font-family: 'Inter', sans-serif; text-transform: uppercase; }
+  .bv-card-front .contacts { font-size: 0.7rem; color: #94a3b8; line-height: 1.9; font-family: 'Inter', sans-serif; }
+  .bv-card-front .bv-icon {
+    position: absolute; right: 1.5rem; top: 50%; transform: translateY(-50%);
+    opacity: 0.15;
+  }
+  .bv-card-back {
+    width: 340px; height: 200px; border-radius: 12px;
+    background: #0A0A0F;
+    border: 1px solid rgba(0,229,255,0.2);
+    padding: 1.5rem; position: relative; overflow: hidden;
+    display: flex; flex-direction: column; justify-content: center; align-items: center;
+    text-align: center;
+  }
+  .bv-card-back::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0;
+    height: 1px; background: linear-gradient(90deg, transparent, #00E5FF, transparent);
+  }
+  .bv-card-back::after {
+    content: ''; position: absolute; bottom: 0; left: 0; right: 0;
+    height: 1px; background: linear-gradient(90deg, transparent, #00E5FF, transparent);
+  }
+  .bv-card-back .bv-wordmark { font-family: 'Rajdhani', sans-serif; font-size: 1.5rem; font-weight: 700; color: #f0f4f8; letter-spacing: 6px; }
+  .bv-card-back .bv-tagline-card { font-size: 0.7rem; color: #00E5FF; letter-spacing: 2px; font-style: italic; margin-top: 0.3rem; opacity: 0.8; font-family: 'Inter', sans-serif; }
+  .bv-card-back .bv-service { font-size: 0.6rem; color: #64748b; letter-spacing: 3px; text-transform: uppercase; margin-top: 1rem; font-family: 'Inter', sans-serif; }
+
+  /* Typography showcase */
+  .type-row { display: flex; gap: 2rem; flex-wrap: wrap; margin: 1.5rem 0; }
+  .type-box { flex: 1; min-width: 200px; background: #1c1c2e; border-radius: 12px; padding: 1.5rem; }
+  .type-sample { font-size: 2rem; margin-bottom: 0.5rem; }
+  .type-meta { font-size: 0.7rem; color: #64748b; }
+
+  /* Values */
+  .values-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 1rem; margin: 1.5rem 0; }
+  .value-card { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); border-radius: 10px; padding: 1.25rem; }
+  .value-card .val-name { font-size: 0.8rem; font-weight: 600; margin-bottom: 0.4rem; }
+  .value-card .val-desc { font-size: 0.7rem; color: #64748b; line-height: 1.5; }
+
+  /* Footer */
+  footer {
+    text-align: center; padding: 3rem 2rem;
+    border-top: 1px solid #1c1c2e;
+    font-size: 0.75rem; color: #64748b;
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <span>BRAND PREVIEW</span>
+  <a href="#eko">Eko AI</a>
+  <a href="#blackvolt">Black Volt</a>
+</nav>
+
+<!-- ===================== EKO AI ===================== -->
+<section id="eko">
+  <div class="section-label" style="color:#10B981">EKO AI AUTOMATION LLC</div>
+  <h1 style="font-family:'Plus Jakarta Sans',sans-serif">The voice that<br>always answers.</h1>
+  <p>AI Voice Agents for small businesses. Denver, CO.</p>
+
+  <!-- Logo -->
+  <h3>Logo</h3>
+  <div class="eko-logo-box">
+    <div class="logo-variant">
+      <label>Dark background (primary)</label>
+      <div class="logo-bg-dark">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 80" width="320" height="80">
+          <defs>
+            <linearGradient id="iconBg2" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" style="stop-color:#0B4FD8"/>
+              <stop offset="100%" style="stop-color:#0A3FB8"/>
+            </linearGradient>
+          </defs>
+          <rect x="0" y="0" width="80" height="80" rx="16" fill="url(#iconBg2)"/>
+          <rect x="18" y="16" width="8" height="48" rx="3" fill="#F8FAFC"/>
+          <polygon points="26,40 48,16 57,16 35,40" fill="#F8FAFC"/>
+          <path d="M 30 44 Q 36 50 30 56" fill="none" stroke="#10B981" stroke-width="3.5" stroke-linecap="round" opacity="0.95"/>
+          <path d="M 36 40 Q 48 50 36 60" fill="none" stroke="#10B981" stroke-width="3.5" stroke-linecap="round" opacity="0.7"/>
+          <path d="M 42 36 Q 60 50 42 64" fill="none" stroke="#10B981" stroke-width="3" stroke-linecap="round" opacity="0.4"/>
+          <text x="96" y="50" font-family="'Plus Jakarta Sans',Arial,sans-serif" font-size="34" font-weight="700" fill="#F8FAFC">eko</text>
+          <text x="168" y="50" font-family="'Plus Jakarta Sans',Arial,sans-serif" font-size="34" font-weight="700" fill="#0B4FD8"> ai</text>
+          <text x="97" y="66" font-family="'Inter',Arial,sans-serif" font-size="11" font-weight="400" letter-spacing="2.5" fill="#64748B">AUTOMATION</text>
+          <circle cx="310" cy="16" r="5" fill="#10B981" opacity="0.9"/>
+        </svg>
+      </div>
+    </div>
+    <div class="logo-variant">
+      <label>Light background</label>
+      <div class="logo-bg-light">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 80" width="320" height="80">
+          <defs>
+            <linearGradient id="iconBg3" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" style="stop-color:#0B4FD8"/>
+              <stop offset="100%" style="stop-color:#0A3FB8"/>
+            </linearGradient>
+          </defs>
+          <rect x="0" y="0" width="80" height="80" rx="16" fill="url(#iconBg3)"/>
+          <rect x="18" y="16" width="8" height="48" rx="3" fill="#F8FAFC"/>
+          <polygon points="26,40 48,16 57,16 35,40" fill="#F8FAFC"/>
+          <path d="M 30 44 Q 36 50 30 56" fill="none" stroke="#10B981" stroke-width="3.5" stroke-linecap="round" opacity="0.95"/>
+          <path d="M 36 40 Q 48 50 36 60" fill="none" stroke="#10B981" stroke-width="3.5" stroke-linecap="round" opacity="0.7"/>
+          <path d="M 42 36 Q 60 50 42 64" fill="none" stroke="#10B981" stroke-width="3" stroke-linecap="round" opacity="0.4"/>
+          <text x="96" y="50" font-family="'Plus Jakarta Sans',Arial,sans-serif" font-size="34" font-weight="700" fill="#0F172A">eko</text>
+          <text x="168" y="50" font-family="'Plus Jakarta Sans',Arial,sans-serif" font-size="34" font-weight="700" fill="#0B4FD8"> ai</text>
+          <text x="97" y="66" font-family="'Inter',Arial,sans-serif" font-size="11" letter-spacing="2.5" fill="#94A3B8">AUTOMATION</text>
+          <circle cx="310" cy="16" r="5" fill="#10B981" opacity="0.9"/>
+        </svg>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tagline -->
+  <h3>Tagline</h3>
+  <div class="tagline-box">
+    <div class="tagline-main">"Your Business, Always Answered."</div>
+    <div class="tagline-sub">Tagline principal (EN)</div>
+    <div class="tagline-alt">
+      <span>🇪🇸 <em>"Tu negocio, siempre atendido."</em></span>
+      <span>Alt 1: <em>"We Answer. You Grow."</em></span>
+      <span>Alt 2: <em>"Every Call. Every Lead. Every Time."</em></span>
+    </div>
+  </div>
+
+  <!-- Colors -->
+  <h3>Paleta de Colores</h3>
+  <div class="palette">
+    <div class="swatch">
+      <div class="swatch-color" style="background:#0B4FD8"></div>
+      <div class="swatch-name">Eko Blue</div>
+      <div class="swatch-hex">#0B4FD8</div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background:#0F172A"></div>
+      <div class="swatch-name">Graphite Dark</div>
+      <div class="swatch-hex">#0F172A</div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background:#10B981"></div>
+      <div class="swatch-name">Signal Green</div>
+      <div class="swatch-hex">#10B981</div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background:#F8FAFC; border:1px solid #e2e8f0"></div>
+      <div class="swatch-name">Cloud White</div>
+      <div class="swatch-hex">#F8FAFC</div>
+    </div>
+  </div>
+
+  <!-- Typography -->
+  <h3>Tipografía</h3>
+  <div class="type-row">
+    <div class="type-box">
+      <div class="type-sample" style="font-family:'Plus Jakarta Sans',sans-serif; font-weight:700; color:#f8fafc">Plus Jakarta Sans</div>
+      <div class="type-meta">Headings & Wordmark — Bold 700</div>
+    </div>
+    <div class="type-box">
+      <div class="type-sample" style="font-family:'Inter',sans-serif; font-weight:400; color:#94a3b8; font-size:1.5rem">Inter Regular</div>
+      <div class="type-meta">Body & UI — Regular 400</div>
+    </div>
+  </div>
+
+  <!-- Values -->
+  <h3>Valores de Marca</h3>
+  <div class="values-grid">
+    <div class="value-card"><div class="val-name" style="color:#0B4FD8">Accessible</div><div class="val-desc">IA para todo tipo de negocio, no solo grandes empresas</div></div>
+    <div class="value-card"><div class="val-name" style="color:#10B981">Reliable</div><div class="val-desc">24/7 sin excepciones. No duerme, no falla</div></div>
+    <div class="value-card"><div class="val-name" style="color:#0B4FD8">Human-Centered</div><div class="val-desc">Tecnología que suena humana</div></div>
+    <div class="value-card"><div class="val-name" style="color:#10B981">Efficient</div><div class="val-desc">Cada llamada convertida, cada cita agendada</div></div>
+    <div class="value-card"><div class="val-name" style="color:#0B4FD8">Local</div><div class="val-desc">Denver. Aurora. Colorado.</div></div>
+  </div>
+
+  <!-- Business Cards -->
+  <h3>Tarjeta de Presentación</h3>
+  <div class="cards-row">
+    <div class="card-wrapper">
+      <label>Frente</label>
+      <div class="eko-card-front">
+        <div class="co-name">Eko AI Automation LLC</div>
+        <div class="person-name">Ender Ocando</div>
+        <div class="person-title">Founder & CEO</div>
+        <div class="contacts">
+          📞 +1 (720) 512-1753<br>
+          🤖 +1 (720) 824-9313 <span class="ai-badge">AI 24/7</span><br>
+          ✉️ eko@ekoai.com<br>
+          🌐 ekoai.com
+        </div>
+      </div>
+    </div>
+    <div class="card-wrapper">
+      <label>Reverso</label>
+      <div class="eko-card-back">
+        <div class="tagline">"Your Business,<br>Always Answered."</div>
+        <div class="pills">
+          <span class="pill">Voice AI</span>
+          <span class="pill">Lead Capture</span>
+          <span class="pill">Auto-Booking</span>
+        </div>
+        <div class="website">ekoai.com · Denver, CO</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- ===================== BLACK VOLT ===================== -->
+<section id="blackvolt">
+  <div class="section-label" style="color:#00E5FF">BLACK VOLT MOBILITY LLC</div>
+  <h1 style="font-family:'Rajdhani',sans-serif; letter-spacing:4px">SILENT POWER.<br>PREMIUM ARRIVAL.</h1>
+  <p>Executive Black Car Service — 2024 Kia EV9 — Denver, CO.</p>
+
+  <!-- Logo -->
+  <h3>Logo</h3>
+  <div class="bv-logo-box">
+    <div class="logo-variant">
+      <label style="color:#64748b">Dark background (primary)</label>
+      <div style="display:inline-block">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 180" width="500" height="180">
+          <defs>
+            <linearGradient id="bgGrad2" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" style="stop-color:#0A0A0F"/>
+              <stop offset="100%" style="stop-color:#1C1C2E"/>
+            </linearGradient>
+            <filter id="eGlow">
+              <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+              <feMerge><feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/></feMerge>
+            </filter>
+          </defs>
+          <rect width="500" height="180" fill="url(#bgGrad2)" rx="8"/>
+          <!-- Hexagon -->
+          <polygon points="75,12 115,12 134,45 115,78 75,78 56,45" fill="#0D0D1A"/>
+          <polygon points="75,12 115,12 134,45 115,78 75,78 56,45" fill="none" stroke="#00E5FF" stroke-width="1.5" opacity="0.6"/>
+          <!-- Bolt -->
+          <g filter="url(#eGlow)">
+            <polygon points="108,18 88,47 99,47" fill="#00E5FF" opacity="0.95"/>
+            <polygon points="99,47 80,47 91,74" fill="#00E5FF" opacity="0.95"/>
+          </g>
+          <!-- Wordmark -->
+          <text x="155" y="52" font-family="'Rajdhani','Arial Narrow',Arial,sans-serif" font-size="42" font-weight="700" fill="#F0F4F8" letter-spacing="5">BLACK VOLT</text>
+          <line x1="155" y1="62" x2="480" y2="62" stroke="#00E5FF" stroke-width="1.5" opacity="0.8"/>
+          <text x="157" y="80" font-family="'Inter',Arial,sans-serif" font-size="14" font-weight="500" fill="#B8C0CC" letter-spacing="8">MOBILITY LLC</text>
+          <text x="157" y="105" font-family="'Inter',Arial,sans-serif" font-size="9" fill="#00E5FF" letter-spacing="3" font-style="italic" opacity="0.7">Silent Power. Premium Arrival.</text>
+        </svg>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tagline -->
+  <h3>Tagline</h3>
+  <div class="bv-tagline-box">
+    <div class="bv-tagline-main">"Silent Power. Premium Arrival."</div>
+    <div class="bv-tagline-sub">Tagline principal (EN)</div>
+    <div class="tagline-alt" style="margin-top:1rem">
+      <span>🇪🇸 <em>"Poder Silencioso. Llegada Impecable."</em></span>
+      <span>Alt 1: <em>"Where luxury meets electric."</em></span>
+      <span>Alt 2: <em>"Executive Black. Zero Emissions."</em></span>
+    </div>
+  </div>
+
+  <!-- Colors -->
+  <h3>Paleta de Colores</h3>
+  <div class="palette">
+    <div class="swatch">
+      <div class="swatch-color" style="background:#0A0A0F; border:1px solid #1c1c2e"></div>
+      <div class="swatch-name">Void Black</div>
+      <div class="swatch-hex">#0A0A0F</div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background:#1C1C2E"></div>
+      <div class="swatch-name">Obsidian Gray</div>
+      <div class="swatch-hex">#1C1C2E</div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background:#00E5FF"></div>
+      <div class="swatch-name">Electric Volt</div>
+      <div class="swatch-hex">#00E5FF</div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background:#B8C0CC"></div>
+      <div class="swatch-name">Cloud Silver</div>
+      <div class="swatch-hex">#B8C0CC</div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background:#F0F4F8; border:1px solid #e2e8f0"></div>
+      <div class="swatch-name">Arctic White</div>
+      <div class="swatch-hex">#F0F4F8</div>
+    </div>
+  </div>
+
+  <!-- Typography -->
+  <h3>Tipografía</h3>
+  <div class="type-row">
+    <div class="type-box" style="background:#0a0a0f; border:1px solid #1c1c2e">
+      <div class="type-sample" style="font-family:'Rajdhani',sans-serif; font-weight:700; color:#f0f4f8; letter-spacing:2px">RAJDHANI</div>
+      <div class="type-meta" style="color:#64748b">Headings & Wordmark — Bold 700</div>
+    </div>
+    <div class="type-box" style="background:#0a0a0f; border:1px solid #1c1c2e">
+      <div class="type-sample" style="font-family:'Inter',sans-serif; font-weight:400; color:#b8c0cc; font-size:1.5rem">Inter Regular</div>
+      <div class="type-meta" style="color:#64748b">Body & Contact — Regular 400</div>
+    </div>
+  </div>
+
+  <!-- Values -->
+  <h3>Valores de Marca</h3>
+  <div class="values-grid">
+    <div class="value-card" style="border-color:rgba(0,229,255,0.1)"><div class="val-name" style="color:#00E5FF">Premium</div><div class="val-desc">Experiencia de lujo en cada viaje</div></div>
+    <div class="value-card" style="border-color:rgba(0,229,255,0.1)"><div class="val-name" style="color:#00E5FF">Sustainable</div><div class="val-desc">100% eléctrico. Cero emisiones.</div></div>
+    <div class="value-card" style="border-color:rgba(0,229,255,0.1)"><div class="val-name" style="color:#00E5FF">Punctual</div><div class="val-desc">Siempre a tiempo. Sin excusas.</div></div>
+    <div class="value-card" style="border-color:rgba(0,229,255,0.1)"><div class="val-name" style="color:#00E5FF">Discreet</div><div class="val-desc">Privacidad y profesionalismo</div></div>
+  </div>
+
+  <!-- Business Cards -->
+  <h3>Tarjeta de Presentación</h3>
+  <div class="cards-row">
+    <div class="card-wrapper">
+      <label>Frente</label>
+      <div class="bv-card-front">
+        <div class="bv-icon">
+          <svg width="60" height="80" viewBox="0 0 134 116">
+            <polygon points="67,4 120,4 147,52 120,100 67,100 40,52" fill="none" stroke="#00E5FF" stroke-width="2"/>
+            <polygon points="105,14 80,56 93,56" fill="#00E5FF"/>
+            <polygon points="93,56 68,56 80,95" fill="#00E5FF"/>
+          </svg>
+        </div>
+        <div class="co-name">Black Volt Mobility LLC</div>
+        <div class="person-name">Ender Ocando</div>
+        <div class="person-title">Owner & Operator</div>
+        <div class="contacts">
+          📞 +1 (720) 512-1753<br>
+          ✉️ blackvoltmobility@gmail.com<br>
+          🚗 Executive Black Car Service<br>
+          ⚡ 2024 Kia EV9 — Denver, CO
+        </div>
+      </div>
+    </div>
+    <div class="card-wrapper">
+      <label>Reverso</label>
+      <div class="bv-card-back">
+        <div class="bv-wordmark">BLACK VOLT</div>
+        <div class="bv-tagline-card">Silent Power. Premium Arrival.</div>
+        <div class="bv-service">Executive Black Car Service · Denver, CO</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  Brand Preview · Eko AI Automation LLC & Black Volt Mobility LLC · Denver, CO · 2026<br>
+  <span style="color:#10B981">Eko AI</span> &nbsp;·&nbsp; <span style="color:#00E5FF">Black Volt</span>
+</footer>
+
+</body>
+</html>

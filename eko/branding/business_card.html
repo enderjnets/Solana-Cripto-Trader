@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Eko AI — Business Card</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500&display=swap" rel="stylesheet" />
+
+  <style>
+    /* ──────────────────────────────── */
+    /* Variables                        */
+    /* ──────────────────────────────── */
+    :root {
+      --eko-blue:    #0B4FD8;
+      --eko-blue-lt: #1D6FEB;
+      --graphite:    #0F172A;
+      --signal:      #10B981;
+      --cloud:       #F8FAFC;
+      --slate:       #64748B;
+      --slate-lt:    #94A3B8;
+
+      /* Card dimensions: 85mm × 55mm at 96dpi → px */
+      --card-w: 321px;   /* 85mm × 3.779 px/mm */
+      --card-h: 208px;   /* 55mm × 3.779 px/mm */
+      --radius: 10px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #E2E8F0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 40px;
+      padding: 40px 20px;
+      font-family: 'Inter', Arial, sans-serif;
+    }
+
+    .print-label {
+      font-family: 'Inter', sans-serif;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--slate);
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      text-align: center;
+    }
+
+    /* ──────────────────────────────── */
+    /* Card base                        */
+    /* ──────────────────────────────── */
+    .card {
+      width: var(--card-w);
+      height: var(--card-h);
+      border-radius: var(--radius);
+      position: relative;
+      overflow: hidden;
+      box-shadow:
+        0 20px 60px rgba(11, 79, 216, 0.2),
+        0 4px 12px rgba(15, 23, 42, 0.3);
+      flex-shrink: 0;
+    }
+
+    /* ══════════════════════════════════════ */
+    /* FRONT — Dark background               */
+    /* ══════════════════════════════════════ */
+    .card-front {
+      background: var(--graphite);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 22px 24px 18px;
+    }
+
+    /* Background wave pattern (decorative) */
+    .card-front::before {
+      content: '';
+      position: absolute;
+      top: -60px;
+      right: -60px;
+      width: 180px;
+      height: 180px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(11,79,216,0.15) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .card-front::after {
+      content: '';
+      position: absolute;
+      bottom: -40px;
+      left: -40px;
+      width: 140px;
+      height: 140px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(16,185,129,0.08) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    /* ── Logo row ── */
+    .front-top {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .logo-icon {
+      width: 36px;
+      height: 36px;
+      flex-shrink: 0;
+    }
+
+    .logo-wordmark {
+      display: flex;
+      flex-direction: column;
+      line-height: 1;
+    }
+
+    .logo-name {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: 0.3px;
+      color: var(--cloud);
+    }
+
+    .logo-name span {
+      color: var(--eko-blue-lt);
+    }
+
+    .logo-sub {
+      font-family: 'Inter', sans-serif;
+      font-size: 7px;
+      font-weight: 500;
+      letter-spacing: 2.5px;
+      color: var(--slate-lt);
+      text-transform: uppercase;
+      margin-top: 3px;
+    }
+
+    /* ── Divider ── */
+    .front-divider {
+      width: 100%;
+      height: 1px;
+      background: linear-gradient(90deg, var(--eko-blue) 0%, transparent 100%);
+      margin: 2px 0;
+    }
+
+    /* ── Person block ── */
+    .front-person {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      text-align: right;
+    }
+
+    .person-name {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--cloud);
+      letter-spacing: 0.2px;
+    }
+
+    .person-title {
+      font-family: 'Inter', sans-serif;
+      font-size: 9px;
+      font-weight: 500;
+      color: var(--eko-blue-lt);
+      text-transform: uppercase;
+      letter-spacing: 1.8px;
+      margin-top: 3px;
+    }
+
+    /* ── Contact block ── */
+    .front-contacts {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .contact-item {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+
+    .contact-icon {
+      font-size: 10px;
+      width: 14px;
+      text-align: center;
+      flex-shrink: 0;
+    }
+
+    .contact-text {
+      font-family: 'Inter', sans-serif;
+      font-size: 9.5px;
+      font-weight: 400;
+      color: var(--cloud);
+      opacity: 0.9;
+    }
+
+    .contact-badge {
+      font-size: 7px;
+      font-weight: 600;
+      font-family: 'Inter', sans-serif;
+      background: var(--signal);
+      color: #fff;
+      padding: 1px 5px;
+      border-radius: 20px;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      flex-shrink: 0;
+    }
+
+    /* ══════════════════════════════════════ */
+    /* BACK — Eko Blue background            */
+    /* ══════════════════════════════════════ */
+    .card-back {
+      background: linear-gradient(135deg, var(--eko-blue) 0%, #0A3FB8 100%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      padding: 24px;
+    }
+
+    /* Decorative wave rings */
+    .back-rings {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+    }
+
+    .ring {
+      position: absolute;
+      border: 1px solid rgba(248, 250, 252, 0.08);
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+    }
+
+    .ring-1 { width: 140px; height: 140px; }
+    .ring-2 { width: 210px; height: 210px; }
+    .ring-3 { width: 300px; height: 300px; }
+
+    /* Back logo */
+    .back-logo-icon {
+      width: 54px;
+      height: 54px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .back-company {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 20px;
+      font-weight: 800;
+      color: var(--cloud);
+      letter-spacing: 0.5px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .back-company span {
+      color: rgba(248,250,252,0.6);
+    }
+
+    .back-tagline {
+      font-family: 'Inter', sans-serif;
+      font-size: 9px;
+      font-weight: 400;
+      color: rgba(248, 250, 252, 0.65);
+      letter-spacing: 0.3px;
+      font-style: italic;
+      position: relative;
+      z-index: 1;
+    }
+
+    .back-divider {
+      width: 40px;
+      height: 2px;
+      background: rgba(248,250,252,0.25);
+      border-radius: 1px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .back-features {
+      display: flex;
+      gap: 14px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .feature-pill {
+      background: rgba(248, 250, 252, 0.12);
+      border: 1px solid rgba(248, 250, 252, 0.15);
+      border-radius: 20px;
+      padding: 4px 10px;
+      font-family: 'Inter', sans-serif;
+      font-size: 7.5px;
+      font-weight: 500;
+      color: rgba(248, 250, 252, 0.85);
+      letter-spacing: 0.5px;
+      white-space: nowrap;
+    }
+
+    /* ──────────────────────────────── */
+    /* Print styles                     */
+    /* ──────────────────────────────── */
+    @media print {
+      body {
+        background: white;
+        padding: 0;
+        margin: 0;
+      }
+
+      .print-label { display: none; }
+
+      .card {
+        box-shadow: none;
+        page-break-after: always;
+        margin: 0 auto;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ══════════════════════════════════ -->
+  <!-- FRONT CARD                        -->
+  <!-- ══════════════════════════════════ -->
+  <p class="print-label">Front — 85mm × 55mm</p>
+
+  <div class="card card-front">
+
+    <!-- Top: Logo -->
+    <div class="front-top">
+      <!-- Inline SVG logo icon (white version) -->
+      <svg class="logo-icon" viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg">
+        <rect x="0" y="0" width="80" height="80" rx="14" ry="14" fill="rgba(248,250,252,0.1)" />
+        <!-- K vertical bar -->
+        <rect x="18" y="14" width="8" height="52" rx="3" fill="#F8FAFC" />
+        <!-- K upper arm -->
+        <polygon points="26,40 50,14 60,14 36,40" fill="#F8FAFC" />
+        <!-- Sound waves -->
+        <path d="M 30 44 Q 37 51 30 58" fill="none" stroke="#10B981" stroke-width="4" stroke-linecap="round" opacity="1" />
+        <path d="M 37 39 Q 50 51 37 63" fill="none" stroke="#10B981" stroke-width="3.5" stroke-linecap="round" opacity="0.7" />
+        <path d="M 44 34 Q 63 51 44 68" fill="none" stroke="#10B981" stroke-width="3" stroke-linecap="round" opacity="0.4" />
+      </svg>
+
+      <div class="logo-wordmark">
+        <div class="logo-name">eko <span>ai</span></div>
+        <div class="logo-sub">Automation</div>
+      </div>
+    </div>
+
+    <div class="front-divider"></div>
+
+    <!-- Middle: Name & Title -->
+    <div class="front-person">
+      <div class="person-name">Ender Ocando</div>
+      <div class="person-title">Founder &amp; CEO</div>
+    </div>
+
+    <!-- Bottom: Contact info -->
+    <div class="front-contacts">
+      <div class="contact-item">
+        <span class="contact-icon">📞</span>
+        <span class="contact-text">+1 (720) 512-1753</span>
+      </div>
+      <div class="contact-item">
+        <span class="contact-icon">🤖</span>
+        <span class="contact-text">+1 (720) 824-9313</span>
+        <span class="contact-badge">AI 24/7</span>
+      </div>
+      <div class="contact-item">
+        <span class="contact-icon">✉️</span>
+        <span class="contact-text">eko@ekoai.com</span>
+      </div>
+      <div class="contact-item">
+        <span class="contact-icon">🌐</span>
+        <span class="contact-text">ekoai.com</span>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ══════════════════════════════════ -->
+  <!-- BACK CARD                         -->
+  <!-- ══════════════════════════════════ -->
+  <p class="print-label">Back — 85mm × 55mm</p>
+
+  <div class="card card-back">
+
+    <!-- Decorative rings (always-on echo effect) -->
+    <div class="back-rings">
+      <div class="ring ring-1"></div>
+      <div class="ring ring-2"></div>
+      <div class="ring ring-3"></div>
+    </div>
+
+    <!-- Big logo icon (white) -->
+    <svg class="back-logo-icon" viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg">
+      <!-- K vertical bar -->
+      <rect x="16" y="12" width="9" height="56" rx="3.5" fill="#F8FAFC" />
+      <!-- K upper arm -->
+      <polygon points="25,40 51,12 62,12 36,40" fill="#F8FAFC" />
+      <!-- Sound waves — signal green -->
+      <path d="M 30 44 Q 37 51 30 58" fill="none" stroke="#10B981" stroke-width="4.5" stroke-linecap="round" />
+      <path d="M 38 38 Q 53 51 38 64" fill="none" stroke="#10B981" stroke-width="4" stroke-linecap="round" opacity="0.7" />
+      <path d="M 46 32 Q 66 51 46 70" fill="none" stroke="#10B981" stroke-width="3.5" stroke-linecap="round" opacity="0.4" />
+    </svg>
+
+    <!-- Company name -->
+    <div class="back-company">eko <span>ai</span></div>
+
+    <div class="back-divider"></div>
+
+    <!-- Tagline -->
+    <div class="back-tagline">"Your Business, Always Answered."</div>
+
+    <!-- Feature pills -->
+    <div class="back-features">
+      <div class="feature-pill">24/7 Voice AI</div>
+      <div class="feature-pill">Lead Capture</div>
+      <div class="feature-pill">Auto-Booking</div>
+    </div>
+
+  </div>
+
+  <!-- ══════════════════════════════════ -->
+  <!-- Print instructions                -->
+  <!-- ══════════════════════════════════ -->
+  <div style="text-align:center; font-family:'Inter',sans-serif; font-size:12px; color:#64748B; max-width:400px; line-height:1.6;">
+    <strong style="color:#0F172A;">Print instructions:</strong><br/>
+    Print at 100% scale (no fit-to-page). Card size: 85mm × 55mm.<br/>
+    Recommended: 350gsm coated stock, matte laminate + spot UV on logo.
+  </div>
+
+</body>
+</html>

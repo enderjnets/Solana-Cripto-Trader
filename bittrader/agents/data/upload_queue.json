@@ -12,7 +12,7 @@
     "output_file": "/home/enderj/.openclaw/workspace/bittrader/agents/output/2026-03-14/short_1773470200_200/short_1773470200_200.mp4",
     "duration": 25.8,
     "size_mb": 1.0,
-    "status": "needs_regeneration_confirmed",
+    "status": "blocked",
     "thumbnail": "/home/enderj/.openclaw/workspace/bittrader/agents/output/2026-03-14/short_1773470200_200/short_1773470200_200_thumbnail.jpg",
     "scheduled_date": "2026-03-14T23:18:59.810152+00:00",
     "verified_quality": true,
@@ -23,18 +23,21 @@
     "uploaded_at": "2026-03-15T00:02:25.845119+00:00",
     "delete_reason": "Section headers visible in subtitles + missing thumbnail (blue content)",
     "deleted_at": "2026-03-14T23:52:34.088727+00:00",
-    "gate_passed": true,
-    "gate_checked_at": "2026-03-15T00:00:01.850222+00:00",
+    "gate_passed": false,
+    "gate_checked_at": "2026-03-26T09:00:01.425395+00:00",
     "thumbnail_uploaded": true,
     "quality_decision": "Subtitle contamination detected: SUBTITLE: SUBTITLE_CONTAMINATION \u2014 'gancho:'",
     "quality_decided_at": "2026-03-15T01:01:04.889644+00:00",
-    "note": "False positive by QA Agent \u2014 read old .ass dir, not new upload"
+    "note": "False positive by QA Agent \u2014 read old .ass dir, not new upload",
+    "gate_issues": [
+      "NO_THUMBNAIL: No thumbnail found for short_1773470200_200 (checked 7 locations)"
+    ]
   },
   {
     "script_id": "long_1773511946",
     "title": "C\u00f3mo crear un Bot de Trading con Claude AI (sin saber programar) \u2014 MT5",
     "type": "long",
-    "status": "needs_regeneration_confirmed",
+    "status": "blocked",
     "thumbnail_ready": true,
     "thumbnail_path": "/home/enderj/.openclaw/workspace/bittrader/agents/data/thumbnails/long_1773511946_thumbnail.jpg",
     "produced_at": "2026-03-14T18:15:36.023768+00:00",
@@ -45,12 +48,17 @@
     "uploaded_at": "2026-03-15T00:02:29.199629+00:00",
     "delete_reason": "Section headers visible in subtitles + missing thumbnail (blue content)",
     "deleted_at": "2026-03-14T23:52:34.088745+00:00",
-    "gate_passed": true,
-    "gate_checked_at": "2026-03-15T00:00:01.850531+00:00",
+    "gate_passed": false,
+    "gate_checked_at": "2026-03-26T09:00:01.582903+00:00",
     "thumbnail_uploaded": true,
     "quality_decision": "Subtitle contamination detected: SUBTITLE: SUBTITLE_CONTAMINATION \u2014 '--- hook :'",
     "quality_decided_at": "2026-03-15T01:01:07.108783+00:00",
-    "note": "False positive by QA Agent \u2014 read old .ass dir, not new upload"
+    "note": "False positive by QA Agent \u2014 read old .ass dir, not new upload",
+    "gate_issues": [
+      "NO_VIDEO: output_file not found: /home/enderj/.openclaw/workspace/bittrader/agents/output/2026-03-14/long_1773511946/long_1773511946.mp4",
+      "NO_THUMBNAIL: Thumbnail parece frame azul gen\u00e9rico del video (avg_b=144, avg_r=22)",
+      "BAD_QUALITY: Cannot verify quality: no output_file"
+    ]
   },
   {
     "script_id": "short_1773531747_880",
@@ -64,55 +72,65 @@
     "created_at": "2026-03-15T00:00:26.554910+00:00",
     "thumbnail_uploaded": true,
     "video_id": "2HXougDEb10",
-    "uploaded_at": "2026-03-15T00:02:43.580388+00:00"
+    "uploaded_at": "2026-03-15T00:02:43.580388+00:00",
+    "quality_decision": "FIX_THUMB attempted"
   },
   {
     "script_id": "short_1773532377_122",
     "title": "Circle le gan\u00f3 a BlackRock en $11B",
     "type": "short",
-    "status": "blocked",
+    "status": "uploaded",
     "output_file": "/home/enderj/.openclaw/workspace/bittrader/agents/output/2026-03-14/short_1773532377_122/short_1773532377_122.mp4",
-    "thumbnail_path": "",
-    "thumbnail_ready": false,
+    "thumbnail_path": "/home/enderj/.openclaw/workspace/bittrader/agents/data/thumbnails/short_1773532377_122_thumbnail.jpg",
+    "thumbnail_ready": true,
     "scheduled_date": "2026-03-16T00:00:26.555058+00:00",
     "created_at": "2026-03-15T00:00:26.555064+00:00",
-    "gate_passed": false,
+    "gate_passed": true,
     "gate_issues": [
       "NO_THUMBNAIL: No thumbnail found for short_1773532377_122 (checked 5 locations)"
     ],
-    "gate_checked_at": "2026-03-15T01:00:01.946821+00:00"
+    "gate_checked_at": "2026-03-26T02:00:01.876748+00:00",
+    "thumbnail_uploaded": true,
+    "video_id": "l15HmH7LWGQ",
+    "uploaded_at": "2026-03-26T02:00:09.786176+00:00"
   },
   {
     "script_id": "short_1773532397_293",
     "title": "Circle Supera a BlackRock con $11B",
     "type": "short",
-    "status": "blocked",
+    "status": "uploaded",
     "output_file": "/home/enderj/.openclaw/workspace/bittrader/agents/output/2026-03-14/short_1773532397_293/short_1773532397_293.mp4",
-    "thumbnail_path": "",
-    "thumbnail_ready": false,
+    "thumbnail_path": "/home/enderj/.openclaw/workspace/bittrader/agents/data/thumbnails/short_1773532397_293_thumbnail.jpg",
+    "thumbnail_ready": true,
     "scheduled_date": "2026-03-16T00:00:26.555204+00:00",
     "created_at": "2026-03-15T00:00:26.555209+00:00",
-    "gate_passed": false,
+    "gate_passed": true,
     "gate_issues": [
       "NO_THUMBNAIL: No thumbnail found for short_1773532397_293 (checked 5 locations)"
     ],
-    "gate_checked_at": "2026-03-15T01:00:01.947122+00:00"
+    "gate_checked_at": "2026-03-26T02:00:01.876969+00:00",
+    "thumbnail_uploaded": true,
+    "video_id": "qfolzWqCX78",
+    "uploaded_at": "2026-03-26T02:00:13.423696+00:00"
   },
   {
     "script_id": "short_1773532464_668",
     "title": "Circle vence a BlackRock en $11B",
     "type": "short",
-    "status": "blocked",
+    "status": "uploaded",
     "output_file": "/home/enderj/.openclaw/workspace/bittrader/agents/output/2026-03-14/short_1773532464_668/short_1773532464_668.mp4",
-    "thumbnail_path": "",
-    "thumbnail_ready": false,
+    "thumbnail_path": "/home/enderj/.openclaw/workspace/bittrader/agents/data/thumbnails/short_1773532464_668_thumbnail.jpg",
+    "thumbnail_ready": true,
     "scheduled_date": "2026-03-16T00:00:26.555348+00:00",
     "created_at": "2026-03-15T00:00:26.555353+00:00",
-    "gate_passed": false,
+    "gate_passed": true,
     "gate_issues": [
       "NO_THUMBNAIL: No thumbnail found for short_1773532464_668 (checked 5 locations)"
     ],
-    "gate_checked_at": "2026-03-15T01:00:01.947495+00:00"
+    "gate_checked_at": "2026-03-26T02:00:01.877184+00:00",
+    "thumbnail_uploaded": true,
+    "video_id": "-eAvB_OwWyc",
+    "uploaded_at": "2026-03-26T02:00:16.045888+00:00"
   },
   {
     "script_id": "short_1773532415_711",
@@ -126,6 +144,18 @@
     "created_at": "2026-03-15T00:00:26.555490+00:00",
     "thumbnail_uploaded": true,
     "video_id": "cqsF1dUuqHc",
-    "uploaded_at": "2026-03-15T00:02:46.721774+00:00"
+    "uploaded_at": "2026-03-15T00:02:46.721774+00:00",
+    "quality_decision": "FIX_THUMB attempted"
+  },
+  {
+    "script_id": "edu_long_1774363903",
+    "title": "C\u00f3mo empezar en cripto con $100 \u2014 gu\u00eda completa para principiantes 2026",
+    "type": "long",
+    "youtube_id": "3Q6HeYC7DPE",
+    "status": "uploaded",
+    "reuploaded_at": "2026-03-26T03:25:48+00:00",
+    "original_youtube_id": "QrYrom05HzQ",
+    "original_deleted": true,
+    "fix_applied": "anti-repetition+narrator-sync v4.1"
   }
 ]

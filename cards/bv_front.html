@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700&family=Inter:wght@300;400;500&display=swap');
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 88.9mm; height: 50.8mm;
+    background: linear-gradient(120deg, #0A0A0F 60%, #131323 100%);
+    font-family: 'Inter', 'Helvetica Neue', sans-serif;
+    overflow: hidden;
+    position: relative;
+  }
+  .line-top { position: absolute; top: 0; left: 3mm; right: 3mm; height: 0.7mm; background: #00E5FF; border-radius: 1mm; box-shadow: 0 0 2mm rgba(0,229,255,0.5); }
+  .border-box { position: absolute; inset: 0; border: 0.3mm solid rgba(0,229,255,0.2); border-radius: 2.5mm; pointer-events: none; }
+  .company { position: absolute; top: 5mm; left: 5mm; font-size: 5px; letter-spacing: 2px; color: #00E5FF; font-weight: 700; text-transform: uppercase; }
+  .name { position: absolute; top: 10.5mm; left: 5mm; font-size: 13px; font-weight: 700; color: #F0F4F8; letter-spacing: 2px; text-transform: uppercase; font-family: 'Rajdhani', 'Helvetica Neue', sans-serif; }
+  .title { position: absolute; top: 17mm; left: 5mm; font-size: 6.5px; color: #4B5563; letter-spacing: 1.5px; text-transform: uppercase; }
+  .divider { position: absolute; top: 20mm; left: 5mm; right: 5mm; height: 0.3mm; background: rgba(0,229,255,0.3); }
+  .contacts { position: absolute; top: 21.5mm; left: 5mm; font-size: 6.5px; color: #B8C0CC; line-height: 1.85; }
+  .bullet { color: #00E5FF; margin-right: 1.5mm; }
+  .cyan { color: #00E5FF; }
+  .bolt { position: absolute; right: 5mm; top: 50%; transform: translateY(-50%); opacity: 0.08; }
+</style>
+</head>
+<body>
+  <div class="line-top"></div>
+  <div class="border-box"></div>
+  <div class="company">Black Volt Mobility LLC</div>
+  <div class="name">Ender Ocando</div>
+  <div class="title">Owner &amp; Operator</div>
+  <div class="divider"></div>
+  <div class="contacts">
+    <span class="bullet">•</span>+1 (720) 512-1753<br>
+    <span class="bullet">•</span>info@blackvoltmobility.com<br>
+    <span class="bullet">•</span>Executive Black Car Service<br>
+    <span class="bullet cyan">•</span><span class="cyan">2024 Kia EV9 &nbsp;|&nbsp; Aurora / Denver, CO</span>
+  </div>
+  <div class="bolt">
+    <svg width="25mm" height="35mm" viewBox="0 0 50 80"><polygon points="35,5 15,45 28,45 10,75 45,30 30,30" fill="#00E5FF"/></svg>
+  </div>
+</body>
+</html>

@@ -214,21 +214,32 @@ def build_description(script: dict, video_type: str) -> str:
 # ══════════════════════════════════════════════════════════════════════════
 
 def set_thumbnail(yt, video_id: str, thumbnail_path: Path) -> bool:
-    """Upload custom thumbnail for a video."""
+    """
+    Upload custom thumbnail for a video.
+    FIX 4: 2 retries with explicit success/fail logging.
+    """
     from googleapiclient.http import MediaFileUpload
 
     if not thumbnail_path.exists():
         print(f"       ⚠️ Thumbnail no encontrada: {thumbnail_path}")
         return False
 
-    try:
-        media = MediaFileUpload(str(thumbnail_path), mimetype="image/jpeg")
-        yt.thumbnails().set(videoId=video_id, media_body=media).execute()
-        print(f"       🖼️ Thumbnail subida")
-        return True
-    except Exception as e:
-        print(f"       ⚠️ Thumbnail error: {str(e)[:100]}")
-        return False
+    max_attempts = 3  # 1 initial + 2 retries
+    for attempt in range(1, max_attempts + 1):
+        try:
+            media = MediaFileUpload(str(thumbnail_path), mimetype="image/jpeg")
+            yt.thumbnails().set(videoId=video_id, media_body=media).execute()
+            print(f"       ✅ Thumbnail subida exitosamente (intento {attempt}/{max_attempts}): {video_id}")
+            return True
+        except Exception as e:
+            err_msg = str(e)[:150]
+            if attempt < max_attempts:
+                print(f"       ⚠️ Thumbnail intento {attempt}/{max_attempts} falló: {err_msg} — reintentando...")
+                import time as _time
+                _time.sleep(3 * attempt)  # exponential backoff
+            else:
+                print(f"       ❌ Thumbnail FALLÓ tras {max_attempts} intentos para {video_id}: {err_msg}")
+    return False
 
 
 def upload_video(yt, video: dict, scout_data: dict = None) -> dict:
@@ -325,9 +336,12 @@ def upload_video(yt, video: dict, scout_data: dict = None) -> dict:
     if thumb_path and thumb_path.exists():
         thumb_uploaded = set_thumbnail(yt, video_id, thumb_path)
         if not thumb_uploaded:
-            print(f"    ⚠️  Thumbnail upload falló — video quedará sin miniatura")
+            print(f"    ❌ Thumbnail falló todos los reintentos — marcando thumbnail_failed para {video_id}")
     else:
         print(f"    ⚠️  Sin thumbnail disponible para {sid}")
+
+    # FIX 4: use 'thumbnail_failed' status when thumbnail couldn't be uploaded
+    final_status = "uploaded" if thumb_uploaded else "thumbnail_failed"
 
     return {
         "video_id":    video_id,
@@ -335,7 +349,7 @@ def upload_video(yt, video: dict, scout_data: dict = None) -> dict:
         "scheduled":   publish_at_str,
         "scheduled_mt": f"{day_name} {publish_mt.strftime('%d/%m %I:%M %p')} MT",
         "thumbnail":   thumb_uploaded,
-        "status":      "uploaded",
+        "status":      final_status,
         "uploaded_at": datetime.now(timezone.utc).isoformat(),
     }
 

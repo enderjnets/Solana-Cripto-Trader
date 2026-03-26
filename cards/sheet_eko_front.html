@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=Inter:wght@300;400;500;600&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  @page {
+    size: 210mm 297mm;
+    margin: 0;
+  }
+
+  body {
+    width: 210mm;
+    min-height: 297mm;
+    background: #f5f5f5;
+    font-family: 'Inter', 'Helvetica Neue', sans-serif;
+  }
+
+  .page {
+    width: 210mm;
+    height: 297mm;
+    padding: 8mm;
+    display: grid;
+    grid-template-columns: 88.9mm 88.9mm;
+    grid-template-rows: repeat(5, 50.8mm);
+    gap: 5mm;
+    background: #e8e8e8;
+  }
+
+  .card {
+    width: 88.9mm;
+    height: 50.8mm;
+    background: #0F172A;
+    overflow: hidden;
+    position: relative;
+    border-radius: 2.5mm;
+  }
+
+  /* Cut guides */
+  .card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border: 0.2mm dashed rgba(255,255,255,0.1);
+    z-index: 10;
+    pointer-events: none;
+  }
+
+  /* Card internal elements */
+  .glow {
+    position: absolute; top: -20mm; right: -15mm;
+    width: 35mm; height: 35mm;
+    background: radial-gradient(circle, rgba(11,79,216,0.5) 0%, transparent 70%);
+    border-radius: 50%;
+  }
+  .border-top {
+    position: absolute; top: 0; left: 3mm; right: 3mm;
+    height: 0.5mm; background: #0B4FD8; border-radius: 1mm;
+  }
+  .active-dot {
+    position: absolute; top: 3.5mm; right: 4mm;
+    width: 2.5mm; height: 2.5mm;
+    background: #10B981; border-radius: 50%;
+    box-shadow: 0 0 3mm rgba(16,185,129,0.8);
+  }
+  .company {
+    position: absolute; top: 5.5mm; left: 5mm;
+    font-size: 5.5px; letter-spacing: 1.5px;
+    color: #0B4FD8; font-weight: 700; text-transform: uppercase;
+  }
+  .name {
+    position: absolute; top: 11mm; left: 5mm;
+    font-size: 13px; font-weight: 700;
+    color: #F8FAFC; letter-spacing: 0.3px;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+  }
+  .title {
+    position: absolute; top: 17.5mm; left: 5mm;
+    font-size: 7px; color: #64748B; letter-spacing: 0.5px;
+  }
+  .divider {
+    position: absolute; top: 20.5mm; left: 5mm; right: 5mm;
+    height: 0.3mm; background: rgba(11,79,216,0.4);
+  }
+  .contacts {
+    position: absolute; top: 22mm; left: 5mm;
+    font-size: 6.5px; color: #94A3B8; line-height: 1.85;
+  }
+  .bullet { color: #0B4FD8; margin-right: 1.5mm; }
+  .bullet-green { color: #10B981; margin-right: 1.5mm; }
+  .ai-badge {
+    display: inline-block; background: #10B981;
+    color: white; font-size: 5px; font-weight: 700;
+    padding: 1px 3px; border-radius: 2px;
+    vertical-align: middle; margin-left: 2px;
+  }
+  .border-box {
+    position: absolute; inset: 0;
+    border: 0.3mm solid rgba(11,79,216,0.3);
+    border-radius: 2.5mm; pointer-events: none;
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- 10 identical cards -->
+  <div class="card" id="c1">
+    <div class="glow"></div>
+    <div class="border-top"></div>
+    <div class="active-dot"></div>
+    <div class="company">Eko AI Automation LLC</div>
+    <div class="name">Ender Ocando</div>
+    <div class="title">Founder &amp; CEO</div>
+    <div class="divider"></div>
+    <div class="contacts">
+      <span class="bullet">•</span>+1 (720) 512-1753<br>
+      <span class="bullet-green">•</span>+1 (720) 824-9313<span class="ai-badge">AI 24/7</span><br>
+      <span class="bullet">•</span>eko@ekoai.com<br>
+      <span class="bullet">•</span>ekoai.com &nbsp;|&nbsp; Denver, CO
+    </div>
+    <div class="border-box"></div>
+  </div>
+
+  <div class="card">
+    <div class="glow"></div>
+    <div class="border-top"></div>
+    <div class="active-dot"></div>
+    <div class="company">Eko AI Automation LLC</div>
+    <div class="name">Ender Ocando</div>
+    <div class="title">Founder &amp; CEO</div>
+    <div class="divider"></div>
+    <div class="contacts">
+      <span class="bullet">•</span>+1 (720) 512-1753<br>
+      <span class="bullet-green">•</span>+1 (720) 824-9313<span class="ai-badge">AI 24/7</span><br>
+      <span class="bullet">•</span>eko@ekoai.com<br>
+      <span class="bullet">•</span>ekoai.com &nbsp;|&nbsp; Denver, CO
+    </div>
+    <div class="border-box"></div>
+  </div>
+
+  <div class="card">
+    <div class="glow"></div>
+    <div class="border-top"></div>
+    <div class="active-dot"></div>
+    <div class="company">Eko AI Automation LLC</div>
+    <div class="name">Ender Ocando</div>
+    <div class="title">Founder &amp; CEO</div>
+    <div class="divider"></div>
+    <div class="contacts">
+      <span class="bullet">•</span>+1 (720) 512-1753<br>
+      <span class="bullet-green">•</span>+1 (720) 824-9313<span class="ai-badge">AI 24/7</span><br>
+      <span class="bullet">•</span>eko@ekoai.com<br>
+      <span class="bullet">•</span>ekoai.com &nbsp;|&nbsp; Denver, CO
+    </div>
+    <div class="border-box"></div>
+  </div>
+
+  <div class="card">
+    <div class="glow"></div>
+    <div class="border-top"></div>
+    <div class="active-dot"></div>
+    <div class="company">Eko AI Automation LLC</div>
+    <div class="name">Ender Ocando</div>
+    <div class="title">Founder &amp; CEO</div>
+    <div class="divider"></div>
+    <div class="contacts">
+      <span class="bullet">•</span>+1 (720) 512-1753<br>
+      <span class="bullet-green">•</span>+1 (720) 824-9313<span class="ai-badge">AI 24/7</span><br>
+      <span class="bullet">•</span>eko@ekoai.com<br>
+      <span class="bullet">•</span>ekoai.com &nbsp;|&nbsp; Denver, CO
+    </div>
+    <div class="border-box"></div>
+  </div>
+
+  <div class="card">
+    <div class="glow"></div>
+    <div class="border-top"></div>
+    <div class="active-dot"></div>
+    <div class="company">Eko AI Automation LLC</div>
+    <div class="name">Ender Ocando</div>
+    <div class="title">Founder &amp; CEO</div>
+    <div class="divider"></div>
+    <div class="contacts">
+      <span class="bullet">•</span>+1 (720) 512-1753<br>
+      <span class="bullet-green">•</span>+1 (720) 824-9313<span class="ai-badge">AI 24/7</span><br>
+      <span class="bullet">•</span>eko@ekoai.com<br>
+      <span class="bullet">•</span>ekoai.com &nbsp;|&nbsp; Denver, CO
+    </div>
+    <div class="border-box"></div>
+  </div>
+
+  <div class="card">
+    <div class="glow"></div>
+    <div class="border-top"></div>
+    <div class="active-dot"></div>
+    <div class="company">Eko AI Automation LLC</div>
+    <div class="name">Ender Ocando</div>
+    <div class="title">Founder &amp; CEO</div>
+    <div class="divider"></div>
+    <div class="contacts">
+      <span class="bullet">•</span>+1 (720) 512-1753<br>
+      <span class="bullet-green">•</span>+1 (720) 824-9313<span class="ai-badge">AI 24/7</span><br>
+      <span class="bullet">•</span>eko@ekoai.com<br>
+      <span class="bullet">•</span>ekoai.com &nbsp;|&nbsp; Denver, CO
+    </div>
+    <div class="border-box"></div>
+  </div>
+
+  <div class="card">
+    <div class="glow"></div>
+    <div class="border-top"></div>
+    <div class="active-dot"></div>
+    <div class="company">Eko AI Automation LLC</div>
+    <div class="name">Ender Ocando</div>
+    <div class="title">Founder &amp; CEO</div>
+    <div class="divider"></div>
+    <div class="contacts">
+      <span class="bullet">•</span>+1 (720) 512-1753<br>
+      <span class="bullet-green">•</span>+1 (720) 824-9313<span class="ai-badge">AI 24/7</span><br>
+      <span class="bullet">•</span>eko@ekoai.com<br>
+      <span class="bullet">•</span>ekoai.com &nbsp;|&nbsp; Denver, CO
+    </div>
+    <div class="border-box"></div>
+  </div>
+
+  <div class="card">
+    <div class="glow"></div>
+    <div class="border-top"></div>
+    <div class="active-dot"></div>
+    <div class="company">Eko AI Automation LLC</div>
+    <div class="name">Ender Ocando</div>
+    <div class="title">Founder &amp; CEO</div>
+    <div class="divider"></div>
+    <div class="contacts">
+      <span class="bullet">•</span>+1 (720) 512-1753<br>
+      <span class="bullet-green">•</span>+1 (720) 824-9313<span class="ai-badge">AI 24/7</span><br>
+      <span class="bullet">•</span>eko@ekoai.com<br>
+      <span class="bullet">•</span>ekoai.com &nbsp;|&nbsp; Denver, CO
+    </div>
+    <div class="border-box"></div>
+  </div>
+
+  <div class="card">
+    <div class="glow"></div>
+    <div class="border-top"></div>
+    <div class="active-dot"></div>
+    <div class="company">Eko AI Automation LLC</div>
+    <div class="name">Ender Ocando</div>
+    <div class="title">Founder &amp; CEO</div>
+    <div class="divider"></div>
+    <div class="contacts">
+      <span class="bullet">•</span>+1 (720) 512-1753<br>
+      <span class="bullet-green">•</span>+1 (720) 824-9313<span class="ai-badge">AI 24/7</span><br>
+      <span class="bullet">•</span>eko@ekoai.com<br>
+      <span class="bullet">•</span>ekoai.com &nbsp;|&nbsp; Denver, CO
+    </div>
+    <div class="border-box"></div>
+  </div>
+
+  <div class="card">
+    <div class="glow"></div>
+    <div class="border-top"></div>
+    <div class="active-dot"></div>
+    <div class="company">Eko AI Automation LLC</div>
+    <div class="name">Ender Ocando</div>
+    <div class="title">Founder &amp; CEO</div>
+    <div class="divider"></div>
+    <div class="contacts">
+      <span class="bullet">•</span>+1 (720) 512-1753<br>
+      <span class="bullet-green">•</span>+1 (720) 824-9313<span class="ai-badge">AI 24/7</span><br>
+      <span class="bullet">•</span>eko@ekoai.com<br>
+      <span class="bullet">•</span>ekoai.com &nbsp;|&nbsp; Denver, CO
+    </div>
+    <div class="border-box"></div>
+  </div>
+
+</div>
+</body>
+</html>

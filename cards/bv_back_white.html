@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Black Volt Mobility — Back White</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    width: 336px;
+    height: 192px;
+    background: #FFFFFF;
+    font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
+    overflow: hidden;
+    display: flex;
+    border: 0.5mm solid #E5E7EB;
+  }
+
+  /* Left black vertical bar */
+  .left-bar {
+    width: 30px;
+    min-width: 30px;
+    background: #0A0A0F;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+  }
+
+  .bolt-icon {
+    width: 16px;
+    height: 16px;
+    fill: #FFFFFF;
+  }
+
+  /* Right content area */
+  .right-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 0 20px;
+    position: relative;
+  }
+
+  .brand-name {
+    font-size: 22px;
+    font-weight: 800;
+    color: #0A0A0F;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    line-height: 1.0;
+    margin-bottom: 8px;
+  }
+
+  .cyan-line {
+    width: 50px;
+    height: 1.5px;
+    background: #00E5FF;
+    margin-bottom: 8px;
+  }
+
+  .tagline {
+    font-size: 7.5px;
+    color: #6B7280;
+    font-style: italic;
+    font-weight: 400;
+    letter-spacing: 0.5px;
+    margin-bottom: 16px;
+    line-height: 1.4;
+  }
+
+  .website {
+    font-size: 6px;
+    color: #9CA3AF;
+    font-weight: 400;
+    letter-spacing: 0.8px;
+    text-transform: lowercase;
+  }
+</style>
+</head>
+<body>
+
+  <!-- Left black vertical bar -->
+  <div class="left-bar">
+    <svg class="bolt-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+      <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+    </svg>
+  </div>
+
+  <!-- Right content -->
+  <div class="right-content">
+    <div class="brand-name">BLACK VOLT</div>
+    <div class="cyan-line"></div>
+    <div class="tagline">Silent Power. Premium Arrival.</div>
+    <div class="website">blackvoltmobility.com &nbsp;|&nbsp; Denver, CO</div>
+  </div>
+
+</body>
+</html>

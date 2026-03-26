@@ -197,14 +197,25 @@ def main():
         _guardian_available = False
         def verify_uploaded(vid_id, title, thumb_ok): return {}
 
-    # ── QUALITY AGENT: pre-load gate ────────────────────────────────────
+    # ── QA AGENT: pre-load full gate (includes narration + visual OCR checks) ──
+    try:
+        from qa_agent import QAAgent as _QAAgentClass
+        _qa_agent_instance = _QAAgentClass()
+        _qa_available = True
+        log("🔬 QA Agent: disponible (checks 1-9 incluyendo narración y OCR)", "INFO")
+    except Exception as e:
+        log(f"⚠️ QA Agent no disponible: {e}", "WARNING")
+        _qa_agent_instance = None
+        _qa_available = False
+
+    # ── QUALITY AGENT (legacy gate — kept as secondary layer) ────────────
     try:
         from quality_agent import gate_before_upload
-        _qa_available = True
-        log("🎬 Quality Agent: disponible para gate pre-upload", "INFO")
+        _legacy_qa_available = True
+        log("🎬 Quality Agent (legacy): también disponible", "INFO")
     except Exception as e:
-        log(f"⚠️ Quality Agent no disponible: {e}", "WARNING")
-        _qa_available = False
+        log(f"⚠️ Quality Agent legacy no disponible: {e}", "WARNING")
+        _legacy_qa_available = False
         def gate_before_upload(script_id, entry): return True
 
     # Filter videos ready to upload
@@ -232,9 +243,24 @@ def main():
                 sched_dt = sched_dt.replace(tzinfo=timezone.utc)
             
             if sched_dt <= now:
-                # ── Quality Agent gate ────────────────────────────────
+                # ── QA Agent gate (full 9-check suite) ───────────────
                 script_id = item.get("script_id","")
-                if _qa_available and not gate_before_upload(script_id, item):
+                if _qa_available and _qa_agent_instance:
+                    qa_result = _qa_agent_instance.run_all_checks(
+                        video_path=item.get("output_file",""),
+                        thumb_path=item.get("thumbnail_path", item.get("thumbnail","")),
+                        title=item.get("title",""),
+                        description=item.get("description",""),
+                        script_text=item.get("script",""),
+                        video_type=item.get("type","long"),
+                    )
+                    if not qa_result["passed"]:
+                        log(f"Item {i}: ⛔ BLOCKED by QA Agent — {item.get('title','?')[:40]} — issues: {qa_result['issues']}", "WARNING")
+                        item["status"] = "qa_failed"
+                        item["qa_issues"] = qa_result["issues"]
+                        item["qa_checked_at"] = qa_result["timestamp"]
+                        continue
+                elif _legacy_qa_available and not gate_before_upload(script_id, item):
                     log(f"Item {i}: ⛔ BLOCKED by Quality Agent — {item.get('title','?')[:40]}", "WARNING")
                     item["status"] = "held_by_quality_agent"
                     continue
@@ -243,9 +269,24 @@ def main():
             else:
                 log(f"Item {i}: Future - scheduled={sched_date}", "DEBUG")
         else:
-            # ── Quality Agent gate (no scheduled date) ────────────────
+            # ── QA Agent gate (no scheduled date) ────────────────────
             script_id = item.get("script_id","")
-            if _qa_available and not gate_before_upload(script_id, item):
+            if _qa_available and _qa_agent_instance:
+                qa_result = _qa_agent_instance.run_all_checks(
+                    video_path=item.get("output_file",""),
+                    thumb_path=item.get("thumbnail_path", item.get("thumbnail","")),
+                    title=item.get("title",""),
+                    description=item.get("description",""),
+                    script_text=item.get("script",""),
+                    video_type=item.get("type","long"),
+                )
+                if not qa_result["passed"]:
+                    log(f"Item {i}: ⛔ BLOCKED by QA Agent — {item.get('title','?')[:40]} — issues: {qa_result['issues']}", "WARNING")
+                    item["status"] = "qa_failed"
+                    item["qa_issues"] = qa_result["issues"]
+                    item["qa_checked_at"] = qa_result["timestamp"]
+                    continue
+            elif _legacy_qa_available and not gate_before_upload(script_id, item):
                 log(f"Item {i}: ⛔ BLOCKED by Quality Agent — {item.get('title','?')[:40]}", "WARNING")
                 item["status"] = "held_by_quality_agent"
                 continue
@@ -315,20 +356,48 @@ def main():
             else:
                 log(f"⚠️ Sin thumbnail para {sid} — video sin miniatura personalizada", "WARNING")
                 queue[i]["thumbnail_uploaded"] = False
-            
-            # Update status
+
+            # FIX 5: If thumbnail_uploaded=False, attempt auto-fix before marking complete
+            if not queue[i].get("thumbnail_uploaded", False):
+                log(f"🔧 FIX 5: thumbnail_uploaded=False para {video_id} — intentando auto-fix...", "WARNING")
+                # Re-scan for thumbnail in all known locations
+                thumb_candidates_retry = [
+                    video_data.get("thumbnail_path", ""),
+                    video_data.get("thumbnail", ""),
+                    str(DATA_DIR / "thumbnails" / f"{sid}_thumbnail.jpg"),
+                    str(DATA_DIR / "thumbnails" / f"{sid}_thumbnail.png"),
+                ]
+                for tc in thumb_candidates_retry:
+                    if tc and Path(tc).exists():
+                        log(f"🔧 Reintentando thumbnail: {Path(tc).name}", "INFO")
+                        try:
+                            from googleapiclient.http import MediaFileUpload
+                            media = MediaFileUpload(tc, resumable=True)
+                            yt.thumbnails().set(videoId=video_id, media_body=media).execute()
+                            queue[i]["thumbnail_uploaded"] = True
+                            log(f"✅ Auto-fix exitoso: thumbnail subida para {video_id}", "INFO")
+                            break
+                        except Exception as retry_err:
+                            log(f"❌ Auto-fix falló: {retry_err}", "WARNING")
+
+            # FIX 5: Only mark as 'uploaded' if thumbnail was successfully uploaded
+            # Otherwise mark as 'thumbnail_failed' so it can be retried
+            thumb_ok = queue[i].get("thumbnail_uploaded", False)
+            final_status = "uploaded" if thumb_ok else "thumbnail_failed"
+
             queue[i].update({
-                "status": "uploaded",
+                "status": final_status,
                 "video_id": video_id,
                 "uploaded_at": datetime.now(timezone.utc).isoformat()
             })
-            
-            uploaded.append(video_id)
-            log(f"Estado actualizado a 'uploaded'", "INFO")
 
-            # ── POST-UPLOAD VERIFICATION ──────────────────────────────────
-            thumb_ok = queue[i].get("thumbnail_uploaded", False)
-            verify_uploaded(video_id, video_data.get("title","?"), thumb_ok)
+            uploaded.append(video_id)
+            log(f"Estado actualizado a '{final_status}'", "INFO")
+            if not thumb_ok:
+                log(f"⚠️ Video {video_id} marcado como 'thumbnail_failed' — requiere retry de thumbnail", "WARNING")
+
+            # ── POST-UPLOAD VERIFICATION (FIX 1: pass youtube client for real API check) ──
+            verify_uploaded(video_id, video_data.get("title", "?"), thumb_ok, youtube_client=yt)
             if not thumb_ok:
                 log(f"⚠️ POST-UPLOAD: {video_id} subió SIN thumbnail — acción requerida", "WARNING")
 

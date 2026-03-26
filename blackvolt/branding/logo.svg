@@ -1,0 +1,233 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 300" width="500" height="300">
+  <defs>
+    <!-- Gradiente de fondo -->
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0A0A0F;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#1C1C2E;stop-opacity:1" />
+    </linearGradient>
+    <!-- Brillo eléctrico para el rayo -->
+    <filter id="electricGlow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <!-- Brillo suave del hexágono -->
+    <filter id="softGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="1.5" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <!-- Clip para el hexágono -->
+    <clipPath id="hexClip">
+      <polygon points="75,20 125,20 148,58 125,96 75,96 52,58" />
+    </clipPath>
+  </defs>
+
+  <!-- Fondo -->
+  <rect width="500" height="300" fill="url(#bgGrad)" rx="8"/>
+
+  <!-- ===== SÍMBOLO — HEXÁGONO + RAYO ===== -->
+  <!-- Hexágono exterior (borde) -->
+  <polygon
+    points="100,10 150,10 178,58 150,106 100,106 72,58"
+    fill="none"
+    stroke="#1C1C2E"
+    stroke-width="2"
+    filter="url(#softGlow)"
+  />
+  <!-- Hexágono interior oscuro (fondo del símbolo) -->
+  <polygon
+    points="100,10 150,10 178,58 150,106 100,106 72,58"
+    fill="#0D0D1A"
+  />
+  <!-- Borde del hexágono en cyan muy sutil -->
+  <polygon
+    points="100,10 150,10 178,58 150,106 100,106 72,58"
+    fill="none"
+    stroke="#00E5FF"
+    stroke-width="1.5"
+    opacity="0.6"
+  />
+
+  <!-- RAYO interior — geométrico y elegante -->
+  <!-- Rayo: forma de dos triángulos angulados formando el bolt -->
+  <g filter="url(#electricGlow)">
+    <!-- Parte superior del rayo (apunta abajo-izquierda) -->
+    <polygon
+      points="135,22 110,62 125,62"
+      fill="#00E5FF"
+      opacity="0.95"
+    />
+    <!-- Parte inferior del rayo (continúa desde el quiebre) -->
+    <polygon
+      points="125,62 100,62 115,95"
+      fill="#00E5FF"
+      opacity="0.95"
+    />
+    <!-- Línea central que une (el "cuerpo" del rayo) -->
+    <polygon
+      points="125,58 135,22 128,22 110,62 100,62 107,62 125,95 132,95 115,62"
+      fill="#00E5FF"
+      opacity="0"
+    />
+  </g>
+
+  <!-- Brillo central del rayo (núcleo más brillante) -->
+  <g filter="url(#electricGlow)">
+    <polygon
+      points="133,26 111,63 123,63"
+      fill="#FFFFFF"
+      opacity="0.3"
+    />
+  </g>
+
+  <!-- ===== WORDMARK ===== -->
+  <!-- "BLACK VOLT" — texto principal -->
+  <text
+    x="200"
+    y="62"
+    font-family="'Rajdhani', 'Arial Narrow', Arial, sans-serif"
+    font-size="52"
+    font-weight="700"
+    fill="#F0F4F8"
+    letter-spacing="6"
+  >BLACK VOLT</text>
+
+  <!-- Línea separadora Electric Volt -->
+  <line
+    x1="200"
+    y1="75"
+    x2="490"
+    y2="75"
+    stroke="#00E5FF"
+    stroke-width="1.5"
+    opacity="0.9"
+  />
+
+  <!-- "MOBILITY LLC" — texto secundario -->
+  <text
+    x="203"
+    y="98"
+    font-family="'Inter', 'Arial', sans-serif"
+    font-size="18"
+    font-weight="500"
+    fill="#B8C0CC"
+    letter-spacing="10"
+  >MOBILITY LLC</text>
+
+  <!-- ===== TAGLINE (opcional, versión completa) ===== -->
+  <text
+    x="200"
+    y="130"
+    font-family="'Inter', 'Arial', sans-serif"
+    font-size="11"
+    font-weight="400"
+    fill="#00E5FF"
+    letter-spacing="3"
+    font-style="italic"
+    opacity="0.8"
+  >Silent Power. Premium Arrival.</text>
+
+  <!-- ===== LÍNEA DECORATIVA INFERIOR ===== -->
+  <line
+    x1="72"
+    y1="150"
+    x2="490"
+    y2="150"
+    stroke="#1C1C2E"
+    stroke-width="1"
+    opacity="0.5"
+  />
+
+  <!-- ===== VERSIÓN ÍCONO SOLO — esquina inferior derecha ===== -->
+  <!-- Mini hexágono + rayo -->
+  <g transform="translate(395, 190) scale(0.55)">
+    <polygon
+      points="100,10 150,10 178,58 150,106 100,106 72,58"
+      fill="#0D0D1A"
+    />
+    <polygon
+      points="100,10 150,10 178,58 150,106 100,106 72,58"
+      fill="none"
+      stroke="#00E5FF"
+      stroke-width="2.5"
+      opacity="0.7"
+    />
+    <g filter="url(#electricGlow)">
+      <polygon
+        points="135,22 110,62 125,62"
+        fill="#00E5FF"
+        opacity="0.9"
+      />
+      <polygon
+        points="125,62 100,62 115,95"
+        fill="#00E5FF"
+        opacity="0.9"
+      />
+    </g>
+  </g>
+  <text
+    x="395"
+    y="258"
+    font-family="'Inter', 'Arial', sans-serif"
+    font-size="9"
+    fill="#B8C0CC"
+    letter-spacing="1.5"
+    opacity="0.6"
+    text-anchor="middle"
+  >ICON ONLY</text>
+
+  <!-- ===== PALETA DE COLORES (referencia visual) ===== -->
+  <g transform="translate(72, 175)">
+    <text font-family="'Inter', Arial, sans-serif" font-size="9" fill="#B8C0CC" opacity="0.5" letter-spacing="1">COLOR PALETTE</text>
+
+    <!-- Void Black -->
+    <rect x="0" y="12" width="28" height="28" rx="4" fill="#0A0A0F" stroke="#333" stroke-width="1"/>
+    <text x="0" y="54" font-family="Arial" font-size="7.5" fill="#B8C0CC" opacity="0.5">#0A0A0F</text>
+
+    <!-- Obsidian Gray -->
+    <rect x="38" y="12" width="28" height="28" rx="4" fill="#1C1C2E" stroke="#333" stroke-width="1"/>
+    <text x="38" y="54" font-family="Arial" font-size="7.5" fill="#B8C0CC" opacity="0.5">#1C1C2E</text>
+
+    <!-- Electric Volt -->
+    <rect x="76" y="12" width="28" height="28" rx="4" fill="#00E5FF"/>
+    <text x="76" y="54" font-family="Arial" font-size="7.5" fill="#B8C0CC" opacity="0.5">#00E5FF</text>
+
+    <!-- Cloud Silver -->
+    <rect x="114" y="12" width="28" height="28" rx="4" fill="#B8C0CC"/>
+    <text x="114" y="54" font-family="Arial" font-size="7.5" fill="#B8C0CC" opacity="0.5">#B8C0CC</text>
+
+    <!-- Arctic White -->
+    <rect x="152" y="12" width="28" height="28" rx="4" fill="#F0F4F8"/>
+    <text x="152" y="54" font-family="Arial" font-size="7.5" fill="#B8C0CC" opacity="0.5">#F0F4F8</text>
+  </g>
+
+  <!-- ===== VERSIÓN SOBRE FONDO CLARO (referencia) ===== -->
+  <rect x="72" y="235" width="280" height="50" rx="6" fill="#F0F4F8" opacity="0.05"/>
+  <text
+    x="83"
+    y="255"
+    font-family="'Rajdhani', 'Arial Narrow', Arial, sans-serif"
+    font-size="18"
+    font-weight="700"
+    fill="#0A0A0F"
+    letter-spacing="3"
+    opacity="0.7"
+  >BLACK VOLT</text>
+  <text
+    x="83"
+    y="272"
+    font-family="'Inter', Arial, sans-serif"
+    font-size="8"
+    fill="#1C1C2E"
+    letter-spacing="4"
+    opacity="0.5"
+  >MOBILITY LLC — Light Version</text>
+
+</svg>

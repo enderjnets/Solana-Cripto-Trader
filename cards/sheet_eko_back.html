@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@700;800&family=Inter:wght@400;500&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  @page {
+    size: 210mm 297mm;
+    margin: 0;
+  }
+
+  body {
+    width: 210mm;
+    min-height: 297mm;
+    background: #e8e8e8;
+    font-family: 'Plus Jakarta Sans', 'Helvetica Neue', sans-serif;
+  }
+
+  .page {
+    width: 210mm;
+    height: 297mm;
+    padding: 8mm;
+    display: grid;
+    grid-template-columns: 88.9mm 88.9mm;
+    grid-template-rows: repeat(5, 50.8mm);
+    gap: 5mm;
+    background: #e8e8e8;
+  }
+
+  .card {
+    width: 88.9mm;
+    height: 50.8mm;
+    background: linear-gradient(135deg, #0B4FD8 0%, #1D4ED8 100%);
+    overflow: hidden;
+    position: relative;
+    border-radius: 2.5mm;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+  }
+
+  .circle1 {
+    position: absolute; bottom: -8mm; left: -8mm;
+    width: 25mm; height: 25mm;
+    background: rgba(255,255,255,0.07); border-radius: 50%;
+  }
+  .circle2 {
+    position: absolute; top: -5mm; right: -5mm;
+    width: 18mm; height: 18mm;
+    background: rgba(255,255,255,0.05); border-radius: 50%;
+  }
+  .logo-box {
+    width: 9mm; height: 9mm;
+    background: rgba(255,255,255,0.2);
+    border-radius: 2mm;
+    display: flex; align-items: center; justify-content: center;
+    margin-bottom: 2mm;
+  }
+  .logo-k {
+    font-size: 14px; font-weight: 800; color: white; line-height: 1;
+  }
+  .tagline {
+    font-size: 9px; font-weight: 700; color: white;
+    text-align: center; line-height: 1.4; margin-bottom: 3mm;
+  }
+  .pills {
+    display: flex; gap: 1.5mm; flex-wrap: wrap;
+    justify-content: center; margin-bottom: 2.5mm;
+  }
+  .pill {
+    font-size: 5px; color: rgba(255,255,255,0.9);
+    border: 0.3mm solid rgba(255,255,255,0.4);
+    border-radius: 10mm; padding: 1px 3px; white-space: nowrap;
+  }
+  .web {
+    font-size: 5.5px; color: rgba(191,219,254,0.85);
+    font-family: 'Inter', sans-serif;
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- Card 1 -->
+  <div class="card">
+    <div class="circle1"></div><div class="circle2"></div>
+    <div class="logo-box"><div class="logo-k">K</div></div>
+    <div class="tagline">"Your Business,<br>Always Answered."</div>
+    <div class="pills">
+      <span class="pill">Voice AI</span>
+      <span class="pill">Lead Capture</span>
+      <span class="pill">Auto-Booking</span>
+    </div>
+    <div class="web">ekoai.com &nbsp;•&nbsp; Denver, CO</div>
+  </div>
+
+  <!-- Card 2 -->
+  <div class="card">
+    <div class="circle1"></div><div class="circle2"></div>
+    <div class="logo-box"><div class="logo-k">K</div></div>
+    <div class="tagline">"Your Business,<br>Always Answered."</div>
+    <div class="pills">
+      <span class="pill">Voice AI</span>
+      <span class="pill">Lead Capture</span>
+      <span class="pill">Auto-Booking</span>
+    </div>
+    <div class="web">ekoai.com &nbsp;•&nbsp; Denver, CO</div>
+  </div>
+
+  <!-- Card 3 -->
+  <div class="card">
+    <div class="circle1"></div><div class="circle2"></div>
+    <div class="logo-box"><div class="logo-k">K</div></div>
+    <div class="tagline">"Your Business,<br>Always Answered."</div>
+    <div class="pills">
+      <span class="pill">Voice AI</span>
+      <span class="pill">Lead Capture</span>
+      <span class="pill">Auto-Booking</span>
+    </div>
+    <div class="web">ekoai.com &nbsp;•&nbsp; Denver, CO</div>
+  </div>
+
+  <!-- Card 4 -->
+  <div class="card">
+    <div class="circle1"></div><div class="circle2"></div>
+    <div class="logo-box"><div class="logo-k">K</div></div>
+    <div class="tagline">"Your Business,<br>Always Answered."</div>
+    <div class="pills">
+      <span class="pill">Voice AI</span>
+      <span class="pill">Lead Capture</span>
+      <span class="pill">Auto-Booking</span>
+    </div>
+    <div class="web">ekoai.com &nbsp;•&nbsp; Denver, CO</div>
+  </div>
+
+  <!-- Card 5 -->
+  <div class="card">
+    <div class="circle1"></div><div class="circle2"></div>
+    <div class="logo-box"><div class="logo-k">K</div></div>
+    <div class="tagline">"Your Business,<br>Always Answered."</div>
+    <div class="pills">
+      <span class="pill">Voice AI</span>
+      <span class="pill">Lead Capture</span>
+      <span class="pill">Auto-Booking</span>
+    </div>
+    <div class="web">ekoai.com &nbsp;•&nbsp; Denver, CO</div>
+  </div>
+
+  <!-- Card 6 -->
+  <div class="card">
+    <div class="circle1"></div><div class="circle2"></div>
+    <div class="logo-box"><div class="logo-k">K</div></div>
+    <div class="tagline">"Your Business,<br>Always Answered."</div>
+    <div class="pills">
+      <span class="pill">Voice AI</span>
+      <span class="pill">Lead Capture</span>
+      <span class="pill">Auto-Booking</span>
+    </div>
+    <div class="web">ekoai.com &nbsp;•&nbsp; Denver, CO</div>
+  </div>
+
+  <!-- Card 7 -->
+  <div class="card">
+    <div class="circle1"></div><div class="circle2"></div>
+    <div class="logo-box"><div class="logo-k">K</div></div>
+    <div class="tagline">"Your Business,<br>Always Answered."</div>
+    <div class="pills">
+      <span class="pill">Voice AI</span>
+      <span class="pill">Lead Capture</span>
+      <span class="pill">Auto-Booking</span>
+    </div>
+    <div class="web">ekoai.com &nbsp;•&nbsp; Denver, CO</div>
+  </div>
+
+  <!-- Card 8 -->
+  <div class="card">
+    <div class="circle1"></div><div class="circle2"></div>
+    <div class="logo-box"><div class="logo-k">K</div></div>
+    <div class="tagline">"Your Business,<br>Always Answered."</div>
+    <div class="pills">
+      <span class="pill">Voice AI</span>
+      <span class="pill">Lead Capture</span>
+      <span class="pill">Auto-Booking</span>
+    </div>
+    <div class="web">ekoai.com &nbsp;•&nbsp; Denver, CO</div>
+  </div>
+
+  <!-- Card 9 -->
+  <div class="card">
+    <div class="circle1"></div><div class="circle2"></div>
+    <div class="logo-box"><div class="logo-k">K</div></div>
+    <div class="tagline">"Your Business,<br>Always Answered."</div>
+    <div class="pills">
+      <span class="pill">Voice AI</span>
+      <span class="pill">Lead Capture</span>
+      <span class="pill">Auto-Booking</span>
+    </div>
+    <div class="web">ekoai.com &nbsp;•&nbsp; Denver, CO</div>
+  </div>
+
+  <!-- Card 10 -->
+  <div class="card">
+    <div class="circle1"></div><div class="circle2"></div>
+    <div class="logo-box"><div class="logo-k">K</div></div>
+    <div class="tagline">"Your Business,<br>Always Answered."</div>
+    <div class="pills">
+      <span class="pill">Voice AI</span>
+      <span class="pill">Lead Capture</span>
+      <span class="pill">Auto-Booking</span>
+    </div>
+    <div class="web">ekoai.com &nbsp;•&nbsp; Denver, CO</div>
+  </div>
+
+</div>
+</body>
+</html>

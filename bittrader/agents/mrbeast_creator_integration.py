@@ -31,34 +31,29 @@ def inject_mrbeast_short_prompt(item: dict, scout: dict) -> str:
     title_suggestion = optimize_title(item['topic'], item.get('description', ''))
     
     # Build retention-focused prompt
-    prompt = f"""Crea un guión COMPLETO para un YouTube Short del canal BitTrader.
+    prompt = f"""Crea un guion COMPLETO para un YouTube Short del canal BitTrader.
 
-🎯 TEMA: {item['topic']}
-📊 CATEGORÍA: {item['theme']}
+TEMA: {item['topic']}
+CATEGORIA: {item['theme']}
 
-⚡ REGLAS MRBEAST:
-1. TÍTULO: Menos de 50 caracteres, incluye número o cantidad de dinero si aplica
-2. GANCHO: Primera frase debe enganchar inmediatamente (sin intros)
-3. USA "TÚ" más que "YO" para involucrar al espectador
-4. BUCLE NARRATIVO: Termina con "...y lo que pasó después te sorprenderá"
+TITULO SUGERIDO (puedes ajustarlo): {title_suggestion.get('optimized_title', item['topic'][:50])}
 
-📝 TÍTULO SUGERIDO (puedes ajustarlo): {title_suggestion.get('optimized_title', item['topic'][:50])}
+Caracteristicas del guion:
+- El titulo debe tener menos de 50 caracteres, incluye numero o cantidad de dinero si aplica
+- La primera frase debe enganchar inmediatamente, sin intros
+- Dirigete al espectador en segunda persona (habla de "ti", "tu", "vas a")
+- Termina con una frase abierta que invite a ver mas
 
-FORMATO REQUERIDO:
-TITULO: [título optimizado, máx 50 chars, sin emojis]
-DESCRIPCION: [descripción YouTube 100-150 chars con hashtags]
+FORMATO DE RESPUESTA (responde exactamente con esta estructura, nada mas):
+
+TITULO: [titulo optimizado, max 50 chars, sin emojis]
+DESCRIPCION: [descripcion YouTube 100-150 chars con hashtags]
 TAGS: [8-10 tags separados por coma]
 
 GUION:
-[Guión de 100-140 palabras. Estructura:
-- Gancho inmediato (primeras 5 palabras)
-- Desarrollo del punto principal
-- Dato impactante o ejemplo concreto
-- CTA con pregunta ("¿Tú qué harías? Comenta")
+[Guion narrado de 100-140 palabras en espanol. Empieza con gancho. Termina con pregunta para comentarios. Solo el texto de la narracion, sin encabezados ni etiquetas de seccion.]
 
-BUCLE FINAL: Termina con frase abierta que invite a ver más]
-
-VIDEO_PROMPT: [Describe la escena con BitTrader rhino. Incluye: qué hace el rinoceronte, el escenario, el ambiente. Hyper-realistic 3D, 9:16 vertical]"""
+VIDEO_PROMPT: [Describe la escena con BitTrader rhino. Incluye: que hace el rinoceronte, el escenario, el ambiente. Hyper-realistic 3D, 9:16 vertical]"""
 
     return prompt
 
@@ -77,42 +72,35 @@ def inject_mrbeast_long_prompt(item: dict, scout: dict) -> str:
     for i, hook in enumerate(hooks[:3], 1):  # First 3 hooks
         hooks_str += f"  - Minuto {hook['timestamp']//60}: {hook['suggestion']}\n"
     
-    prompt = f"""Crea un guión COMPLETO para un video de YouTube de 3-5 minutos del canal BitTrader.
+    prompt = f"""Crea un guion COMPLETO para un video de YouTube de 3-5 minutos del canal BitTrader.
 
-🎯 TEMA: {item['topic']}
-📊 CATEGORÍA: {item['theme']}
+TEMA: {item['topic']}
+CATEGORIA: {item['theme']}
 
-⚡ REGLAS MRBEAST:
-1. TÍTULO: Menos de 50 caracteres, incluye número o cantidad de dinero
-2. GANCHO: Sin intros lentas, empieza con la acción prometida
-3. RE-ENGANCHES cada 3 minutos: giros, sorpresas, revelaciones
-4. BUCLES ABIERTOS: Usa frases como "y lo que pasó después..." para mantener atención
-5. STAIR-STEPPING: Las apuestas aumentan progresivamente, clímax al final
+TITULO SUGERIDO: {title_suggestion.get('optimized_title', item['topic'][:50])}
 
-📝 TÍTULO SUGERIDO: {title_suggestion.get('optimized_title', item['topic'][:50])}
+Caracteristicas del video:
+- El titulo debe tener menos de 50 caracteres, incluye numero o cantidad de dinero si aplica
+- Empieza directo con la accion prometida, sin intros lentas
+- Inserta momentos de re-enganche naturales cada ~3 minutos ("Pero lo que descubri despues fue...")
+- Las apuestas del video aumentan progresivamente hasta un climax al final
+- Dirigete al espectador en segunda persona (habla de "ti", "tu", "vas a")
+- Termina con una pregunta abierta para comentarios
 
-🎯 RE-ENGANCHES REQUERIDOS:
+Momentos de re-enganche sugeridos (incorpoalos de forma natural en el guion):
 {hooks_str}
 
-FORMATO REQUERIDO:
-TITULO: [título optimizado, máx 50 chars]
-DESCRIPCION: [descripción YouTube 200-300 chars, con hashtags]
+FORMATO DE RESPUESTA (responde exactamente con esta estructura, nada mas):
+
+TITULO: [titulo optimizado, max 50 chars]
+DESCRIPCION: [descripcion YouTube 200-300 chars, con hashtags]
 TAGS: [10-15 tags separados por coma]
 
-GUIÓN COMPLETO (400-700 palabras):
-HOOK (30s): [Enganche poderoso, pregunta o dato impactante, entrega la promesa inmediatamente]
-PROBLEMA (45s): [Por qué importa, el dolor del espectador, usa "TÚ"]
-EXPLICACION (2-3min): [Contenido principal con ejemplos concretos, inserta re-enganche cada 3 min]
-EJEMPLOS (1min): [Casos reales, números, comparaciones]
-CTA (30s): [Llamada a acción con pregunta para comentarios, pide suscripción]
+GUION:
+[Guion narrado completo de 400-700 palabras en espanol. Solo el texto de la narracion, sin encabezados como HOOK:, PROBLEMA:, EXPLICACION:, CTA: ni ningun otro encabezado de seccion. Solo la narracion fluida del video.]
 
-⚠️ IMPORTANTE:
-- Inserta re-enganche en el guión cada ~3 minutos (ej: "Pero espera, esto se pone mejor...")
-- Usa "TÚ" más que "YO" en toda la narración
-- Termina con bucle narrativo abierto
-
-VIDEO_PROMPT_1: [Intro scene con BitTrader rhino. Describe qué hace relacionado al hook. 16:9]
-VIDEO_PROMPT_2: [Main scene con rhino. Acción relevante para la explicación. 16:9]
+VIDEO_PROMPT_1: [Intro scene con BitTrader rhino. Describe que hace relacionado al hook. 16:9]
+VIDEO_PROMPT_2: [Main scene con rhino. Accion relevante para la explicacion. 16:9]
 VIDEO_PROMPT_3: [Closing scene con rhino. Confident, mirando al futuro. 16:9]"""
 
     return prompt
