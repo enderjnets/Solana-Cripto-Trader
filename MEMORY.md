@@ -1518,3 +1518,15 @@ Cuando produzcan un video nuevo, deben replicar la calidad de `jW-xjSxv6Dc`:
 - Mismo estilo de selección de clips (relevantes, sin repetición)
 - Mismo ritmo de narración
 - Siempre incluir logo BitTrader en el video + thumbnail con estilo oficial
+
+## Regla de Thumbnails Shorts — Logo posición (2026-03-26)
+
+### ⚠️ Error detectado y corregido
+En thumbnails de Shorts (1080x1920), el logo BitTrader se estaba poniendo en la esquina INFERIOR izquierda.
+**CORRECTO**: Logo BitTrader siempre en la esquina **SUPERIOR izquierda** (y=25), tanto en Shorts como en videos largos.
+El @bittrader9259 va en la esquina superior derecha.
+
+### Posiciones correctas para Shorts (1080x1920):
+- Logo BitTrader: x=30, y=25 (superior izquierda)
+- @bittrader9259: x=720, y=30 (superior derecha)
+- Badge temático: y=120 (debajo del logo, no encima)
