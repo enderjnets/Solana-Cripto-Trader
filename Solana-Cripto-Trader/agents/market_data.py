@@ -113,11 +113,33 @@ def load_previous_prices() -> dict:
 
 # ─── Lógica Principal ─────────────────────────────────────────────────────────
 
+def get_active_token_mints() -> dict:
+    """
+    Retorna los tokens activos: core + dinámicos del scanner.
+    """
+    active_mints = dict(TOKEN_MINTS)  # Empezar con tokens core
+    
+    # Agregar tokens dinámicos del scanner
+    tracked_file = DATA_DIR / "tracked_tokens.json"
+    if tracked_file.exists():
+        try:
+            tracked = json.loads(tracked_file.read_text())
+            for symbol, data in tracked.get("tokens", {}).items():
+                if symbol not in active_mints and data.get("address"):
+                    active_mints[symbol] = data["address"]
+        except Exception as e:
+            log.warning(f"Error cargando tokens dinámicos: {e}")
+    
+    return active_mints
+
+
 def build_market_data(debug: bool = False) -> dict:
     """Construye el snapshot completo del mercado."""
-    log.info("🌐 Obteniendo precios de Jupiter...")
+    # Usar tokens dinámicos (core + descubiertos)
+    active_mints = get_active_token_mints()
+    log.info(f"🌐 Obteniendo precios de Jupiter... ({len(active_mints)} tokens)")
 
-    raw_prices = fetch_jupiter_prices(TOKEN_MINTS)
+    raw_prices = fetch_jupiter_prices(active_mints)
     prev_prices = load_previous_prices()
     fear_greed = fetch_coingecko_fear_greed()
 
@@ -125,7 +147,7 @@ def build_market_data(debug: bool = False) -> dict:
     momentum_tokens = []
     now = datetime.now(timezone.utc).isoformat()
 
-    for symbol, mint in TOKEN_MINTS.items():
+    for symbol, mint in active_mints.items():
         # Jupiter v3: keyed by mint address directly
         price_data = raw_prices.get(mint, {})
         price = float(price_data.get("usdPrice", 0)) if price_data else 0

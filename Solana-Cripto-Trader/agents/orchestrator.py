@@ -207,9 +207,8 @@ def run_cycle(safe=True, debug=False):
                     market_data = json.loads((DATA_DIR / "market_latest.json").read_text()) if (DATA_DIR / "market_latest.json").exists() else {}
                     history = json.loads((DATA_DIR / "trade_history.json").read_text()) if (DATA_DIR / "trade_history.json").exists() else []
                     closed = ex.close_positions_emergency(portfolio_data, symbols_to_close, market_data, history, reason="SMART_ROTATION")
-                    with ex.PortfolioLock():
-                        ex.save_portfolio(portfolio_data)
-                        (DATA_DIR / "trade_history.json").write_text(json.dumps(history, indent=2))
+                    ex.save_portfolio(portfolio_data)
+                    (DATA_DIR / "trade_history.json").write_text(json.dumps(history, indent=2))
                     log.info(f"   ✅ Cerradas {len(closed)} posición(es) por Smart Rotation")
                 except Exception as e:
                     log.warning(f"   ⚠️ Error cerrando posiciones: {e}")
@@ -255,9 +254,8 @@ def run_cycle(safe=True, debug=False):
                         close_reason_label = f"DAILY_TARGET: {target_result['close_reason'][:60]}"
                         closed = ex.close_positions_emergency(portfolio_data, open_symbols, market_data, history, reason=close_reason_label)
                         _cycle_emergency_closes += len(closed)
-                        with ex.PortfolioLock():
-                            ex.save_portfolio(portfolio_data)
-                            (DATA_DIR / "trade_history.json").write_text(json.dumps(history, indent=2))
+                        ex.save_portfolio(portfolio_data)
+                        (DATA_DIR / "trade_history.json").write_text(json.dumps(history, indent=2))
                         log.info(f"   ✅ Cerradas {len(closed)} posición(es) por Daily Target")
                     elif just_opened_symbols:
                         log.info(f"   🛡️ Skipped cierre — todas las posiciones son recién abiertas")
@@ -308,9 +306,8 @@ def run_cycle(safe=True, debug=False):
                     history = json.loads((DATA_DIR / "trade_history.json").read_text()) if (DATA_DIR / "trade_history.json").exists() else []
                     # FIX: Usar reason específica para Position Decision
                     closed = ex.close_positions_emergency(portfolio_data, close_symbols, market_data, history, reason="POSITION_DECISION")
-                    with ex.PortfolioLock():
-                        ex.save_portfolio(portfolio_data)
-                        (DATA_DIR / "trade_history.json").write_text(json.dumps(history, indent=2))
+                    ex.save_portfolio(portfolio_data)
+                    (DATA_DIR / "trade_history.json").write_text(json.dumps(history, indent=2))
                     log.info(f"   ✅ Cerradas {len(closed)} posición(es) por Position Decision")
                 except Exception as e:
                     log.warning(f"   ⚠️ Error cerrando posiciones: {e}")
@@ -370,6 +367,22 @@ def run_cycle(safe=True, debug=False):
     return results
 
 
+def run_token_scanner():
+    """Ejecuta el scanner de tokens para encontrar nuevas oportunidades."""
+    try:
+        import token_scanner
+        log.info("━" * 40)
+        log.info("🔍 [SCANNER] Buscando nuevas oportunidades...")
+        result = token_scanner.scan(debug=False)
+        if result.get("tokens_added"):
+            log.info(f"   ➕ Nuevos tokens: {result['tokens_added']}")
+        log.info(f"   📊 Total oportunidades: {result.get('opportunities_found', 0)}")
+        return result
+    except Exception as e:
+        log.warning(f"   ⚠️ Scanner error: {e}")
+        return {}
+
+
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser()
@@ -377,6 +390,7 @@ if __name__ == "__main__":
     parser.add_argument("--live", action="store_true", help="Run in continuous loop (alias for default loop mode)")
     parser.add_argument("--interval", type=int, default=60, help="Seconds between cycles in loop mode (default: 60)")
     parser.add_argument("--debug", action="store_true", help="Debug mode")
+    parser.add_argument("--scan-interval", type=int, default=10, help="Run token scanner every N cycles (default: 10)")
     args = parser.parse_args()
 
     if args.once:
@@ -384,9 +398,20 @@ if __name__ == "__main__":
     else:
         # --live or bare invocation: run continuous loop
         interval = args.interval if args.interval else 60
+        scan_interval = args.scan_interval if args.scan_interval else 10
+        cycle_count = 0
+        
         log.info(f"🔄 Modo continuo — intervalo: {interval}s")
+        log.info(f"🔍 Token Scanner cada {scan_interval} ciclos (~{scan_interval}min)")
+        
         while True:
             try:
+                cycle_count += 1
+                
+                # Ejecutar scanner cada N ciclos
+                if cycle_count % scan_interval == 0:
+                    run_token_scanner()
+                
                 run_cycle(debug=args.debug)
                 time.sleep(interval)
             except KeyboardInterrupt:

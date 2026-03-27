@@ -634,23 +634,47 @@ def score_long(ind: dict) -> tuple[float, list]:
 
 
 def score_short(ind: dict) -> tuple[float, list]:
-    """Puntúa la probabilidad de un trade SHORT — análisis independiente."""
+    """Puntúa la probabilidad de un trade SHORT — análisis independiente.
+    
+    Dos estrategias:
+    1. Reversión de sobrecompra (RSI alto, BB superior)
+    2. Trend Following bajista (Fear & Greed bajo, tendencia confirmada)
+    """
     score = 0.30  # Base neutral-baja
     reasons = []
 
     rsi_val = ind.get("rsi")
     macd_d  = ind.get("macd")
     bb      = ind.get("bb")
+    fear_greed = ind.get("fear_greed", 50)  # Default neutral
 
-    # ── 1. Tendencia bajista ── peso 0.15
+    # ══════════════════════════════════════════════════════════════════
+    # NUEVO: Trend Following SHORT en mercados bajistas
+    # ══════════════════════════════════════════════════════════════════
+    
+    # Fear & Greed extremo → mercado en pánico → continuar tendencia bajista
+    if fear_greed <= 20:
+        score += 0.20
+        reasons.append(f"😨 Fear & Greed {fear_greed} — Extreme Fear, trend following SHORT ✅✅")
+    elif fear_greed <= 35:
+        score += 0.12
+        reasons.append(f"😰 Fear & Greed {fear_greed} — Fear, favorable para SHORT ✅")
+    elif fear_greed >= 75:
+        score -= 0.10
+        reasons.append(f"🤑 Fear & Greed {fear_greed} — Greed extremo, SHORT arriesgado ⚠️")
+
+    # ── 1. Tendencia bajista ── peso 0.15 (aumentado en mercado Fear)
     if ind.get("trend") == "down":
-        score += 0.15
+        base_trend_score = 0.15
+        if fear_greed <= 25:
+            base_trend_score = 0.22  # Bonus en mercado Fear
+        score += base_trend_score
         reasons.append("Tendencia bajista EMA ✅")
     elif ind.get("trend") == "up":
         score -= 0.10
         reasons.append("Tendencia alcista — SHORT riesgoso ⚠️")
 
-    # ── 2. RSI sobrecomprado ── peso 0.15
+    # ── 2. RSI — adaptado para trend following
     if rsi_val:
         if rsi_val > 80:
             score += 0.18
@@ -658,8 +682,13 @@ def score_short(ind: dict) -> tuple[float, list]:
         elif rsi_val > RSI_OVERBOUGHT:
             score += 0.12
             reasons.append(f"RSI {rsi_val:.0f} sobrecomprado ✅")
-        elif rsi_val < 40:
-            score -= 0.10
+        elif rsi_val < 30 and fear_greed <= 25:
+            # En mercado Fear extremo, RSI bajo = momentum bajista fuerte
+            score += 0.08
+            reasons.append(f"RSI {rsi_val:.0f} + Fear extremo = momentum bajista ✅")
+        elif rsi_val < 40 and fear_greed > 40:
+            # Solo penalizar en mercados neutrales/alcistas
+            score -= 0.08
             reasons.append(f"RSI {rsi_val:.0f} bajo — no ideal para SHORT ⚠️")
 
     # ── 3. MACD bearish ── peso 0.12
@@ -722,7 +751,7 @@ def score_short(ind: dict) -> tuple[float, list]:
             score -= 0.05
             reasons.append(f"ROC +{roc_val:.1f}% momentum alcista ⚠️")
 
-    # ── 9. Sobreextensión 24h ── peso 0.08
+    # ── 9. Sobreextensión 24h ── peso 0.08 (adaptado para trend following)
     c24 = ind.get("change_24h", 0)
     if c24 > 20:
         score += 0.10
@@ -730,9 +759,14 @@ def score_short(ind: dict) -> tuple[float, list]:
     elif c24 > 10:
         score += 0.06
         reasons.append(f"24h +{c24:.1f}% rally extendido ✅")
-    elif c24 < -10:
+    elif c24 < -10 and fear_greed > 40:
+        # Solo penalizar caídas en mercados neutrales/alcistas
         score -= 0.08
         reasons.append(f"24h {c24:.1f}% ya cayó mucho — no SHORT ⚠️")
+    elif c24 < -5 and fear_greed <= 25:
+        # En mercado Fear extremo, caídas moderadas = trend following
+        score += 0.10
+        reasons.append(f"24h {c24:.1f}% + Fear extremo = continuación bajista ✅")
 
     # ── 10. VWAP resistencia ── peso 0.06
     pvwap = ind.get("price_vs_vwap", 0)
@@ -1062,14 +1096,22 @@ def run(debug: bool = False) -> dict:
         p_hist       = price_hist.get(symbol, [])
         v_hist       = vol_hist.get(symbol, [])
 
-        # FILTRO 1: Volumen mínimo 24h — evita shitcoins ilíquidos
+        # FILTRO 1: Volumen O Liquidez mínima — evita shitcoins ilíquidos
+        # Usar liquidez como fallback cuando CoinGecko bloquea (vol=0)
         volume_24h = token_data.get("volume_24h", 0)
-        if volume_24h < MIN_VOLUME_24H:
+        liquidity = token_data.get("liquidity", 0)
+        has_sufficient_liquidity = volume_24h >= MIN_VOLUME_24H or liquidity >= MIN_VOLUME_24H
+        
+        if not has_sufficient_liquidity:
             if debug:
-                log.info(f"  ⏭️ {symbol}: Volumen ${volume_24h/1e6:.2f}M < ${MIN_VOLUME_24H/1e6:.1f}M mínimo — SKIP")
+                log.info(f"  ⏭️ {symbol}: Vol ${volume_24h/1e6:.2f}M + Liq ${liquidity/1e6:.2f}M < ${MIN_VOLUME_24H/1e6:.1f}M mínimo — SKIP")
             continue
 
         ind = compute_indicators(symbol, token_data, p_hist, v_hist)
+        
+        # Agregar Fear & Greed al diccionario de indicadores para trend following
+        fg = market.get("fear_greed", {})
+        ind["fear_greed"] = fg.get("value", 50) if isinstance(fg, dict) else 50
         
         # FILTRO 2: ATR máximo — evita alta volatilidad extrema
         atr_pct = ind.get("atr_pct", 0)

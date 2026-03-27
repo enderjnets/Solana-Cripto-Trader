@@ -176,6 +176,24 @@ DASHBOARD_HTML = r"""
   .neu { color: var(--blue); }
   .warn { color: var(--yellow); }
 
+  /* Real-time update animations */
+  @keyframes flashGreen {
+    0% { background-color: rgba(63, 185, 80, 0.3); }
+    100% { background-color: transparent; }
+  }
+  @keyframes flashRed {
+    0% { background-color: rgba(248, 81, 73, 0.3); }
+    100% { background-color: transparent; }
+  }
+  .flash-update { animation: flashGreen 0.5s ease-out; }
+  .price-cell { 
+    font-family: 'Monaco', 'Consolas', monospace; 
+    font-weight: 600;
+    transition: color 0.3s ease;
+  }
+  .price-up { color: var(--green) !important; }
+  .price-down { color: var(--red) !important; }
+
   /* ── Charts ── */
   .chart-container { position: relative; width: 100%; }
   .chart-sm { height: 200px; }
@@ -363,6 +381,8 @@ DASHBOARD_HTML = r"""
       </div>
     </div>
   </section>
+
+  <!-- POST-RESET section removed: main KPIs now show post-reset data -->
 
   <!-- ACCOUNTING DISCREPANCY BANNER -->
   <div class="discrepancy-banner" id="discBanner" style="display:none;">
@@ -559,7 +579,10 @@ let equityAllData = { labels: [], datasets: [] };
 document.addEventListener('DOMContentLoaded', () => {
   initCharts();
   refreshAll();
+  // Refresh completo cada 30 segundos
   setInterval(refreshAll, 30000);
+  // Refresh de posiciones cada 3 segundos (tiempo real)
+  setInterval(loadPositionsRealtime, 3000);
 });
 
 async function refreshAll() {
@@ -696,6 +719,8 @@ async function loadStats() {
   }
 }
 
+
+
 async function loadEquity() {
   const r = await fetch('/api/equity');
   const d = await r.json();
@@ -746,6 +771,24 @@ async function loadEquity() {
 async function loadPositions() {
   const r = await fetch('/api/positions');
   const d = await r.json();
+  renderPositions(d);
+}
+
+// Función de actualización en tiempo real (cada 3 seg)
+async function loadPositionsRealtime() {
+  try {
+    const r = await fetch('/api/positions');
+    const d = await r.json();
+    renderPositions(d);
+    // Actualizar timestamp
+    document.getElementById('lastUpdate').textContent =
+      'Actualizado: ' + new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  } catch(e) {
+    // Silencioso en errores de realtime
+  }
+}
+
+function renderPositions(d) {
   const wrap = document.getElementById('positionsTable');
   if (!d.positions || d.positions.length === 0) {
     wrap.innerHTML = '<div class="empty">⚡ Sin posiciones abiertas en este momento</div>';
@@ -758,11 +801,13 @@ async function loadPositions() {
   </tr></thead><tbody>`;
   for (const p of d.positions) {
     const pnlCls = p.pnl_usd >= 0 ? 'pos' : 'neg';
-    html += `<tr>
+    // Animación de flash cuando cambia el precio
+    const flashCls = p.price_changed ? 'flash-update' : '';
+    html += `<tr class="${flashCls}">
       <td><strong>${p.symbol}</strong></td>
       <td><span class="badge badge-${p.direction}">${p.direction.toUpperCase()}</span></td>
       <td>${fmtPrice(p.entry_price)}</td>
-      <td>${fmtPrice(p.current_price)}</td>
+      <td class="price-cell">${fmtPrice(p.current_price)}</td>
       <td class="${pnlCls}">${p.pnl_usd >= 0 ? '+' : ''}${fmt$(p.pnl_usd)}</td>
       <td class="${pnlCls}">${fmtPct(p.pnl_pct, true)}</td>
       <td>${fmt$(p.margin_usd)}</td>
@@ -1053,18 +1098,48 @@ def index():
 @app.route('/api/stats')
 def api_stats():
     """
-    Compute ALL stats directly from trade_history.json + portfolio.json.
-    Do NOT trust daily_report.json or risk_report.json for P&L / return metrics
-    — those files can be stale or miscalculated by the bot.
+    Compute stats from POST-RESET trades only.
+    Capital = free_cash + invested_margin + unrealized_pnl (true equity).
+    Pre-reset corrupted data (959 EMERGENCY_CLOSEs etc.) is excluded.
     """
+    from datetime import datetime as dt
+
     risk = load_json(DATA / "risk_report.json")
     port = load_portfolio()
     comp = load_json(DATA / "compound_state.json")
 
-    # --- Use real trade_history for everything ---
+    # --- Determine reset baseline ---
+    reset_log = load_json(DATA / "reset_log_20260326.json")
+    has_reset = bool(reset_log and reset_log.get("reset_date"))
+    reset_dt = None
+    if has_reset:
+        try:
+            reset_dt = dt.fromisoformat(reset_log["reset_date"])
+        except (ValueError, TypeError):
+            has_reset = False
+
+    reset_capital = safe_float(reset_log.get("capital_after", 500.0)) if has_reset else 500.0
+    initial_capital = reset_capital if has_reset else safe_float(
+        port.get("initial_capital", comp.get("initial_capital", 500)))
+
+    # --- Load trades, filter to post-reset if applicable ---
     trades_raw = load_trade_history()
-    # All trades with no 'status' key (most of trade_history) or explicitly 'closed' are closed
-    closed = [t for t in trades_raw if t.get("status") in ("closed", None, "")]
+    closed_all = [t for t in trades_raw if t.get("status") in ("closed", None, "")]
+
+    if has_reset and reset_dt:
+        closed = []
+        for t in closed_all:
+            close_time = t.get("close_time", "")
+            if not close_time:
+                continue
+            try:
+                ct = dt.fromisoformat(close_time.replace("Z", "+00:00"))
+                if ct >= reset_dt:
+                    closed.append(t)
+            except (ValueError, TypeError):
+                continue
+    else:
+        closed = closed_all
 
     # Open positions: from portfolio.json (more reliable for current state)
     port_positions = port.get("positions", [])
@@ -1082,7 +1157,7 @@ def api_stats():
     flats  = len(flat_trades)
     total  = len(closed)
 
-    # Win rate including flat (EMERGENCY_CLOSE) trades — industry standard
+    # Win rate including flat trades — industry standard
     win_rate    = (wins / total * 100) if total > 0 else 0.0
     # Win rate excluding flat — shows signal quality without noise
     active_total = wins + losses
@@ -1095,7 +1170,7 @@ def api_stats():
     avg_loss_usd  = (gross_loss / losses) if losses > 0 else 0.0
     total_pnl     = gross_win - gross_loss
 
-    # Accounting discrepancy: EMERGENCY_CLOSEs with pnl=0 lose real capital
+    # Accounting discrepancy: EMERGENCY_CLOSEs with pnl=0 (post-reset only)
     emergency_zero = [t for t in flat_trades if "EMERGENCY" in str(t.get("close_reason", ""))]
     emergency_zero_count = len(emergency_zero)
 
@@ -1116,14 +1191,17 @@ def api_stats():
         max_win_streak  = max(max_win_streak, cur_win)
         max_loss_streak = max(max_loss_streak, cur_loss)
 
-    # Capital: trust portfolio.json (managed by the bot's accounting)
-    capital_usd     = safe_float(port.get("capital_usd", 500))
-    initial_capital = safe_float(port.get("initial_capital",
-                                 comp.get("initial_capital", 500)))
+    # Capital: TRUE EQUITY = free_cash + invested_margin + unrealized_pnl
+    # portfolio.json capital_usd is FREE CASH (margin deducted when positions open)
+    free_cash = safe_float(port.get("capital_usd", initial_capital))
+    invested = sum(safe_float(p.get("margin_usd", p.get("size_usd", 0))) for p in open_pos)
+    unrealized = sum(safe_float(p.get("pnl_usd", 0)) for p in open_pos)
+    capital_usd = free_cash + invested + unrealized
+
     return_pct = ((capital_usd - initial_capital) / initial_capital * 100) \
                  if initial_capital > 0 else 0.0
 
-    # Drawdown: compute from closed trade equity curve
+    # Drawdown: compute from post-reset closed trade equity curve
     cap  = initial_capital
     peak = initial_capital
     max_dd = 0.0
@@ -1145,9 +1223,9 @@ def api_stats():
     else:
         sharpe = 0.0
 
-    # Accounting discrepancy: real capital change vs recorded PnL
+    # Accounting discrepancy: real capital change vs recorded PnL (post-reset only)
     real_capital_change = capital_usd - initial_capital
-    accounting_gap = real_capital_change - total_pnl  # negative = unaccounted losses
+    accounting_gap = real_capital_change - total_pnl
 
     return jsonify({
         "capital_usd":        round(capital_usd, 2),
@@ -1179,15 +1257,124 @@ def api_stats():
     })
 
 
+@app.route('/api/stats_post_reset')
+def api_stats_post_reset():
+    """Metrics computed only from trades AFTER the last capital reset.
+    Used for visualization only — auto_learner always uses full history."""
+    from datetime import datetime as dt
+
+    # Load reset log
+    reset_log_path = DATA / "reset_log_20260326.json"
+    reset_log = load_json(reset_log_path)
+    if not reset_log or not reset_log.get("reset_date"):
+        return jsonify({"has_reset": False})
+
+    reset_date_str = reset_log["reset_date"]
+    try:
+        reset_dt = dt.fromisoformat(reset_date_str)
+    except (ValueError, TypeError):
+        return jsonify({"has_reset": False})
+
+    reset_capital = safe_float(reset_log.get("capital_after", 500.0))
+
+    # Filter closed trades after reset
+    trades_raw = load_trade_history()
+    post_reset = []
+    for t in trades_raw:
+        if t.get("status") not in ("closed", None, ""):
+            continue
+        close_time = t.get("close_time", "")
+        if not close_time:
+            continue
+        try:
+            ct = dt.fromisoformat(close_time.replace("Z", "+00:00"))
+            if ct >= reset_dt:
+                post_reset.append(t)
+        except (ValueError, TypeError):
+            continue
+
+    post_reset.sort(key=lambda t: t.get("close_time", ""))
+
+    total = len(post_reset)
+    wins = sum(1 for t in post_reset if safe_float(t.get("pnl_usd", 0)) > 0)
+    losses = sum(1 for t in post_reset if safe_float(t.get("pnl_usd", 0)) < 0)
+    win_rate = (wins / total * 100) if total > 0 else 0.0
+    total_pnl = sum(safe_float(t.get("pnl_usd", 0)) for t in post_reset)
+
+    # Current capital: total equity (free cash + margin + unrealized P&L)
+    port = load_portfolio()
+    free_cash = safe_float(port.get("capital_usd", reset_capital))
+    open_pos = [p for p in port.get("positions", []) if p.get("status") == "open"]
+    invested = sum(safe_float(p.get("margin_usd", p.get("size_usd", 0))) for p in open_pos)
+    unrealized = sum(safe_float(p.get("pnl_usd", 0)) for p in open_pos)
+    current_capital = free_cash + invested + unrealized
+
+    # Drawdown since reset
+    cap = reset_capital
+    peak = reset_capital
+    max_dd = 0.0
+    for t in post_reset:
+        cap += safe_float(t.get("pnl_usd", 0))
+        if cap > peak:
+            peak = cap
+        dd = ((peak - cap) / peak * 100) if peak > 0 else 0.0
+        max_dd = max(max_dd, dd)
+
+    return_pct = ((current_capital - reset_capital) / reset_capital * 100) if reset_capital > 0 else 0.0
+
+    return jsonify({
+        "has_reset": True,
+        "reset_date": reset_date_str,
+        "reset_capital": round(reset_capital, 2),
+        "post_reset_capital": round(current_capital, 2),
+        "post_reset_pnl": round(total_pnl, 2),
+        "post_reset_trades": total,
+        "post_reset_wins": wins,
+        "post_reset_losses": losses,
+        "post_reset_win_rate": round(win_rate, 1),
+        "post_reset_drawdown": round(max_dd, 2),
+        "post_reset_return_pct": round(return_pct, 2),
+    })
+
+
 @app.route('/api/equity')
 def api_equity():
+    from datetime import datetime as dt
+
     port = load_portfolio()
     trades_raw = load_trade_history()
-    closed = [t for t in trades_raw if t.get("status") in ("closed", None, "")]
+    closed_all = [t for t in trades_raw if t.get("status") in ("closed", None, "")]
+
+    # Filter to post-reset trades if reset exists
+    reset_log = load_json(DATA / "reset_log_20260326.json")
+    has_reset = bool(reset_log and reset_log.get("reset_date"))
+    reset_dt = None
+    if has_reset:
+        try:
+            reset_dt = dt.fromisoformat(reset_log["reset_date"])
+        except (ValueError, TypeError):
+            has_reset = False
+
+    if has_reset and reset_dt:
+        closed = []
+        for t in closed_all:
+            close_time = t.get("close_time", "")
+            if not close_time:
+                continue
+            try:
+                ct = dt.fromisoformat(close_time.replace("Z", "+00:00"))
+                if ct >= reset_dt:
+                    closed.append(t)
+            except (ValueError, TypeError):
+                continue
+    else:
+        closed = closed_all
+
     closed.sort(key=lambda t: t.get("close_time", ""))
 
-    # Build full equity curve
-    init_cap = safe_float(port.get("initial_capital", 500))
+    # Build equity curve from reset baseline
+    init_cap = safe_float(reset_log.get("capital_after", 500.0)) if has_reset else \
+               safe_float(port.get("initial_capital", 500))
     capital = init_cap
     equity_full = [init_cap]
     labels_full = ["Start"]

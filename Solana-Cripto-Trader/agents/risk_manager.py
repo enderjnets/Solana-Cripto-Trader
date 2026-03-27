@@ -344,7 +344,8 @@ def evaluate_token(symbol: str, token_data: dict, capital: float,
         history = []
         th_file = DATA_DIR / "trade_history.json"
         if th_file.exists():
-            history = json.loads(th_file.read_text())
+            th_data = json.loads(th_file.read_text())
+            history = th_data.get("trades", []) if isinstance(th_data, dict) else []
         sizing = calculate_compound_position_size(capital, price, effective_leverage, history)
         log.info(f"   📈 Compound sizing: capital=${capital:.2f} → margen=${sizing['margin_usd']:.2f} (kelly={sizing['kelly_risk_pct']:.2f}%)")
     else:
