@@ -18,7 +18,7 @@ from googleapiclient.http import MediaFileUpload
 from googleapiclient.errors import HttpError
 
 # ─── Config ───────────────────────────────────────────────────────────────────
-HF_API_KEY = "HF_TOKEN_REMOVED"
+HF_API_KEY = os.environ.get("HF_TOKEN", "")
 HF_ENDPOINTS = [
     "https://router.huggingface.co/hf-inference/models/stabilityai/stable-diffusion-xl-base-1.0",
     "https://router.huggingface.co/hf-inference/models/black-forest-labs/FLUX.1-schnell",

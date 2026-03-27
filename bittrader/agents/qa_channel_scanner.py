@@ -42,7 +42,7 @@ SCANNER_LOG   = DATA_DIR / "qa_scanner_log.json"
 SCANNER_STATE = DATA_DIR / "qa_scanner_state.json"
 
 # HF API key for thumbnail regeneration
-HF_API_KEY = "HF_TOKEN_REMOVED"
+HF_API_KEY = os.environ.get("HF_TOKEN", "")
 
 # Ender's Telegram chat ID (per TOOLS.md)
 ENDER_CHAT_ID = 771213858

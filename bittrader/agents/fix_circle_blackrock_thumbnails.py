@@ -36,7 +36,7 @@ YT_CREDS  = WORKSPACE / "memory/youtube_credentials.json"
 LOGO_PATH = WORKSPACE / "videos/BIBLIOTECA/bittrader_logo.png"
 
 # ── HuggingFace Config ──────────────────────────────────────────────────────
-HF_API_KEY   = "HF_TOKEN_REMOVED"
+HF_API_KEY   = os.environ.get("HF_TOKEN", "")
 HF_ENDPOINT  = "https://router.huggingface.co/hf-inference/models/stabilityai/stable-diffusion-xl-base-1.0"
 
 # ── Videos to fix ──────────────────────────────────────────────────────────

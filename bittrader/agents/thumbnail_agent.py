@@ -54,8 +54,9 @@ CYAN      = (0, 200, 255)
 TITLE_COLORS = [GOLD, GREEN, CYAN, GOLD, GOLD]  # Rotate for variety
 
 # ── LLM Config (for generating catchy thumbnail text) ─────────────────────
-CLAUDE_BASE_URL = "http://127.0.0.1:8443/v1/messages"
-CLAUDE_MODEL    = "claude-sonnet-4-6"
+# Proxy local removido - generar texto sin Claude
+# CLAUDE_BASE_URL = "http://127.0.0.1:8443/v1/messages"
+# CLAUDE_MODEL    = "claude-sonnet-4-6"
 
 
 # ════════════════════════════════════════════════════════════════════════
@@ -97,36 +98,11 @@ def wrap_text(text: str, max_chars: int = 16) -> list:
 # ════════════════════════════════════════════════════════════════════════
 
 def generate_thumb_text(title: str, description: str = "") -> dict:
-    """Ask LLM for catchy thumbnail headline + subtitle."""
-    try:
-        headers = {"Content-Type": "application/json", "anthropic-version": "2023-06-01"}
-        prompt = (
-            f"Para un video de YouTube sobre trading/crypto con título: \"{title}\"\n"
-            f"Genera un texto CORTO para la miniatura (thumbnail) del video.\n\n"
-            f"Responde en JSON exacto:\n"
-            f'{{"headline": "TEXTO GRANDE (max 3 palabras por línea, max 3 líneas)", '
-            f'"subtitle": "frase corta descriptiva (max 8 palabras)"}}\n\n'
-            f"REGLAS:\n"
-            f"- Headline: impactante, MAYÚSCULAS, 2-3 líneas cortas\n"
-            f"- Subtitle: complementa el headline, genera curiosidad\n"
-            f"- Estilo YouTube clickbait pero informativo\n"
-            f"- En español"
-        )
-        data = {
-            "model": CLAUDE_MODEL, "max_tokens": 200,
-            "messages": [{"role": "user", "content": prompt}]
-        }
-        r = requests.post(CLAUDE_BASE_URL, headers=headers, json=data, timeout=30)
-        if r.status_code == 200:
-            text = r.json().get("content", [{}])[0].get("text", "")
-            import re
-            json_match = re.search(r'\{.*?\}', text, re.DOTALL)
-            if json_match:
-                return json.loads(json_match.group())
-    except Exception as e:
-        print(f"      ⚠️ LLM thumbnail text error: {e}")
-    
-    # Fallback: extract from title
+    """Ask LLM for catchy thumbnail headline + subtitle.
+
+    NOTA: Proxy local removido - siempre usar fallback (extract from title)
+    """
+    # Proxy local removido - siempre usar fallback
     return {
         "headline": title[:40].upper(),
         "subtitle": ""
@@ -201,7 +177,7 @@ def generate_hf_person_image(output_path: Path, prompt: str = None) -> bool:
 
     HF_API_KEY = os.environ.get(
         "HF_API_KEY",
-        "HF_TOKEN_REMOVED"
+        os.environ.get("HF_TOKEN", "")
     )
     HF_ENDPOINT = "https://router.huggingface.co/hf-inference/models/stabilityai/stable-diffusion-xl-base-1.0"
 
