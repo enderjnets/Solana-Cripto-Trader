@@ -62,16 +62,16 @@ logging.basicConfig(
 )
 log = logging.getLogger("risk_manager")
 
-# ─── Parámetros de Riesgo ────────────────────────────────────────────────────
+# ─── Parámetros de Riesgo — OPTIMIZADO 2026-03-27 (post-drawdown crítico) ────
 
-RISK_PER_TRADE_PCT    = 0.015  # 1.5% del capital por trade (era 2% — más conservador)
-SL_PCT                = 0.03   # Stop loss: 3% (era 2.5% — más room)
-TP_MULTIPLIER         = 2.5    # TP = 2.5x SL → 7.5% (era 2x → más runway)
-MAX_OPEN_POSITIONS    = 3      # Máximo 3 posiciones (era 5 — más concentrado)
-MAX_DRAWDOWN_PCT      = 0.10   # 10% drawdown máximo antes de parar
-PAUSE_DRAWDOWN_PCT    = 0.08   # 8% → PAUSED
-MIN_POSITION_USD      = 8.0    # Mínimo $8 margen por posición
-MAX_SINGLE_EXPOSURE   = 0.25   # Máximo 25% del capital en margen
+RISK_PER_TRADE_PCT    = 0.010  # 1.0% del capital por trade (era 1.5% — menos riesgo)
+SL_PCT                = 0.015  # Stop loss: 1.5% (era 3% — mucho más ajustado)
+TP_MULTIPLIER         = 2.0    # TP = 2x SL → 3% (era 2.5x — más realista)
+MAX_OPEN_POSITIONS    = 2      # Máximo 2 posiciones (era 3 — menos exposición)
+MAX_DRAWDOWN_PCT      = 0.05   # 5% drawdown máximo antes de parar (era 10%)
+PAUSE_DRAWDOWN_PCT    = 0.03   # 3% → PAUSED (era 8% — más conservador)
+MIN_POSITION_USD      = 5.0    # Mínimo $5 margen (era $8 — ajustado a capital bajo)
+MAX_SINGLE_EXPOSURE   = 0.15   # Máximo 15% del capital en margen (era 25%)
 
 # ─── Drift Protocol Parameters ───────────────────────────────────────────────
 DEFAULT_LEVERAGE      = 3      # 3x leverage por defecto (overridden by auto_learner)

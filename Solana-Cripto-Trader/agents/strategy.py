@@ -69,16 +69,19 @@ EMA_MID         = 21
 EMA_SLOW        = 50
 ROC_PERIOD      = 10
 
-# Filtros de entrada — OPTIMIZADO 2026-03-08
-MIN_CONFIDENCE          = 0.60   # Confianza mínima subida (era 0.40 — muchos trades débiles)
-MIN_INDICATORS_ALIGNED  = 2      # Mínimo indicadores alineados para señal
-ATR_SL_MULTIPLIER       = 2.0    # SL = entrada - N×ATR (era 1.5 — SL muy apretado)
-ATR_TP_MULTIPLIER       = 4.0    # TP = entrada + N×ATR (RR 2:1 → ahora más holgado)
-MIN_ATR_PCT             = 0.008  # ATR mínimo subido (era 0.005 — filtra activos planos)
-RSI_OVERBOUGHT          = 70     # Más estricto para shorts
-RSI_OVERSOLD            = 30     # Menos agresivo (era 28)
-MOMENTUM_24H_MIN        = 2.0    # Bajado (era 3.0 — permite más momentum trades)
-BB_SQUEEZE_THRESHOLD    = 0.02   # BB width < 2% = squeeze (potencial breakout)
+# Filtros de entrada — OPTIMIZADO 2026-03-27 (post-drawdown crítico)
+MIN_CONFIDENCE          = 0.75   # Subido de 0.60 — solo señales fuertes
+MIN_INDICATORS_ALIGNED  = 3      # Subido de 2 — requiere más confirmación
+ATR_SL_MULTIPLIER       = 1.2    # Bajado de 2.0 — SL más ajustado, menos pérdida por trade
+ATR_TP_MULTIPLIER       = 2.4    # Bajado de 4.0 — TP más realista (RR 2:1)
+MIN_ATR_PCT             = 0.010  # Subido de 0.008 — filtra más activos planos
+RSI_OVERBOUGHT          = 75     # Subido de 70 — más conservador para shorts
+RSI_OVERSOLD            = 25     # Bajado de 30 — más conservador para longs
+MOMENTUM_24H_MIN        = 3.0    # Subido de 2.0 — solo momentum fuerte
+BB_SQUEEZE_THRESHOLD    = 0.015  # Bajado de 0.02 — squeeze más estricto
+MIN_VOLUME_24H          = 1000000  # NUEVO: mínimo $1M volumen 24h
+MAX_ATR_PCT             = 0.05   # NUEVO: máximo 5% ATR (evita alta volatilidad)
+CONSECUTIVE_LOSS_COOLDOWN = 2    # NUEVO: cooldown después de 2 pérdidas
 
 # ─── Persistencia ────────────────────────────────────────────────────────────
 
@@ -1059,7 +1062,21 @@ def run(debug: bool = False) -> dict:
         p_hist       = price_hist.get(symbol, [])
         v_hist       = vol_hist.get(symbol, [])
 
+        # FILTRO 1: Volumen mínimo 24h — evita shitcoins ilíquidos
+        volume_24h = token_data.get("volume_24h", 0)
+        if volume_24h < MIN_VOLUME_24H:
+            if debug:
+                log.info(f"  ⏭️ {symbol}: Volumen ${volume_24h/1e6:.2f}M < ${MIN_VOLUME_24H/1e6:.1f}M mínimo — SKIP")
+            continue
+
         ind = compute_indicators(symbol, token_data, p_hist, v_hist)
+        
+        # FILTRO 2: ATR máximo — evita alta volatilidad extrema
+        atr_pct = ind.get("atr_pct", 0)
+        if atr_pct and atr_pct > MAX_ATR_PCT * 100:
+            if debug:
+                log.info(f"  ⏭️ {symbol}: ATR {atr_pct:.2f}% > {MAX_ATR_PCT*100:.1f}% máximo — SKIP")
+            continue
         indicator_summary[symbol] = {
             "n": ind["n_prices"],
             "rsi": ind.get("rsi"),
