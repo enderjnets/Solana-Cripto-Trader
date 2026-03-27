@@ -1463,6 +1463,55 @@ def api_trades():
     return jsonify({"trades": result, "total": len(closed)})
 
 
+# Cache de precios para no spamear la API
+_price_cache = {"prices": {}, "last_fetch": 0}
+PRICE_CACHE_TTL = 2  # segundos
+
+
+def _jupiter_fetch(mints: dict) -> dict:
+    """Fetch live prices from Jupiter API v3 for real-time dashboard updates.
+    v3 returns data directly at root level (not wrapped in 'data' key).
+    """
+    import requests as req
+    try:
+        mint_ids = ",".join(mints.values())
+        r = req.get(f"https://lite-api.jup.ag/price/v3?ids={mint_ids}", timeout=5)
+        if r.status_code == 200:
+            raw = r.json()
+            prices = {}
+            for symbol, mint in mints.items():
+                price_data = raw.get(mint, {})
+                if price_data:
+                    prices[symbol] = float(price_data.get("usdPrice", 0))
+            return prices
+    except Exception:
+        pass
+    return {}
+
+
+def get_live_prices(symbols: list) -> dict:
+    """Get live prices with 2-second cache."""
+    import time as _time
+    now = _time.time()
+    
+    if now - _price_cache["last_fetch"] < PRICE_CACHE_TTL and _price_cache["prices"]:
+        return _price_cache["prices"]
+    
+    # Cargar mints de market_data
+    market = load_json(DATA / "market_latest.json")
+    tokens = market.get("tokens", {})
+    mints = {s: tokens[s]["mint"] for s in symbols if s in tokens and "mint" in tokens[s]}
+    
+    if mints:
+        live = _jupiter_fetch(mints)
+        if live:
+            _price_cache["prices"] = live
+            _price_cache["last_fetch"] = now
+            return live
+    
+    return {}
+
+
 @app.route('/api/positions')
 def api_positions():
     port = load_portfolio()
@@ -1474,9 +1523,35 @@ def api_positions():
         trades_raw = load_trade_history()
         open_pos = [t for t in trades_raw if t.get("status") == "open"]
 
+    # Fetch live prices for all open position symbols
+    symbols = [t.get("symbol", "") for t in open_pos]
+    live_prices = get_live_prices(symbols) if symbols else {}
+
     result = []
     for t in open_pos:
         ot = t.get("open_time", "")
+        symbol = t.get("symbol", "")
+        direction = t.get("direction", "long")
+        entry_price = safe_float(t.get("entry_price", 0))
+        
+        # Use live price if available, fallback to stored price
+        current_price = live_prices.get(symbol, safe_float(t.get("current_price", 0)))
+        
+        # Recalculate P&L with live price
+        margin = safe_float(t.get("margin_usd", 0))
+        leverage = safe_float(t.get("leverage", 3))
+        size_usd = margin * leverage
+        
+        if entry_price > 0 and current_price > 0:
+            if direction == "long":
+                pnl_pct = ((current_price - entry_price) / entry_price) * 100
+            else:  # short
+                pnl_pct = ((entry_price - current_price) / entry_price) * 100
+            pnl_usd = (pnl_pct / 100) * size_usd
+        else:
+            pnl_pct = safe_float(t.get("pnl_pct", 0))
+            pnl_usd = safe_float(t.get("pnl_usd", 0))
+        
         # Compute time open
         time_open_str = "—"
         if ot:
@@ -1490,14 +1565,14 @@ def api_positions():
             except Exception:
                 pass
         result.append({
-            "symbol":        t.get("symbol", ""),
-            "direction":     t.get("direction", "long"),
-            "entry_price":   safe_float(t.get("entry_price", 0)),
-            "current_price": safe_float(t.get("current_price", 0)),
-            "pnl_usd":       round(safe_float(t.get("pnl_usd", 0)), 4),
-            "pnl_pct":       round(safe_float(t.get("pnl_pct", 0)), 4),
-            "margin_usd":    safe_float(t.get("margin_usd", 0)),
-            "size_usd":      safe_float(t.get("size_usd", 0)),
+            "symbol":        symbol,
+            "direction":     direction,
+            "entry_price":   entry_price,
+            "current_price": round(current_price, 8),
+            "pnl_usd":       round(pnl_usd, 4),
+            "pnl_pct":       round(pnl_pct, 4),
+            "margin_usd":    margin,
+            "size_usd":      round(size_usd, 2),
             "sl_price":      safe_float(t.get("sl_price", 0)),
             "tp_price":      safe_float(t.get("tp_price", 0)),
             "strategy":      t.get("strategy", ""),
