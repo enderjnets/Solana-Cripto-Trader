@@ -61,6 +61,11 @@ log = logging.getLogger("executor")
 INITIAL_CAPITAL = 500.0   # Capital paper inicial
 PAPER_MODE      = True    # Cambia a False para trades reales
 
+# ─── Risk Management (ajustado 27-Mar-2026) ──────────────────────────────────
+MIN_CONFIDENCE      = 0.85     # Solo ejecutar señales con alta confianza (antes 0.75)
+BLOCK_LONGS_FG      = 35       # Bloquear LONGs si Fear & Greed < 35 (mercado bajista)
+MAX_TRADES_PER_DAY  = 10       # Máximo de trades por día para evitar overtrading
+
 # ─── Drift Protocol Simulation ───────────────────────────────────────────────
 TAKER_FEE           = 0.001    # 0.1% taker fee (Drift Protocol)
 MAKER_FEE           = 0.001    # 0.1% maker fee (Drift Protocol)
@@ -248,6 +253,19 @@ def close_positions_emergency(portfolio: dict, symbols: list, market: dict, hist
 
 # ─── Paper Trading ────────────────────────────────────────────────────────────
 
+def get_fear_greed_index() -> int:
+    """Obtiene el Fear & Greed index actual (0-100)."""
+    try:
+        fg_file = DATA_DIR / "market_latest.json"
+        if fg_file.exists():
+            with open(fg_file) as f:
+                data = json.load(f)
+                return int(data.get("fear_greed", {}).get("value", 50))
+    except Exception:
+        pass
+    return 50  # Neutral por defecto
+
+
 def paper_open_position(signal: dict, portfolio: dict, market: dict) -> Optional[dict]:
     """
     Abre una posición en paper trading simulando Drift Protocol.
@@ -256,6 +274,22 @@ def paper_open_position(signal: dict, portfolio: dict, market: dict) -> Optional
     - Calcula precio de liquidación
     """
     symbol = signal["symbol"]
+    direction = signal.get("direction", "")
+    confidence = signal.get("confidence", 0)
+    
+    # ─── Risk Filters (27-Mar-2026) ───────────────────────────────────────────
+    # 1. Filtrar por confidence mínima
+    if confidence < MIN_CONFIDENCE:
+        log.info(f"⏭️  Señal {symbol} ignorada: confidence {confidence:.2f} < {MIN_CONFIDENCE}")
+        return None
+    
+    # 2. Bloquear LONGs en mercado bajista (Fear & Greed < threshold)
+    if direction == "long":
+        fear_greed = get_fear_greed_index()
+        if fear_greed < BLOCK_LONGS_FG:
+            log.info(f"⏭️  LONG {symbol} bloqueado: Fear & Greed {fear_greed} < {BLOCK_LONGS_FG} (mercado bajista)")
+            return None
+    
     price = get_current_price(symbol, market)
 
     if price <= 0:
@@ -292,9 +326,9 @@ def paper_open_position(signal: dict, portfolio: dict, market: dict) -> Optional
     else:
         liq_price = price * (1 + (margin_usd - fee_entry) / notional_value)
 
-    # SL/TP defaults
-    sl_pct = 0.025
-    tp_pct = 0.05
+    # SL/TP defaults (ajustados 27-Mar-2026 para reducir stops prematuros)
+    sl_pct = 0.035  # 3.5% SL (antes 2.5%)
+    tp_pct = 0.07   # 7% TP (antes 5%)
     sl_price = price * (1 - sl_pct) if signal["direction"] == "long" else price * (1 + sl_pct)
     tp_price = price * (1 + tp_pct) if signal["direction"] == "long" else price * (1 - tp_pct)
 
@@ -656,6 +690,21 @@ def run(safe: bool = True, debug: bool = False) -> dict:
         return {
             "status": "max_daily_loss",
             "daily_pnl": round(today_pnl, 2),
+            "capital": portfolio["capital_usd"],
+            "opened": 0,
+            "closed": len(closed_this_cycle),
+        }
+
+    # ── Max trades per day: prevent overtrading loop ──
+    MAX_TRADES_PER_DAY = 10
+    today_trade_count = portfolio.get("total_trades", 0)
+    if today_trade_count >= MAX_TRADES_PER_DAY:
+        log.warning(f"🛑 MAX TRADES/DAY hit: {today_trade_count} >= {MAX_TRADES_PER_DAY}. No new trades today.")
+        save_portfolio(portfolio)
+        save_history(history)
+        return {
+            "status": "max_daily_trades",
+            "trades_today": today_trade_count,
             "capital": portfolio["capital_usd"],
             "opened": 0,
             "closed": len(closed_this_cycle),
