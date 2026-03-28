@@ -41,9 +41,9 @@ log = logging.getLogger("auto_learner")
 
 # ─── Parámetros de Aprendizaje ────────────────────────────────────────────────
 
-ADAPTATION_RATE = 0.1    # Qué tan rápido adaptar (0-1)
-MIN_TRADES_TO_LEARN = 10 # Mínimo trades antes de ajustar
-PERFORMANCE_WINDOW = 20  # Últimos 20 trades para análisis
+ADAPTATION_RATE = 0.2    # Qué tan rápido adaptar (0-1) — aumentado de 0.1
+MIN_TRADES_TO_LEARN = 5  # Mínimo trades antes de ajustar — reducido de 10
+PERFORMANCE_WINDOW = 30  # Últimos 30 trades para análisis — aumentado de 20
 MIN_CONFIDENCE = 0.5    # Confianza mínima
 MAX_CONFIDENCE = 0.95   # Confianza máxima
 
