@@ -502,6 +502,16 @@ DASHBOARD_HTML = r"""
     </div>
   </section>
 
+  <!-- RESET HISTORY -->
+  <section>
+    <div class="section-title">📊 Historial de Resets</div>
+    <div class="card">
+      <div class="table-wrap" id="resetHistoryTable">
+        <div class="empty">Sin resets registrados</div>
+      </div>
+    </div>
+  </section>
+
   <!-- BOTTOM ROW: LOG + ADVANCED METRICS -->
   <section>
     <div class="grid-2">
@@ -599,7 +609,8 @@ async function refreshAll() {
       loadEquity(),
       loadPositions(),
       loadTrades(),
-      loadLog()
+      loadLog(),
+      loadResetHistory()
     ]);
     document.getElementById('lastUpdate').textContent =
       'Actualizado: ' + new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -886,6 +897,76 @@ async function loadLog() {
     return `<div class="log-line ${cls}">${escHtml(line)}</div>`;
   }).join('');
   el.scrollTop = el.scrollHeight;
+}
+
+async function loadResetHistory() {
+  const r = await fetch('/api/reset-history');
+  const d = await r.json();
+  const el = document.getElementById('resetHistoryTable');
+  
+  if (!d.history || d.history.length === 0) {
+    el.innerHTML = '<div class="empty">Sin resets registrados — el historial aparecerá después del primer reset</div>';
+    return;
+  }
+  
+  // Ordenar por fecha (más reciente primero)
+  const history = d.history.sort((a, b) => new Date(b.reset_date) - new Date(a.reset_date));
+  
+  let html = `<table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Fecha Reset</th>
+        <th>Capital Inicial</th>
+        <th>Capital Final</th>
+        <th>Retorno</th>
+        <th>Trades</th>
+        <th>W/L/F</th>
+        <th>Win Rate</th>
+        <th>Mejor</th>
+        <th>Peor</th>
+      </tr>
+    </thead>
+    <tbody>`;
+  
+  history.forEach((h, i) => {
+    const num = history.length - i;
+    const date = new Date(h.reset_date).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: '2-digit', hour: '2-digit', minute: '2-digit' });
+    const returnCls = h.return_pct >= 0 ? 'positive' : 'negative';
+    const returnSign = h.return_pct >= 0 ? '+' : '';
+    
+    html += `<tr>
+      <td><strong>${num}</strong></td>
+      <td>${date}</td>
+      <td>$${h.initial_capital.toFixed(2)}</td>
+      <td>$${h.final_capital.toFixed(2)}</td>
+      <td class="${returnCls}">${returnSign}${h.return_pct.toFixed(2)}%</td>
+      <td>${h.total_trades}</td>
+      <td><span class="positive">${h.wins}</span>/<span class="negative">${h.losses}</span>/${h.flat}</td>
+      <td>${h.win_rate.toFixed(1)}%</td>
+      <td class="positive">$${h.best_trade_usd.toFixed(2)}</td>
+      <td class="negative">$${h.worst_trade_usd.toFixed(2)}</td>
+    </tr>`;
+  });
+  
+  html += '</tbody></table>';
+  
+  // Agregar resumen de tendencia
+  if (history.length >= 2) {
+    const avgReturn = history.reduce((sum, h) => sum + h.return_pct, 0) / history.length;
+    const avgWinRate = history.reduce((sum, h) => sum + h.win_rate, 0) / history.length;
+    const improving = history[0].return_pct > history[1].return_pct;
+    const trend = improving ? '📈 Mejorando' : '📉 Empeorando';
+    const trendCls = improving ? 'positive' : 'negative';
+    
+    html += `<div style="margin-top: 12px; padding: 10px; background: var(--bg3); border-radius: 6px; font-size: 12px;">
+      <strong>Tendencia:</strong> <span class="${trendCls}">${trend}</span> |
+      <strong>Retorno Promedio:</strong> ${avgReturn >= 0 ? '+' : ''}${avgReturn.toFixed(2)}% |
+      <strong>Win Rate Promedio:</strong> ${avgWinRate.toFixed(1)}%
+    </div>`;
+  }
+  
+  el.innerHTML = html;
 }
 
 // ── Filtering / Pagination ─────────────────────────────────────────────────
@@ -1622,6 +1703,20 @@ def api_positions():
     return jsonify({"positions": result})
 
 
+@app.route('/api/reset-history')
+def api_reset_history():
+    """Get reset history for tracking progress."""
+    reset_history_file = DATA / "reset_history.json"
+    if reset_history_file.exists():
+        try:
+            with open(reset_history_file) as f:
+                history = json.load(f)
+            return jsonify({"history": history})
+        except:
+            pass
+    return jsonify({"history": []})
+
+
 @app.route('/api/log')
 def api_log():
     lines = []
@@ -1644,6 +1739,66 @@ def api_reset():
         
         now = datetime.now(timezone.utc).isoformat()
         today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        
+        # === GUARDAR SNAPSHOT ANTES DEL RESET ===
+        old_portfolio = load_portfolio()
+        old_history = load_trade_history()
+        
+        # Calcular estadísticas del período que termina
+        total_trades = len([t for t in old_history if t.get("status") == "closed"])
+        wins = len([t for t in old_history if t.get("status") == "closed" and safe_float(t.get("pnl_usd", 0)) > 0])
+        losses = len([t for t in old_history if t.get("status") == "closed" and safe_float(t.get("pnl_usd", 0)) < 0])
+        flat = total_trades - wins - losses
+        
+        total_pnl = sum(safe_float(t.get("pnl_usd", 0)) for t in old_history if t.get("status") == "closed")
+        
+        old_capital = safe_float(old_portfolio.get("capital_usd", 500))
+        old_initial = safe_float(old_portfolio.get("initial_capital", 500))
+        return_pct = ((old_capital - old_initial) / old_initial * 100) if old_initial > 0 else 0
+        
+        win_rate = (wins / total_trades * 100) if total_trades > 0 else 0
+        
+        # Mejor y peor trade
+        pnls = [safe_float(t.get("pnl_usd", 0)) for t in old_history if t.get("status") == "closed"]
+        best_trade = max(pnls) if pnls else 0
+        worst_trade = min(pnls) if pnls else 0
+        
+        # Crear entrada de historial
+        reset_entry = {
+            "reset_date": now,
+            "period_start": old_portfolio.get("created_at", "unknown"),
+            "period_end": now,
+            "initial_capital": old_initial,
+            "final_capital": old_capital,
+            "return_pct": round(return_pct, 2),
+            "total_pnl_usd": round(total_pnl, 2),
+            "total_trades": total_trades,
+            "wins": wins,
+            "losses": losses,
+            "flat": flat,
+            "win_rate": round(win_rate, 2),
+            "best_trade_usd": round(best_trade, 2),
+            "worst_trade_usd": round(worst_trade, 2),
+            "new_capital": capital,
+            "reason": data.get("reason", "Manual reset")
+        }
+        
+        # Cargar historial existente y agregar
+        reset_history_file = DATA / "reset_history.json"
+        reset_history = []
+        if reset_history_file.exists():
+            try:
+                with open(reset_history_file) as f:
+                    reset_history = json.load(f)
+            except:
+                reset_history = []
+        
+        reset_history.append(reset_entry)
+        
+        with open(reset_history_file, "w") as f:
+            json.dump(reset_history, f, indent=2)
+        
+        # === CONTINUAR CON EL RESET NORMAL ===
         
         # 1. Portfolio
         portfolio = {
