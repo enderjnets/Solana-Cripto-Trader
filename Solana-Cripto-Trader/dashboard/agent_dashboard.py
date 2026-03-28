@@ -124,6 +124,36 @@ def create_dashboard():
     with st.sidebar:
         st.header("🤖 System Status")
 
+        # === RESET BOT BUTTON ===
+        st.markdown("---")
+        st.subheader("🔄 Reset Bot")
+        reset_capital = st.number_input("Capital ($)", value=500.0, min_value=100.0, step=100.0, key="reset_capital")
+        
+        if st.button("🔄 RESET BOT", type="primary", use_container_width=True):
+            try:
+                from pathlib import Path
+                import sys
+                reset_script = Path(__file__).parent.parent / "agents" / "reset_bot.py"
+                if reset_script.exists():
+                    # Import and run reset
+                    sys.path.insert(0, str(reset_script.parent))
+                    from reset_bot import reset_all
+                    result = reset_all(reset_capital)
+                    if result["success"]:
+                        st.success(f"✅ Bot reseteado a ${reset_capital}")
+                        st.balloons()
+                        time.sleep(1)
+                        st.rerun()
+                    else:
+                        st.error("Error al resetear")
+                else:
+                    st.error("reset_bot.py no encontrado")
+            except Exception as e:
+                st.error(f"Error: {e}")
+        
+        st.caption("⚠️ Esto borra todo el historial")
+        st.markdown("---")
+
         # Runner status
         r_color = "#00ff88" if runner_running else "#ff6b6b"
         r_status = "RUNNING" if runner_running else "STOPPED"

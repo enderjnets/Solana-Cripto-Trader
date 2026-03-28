@@ -125,6 +125,12 @@ DASHBOARD_HTML = r"""
     cursor: pointer; font-size: 12px; transition: all .2s;
   }
   .btn-refresh:hover { background: var(--blue); color: var(--bg); }
+  .btn-reset {
+    background: var(--bg3); border: 1px solid var(--orange);
+    color: var(--orange); padding: 6px 14px; border-radius: 6px;
+    cursor: pointer; font-size: 12px; transition: all .2s; margin-left: 8px;
+  }
+  .btn-reset:hover { background: var(--orange); color: var(--bg); }
   .mode-badge {
     font-size: 11px; padding: 2px 8px; border-radius: 10px;
     background: rgba(188,140,255,0.15); color: var(--purple); border: 1px solid var(--purple);
@@ -334,6 +340,7 @@ DASHBOARD_HTML = r"""
     </div>
     <div class="last-update" id="lastUpdate">Actualizado: —</div>
     <button class="btn-refresh" onclick="refreshAll()">⟳ Refresh</button>
+    <button class="btn-reset" onclick="resetBot()">🔄 Reset</button>
   </div>
 </div>
 
@@ -598,6 +605,39 @@ async function refreshAll() {
       'Actualizado: ' + new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
   } catch(e) {
     console.error('Refresh error:', e);
+  }
+}
+
+async function resetBot() {
+  const capital = prompt('¿Capital inicial para resetear? (USD)', '500');
+  if (!capital) return;
+  
+  const capitalNum = parseFloat(capital);
+  if (isNaN(capitalNum) || capitalNum < 100) {
+    alert('Capital inválido (mínimo $100)');
+    return;
+  }
+  
+  if (!confirm(`⚠️ ¿Resetear el bot a $${capitalNum}?\n\nEsto borrará TODO el historial de trades.`)) {
+    return;
+  }
+  
+  try {
+    const r = await fetch('/api/reset', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ capital: capitalNum })
+    });
+    const d = await r.json();
+    
+    if (d.success) {
+      alert(`✅ Bot reseteado a $${capitalNum}\n\nLa página se recargará.`);
+      location.reload();
+    } else {
+      alert('❌ Error: ' + (d.error || 'Unknown'));
+    }
+  } catch(e) {
+    alert('❌ Error de conexión: ' + e.message);
   }
 }
 
@@ -1593,6 +1633,114 @@ def api_log():
     except Exception as e:
         lines = [f"Error leyendo log: {e}"]
     return jsonify({"lines": lines})
+
+
+@app.route('/api/reset', methods=['POST'])
+def api_reset():
+    """Reset all bot state to initial values."""
+    try:
+        data = request.get_json() or {}
+        capital = float(data.get("capital", 500.0))
+        
+        now = datetime.now(timezone.utc).isoformat()
+        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        
+        # 1. Portfolio
+        portfolio = {
+            "capital_usd": capital,
+            "initial_capital": capital,
+            "positions": [],
+            "status": "ACTIVE",
+            "mode": "paper_drift",
+            "created_at": now,
+            "last_updated": now,
+            "total_trades": 0,
+            "wins": 0,
+            "losses": 0
+        }
+        with open(DATA / "portfolio.json", "w") as f:
+            json.dump(portfolio, f, indent=2)
+        
+        # 2. Trade History
+        with open(DATA / "trade_history.json", "w") as f:
+            json.dump([], f)
+        
+        # 3. Daily Target State
+        daily_state = {
+            "date": today,
+            "starting_capital": capital,
+            "target_reached": False,
+            "closed_at": None,
+            "enabled": True,
+            "current_pnl_pct": 0.0,
+            "target_pct": 0.05
+        }
+        with open(DATA / "daily_target_state.json", "w") as f:
+            json.dump(daily_state, f, indent=2)
+        
+        # 4. Daily Report
+        daily_report = {
+            "timestamp": now,
+            "capital_usd": capital,
+            "equity": capital,
+            "pnl_total_usd": 0.0,
+            "pnl_total_pct": 0.0,
+            "total_trades": 0,
+            "wins": 0,
+            "losses": 0,
+            "win_rate": 0.0,
+            "profit_factor": 0.0,
+            "drawdown_pct": 0.0,
+            "positions_open": 0
+        }
+        with open(DATA / "daily_report.json", "w") as f:
+            json.dump(daily_report, f, indent=2)
+        
+        # 5. Compound State
+        compound = {
+            "enabled": True,
+            "last_compound": None,
+            "compound_count": 0,
+            "total_compounded": 0.0
+        }
+        with open(DATA / "compound_state.json", "w") as f:
+            json.dump(compound, f, indent=2)
+        
+        # 6. Auto Learner State
+        learner = {
+            "params": {
+                "sl_pct": 0.025,
+                "tp_pct": 0.05,
+                "leverage_tier": 2,
+                "risk_per_trade": 0.02,
+                "max_positions": 5
+            },
+            "total_trades_learned": 0,
+            "last_adaptation": None,
+            "adaptation_count": 0,
+            "last_updated": now,
+            "notes": f"Dashboard reset - capital ${capital}"
+        }
+        with open(DATA / "auto_learner_state.json", "w") as f:
+            json.dump(learner, f, indent=2)
+        
+        # 7. Alerts State
+        alerts = {
+            "last_daily_report": "",
+            "alerted_trades": [],
+            "reset_at": now
+        }
+        with open(DATA / "alerts_state.json", "w") as f:
+            json.dump(alerts, f, indent=2)
+        
+        return jsonify({
+            "success": True,
+            "capital": capital,
+            "timestamp": now,
+            "message": f"Bot reseteado a ${capital}"
+        })
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
 
 
 if __name__ == '__main__':
