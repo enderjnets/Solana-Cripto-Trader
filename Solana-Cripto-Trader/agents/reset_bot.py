@@ -79,23 +79,33 @@ def reset_all(capital: float = 500.0):
     (DATA_DIR / "compound_state.json").write_text(json.dumps(compound, indent=2))
     results.append("✅ compound_state.json")
     
-    # 6. Auto Learner State
-    learner = {
-        "params": {
-            "sl_pct": 0.025,
-            "tp_pct": 0.05,
-            "leverage_tier": 2,
-            "risk_per_trade": 0.02,
-            "max_positions": 5
-        },
-        "total_trades_learned": 0,
-        "last_adaptation": None,
-        "adaptation_count": 0,
-        "last_updated": now,
-        "notes": f"Fresh reset - capital ${capital}"
-    }
-    (DATA_DIR / "auto_learner_state.json").write_text(json.dumps(learner, indent=2))
-    results.append("✅ auto_learner_state.json")
+    # 6. Auto Learner State — PRESERVAR conocimiento aprendido
+    learner_file = DATA_DIR / "auto_learner_state.json"
+    if learner_file.exists():
+        # Mantener parámetros aprendidos, solo actualizar timestamp
+        existing_learner = json.loads(learner_file.read_text())
+        existing_learner["last_updated"] = now
+        existing_learner["notes"] = f"Reset capital ${capital} - conocimiento preservado"
+        learner_file.write_text(json.dumps(existing_learner, indent=2))
+        results.append("✅ auto_learner_state.json (PRESERVADO)")
+    else:
+        # Solo crear nuevo si no existe
+        learner = {
+            "params": {
+                "sl_pct": 0.025,
+                "tp_pct": 0.05,
+                "leverage_tier": 2,
+                "risk_per_trade": 0.02,
+                "max_positions": 5
+            },
+            "total_trades_learned": 0,
+            "last_adaptation": None,
+            "adaptation_count": 0,
+            "last_updated": now,
+            "notes": f"Fresh start - capital ${capital}"
+        }
+        learner_file.write_text(json.dumps(learner, indent=2))
+        results.append("✅ auto_learner_state.json (nuevo)")
     
     # 7. Alerts State
     alerts = {

@@ -1706,23 +1706,32 @@ def api_reset():
         with open(DATA / "compound_state.json", "w") as f:
             json.dump(compound, f, indent=2)
         
-        # 6. Auto Learner State
-        learner = {
-            "params": {
-                "sl_pct": 0.025,
-                "tp_pct": 0.05,
-                "leverage_tier": 2,
-                "risk_per_trade": 0.02,
-                "max_positions": 5
-            },
-            "total_trades_learned": 0,
-            "last_adaptation": None,
-            "adaptation_count": 0,
-            "last_updated": now,
-            "notes": f"Dashboard reset - capital ${capital}"
-        }
-        with open(DATA / "auto_learner_state.json", "w") as f:
-            json.dump(learner, f, indent=2)
+        # 6. Auto Learner State — PRESERVAR conocimiento aprendido
+        learner_file = DATA / "auto_learner_state.json"
+        if learner_file.exists():
+            with open(learner_file) as f:
+                existing_learner = json.load(f)
+            existing_learner["last_updated"] = now
+            existing_learner["notes"] = f"Reset capital ${capital} - conocimiento preservado"
+            with open(learner_file, "w") as f:
+                json.dump(existing_learner, f, indent=2)
+        else:
+            learner = {
+                "params": {
+                    "sl_pct": 0.025,
+                    "tp_pct": 0.05,
+                    "leverage_tier": 2,
+                    "risk_per_trade": 0.02,
+                    "max_positions": 5
+                },
+                "total_trades_learned": 0,
+                "last_adaptation": None,
+                "adaptation_count": 0,
+                "last_updated": now,
+                "notes": f"Fresh start - capital ${capital}"
+            }
+            with open(learner_file, "w") as f:
+                json.dump(learner, f, indent=2)
         
         # 7. Alerts State
         alerts = {
