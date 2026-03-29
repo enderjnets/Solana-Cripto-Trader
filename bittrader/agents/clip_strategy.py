@@ -316,8 +316,8 @@ def _generate_sdxl_image(prompt: str, out_path: Path) -> bool:
         "parameters": {
             "num_inference_steps": 25,
             "guidance_scale":      7.5,
-            "width":               1024,
-            "height":              576,  # ~16:9 for longs (will be scaled by ffmpeg)
+            "width":               1344,  # 16:9 landscape (1344x768 es nativo SDXL horizontal)
+            "height":              768,
         },
     }
 
@@ -376,8 +376,18 @@ def _image_to_kenburns_clip(img_path: Path, out_path: Path, video_type: str = "l
     ]
     kb_expr = KB_STYLES[clip_num % len(KB_STYLES)]
 
+    # Primero crop a aspect ratio correcto (16:9 para longs, 9:16 para shorts)
+    # Esto garantiza que imágenes cuadradas (1024x1024) o verticales no tengan barras negras
+    if video_type == "short":
+        # Para shorts: crop a 9:16 (portrait) — iw*9/16 de alto o usar todo el alto
+        crop_filter = f"crop=min(iw\\,ih*9/16):min(ih\\,iw*16/9):(iw-min(iw\\,ih*9/16))/2:(ih-min(ih\\,iw*16/9))/2,"
+    else:
+        # Para longs: crop a 16:9 (landscape) — asegura que no haya barras negras
+        crop_filter = f"crop=min(iw\\,ih*16/9):min(ih\\,iw*9/16):(iw-min(iw\\,ih*16/9))/2:(ih-min(ih\\,iw*9/16))/2,"
+
     # scale to large canvas first (zoompan needs it), then encode
     vf = (
+        f"{crop_filter}"
         f"scale=8000:-1:flags=lanczos,"
         f"{kb_expr},"
         f"setsar=1,fps=30"
