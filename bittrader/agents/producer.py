@@ -1195,8 +1195,17 @@ def assemble_video(clips: list, audio_path: Path, output_path: Path,
                 )
     
     # BitTrader logo overlay (top-right corner, 240px, semi-transparent)
-    LOGO_PATH = WORKSPACE / "videos/BIBLIOTECA/bittrader_logo.png"
+    # Buscar logo en múltiples rutas (orden de preferencia)
+    _logo_candidates = [
+        WORKSPACE / "bittrader/assets/bittrader_logo_transparent.png",
+        WORKSPACE / "bittrader/assets/bittrader_logo.png",
+        WORKSPACE / "videos/BIBLIOTECA/bittrader_logo.png",
+        BITTRADER / "assets/bittrader_logo.png",
+    ]
+    LOGO_PATH = next((p for p in _logo_candidates if p.exists()), None) or (WORKSPACE / "videos/BIBLIOTECA/bittrader_logo.png")
     has_logo = LOGO_PATH.exists()
+    if not has_logo:
+        print(f"      ⚠️  LOGO NO ENCONTRADO — video saldrá sin logo BitTrader. Rutas buscadas: {[str(p) for p in _logo_candidates]}")
 
     # Logo size: 240px for shorts (vertical), 180px for longs
     logo_size = 240 if video_type == "short" else 180
