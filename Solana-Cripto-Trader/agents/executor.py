@@ -64,7 +64,7 @@ PAPER_MODE      = True    # Cambia a False para trades reales
 # ─── Risk Management (ajustado 27-Mar-2026) ──────────────────────────────────
 MIN_CONFIDENCE      = 0.85     # Solo ejecutar señales con alta confianza (antes 0.75)
 BLOCK_LONGS_FG      = 35       # Bloquear LONGs si Fear & Greed < 35 (mercado bajista)
-MAX_TRADES_PER_DAY  = 10       # Máximo de trades por día para evitar overtrading
+MAX_TRADES_PER_DAY  = 0        # 0 = sin límite (orden de Ender 2026-03-29)
 
 # ─── Drift Protocol Simulation ───────────────────────────────────────────────
 TAKER_FEE           = 0.001    # 0.1% taker fee (Drift Protocol)
@@ -695,10 +695,10 @@ def run(safe: bool = True, debug: bool = False) -> dict:
             "closed": len(closed_this_cycle),
         }
 
-    # ── Max trades per day: prevent overtrading loop ──
-    MAX_TRADES_PER_DAY = 10
+    # ── Max trades per day: 0 = sin límite (orden Ender 2026-03-29) ──
+    MAX_TRADES_PER_DAY = 0
     today_trade_count = portfolio.get("total_trades", 0)
-    if today_trade_count >= MAX_TRADES_PER_DAY:
+    if MAX_TRADES_PER_DAY > 0 and today_trade_count >= MAX_TRADES_PER_DAY:
         log.warning(f"🛑 MAX TRADES/DAY hit: {today_trade_count} >= {MAX_TRADES_PER_DAY}. No new trades today.")
         save_portfolio(portfolio)
         save_history(history)
