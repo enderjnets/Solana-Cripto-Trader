@@ -14,7 +14,30 @@ DATA_DIR = BASE_DIR / "data"
 sys.path.insert(0, str(BASE_DIR))
 
 import logging
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(name)s] %(message)s", datefmt="%H:%M:%S")
+
+LOG_FILE = Path.home() / ".config" / "solana-jupiter-bot" / "modular.log"
+LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
+
+# ── Rotación de logs (si > 50MB) ─────────────────────────────────────────────
+def _rotate_log_if_needed():
+    try:
+        if LOG_FILE.exists() and LOG_FILE.stat().st_size >= 50 * 1024 * 1024:
+            old = LOG_FILE.with_suffix(".log.old")
+            LOG_FILE.rename(old)
+    except Exception:
+        pass
+
+_rotate_log_if_needed()
+
+# ── Logging unificado: formato [YYYY-MM-DD HH:MM:SS] [NIVEL] mensaje ─────────
+logging.basicConfig(
+    level=logging.INFO,
+    format="[%(asctime)s] [%(levelname)s] %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+    handlers=[
+        logging.StreamHandler(),            # stdout → capturado por watchdog en LOG_FILE
+    ],
+)
 log = logging.getLogger("orchestrator")
 
 # ─── Circuit Breaker ─────────────────────────────────────────────────────────
@@ -363,7 +386,33 @@ def run_cycle(safe=True, debug=False):
     }
     report_file = DATA_DIR / "report_latest.json"
     report_file.write_text(json.dumps(report, indent=2))
-    
+
+    # ── HEALTH LINE ───────────────────────────────────────────────────────────
+    # Extraer equity y posiciones del portfolio para la línea de salud
+    try:
+        pf = json.loads(portfolio_file.read_text()) if portfolio_file.exists() else {}
+        equity = pf.get("equity", pf.get("balance", 0.0))
+        n_positions = len([p for p in pf.get("positions", []) if p.get("status") == "open"])
+    except Exception:
+        equity = 0.0
+        n_positions = 0
+    exit_code = 0 if health_score >= 4 else 1
+    ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    health_line = (
+        f"[{ts}] [HEALTH] Ciclo completado — exit_code={exit_code} "
+        f"— equity=${equity:.2f} — posiciones={n_positions}"
+    )
+    # Escribir directamente para garantizar el tag [HEALTH] literal
+    print(health_line, flush=True)
+    try:
+        with open(LOG_FILE, "a") as _lf:
+            _lf.write(health_line + "\n")
+    except Exception:
+        pass
+
+    # Rotar log al finalizar si supera 50MB (doble check desde Python)
+    _rotate_log_if_needed()
+
     return results
 
 
