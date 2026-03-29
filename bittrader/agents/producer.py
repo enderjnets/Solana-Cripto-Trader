@@ -80,6 +80,25 @@ EDGE_TTS_RATE = "+10%"
 COIN_LOGOS_DIR = DATA_DIR / "coin_logos"
 COIN_LOGOS_DIR.mkdir(parents=True, exist_ok=True)
 
+# ── Encoding estándar — compatible con YouTube Y Telegram/móvil ────────────
+# Orden de Ender 2026-03-28: SIEMPRE usar estos flags en el video final
+# profile:v baseline + level 3.1 + pix_fmt yuv420p = compatible con todos los players
+VIDEO_ENCODE_FLAGS = [
+    "-c:v", "libx264",
+    "-preset", "fast",
+    "-crf", "23",
+    "-profile:v", "baseline",
+    "-level", "3.1",
+    "-pix_fmt", "yuv420p",
+    "-movflags", "+faststart",
+]
+AUDIO_ENCODE_FLAGS = [
+    "-c:a", "aac",
+    "-b:a", "192k",
+    "-ar", "44100",
+    "-ac", "2",
+]
+
 # ── LLM for script operations ─────────────────────────────────────────────
 CLAUDE_BASE_URL = "http://127.0.0.1:8443/v1/messages"
 CLAUDE_MODEL = "claude-sonnet-4-6"
@@ -1248,10 +1267,9 @@ def assemble_video(clips: list, audio_path: Path, output_path: Path,
                 "-i", str(LOGO_PATH),
                 "-i", str(coin_logo_path),
                 "-filter_complex", filter_complex,
-                "-c:v", "libx264", "-preset", "fast", "-crf", "23",
-                "-c:a", "aac", "-b:a", "192k", "-ar", "44100",
+                *VIDEO_ENCODE_FLAGS,
+                *AUDIO_ENCODE_FLAGS,
                 "-shortest",
-                "-movflags", "+faststart",
                 str(output_path)
             ]
             print(f"      🪙 Coin logo overlay: {coin_logo_path.name}")
@@ -1266,10 +1284,9 @@ def assemble_video(clips: list, audio_path: Path, output_path: Path,
                 "-i", str(audio_path),
                 "-i", str(LOGO_PATH),
                 "-filter_complex", filter_complex,
-                "-c:v", "libx264", "-preset", "fast", "-crf", "23",
-                "-c:a", "aac", "-b:a", "192k", "-ar", "44100",
+                *VIDEO_ENCODE_FLAGS,
+                *AUDIO_ENCODE_FLAGS,
                 "-shortest",
-                "-movflags", "+faststart",
                 str(output_path)
             ]
     else:
@@ -1303,10 +1320,9 @@ def assemble_video(clips: list, audio_path: Path, output_path: Path,
         if vf:
             cmd2 += ["-vf", subtitle_filter.lstrip(",")]
         cmd2 += [
-            "-c:v", "libx264", "-preset", "fast", "-crf", "23",
-            "-c:a", "aac", "-b:a", "192k", "-ar", "44100",
+            *VIDEO_ENCODE_FLAGS,
+            *AUDIO_ENCODE_FLAGS,
             "-shortest",
-            "-movflags", "+faststart",
             str(output_path)
         ]
     
