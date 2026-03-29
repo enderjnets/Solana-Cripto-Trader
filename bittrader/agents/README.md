@@ -59,6 +59,42 @@ python3 orchestrator.py --process-queue
 python3 orchestrator.py --full --dry-run
 ```
 
+## ⚠️ REGLA OBLIGATORIA — Clips e imágenes con modelos locales en Mac (orden de Ender, 2026-03-28)
+
+**Los clips de video y las imágenes/thumbnails DEBEN generarse con modelos locales en MacBook Pro y/o MacBook Air cuando estén disponibles.**
+
+- **Si ambas Macs están disponibles → correr EN PARALELO** para máxima velocidad (MacBook Pro + MacBook Air simultáneamente)
+- **Solo MacBook Pro disponible** → usar MacBook Pro
+- **Solo MacBook Air disponible** → usar MacBook Air
+- **Ninguna Mac disponible** → usar APIs externas (MiniMax Hailuo, SDXL HuggingFace) como último recurso
+- Antes de cada ciclo de producción: verificar disponibilidad de ambas Macs vía red local o Tailscale
+- Documentar en el log qué dispositivo(s) generaron los clips de cada video
+
+---
+
+## ⚠️ REGLA OBLIGATORIA — Persona en thumbnails (orden de Ender, 2026-03-28)
+
+**TODO thumbnail DEBE tener una persona real con expresión dramática. SIN PERSONA = FALLA QA AUTOMÁTICAMENTE.**
+
+- Thumbnail sin persona → QA lo rechaza, no se sube
+- Si SDXL falla → reintentar con 3 modelos de fallback
+- Solo texto/gráficos = inaceptable según Ender
+
+---
+
+## ⚠️ REGLA OBLIGATORIA — QA antes de subir (orden de Ender, 2026-03-28)
+
+**NINGÚN video puede subirse a YouTube sin pasar el QA Agent primero.**
+
+Flujo obligatorio:
+1. Producer genera el video
+2. **QA Agent revisa** (`python3 qa_agent.py`) — si falla, NO se sube
+3. Solo si QA aprueba → Publisher sube a YouTube
+
+Esta regla aplica a TODOS los videos, sin excepción. No importa la urgencia.
+
+---
+
 ## How It Works
 
 1. **Scout** collects YouTube analytics + crypto market data
@@ -67,7 +103,8 @@ python3 orchestrator.py --full --dry-run
 4. **Creator** avoids failed topics, duplicates winner patterns, includes wildcards
 5. **Producer** generates voice (TTS), video clips, karaoke subtitles, assembles final video
 6. **Producer** auto-shortens scripts if audio exceeds 58s, retries on failure
-7. **Publisher** uploads to YouTube with data-driven scheduling, manages quota limits
+7. **QA Agent reviews** every produced video — blocks upload if issues detected
+8. **Publisher** uploads to YouTube with data-driven scheduling, manages quota limits
 
 ## Setup
 

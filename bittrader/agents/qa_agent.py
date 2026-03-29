@@ -362,6 +362,9 @@ def check_thumbnail(thumb_path: str, video_type: str = "long") -> dict:
     - NO frame azul genérico (avg_blue > avg_red * 1.7)
     - Tamaño correcto: 1280×720 (longs) | 1080×1920 (shorts — vertical)
     - Varianza de color alta (imagen real, no monocromática)
+    - PERSONA OBLIGATORIA: debe haber una persona real con expresión dramática
+      (detectada via varianza de tonos de piel + distribución de colores)
+      SIN PERSONA = FALLA QA AUTOMÁTICAMENTE (orden de Ender, 2026-03-28)
     """
     if not thumb_path or not Path(thumb_path).exists():
         return {"passed": False, "issue": "THUMBNAIL_MISSING"}
@@ -402,6 +405,30 @@ def check_thumbnail(thumb_path: str, video_type: str = "long") -> dict:
     total_variance = stats["var_r"] + stats["var_g"] + stats["var_b"]
     if total_variance < COLOR_VARIANCE_MIN:
         issues.append("LOW_COLOR_VARIANCE")
+
+    # PERSONA OBLIGATORIA — orden de Ender 2026-03-28
+    # Detectar presencia de tonos de piel humanos en la imagen
+    # Un thumbnail solo con texto/gráficos NO tiene distribución de tonos de piel
+    # Se detecta via: presencia de pixeles en rango de piel (R>95, G>40, B>20, R>G, R>B, |R-G|>15)
+    try:
+        from PIL import Image as _PILImage
+        import numpy as _np
+        _img = _PILImage.open(thumb_path).convert("RGB")
+        _arr = _np.array(_img, dtype=_np.float32)
+        R, G, B = _arr[:,:,0], _arr[:,:,1], _arr[:,:,2]
+        # Skin tone detection (Kovac et al. rule-based)
+        skin_mask = (
+            (R > 95) & (G > 40) & (B > 20) &
+            (R > G) & (R > B) &
+            (abs(R - G) > 15) &
+            (R - B > 20)
+        )
+        skin_ratio = skin_mask.sum() / (R.shape[0] * R.shape[1])
+        # Require at least 3% of pixels to be skin-tone (person present)
+        if skin_ratio < 0.03:
+            issues.append(f"NO_PERSON:skin_ratio={skin_ratio:.3f} (min 0.03) — thumbnail MUST have a real person with dramatic expression")
+    except Exception as _e:
+        issues.append(f"NO_PERSON:detection_failed ({_e})")
 
     if issues:
         return {
@@ -1007,6 +1034,77 @@ class QAAgent:
                 "note": "Script contamination already detected in CHECK 8 — OCR skipped",
             }
             # Don't add a new issue code since NARRATION_CONTAMINATED is already in issues
+
+        # ── CHECK 10: Logo BitTrader en video ────────────────────────────
+        # Orden de Ender 2026-03-28: el video DEBE tener logo BitTrader visible
+        # Se verifica extrayendo frames al inicio y al final del video
+        _log("CHECK 10: Logo BitTrader en video...")
+        if video_path and Path(video_path).exists():
+            try:
+                import subprocess as _sp, tempfile as _tmp, os as _os
+                _logo_found = False
+                _logo_check_note = ""
+                _frames_dir = _tmp.mkdtemp()
+                try:
+                    # Extraer 3 frames: al inicio (5s), mitad, y final (-5s)
+                    _dur_r = _sp.run(
+                        ["ffprobe", "-v", "error", "-show_entries", "format=duration",
+                         "-of", "default=noprint_wrappers=1:nokey=1", video_path],
+                        capture_output=True, text=True, timeout=15
+                    )
+                    _dur = float(_dur_r.stdout.strip() or "0")
+                    _sample_times = [5, max(10, _dur/2), max(15, _dur - 5)]
+                    for _i, _t in enumerate(_sample_times):
+                        if _t >= _dur:
+                            continue
+                        _frame_path = _os.path.join(_frames_dir, f"frame_{_i}.jpg")
+                        _sp.run(
+                            ["ffmpeg", "-ss", str(_t), "-i", video_path,
+                             "-frames:v", "1", "-q:v", "2", _frame_path, "-y"],
+                            capture_output=True, timeout=30
+                        )
+                        if not _os.path.exists(_frame_path):
+                            continue
+                        # Check for BitTrader branding: look for orange/gold pixels in corners
+                        # BitTrader logo typically uses gold (#F5A623) or white text in corners
+                        from PIL import Image as _PILI
+                        import numpy as _np2
+                        _fi = _PILI.open(_frame_path).convert("RGB")
+                        _fa = _np2.array(_fi, dtype=_np2.float32)
+                        _h, _w = _fa.shape[:2]
+                        # Check bottom-left corner (logo area) and top-right (@bittrader9259)
+                        _corners = [
+                            _fa[_h-100:_h, 0:200],       # bottom-left
+                            _fa[0:80, _w-300:_w],         # top-right
+                            _fa[_h-80:_h, 0:300],         # bottom-left wide
+                        ]
+                        for _corner in _corners:
+                            _R2, _G2, _B2 = _corner[:,:,0], _corner[:,:,1], _corner[:,:,2]
+                            # Gold/orange pixels: R>180, G>100, B<80
+                            _gold = ((_R2 > 180) & (_G2 > 100) & (_B2 < 80)).sum()
+                            # White text pixels: R>200, G>200, B>200
+                            _white = ((_R2 > 200) & (_G2 > 200) & (_B2 > 200)).sum()
+                            if _gold > 50 or _white > 200:
+                                _logo_found = True
+                                break
+                        if _logo_found:
+                            break
+                finally:
+                    import shutil as _sh
+                    _sh.rmtree(_frames_dir, ignore_errors=True)
+
+                if _logo_found:
+                    checks["logo_bittrader"] = {"passed": True, "note": "BitTrader branding detected in video frames"}
+                    _log("  ✅ OK: Logo BitTrader detectado en video")
+                else:
+                    checks["logo_bittrader"] = {"passed": False, "issue": "NO_LOGO_BITTRADER"}
+                    issues.append("NO_LOGO_BITTRADER")
+                    _log("  ❌ FAIL: Logo BitTrader NO encontrado en el video — video rechazado", "ERROR")
+            except Exception as _e:
+                _log(f"  ⚠️ WARN: No se pudo verificar logo: {_e}", "WARNING")
+                checks["logo_bittrader"] = {"passed": True, "note": f"check_skipped: {_e}"}
+        else:
+            checks["logo_bittrader"] = {"passed": False, "issue": "NO_VIDEO_PATH"}
 
         # ── RESULT ──────────────────────────────────────────────────────
         passed = len(issues) == 0

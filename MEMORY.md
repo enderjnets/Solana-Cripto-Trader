@@ -1,5 +1,28 @@
 # Memoria Persistente de Eko
 
+## Black Volt Mobility — CRM de Clientes Uber (⚠️ REGLA PERMANENTE)
+
+### TODO lo relacionado con clientes personales de Uber/rideshare de Ender va a:
+- **Google Sheets** bajo la cuenta **blackvoltmobility@gmail.com**
+- Sheet ID: `12rSZJu0r2bIhmTwPTP72oiW5WNRGxK3wTz9dDxNU5Nc`
+- Nombre: "Black Volt Mobility — Client Riders CRM"
+- Carpeta Drive: "Black Volt Mobility LLC"
+- Backup local: `/home/enderj/.openclaw/workspace/black_volt/clients_riders.md`
+
+### Protocolo automático (sin preguntar):
+1. Cliente nuevo → agregar directo al Sheet con `gog sheets append ... -a blackvoltmobility@gmail.com`
+2. Columnas: Nombre, Teléfono, Dirección, Ruta, Precio Uber, Precio Black Volt, Ahorro, Frecuencia, Cómo Llegó, Estado, Fecha, Notas
+3. Si token expirado → guardar en backup local Y avisar
+4. Cualquier documento de Black Volt (seguros, registros, etc.) → también bajo esta cuenta
+
+### Clientes actuales (2026-03-28)
+| Nombre | Teléfono | Dirección | Precio |
+|--------|----------|-----------|--------|
+| Demetra | +1 253-380-3149 | 14681 Saddlebred Ave, Parker, CO | $90 |
+| Rob Humphries | +1 720-322-6115 | 525 Locust Pl, Boulder, CO 80304 | $115 |
+
+---
+
 ## Hechos Clave sobre @enderj
 - Usuario avanzado de tecnología (Linux Ubuntu 25.10)
 - YouTube: @bittrader9259 - Trading de criptomonedas/NAS100
@@ -11,6 +34,31 @@
 - Cripto trading bots
 - Automatización de sistemas
 - Integración IA local
+
+## BitTrader — Reglas Permanentes de Producción (2026-03-28)
+
+### 🖥️ Clips e imágenes: siempre en Mac local primero
+- Orden de Ender: clips de video e imágenes/thumbnails → generar en **MacBook Pro** y/o **MacBook Air** con modelos locales
+- **Si ambas Macs disponibles → correr EN PARALELO** para máxima velocidad
+- APIs externas (MiniMax Hailuo, HuggingFace SDXL) = solo si ambas Macs están offline
+- Verificar disponibilidad de ambas Macs antes de cada ciclo de producción
+
+### ⚠️ QA OBLIGATORIO antes de subir cualquier video
+
+### 🔴 PERSONA OBLIGATORIA en thumbnails (orden de Ender, 2026-03-28)
+- Todo thumbnail SIN persona real con expresión dramática = **FALLA QA automáticamente**
+- Inaceptable según Ender — sin importar que el resto esté bien
+- Si SDXL falla → reintentar con 3 modelos antes de usar fallback sin persona
+- Esta regla está en: `README.md` y `data/ZERO_ERRORS_V2.md`
+
+### ⚠️ QA OBLIGATORIO antes de subir cualquier video
+- Orden directa de Ender: el QA Agent DEBE aprobar CADA video antes de subir a YouTube
+- Flujo: Producer → QA Agent (`qa_agent.py`) → si aprueba → Publisher
+- Si falla QA → NO se sube, se reporta
+- Esta regla está en: `README.md` y `data/ZERO_ERRORS_V2.md`
+- **Sin excepciones, sin atajos**
+
+---
 
 ## BitTrader Thumbnails — Estándares y Lecciones Aprendidas (2026-03-25)
 
