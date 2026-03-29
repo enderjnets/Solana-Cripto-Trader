@@ -45,7 +45,12 @@ OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 GUIONES_FILE    = DATA_DIR / "guiones_latest.json"
 PRODUCTION_FILE = DATA_DIR / "production_latest.json"
 
-# ── MiniMax Config ─────────────────────────────────────────────────────────
+# ── ComfyUI Config (Mac M3 - primary for video/image gen) ─────────────────
+MAC_M3_URL = "http://10.0.0.232:8188"  # MacBook Air con ComfyUI
+COMFYUI_TIMEOUT = 300  # 5 min max per video clip
+USE_COMFYUI_FIRST = True  # Try ComfyUI before MiniMax Hailuo
+
+# ── MiniMax Config (fallback) ──────────────────────────────────────────────
 MINIMAX_KEYS = json.loads((BITTRADER / "keys/minimax.json").read_text())
 MINIMAX_API_KEY = MINIMAX_KEYS["minimax_api_key"]
 MINIMAX_BASE_URL = "https://api.minimax.io/v1"
@@ -637,8 +642,160 @@ def download_video_file(file_id: str, output_path: Path) -> bool:
     return True
 
 
+def is_comfyui_available(url: str = MAC_M3_URL) -> bool:
+    """Check if ComfyUI server is reachable."""
+    try:
+        import urllib.request
+        with urllib.request.urlopen(f"{url}/system_stats", timeout=3):
+            return True
+    except Exception:
+        return False
+
+
+def generate_video_clip_comfyui(prompt: str, output_path: Path, clip_num: int,
+                                 duration: int = 6, server_url: str = MAC_M3_URL) -> bool:
+    """Generate video clip via ComfyUI on Mac (using LTX-Video or similar)."""
+    import urllib.request
+    try:
+        prefix = f"btclip_{abs(hash(prompt)) % 99999:05d}_{clip_num}"
+        
+        # LTX-Video workflow for short clips
+        workflow = {
+            "1": {"class_type": "CheckpointLoaderSimple",
+                  "inputs": {"ckpt_name": "ltx-video-2b-v0.9.1.safetensors"}},
+            "2": {"class_type": "CLIPTextEncode", 
+                  "inputs": {"text": prompt, "clip": ["1", 1]}},
+            "3": {"class_type": "CLIPTextEncode",
+                  "inputs": {"text": "blurry, low quality, distorted, watermark, text, amateur, static",
+                             "clip": ["1", 1]}},
+            "4": {"class_type": "EmptyLTXVLatentVideo",
+                  "inputs": {"width": 768, "height": 512, "length": duration * 8, "batch_size": 1}},
+            "5": {"class_type": "KSampler",
+                  "inputs": {"model": ["1", 0], "positive": ["2", 0], "negative": ["3", 0],
+                             "latent_image": ["4", 0], "seed": int(time.time()) % 999999,
+                             "steps": 20, "cfg": 3.0, "sampler_name": "euler",
+                             "scheduler": "simple", "denoise": 1.0}},
+            "6": {"class_type": "VAEDecode",
+                  "inputs": {"samples": ["5", 0], "vae": ["1", 2]}},
+            "7": {"class_type": "VHS_VideoCombine",
+                  "inputs": {"images": ["6", 0], "frame_rate": 8, "loop_count": 0,
+                             "filename_prefix": prefix, "format": "video/h264-mp4",
+                             "save_output": True}}
+        }
+        
+        data = json.dumps({"prompt": workflow}).encode()
+        req = urllib.request.Request(
+            f"{server_url}/prompt", data=data,
+            headers={"Content-Type": "application/json"}
+        )
+        
+        print(f"        🍎 Clip {clip_num} → ComfyUI Mac...")
+        with urllib.request.urlopen(req, timeout=30) as r:
+            prompt_id = json.loads(r.read()).get("prompt_id")
+        
+        if not prompt_id:
+            return False
+        
+        # Poll for completion
+        deadline = time.time() + COMFYUI_TIMEOUT
+        while time.time() < deadline:
+            try:
+                with urllib.request.urlopen(f"{server_url}/history/{prompt_id}", timeout=10) as r:
+                    history = json.loads(r.read())
+                if prompt_id in history:
+                    entry = history[prompt_id]
+                    status = entry.get("status", {})
+                    if status.get("status_str") == "error":
+                        print(f"        ❌ ComfyUI error")
+                        return False
+                    outputs = entry.get("outputs", {})
+                    for node_id, node_out in outputs.items():
+                        for vid_info in node_out.get("gifs", []) + node_out.get("videos", []):
+                            fname = vid_info.get("filename", "")
+                            if fname.endswith(".mp4"):
+                                # Download from ComfyUI
+                                vid_url = f"{server_url}/view?filename={fname}&type=output"
+                                vid_data = urllib.request.urlopen(vid_url, timeout=60).read()
+                                output_path.parent.mkdir(parents=True, exist_ok=True)
+                                with open(output_path, "wb") as f:
+                                    f.write(vid_data)
+                                size = output_path.stat().st_size / (1024 * 1024)
+                                print(f"        ✅ Clip {clip_num} ComfyUI: {size:.1f}MB")
+                                return True
+            except Exception:
+                pass
+            time.sleep(5)
+        
+        print(f"        ⏰ Clip {clip_num} ComfyUI timeout")
+        return False
+        
+    except Exception as e:
+        print(f"        ⚠️ ComfyUI error: {e}")
+        return False
+
+
+def _is_green_screen_clip(video_path: Path) -> bool:
+    """
+    Detecta si un clip de video es green screen (pantalla verde pura).
+    Orden de Ender 2026-03-28: green screen = inaceptable, rechazar automáticamente.
+    Retorna True si el clip ES green screen (debe ser rechazado).
+    """
+    try:
+        import subprocess as _sp, tempfile as _tmp, os as _os
+        import numpy as _np
+        from PIL import Image as _PILI
+        
+        with _tmp.TemporaryDirectory() as _td:
+            # Extraer 3 frames del clip
+            _probe = _sp.run(
+                ["ffprobe", "-v", "error", "-show_entries", "format=duration",
+                 "-of", "default=noprint_wrappers=1:nokey=1", str(video_path)],
+                capture_output=True, text=True, timeout=10
+            )
+            _dur = float(_probe.stdout.strip() or "6")
+            _green_count = 0
+            for _i, _t in enumerate([_dur * 0.2, _dur * 0.5, _dur * 0.8]):
+                _fp = _os.path.join(_td, f"f{_i}.jpg")
+                _sp.run(
+                    ["ffmpeg", "-ss", str(_t), "-i", str(video_path),
+                     "-frames:v", "1", "-q:v", "2", _fp, "-y"],
+                    capture_output=True, timeout=15
+                )
+                if not _os.path.exists(_fp):
+                    continue
+                _img = _PILI.open(_fp).convert("RGB")
+                _arr = _np.array(_img, dtype=_np.float32)
+                _avg_r = _arr[:,:,0].mean()
+                _avg_g = _arr[:,:,1].mean()
+                _avg_b = _arr[:,:,2].mean()
+                if _avg_g > _avg_r * 1.8 and _avg_g > _avg_b * 1.8 and _avg_g > 100:
+                    _green_count += 1
+            
+            if _green_count >= 2:  # ≥2 de 3 frames son green screen
+                print(f"        🟢 GREEN SCREEN detectado en clip ({_green_count}/3 frames) — RECHAZADO")
+                return True
+    except Exception as _e:
+        print(f"        ⚠️ No se pudo verificar green screen: {_e}")
+    return False
+
+
 def generate_video_clip(prompt: str, output_path: Path, clip_num: int) -> bool:
-    """Generate a single video clip with MiniMax Hailuo."""
+    """Generate a single video clip - tries ComfyUI first, then MiniMax Hailuo.
+    Valida que el clip NO sea green screen antes de aceptarlo (orden Ender 2026-03-28).
+    """
+    
+    # Try ComfyUI on Mac first (free, local)
+    if USE_COMFYUI_FIRST and is_comfyui_available():
+        if generate_video_clip_comfyui(prompt, output_path, clip_num):
+            if _is_green_screen_clip(output_path):
+                output_path.unlink(missing_ok=True)
+                print(f"        ⚠️ ComfyUI generó green screen, intentando Hailuo...")
+            else:
+                return True
+        else:
+            print(f"        ⚠️ ComfyUI failed, trying MiniMax Hailuo...")
+    
+    # Fallback to MiniMax Hailuo
     try:
         task_id = create_video_task(prompt)
         print(f"        📡 Clip {clip_num} task: {task_id}")
@@ -649,6 +806,13 @@ def generate_video_clip(prompt: str, output_path: Path, clip_num: int) -> bool:
         download_video_file(file_id, output_path)
         size = output_path.stat().st_size / (1024 * 1024)
         print(f"        💾 Clip {clip_num}: {size:.1f}MB")
+        
+        # Validar que NO sea green screen
+        if _is_green_screen_clip(output_path):
+            output_path.unlink(missing_ok=True)
+            print(f"        ❌ Clip {clip_num} rechazado: GREEN_SCREEN — clip descartado")
+            return False
+        
         return True
         
     except Exception as e:

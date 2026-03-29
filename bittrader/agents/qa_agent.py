@@ -282,9 +282,11 @@ def _calc_image_stats(image_path: str) -> Optional[dict]:
 
 def check_video_brightness(video_path: str) -> dict:
     """
-    CHECK 1 — Video no negro/muy oscuro.
+    CHECK 1 — Video no negro/muy oscuro Y sin green screen.
     Extrae 5 frames del video y calcula brightness promedio.
-    Si brightness promedio < 30 → FAIL.
+    Si brightness promedio < 30 → FAIL (BLACK_VIDEO).
+    Si frames dominados por verde puro → FAIL (GREEN_SCREEN_DETECTED).
+    Orden de Ender 2026-03-28: green screen = inaceptable, fallo automático.
     """
     if not Path(video_path).exists():
         return {"passed": False, "issue": "VIDEO_NOT_FOUND", "value": 0.0}
@@ -299,6 +301,7 @@ def check_video_brightness(video_path: str) -> dict:
 
         # Sample 5 frames spread across the video
         brightnesses = []
+        green_screen_frames = 0
         sample_times = [duration * f for f in [0.1, 0.25, 0.5, 0.75, 0.9]]
 
         for i, t in enumerate(sample_times):
@@ -307,9 +310,34 @@ def check_video_brightness(video_path: str) -> dict:
                 b = _calc_image_brightness(frame_path)
                 if b is not None:
                     brightnesses.append(b)
+                # Green screen detection: avg_green >> avg_red and avg_green >> avg_blue
+                try:
+                    import numpy as _npv
+                    from PIL import Image as _PILv
+                    _fi = _PILv.open(frame_path).convert("RGB")
+                    _fa = _npv.array(_fi, dtype=_npv.float32)
+                    _avg_r = _fa[:,:,0].mean()
+                    _avg_g = _fa[:,:,1].mean()
+                    _avg_b = _fa[:,:,2].mean()
+                    # Green screen: green channel dominates strongly over red AND blue
+                    if _avg_g > _avg_r * 1.8 and _avg_g > _avg_b * 1.8 and _avg_g > 100:
+                        green_screen_frames += 1
+                except Exception:
+                    pass
 
     if not brightnesses:
         return {"passed": False, "issue": "FRAME_EXTRACTION_FAILED", "value": 0.0}
+
+    # Green screen: if >40% of sampled frames are green screen → FAIL
+    green_ratio = green_screen_frames / max(len(sample_times), 1)
+    if green_ratio >= 0.4:
+        return {
+            "passed": False,
+            "issue": f"GREEN_SCREEN_DETECTED:{green_screen_frames}/{len(sample_times)}_frames",
+            "value": round(sum(brightnesses) / len(brightnesses), 2),
+            "green_screen_frames": green_screen_frames,
+            "total_frames_checked": len(sample_times),
+        }
 
     avg_brightness = sum(brightnesses) / len(brightnesses)
     passed = avg_brightness >= BRIGHTNESS_MIN
