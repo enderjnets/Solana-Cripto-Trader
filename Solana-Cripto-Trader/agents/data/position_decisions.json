@@ -1,8 +1,8 @@
 {
-  "timestamp": "2026-03-30T09:02:45.399850+00:00",
+  "timestamp": "2026-03-30T14:16:12.272779+00:00",
   "decisions": [
     {
-      "symbol": "GOAT",
+      "symbol": "BTC",
       "direction": "short",
       "action": "HOLD",
       "confidence": 0.72,
@@ -10,7 +10,7 @@
       "quant_score": 15,
       "quant_action": "HOLD",
       "quant_reasons": [
-        "RR_BUENO (2.18x)",
+        "RR_BUENO (2.00x)",
         "TENDENCIA_EN_CONTRA (BULLISH 70%)",
         "PANICO_EXTREMO (F&G=8)"
       ],
@@ -18,13 +18,37 @@
       "llm_confidence": 0.6,
       "llm_reasoning": "Decisi\u00f3n cuantitativa (LLM no disponible). Score: 15",
       "llm_source": "quantitative_fallback",
+      "pnl_usd": -0.0023,
+      "pnl_pct": -0.0023,
+      "dist_tp_pct": 6.001,
+      "dist_sl_pct": 2.999,
+      "rr_remaining": 2.001,
+      "hours_open": 0,
+      "evaluated_at": "2026-03-30T14:16:12.272545+00:00"
+    },
+    {
+      "symbol": "WIF",
+      "direction": "short",
+      "action": "REDUCE",
+      "confidence": 0.72,
+      "alignment": "ALIGNED",
+      "quant_score": 30,
+      "quant_action": "REDUCE",
+      "quant_reasons": [
+        "TENDENCIA_EN_CONTRA (BULLISH 70%)",
+        "PANICO_EXTREMO (F&G=8)"
+      ],
+      "llm_action": "REDUCE",
+      "llm_confidence": 0.6,
+      "llm_reasoning": "Decisi\u00f3n cuantitativa (LLM no disponible). Score: 30",
+      "llm_source": "quantitative_fallback",
       "pnl_usd": 0.0,
       "pnl_pct": 0.0,
-      "dist_tp_pct": 4.5,
-      "dist_sl_pct": 2.063,
-      "rr_remaining": 2.182,
+      "dist_tp_pct": 6.0,
+      "dist_sl_pct": 3.0,
+      "rr_remaining": 2.0,
       "hours_open": 0,
-      "evaluated_at": "2026-03-30T09:02:45.399820+00:00"
+      "evaluated_at": "2026-03-30T14:16:12.272749+00:00"
     }
   ]
 }

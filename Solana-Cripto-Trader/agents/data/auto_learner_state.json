@@ -1,21 +1,17 @@
 {
   "params": {
-    "sl_pct": 0.020625,
-    "tp_pct": 0.045,
-    "leverage_tier": 2,
+    "sl_pct": 0.03,
+    "tp_pct": 0.06,
+    "leverage_tier": 1,
     "risk_per_trade": 0.015,
     "max_positions": 3,
-    "trailing_stop_pct": 3.0
+    "trailing_stop_pct": 8.0
   },
-  "total_trades_learned": 413,
-  "last_adaptation": "2026-03-30T08:57:40.500748+00:00",
-  "adaptation_count": 4,
-  "last_updated": "2026-03-30T08:59:15.314907+00:00",
-  "notes": "Reset capital $500.0 - conocimiento preservado",
-  "last_trade_count": 413,
-  "last_analysis": "This strategy is catastrophically broken with a 10.9% win rate and -$99.26 total loss. The three liquidations alone account for $70.76 (71% of total losses), each costing ~$23.59. The trailing stop change to 2.0% didn't help - 27 trailing stop trades all lost, suggesting positions are being stopped out before breaking even despite being in profit. Short positions in ADA, SOL, and ETH are the primary destroyers of capital.",
-  "last_insight": "Three liquidation events at $23.59 each are the core problem - this happens when leverage is too high and stop loss is too tight, causing market movements to instantly exceed collateral. The strategy needs to survive normal market volatility, not get instantly liquidated on normal swings.",
-  "confidence": 0.92,
+  "total_trades_learned": 0,
+  "last_adaptation": null,
+  "adaptation_count": 0,
+  "last_trade_count": 0,
+  "notes": "Fresh start - modular system. SL 3%, TP 6%, 2x leverage, trail 8%",
   "tokens_to_avoid": [
     "ADA",
     "SOL",
@@ -23,6 +19,7 @@
   ],
   "tokens_to_prefer": [
     "DOT",
-    "XRP"
+    "XRP",
+    "JUP"
   ]
 }
