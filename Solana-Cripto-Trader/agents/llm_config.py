@@ -124,7 +124,7 @@ def call_claude_sonnet(prompt: str, system: str = "", max_tokens: int = 2000) ->
 # ══════════════════════════════════════════════════════════════════════
 
 MINIMAX_KEY   = json.loads((KEYS_DIR / "minimax.json").read_text())["minimax_api_key"]
-MINIMAX_URL   = "https://api.minimax.io/anthropic/v1/messages"
+MINIMAX_URL   = "https://api.minimax.io/v1/text/chatcompletion_v2"
 MINIMAX_MODEL = "MiniMax-M2.5"
 
 # ── OpenRouter config ──────────────────────────────────────────────────────
@@ -177,32 +177,52 @@ def call_nemotron(prompt: str, system: str = "", max_tokens: int = 2000) -> str:
 
 
 def call_minimax(prompt: str, system: str = "", max_tokens: int = 2000) -> str:
-    """MiniMax M2.5 — FALLBACK"""
+    """MiniMax M2.5 — PRIMARY via standard chat completions API"""
     headers = {
         "Content-Type": "application/json",
         "Authorization": f"Bearer {MINIMAX_KEY}",
-        "anthropic-version": "2023-06-01"
     }
+    messages = []
+    if system:
+        messages.append({"role": "system", "content": system})
+    messages.append({"role": "user", "content": prompt})
+    # Always use at least 4000 tokens — MiniMax M2.5 uses <think> blocks
+    # that can consume 500-2000 tokens before the actual response
+    effective_max = max(max_tokens, 4000)
     data = {
         "model": MINIMAX_MODEL,
-        "messages": [{"role": "user", "content": prompt}],
-        "max_tokens": max_tokens,
+        "messages": messages,
+        "max_tokens": effective_max,
         "temperature": 0.2,
     }
-    if system:
-        data["system"] = system
     try:
         r = requests.post(MINIMAX_URL, headers=headers, json=data, timeout=60)
         r.raise_for_status()
         result = r.json()
-        content = result.get("content")
-        if content and isinstance(content, list):
-            texts = [c["text"] for c in content if c.get("type") == "text"]
-            if texts:
-                return "\n".join(texts)
+        # Standard OpenAI-compatible response format
+        choices = result.get("choices", [])
+        if choices:
+            msg = choices[0].get("message", {})
+            text = msg.get("content", "")
+            # Strip <think>...</think> blocks if present
+            if "<think>" in text and "</think>" in text:
+                text = text.split("</think>", 1)[-1].strip()
+            # If think block consumed all tokens, try to extract JSON from it
+            if not text and "<think>" in msg.get("content", ""):
+                think_content = msg["content"].split("<think>")[1].split("</think>")[0]
+                # Try to find JSON in the think block
+                import re
+                json_match = re.search(r'\{[^{}]*"action"[^{}]*\}', think_content)
+                if json_match:
+                    text = json_match.group(0)
+            if text:
+                return text
         return None
     except Exception as e:
-        print(f"    ⚠️ MiniMax error: {e}")
+        print(f"    ⚠️ MiniMax error: {type(e).__name__}: {e}")
+        if hasattr(e, 'response') and e.response is not None:
+            print(f"    ⚠️ MiniMax response status: {e.response.status_code}")
+            print(f"    ⚠️ MiniMax response body: {e.response.text[:200]}")
         return None
 
 

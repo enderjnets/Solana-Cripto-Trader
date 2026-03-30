@@ -619,7 +619,7 @@ Responde SOLO en JSON válido:
 
     system = "Eres un risk manager de crypto. Responde siempre con JSON válido únicamente, sin markdown."
 
-    response = call_llm(prompt, system=system, max_tokens=300)
+    response = call_llm(prompt, system=system, max_tokens=4000)
 
     if not response:
         # Fallback cuantitativo si LLM falla — threshold más alto para evitar cierres excesivos
