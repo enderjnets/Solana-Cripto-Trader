@@ -212,28 +212,20 @@ def call_minimax(prompt: str, system: str = "", max_tokens: int = 2000) -> str:
 
 def call_llm(prompt: str, system: str = "", max_tokens: int = 2000) -> str:
     """
-    Fallback chain:
-    1. MiniMax M2.5 via direct API (PRIMARY - reliable, paid)
-    2. Claude Sonnet 4.6 via direct Anthropic API (FALLBACK)
-    Updated: 2026-03-25 — Removed Nemotron (OpenRouter account routing broken → always 404)
+    LLM chain: MiniMax M2.5 (PRIMARY - reliable).
+    Claude Sonnet fallback DISABLED — API key is invalid (401).
+    Updated: 2026-03-30 — Removed broken Claude fallback to stop 324 consecutive failures.
     """
     if _cb_is_open():
         return None
 
-    # Try MiniMax first (direct API, reliable)
     result = call_minimax(prompt, system, max_tokens)
     if result:
         _cb_record_success()
         return result
 
-    print("    ⚠️ MiniMax falló — intentando Claude Sonnet fallback...")
-    result = call_claude_sonnet(prompt, system, max_tokens)
-    if result:
-        _cb_record_success()
-        return result
-
     _cb_record_failure()
-    print("    ❌ Todos los LLMs fallaron")
+    print("    ❌ MiniMax failed — circuit breaker activated")
     return None
 
 

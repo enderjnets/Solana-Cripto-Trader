@@ -188,16 +188,27 @@ def evaluate_emergency_close(portfolio: dict, research: dict, market: dict) -> d
     negative_positions = [p for p in open_positions if p.get("pnl_usd", 0) < 0]
     all_negative = len(negative_positions) == len(open_positions)
 
-    # Causa 1: 5 LONGs + tendencia BEARISH (alta confianza)
-    if all_long and trend == "BEARISH" and confidence >= 0.7:
+    # Causa 1: 5 LONGs + tendencia BEARISH (alta confianza) — threshold 0.80 para evitar falsos positivos en borde
+    if all_long and trend == "BEARISH" and confidence >= 0.80:
         return {
             "emergency_close": True,
             "reason": f"Tendencia BEARISH ({int(confidence*100)}%) con {len(open_positions)} LONGs",
             "symbols": [p["symbol"] for p in open_positions]
         }
 
-    # Causa 2: 5 SHORTs + tendencia BULLISH (alta confianza)
-    if all_short and trend == "BULLISH" and confidence >= 0.7:
+    # Causa 2: 5 SHORTs + tendencia BULLISH (alta confianza) — threshold 0.80 para evitar falsos positivos en borde
+    # Adicionalmente: no cerrar si las posiciones tienen < 5 min (evitar cierre inmediato tras apertura)
+    if all_short and trend == "BULLISH" and confidence >= 0.80:
+        now = datetime.now(timezone.utc)
+        for pos in open_positions:
+            try:
+                opened_at = datetime.fromisoformat(pos.get("opened_at", pos.get("open_time", "")).replace("Z", "+00:00"))
+                age_minutes = (now - opened_at).total_seconds() / 60
+                if age_minutes < 5:
+                    log.info(f"   🛡️ Emergency close SKIPPED: {pos['symbol']} abierta hace solo {age_minutes:.1f}min (< 5min protection)")
+                    continue  # Skip this position
+            except:
+                pass
         return {
             "emergency_close": True,
             "reason": f"Tendencia BULLISH ({int(confidence*100)}%) con {len(open_positions)} SHORTs",
@@ -527,16 +538,16 @@ def _quant_score(pos: dict, market: dict, research: dict) -> dict:
     trend      = research.get("trend", "NEUTRAL").upper()
     confidence = research.get("confidence", 0.5)
 
-    if direction == "long" and trend == "BEARISH" and confidence > 0.6:
+    if direction == "long" and trend == "BEARISH" and confidence > 0.75:
         score += 20
         reasons.append(f"TENDENCIA_EN_CONTRA (BEARISH {confidence:.0%})")
-    elif direction == "short" and trend == "BULLISH" and confidence > 0.6:
+    elif direction == "short" and trend == "BULLISH" and confidence > 0.75:
         score += 20
         reasons.append(f"TENDENCIA_EN_CONTRA (BULLISH {confidence:.0%})")
-    elif direction == "long" and trend == "BULLISH" and confidence > 0.6:
+    elif direction == "long" and trend == "BULLISH" and confidence > 0.75:
         score -= 15
         reasons.append(f"TENDENCIA_FAVOR (BULLISH {confidence:.0%})")
-    elif direction == "short" and trend == "BEARISH" and confidence > 0.6:
+    elif direction == "short" and trend == "BEARISH" and confidence > 0.75:
         score -= 15
         reasons.append(f"TENDENCIA_FAVOR (BEARISH {confidence:.0%})")
 
@@ -611,16 +622,16 @@ Responde SOLO en JSON válido:
     response = call_llm(prompt, system=system, max_tokens=300)
 
     if not response:
-        # Fallback cuantitativo si LLM falla
-        if quant["score"] >= 50:
+        # Fallback cuantitativo si LLM falla — threshold más alto para evitar cierres excesivos
+        if quant["score"] >= 65:
             action = "CLOSE"
-        elif quant["score"] >= 25:
+        elif quant["score"] >= 40:
             action = "REDUCE"
         else:
             action = "HOLD"
         return {
             "action": action,
-            "confidence": 0.6,
+            "confidence": 0.5,
             "reasoning": f"Decisión cuantitativa (LLM no disponible). Score: {quant['score']}",
             "source": "quantitative_fallback"
         }
