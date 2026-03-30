@@ -323,6 +323,33 @@ gog calendar calendars
 ### Próximas Actualizaciones
 - [Agregar según necesidad]
 
+## MiniMax TTS — Text-to-Speech (2026-03-30)
+
+### Plan Standard ($30/mes)
+- **300,000 credits/mes**
+- **RPM**: 50 requests/min
+- **Voice slots**: 100
+- **API**: T2A v2, T2A large v2
+- **Script**: `~/.openclaw/workspace/skills/minimax-tts/tts.py`
+- **API Key**: `sk-api-dPHO8UbieX0zTe92NRVWSQyN6FfCJQnY0qpbu6RcO12MPhGixFPd--c5pQrkSFNfSft5d6hpvz4w59SZR9GeXyfPN_7pHQPfdqu4_9vFhalNnz0at8r3UV4`
+
+### Voces
+| ID | Descripción |
+|----|-------------|
+| `male_1` | Masculino claro |
+| `male_2` | Masculino alternativo |
+| `female_1` | Femenino claro |
+| `female_2` | Femenino alternativo |
+
+### Uso
+```bash
+python3 ~/.openclaw/workspace/skills/minimax-tts/tts.py "Hola Ender" /tmp/audio.mp3
+python3 ~/.openclaw/workspace/skills/minimax-tts/tts.py --voice female_1 "Hola" /tmp/out.mp3
+python3 ~/.openclaw/workspace/skills/minimax-tts/tts.py --speed 0.9 "Texto" /tmp/out.mp3
+```
+
+---
+
 ## VAPI — Asistente de Voz Telefónico
 
 ### Credenciales
