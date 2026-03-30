@@ -253,8 +253,12 @@ def run_cycle(safe=True, debug=False):
     else:
         signals_data = {}
         signals_file = DATA_DIR / "signals_latest.json"
-        if signals_file.exists():
-            signals_data = json.loads(signals_file.read_text())
+        if signals_file.exists() and signals_file.stat().st_size > 0:
+            try:
+                signals_data = json.loads(signals_file.read_text())
+            except (json.JSONDecodeError, Exception) as e:
+                log.warning(f"   ⚠️ signals_latest.json corrupt or empty: {e}")
+                signals_data = {}
         
         try:
             target_result = dt.evaluate_daily_target(portfolio_data, signals_data)
