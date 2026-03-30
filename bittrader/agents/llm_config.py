@@ -19,25 +19,28 @@ KEYS_DIR = BITTRADER / "keys"
 # CLAUDE SONNET 4.6 (PRIMARY for MrBeast Agent)
 # ══════════════════════════════════════════════════════════════════════
 
-CLAUDE_BASE_URL = "http://127.0.0.1:8443/v1/messages"
+CLAUDE_BASE_URL = "https://api.anthropic.com/v1/messages"
+CLAUDE_API_KEY = "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"
 CLAUDE_MODEL = "claude-sonnet-4-6"
 
 def call_claude_sonnet(prompt: str, system: str = "", max_tokens: int = 2000) -> str:
     """
-    Llama a Claude Sonnet 4.6 vía OpenClaw Gateway (PRIMARY for MrBeast Agent).
-    Endpoint: http://127.0.0.1:8443/v1/messages
+    Llama a Claude Sonnet 4.6 vía API directa de Anthropic (PRIMARY).
+    Endpoint: https://api.anthropic.com/v1/messages
     """
     import requests
     
     headers = {
         "Content-Type": "application/json",
+        "x-api-key": CLAUDE_API_KEY,
         "anthropic-version": "2023-06-01"
     }
     
     messages = []
     if system:
-        messages.append({"role": "user", "content": system})
-    messages.append({"role": "user", "content": prompt})
+        messages.append({"role": "user", "content": f"{system}\n\n{prompt}"})
+    else:
+        messages.append({"role": "user", "content": prompt})
     
     data = {
         "model": CLAUDE_MODEL,
@@ -201,7 +204,20 @@ def call_minimax_m2_7(prompt: str, system: str = "", max_tokens: int = 2000) -> 
             return None
 
         if "content" in result and len(result["content"]) > 0:
-            return result["content"][0].get("text", "").strip()
+            # MiniMax M2.7 may return "thinking" blocks — extract "text" blocks first
+            for block in result["content"]:
+                if block.get("type") == "text":
+                    text = block.get("text", "").strip()
+                    if text:
+                        return text
+            # If only thinking blocks, extract thinking content as fallback
+            for block in result["content"]:
+                if block.get("type") == "thinking":
+                    text = block.get("thinking", "").strip()
+                    if text:
+                        return text
+            print(f"    ⚠️ MiniMax M2.7: No usable content in response")
+            return None
         else:
             print(f"    ⚠️ MiniMax M2.7: No content in response")
             return None
@@ -214,23 +230,32 @@ def call_minimax_m2_7(prompt: str, system: str = "", max_tokens: int = 2000) -> 
 def call_llm(prompt: str, system: str = "", max_tokens: int = 2000) -> str:
     """
     Llama al LLM con fallback:
-    1. Claude Sonnet 4.6 (PRIMARY)
+    1. GLM-4.7 Coding (PRIMARY — fast, reliable, free)
     2. MiniMax M2.7 Token Plan (FALLBACK 1)
-    3. GLM-4.7 Coding (FALLBACK 2)
-    4. MiniMax M2.5 Coding Plan (FINAL FALLBACK)
+    3. MiniMax M2.5 Coding Plan (FALLBACK 2)
+    4. Claude Sonnet 4.6 (FALLBACK 3 — OAuth key, may fail)
+    
+    NOTE: Claude moved to last position because the OAuth key (sk-ant-oat01)
+    requires special auth that doesn't work with direct API calls.
+    GLM-4.7 is the most reliable option for standalone scripts.
     """
-    # Intentar Claude Sonnet 4.6 primero
-    result = call_claude_sonnet(prompt, system, max_tokens)
+    # Intentar GLM-4.7 primero (más confiable para scripts)
+    result = call_glm_5_coding(prompt, system, max_tokens)
     if result:
         return result
 
-    print("    ⚠️ Claude Sonnet falló, intentando MiniMax M2.7 Token Plan fallback...")
+    print("    ⚠️ GLM-4.7 falló, intentando MiniMax M2.7 Token Plan...")
     result = call_minimax_m2_7(prompt, system, max_tokens)
     if result:
         return result
 
-    print("    ⚠️ MiniMax M2.7 falló, intentando GLM-4.7 Coding fallback...")
-    result = call_glm_5_coding(prompt, system, max_tokens)
+    print("    ⚠️ MiniMax M2.7 falló, intentando MiniMax M2.5...")
+    result = call_minimax_llm(prompt, system, max_tokens)
+    if result:
+        return result
+
+    print("    ⚠️ MiniMax M2.5 falló, intentando Claude Sonnet (puede fallar con OAuth key)...")
+    result = call_claude_sonnet(prompt, system, max_tokens)
     if result:
         return result
 
