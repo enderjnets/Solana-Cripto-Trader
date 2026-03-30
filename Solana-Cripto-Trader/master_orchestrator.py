@@ -44,8 +44,11 @@ DAILY_TARGET = 0.05  # 5%
 MAX_DRAWDOWN = 0.10   # 10%
 
 # 🔧 V3.2: Cambios Críticos Implementados
-STOP_LOSS_PCT = -2.5  # Stop Loss al -2.5% (aumentado de -2.0%)
-TAKE_PROFIT_PCT = 5.0  # Take Profit al +5.0% (aumentado de +3.0%)
+# 🔧 V3.3: Tighter SL, reasonable TP for better R:R
+# OLD: SL -2.5%, TP 5.0% → R:R 2.0:1 but avg loss $0.30 > avg win $0.22
+# NEW: SL -1.5%, TP 4.0% → R:R 2.7:1 — aligned with auto_learner params
+STOP_LOSS_PCT = -1.5  # Stop Loss al -1.5% (tighter — cut losses faster)
+TAKE_PROFIT_PCT = 4.0  # Take Profit al +4.0%
 
 # 🔧 V3.2: Nuevo RR Ratio (2.0:1)
 RISK_REWARD_RATIO = 2.0  # RR Ratio 2.0:1 (mejorado de 1.5:1)
@@ -53,9 +56,13 @@ RISK_REWARD_RATIO = 2.0  # RR Ratio 2.0:1 (mejorado de 1.5:1)
 # 🔧 V3.2: Risk/Trade reducido
 MAX_RISK_PER_TRADE = 0.05  # 5% del capital (reducido de 10%)
 
-# 🔧 V3.2: Trailing Stop
+# 🔧 V3.3: Trailing Stop — widened from 0.5% to 2.0%
+# OLD: 0.5% → 365 triggers, 6% WR, avg hold 1.2h (killed by noise)
+# NEW: 2.0% → gives 4x room for normal price oscillation
+# With 5x leverage, 0.5% trail = 0.1% price move triggers it
+# 2.0% trail = 0.4% price move needed — more realistic
 TRAILING_STOP_ENABLED = True
-TRAILING_STOP_PCT = 0.5  # 0.5% trail distance
+TRAILING_STOP_PCT = 2.0  # 2.0% trail distance (was 0.5%)
 
 # 🔧 V3.2: Drift Protocol Simulation Parameters
 LEVERAGE = 5.0  # 5x leverage por defecto
