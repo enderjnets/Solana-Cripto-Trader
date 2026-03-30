@@ -2,7 +2,7 @@
 """
 Solana Cripto Trader - Professional Trading Dashboard
 Flask backend serving real-time data from bot data files.
-Port: 8080
+Port: 8001
 """
 
 import json
@@ -17,7 +17,7 @@ app = Flask(__name__)
 # ── Data paths ───────────────────────────────────────────────────────────────
 BASE = Path(__file__).parent.parent
 DATA = BASE / "agents" / "data"
-WATCHDOG_LOG = Path("/tmp/solana_watchdog.log")
+WATCHDOG_LOG = Path("/home/enderj/.config/solana-jupiter-bot/master.log")
 
 def load_json(path):
     try:
@@ -1384,9 +1384,13 @@ def api_stats_post_reset():
     Used for visualization only — auto_learner always uses full history."""
     from datetime import datetime as dt
 
-    # Load reset log
-    reset_log_path = DATA / "reset_log_20260326.json"
-    reset_log = load_json(reset_log_path)
+    # Load reset log — try latest from reset_history first, then fallback
+    reset_log = {}
+    reset_history = load_json(DATA / "reset_history.json")
+    if isinstance(reset_history, list) and reset_history:
+        reset_log = reset_history[-1]  # latest reset
+    if not reset_log or not reset_log.get("reset_date"):
+        reset_log = load_json(DATA / "reset_log_20260326.json")
     if not reset_log or not reset_log.get("reset_date"):
         return jsonify({"has_reset": False})
 
