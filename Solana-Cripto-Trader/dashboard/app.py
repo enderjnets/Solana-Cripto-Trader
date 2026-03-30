@@ -19,7 +19,7 @@ app = Flask(__name__)
 # ── Data paths ───────────────────────────────────────────────────────────────
 BASE = Path(__file__).parent.parent
 DATA = BASE / "agents" / "data"
-WATCHDOG_LOG = Path("/home/enderj/.config/solana-jupiter-bot/master.log")
+WATCHDOG_LOG = Path("/home/enderj/.config/solana-jupiter-bot/modular.log")
 
 def load_json(path):
     try:
@@ -1502,14 +1502,16 @@ def api_stats():
         max_loss_streak = max(max_loss_streak, cur_loss)
 
     # Capital: paper_capital from master_state IS the equity
-    # The orchestrator does NOT deduct margin when opening positions
-    # So capital_usd = paper_capital (already the true equity)
+    # The executor DOES deduct margin_usd from capital when opening positions.
+    # So capital_usd = free capital only. True equity = capital + locked margin + unrealized PnL.
     capital_usd = safe_float(port.get("capital_usd", initial_capital))
-    # Unrealized PnL from open positions (informational, already reflected in capital)
     unrealized = sum(safe_float(p.get("pnl_usd", 0)) for p in open_pos)
+    margin_locked = sum(safe_float(p.get("margin_usd", 0)) for p in open_pos)
     invested = sum(safe_float(p.get("margin_usd", p.get("size_usd", 0))) for p in open_pos)
+    # True equity includes free capital + margin locked in positions + unrealized PnL
+    equity = capital_usd + margin_locked + unrealized
 
-    return_pct = ((capital_usd - initial_capital) / initial_capital * 100) \
+    return_pct = ((equity - initial_capital) / initial_capital * 100) \
                  if initial_capital > 0 else 0.0
 
     # Drawdown: compute from post-reset closed trade equity curve
@@ -1534,12 +1536,12 @@ def api_stats():
     else:
         sharpe = 0.0
 
-    # Accounting discrepancy: real capital change vs recorded PnL (post-reset only)
-    real_capital_change = capital_usd - initial_capital
+    # Accounting discrepancy: use equity (not free capital) vs recorded PnL
+    real_capital_change = equity - initial_capital
     accounting_gap = real_capital_change - total_pnl
 
     return jsonify({
-        "capital_usd":        round(capital_usd, 2),
+        "capital_usd":        round(equity, 2),
         "initial_capital":    round(initial_capital, 2),
         "total_pnl":          round(total_pnl, 2),
         "return_pct":         round(return_pct, 2),
