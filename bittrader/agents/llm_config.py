@@ -21,19 +21,24 @@ KEYS_DIR = BITTRADER / "keys"
 
 CLAUDE_BASE_URL = "https://api.anthropic.com/v1/messages"
 CLAUDE_API_KEY = "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"
-CLAUDE_MODEL = "claude-sonnet-4-6"
+CLAUDE_MODEL = "claude-haiku-4-5-20251001"
+# NOTE: OAuth key (sk-ant-oat01) only supports Haiku 4.5 for direct API calls.
+# Sonnet 4.6 and Opus 4.6 return "invalid_request_error" with this key type.
+# OpenClaw routes these models through its own gateway auth, which works fine.
 
 def call_claude_sonnet(prompt: str, system: str = "", max_tokens: int = 2000) -> str:
     """
-    Llama a Claude Sonnet 4.6 vía API directa de Anthropic (PRIMARY).
+    Llama a Claude Haiku 4.5 vía API directa de Anthropic (PRIMARY).
     Endpoint: https://api.anthropic.com/v1/messages
+    NOTE: Uses Haiku 4.5 because OAuth key doesn't support Sonnet/Opus direct calls.
     """
     import requests
     
     headers = {
         "Content-Type": "application/json",
         "x-api-key": CLAUDE_API_KEY,
-        "anthropic-version": "2023-06-01"
+        "anthropic-version": "2023-06-01",
+        "anthropic-beta": "oauth-2025-04-20"
     }
     
     messages = []
@@ -61,7 +66,7 @@ def call_claude_sonnet(prompt: str, system: str = "", max_tokens: int = 2000) ->
         else:
             return str(result)
     except Exception as e:
-        print(f"    ⚠️ Claude Sonnet error: {e}")
+        print(f"    ⚠️ Claude Haiku error: {e}")
         return None
 
 
@@ -229,22 +234,18 @@ def call_minimax_m2_7(prompt: str, system: str = "", max_tokens: int = 2000) -> 
 
 def call_llm(prompt: str, system: str = "", max_tokens: int = 2000) -> str:
     """
-    Llama al LLM con fallback:
-    1. GLM-4.7 Coding (PRIMARY — fast, reliable, free)
+    Llama al LLM con fallback (orden de Ender, 30 mar 2026):
+    1. Claude Haiku 4.5 (PRIMARY — via Anthropic API direct)
     2. MiniMax M2.7 Token Plan (FALLBACK 1)
     3. MiniMax M2.5 Coding Plan (FALLBACK 2)
-    4. Claude Sonnet 4.6 (FALLBACK 3 — OAuth key, may fail)
-    
-    NOTE: Claude moved to last position because the OAuth key (sk-ant-oat01)
-    requires special auth that doesn't work with direct API calls.
-    GLM-4.7 is the most reliable option for standalone scripts.
+    4. GLM-4.7 Coding (LAST RESORT)
     """
-    # Intentar GLM-4.7 primero (más confiable para scripts)
-    result = call_glm_5_coding(prompt, system, max_tokens)
+    # 1. Claude Haiku 4.5 primero
+    result = call_claude_sonnet(prompt, system, max_tokens)
     if result:
         return result
 
-    print("    ⚠️ GLM-4.7 falló, intentando MiniMax M2.7 Token Plan...")
+    print("    ⚠️ Claude Haiku falló, intentando MiniMax M2.7...")
     result = call_minimax_m2_7(prompt, system, max_tokens)
     if result:
         return result
@@ -254,8 +255,8 @@ def call_llm(prompt: str, system: str = "", max_tokens: int = 2000) -> str:
     if result:
         return result
 
-    print("    ⚠️ MiniMax M2.5 falló, intentando Claude Sonnet (puede fallar con OAuth key)...")
-    result = call_claude_sonnet(prompt, system, max_tokens)
+    print("    ⚠️ MiniMax M2.5 falló, intentando GLM-4.7...")
+    result = call_glm_5_coding(prompt, system, max_tokens)
     if result:
         return result
 
