@@ -1754,5 +1754,33 @@
     "close_time": "2026-03-30T08:00:16.515679+00:00",
     "close_reason": "EMERGENCY_CLOSE",
     "strategy": "trend_momentum"
+  },
+  {
+    "id": "GOAT_1774858586",
+    "symbol": "GOAT",
+    "direction": "short",
+    "entry_price": 0.01729792,
+    "exit_price": 0.01727362,
+    "size_usd": 300,
+    "pnl_usd": 0.4214,
+    "pnl_pct": 0.1405,
+    "open_time": "2026-03-30T08:16:26.575835+00:00",
+    "close_time": "2026-03-30T08:20:46.496476+00:00",
+    "close_reason": "EMERGENCY_CLOSE",
+    "strategy": "trend_momentum"
+  },
+  {
+    "id": "POPCAT_1774858784",
+    "symbol": "POPCAT",
+    "direction": "short",
+    "entry_price": 0.04850138,
+    "exit_price": 0.04850138,
+    "size_usd": 300,
+    "pnl_usd": 0.0,
+    "pnl_pct": -0.0,
+    "open_time": "2026-03-30T08:19:44.939238+00:00",
+    "close_time": "2026-03-30T08:20:46.496476+00:00",
+    "close_reason": "EMERGENCY_CLOSE",
+    "strategy": "trend_momentum"
   }
 ]

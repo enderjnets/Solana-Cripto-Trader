@@ -1,9 +1,9 @@
 {
   "date": "2026-03-29",
   "starting_capital": 500.0,
-  "target_reached": true,
-  "closed_at": "2026-03-30T08:16:26.577863+00:00",
+  "target_reached": false,
+  "closed_at": "2026-03-30T08:19:44.941322+00:00",
   "enabled": true,
-  "current_pnl_pct": 0.26721534884963793,
+  "current_pnl_pct": 0.0,
   "target_pct": 0.05
 }
