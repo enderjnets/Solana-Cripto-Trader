@@ -77,6 +77,20 @@ def safe_float(v, default=0.0):
     except Exception:
         return default
 
+def safe_parse_dt(s):
+    """Parse ISO datetime string to naive datetime (strips timezone).
+    Handles both timezone-aware and naive strings consistently."""
+    from datetime import datetime as _dt
+    if not s:
+        return None
+    try:
+        d = _dt.fromisoformat(s.replace("Z", "+00:00"))
+        if d.tzinfo is not None:
+            d = d.replace(tzinfo=None)
+        return d
+    except (ValueError, TypeError):
+        return None
+
 # ── HTML template (single-file SPA) ──────────────────────────────────────────
 DASHBOARD_HTML = r"""
 <!DOCTYPE html>
@@ -1410,7 +1424,7 @@ def api_stats():
     reset_dt = None
     if has_reset:
         try:
-            reset_dt = dt.fromisoformat(reset_log["reset_date"])
+            reset_dt = safe_parse_dt(reset_log["reset_date"])
         except (ValueError, TypeError):
             has_reset = False
 
@@ -1429,8 +1443,8 @@ def api_stats():
             if not close_time:
                 continue
             try:
-                ct = dt.fromisoformat(close_time.replace("Z", "+00:00"))
-                if ct >= reset_dt:
+                ct = safe_parse_dt(close_time)
+                if ct is not None and reset_dt is not None and ct >= reset_dt:
                     closed.append(t)
             except (ValueError, TypeError):
                 continue
@@ -1571,7 +1585,7 @@ def api_stats_post_reset():
 
     reset_date_str = reset_log["reset_date"]
     try:
-        reset_dt = dt.fromisoformat(reset_date_str)
+        reset_dt = safe_parse_dt(reset_date_str)
     except (ValueError, TypeError):
         return jsonify({"has_reset": False})
 
@@ -1587,8 +1601,8 @@ def api_stats_post_reset():
         if not close_time:
             continue
         try:
-            ct = dt.fromisoformat(close_time.replace("Z", "+00:00"))
-            if ct >= reset_dt:
+            ct = safe_parse_dt(close_time)
+            if ct is not None and reset_dt is not None and ct >= reset_dt:
                 post_reset.append(t)
         except (ValueError, TypeError):
             continue
@@ -1651,7 +1665,7 @@ def api_equity():
     reset_dt = None
     if has_reset:
         try:
-            reset_dt = dt.fromisoformat(reset_log["reset_date"])
+            reset_dt = safe_parse_dt(reset_log["reset_date"])
         except (ValueError, TypeError):
             has_reset = False
 
@@ -1662,8 +1676,8 @@ def api_equity():
             if not close_time:
                 continue
             try:
-                ct = dt.fromisoformat(close_time.replace("Z", "+00:00"))
-                if ct >= reset_dt:
+                ct = safe_parse_dt(close_time)
+                if ct is not None and reset_dt is not None and ct >= reset_dt:
                     closed.append(t)
             except (ValueError, TypeError):
                 continue

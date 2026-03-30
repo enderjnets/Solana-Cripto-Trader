@@ -9,6 +9,6 @@
   "total_trades_learned": 30,
   "last_adaptation": "2026-03-30T08:14:55.953508+00:00",
   "adaptation_count": 2,
-  "last_updated": "2026-03-30T08:07:33.488031+00:00",
-  "notes": "R:R optimization: SL 2.5%\u21921.5%, TP 5.0%\u21924%, max_pos 5\u21923. Reduces avg loss and fee exposure."
+  "last_updated": "2026-03-30T08:26:24.350443+00:00",
+  "notes": "Reset capital $500.0 - conocimiento preservado"
 }
