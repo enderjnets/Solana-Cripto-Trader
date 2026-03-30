@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-🎬 BitTrader Producer v4.0 — Edge-TTS + MiniMax Hailuo Video + ffmpeg
+🎬 BitTrader Producer v4.1 — MiniMax Cloned Voice (Ender J) + Edge-TTS Fallback + MiniMax Hailuo Video + ffmpeg
 Convierte guiones en videos completos:
-1. Genera audio con Edge-TTS Jorge (es-MX-JorgeNeural) — MiniMax TTS deshabilitado (genera estática)
+1. Genera audio con MiniMax cloned voice Ender J (moss_audio) — fallback Edge-TTS Jorge
 2. Genera clips de video con MiniMax Hailuo 2.3
 3. Ensambla video final con ffmpeg
 
-Mejoras v4.0:
-- TTS: Edge-TTS Jorge como primario (MiniMax genera estática para español)
+Mejoras v4.1:
+- TTS: MiniMax cloned voice (Ender J) como primario, Edge-TTS Jorge como fallback
 - Shorts: blur-fill en vez de barras negras (Hailuo no genera vertical nativo)
 - Logo BitTrader: overlay top-right, 240px (shorts) / 180px (longs)
 - Subtítulos: 100px (shorts) / 65px (longs) — aumentado para estilo viral
@@ -66,12 +66,12 @@ MINIMAX_HEADERS = {
     "Content-Type": "application/json"
 }
 
-# TTS voice: Edge-TTS Jorge is the primary (MiniMax presenter_male generates static noise)
-# MiniMax TTS is DISABLED — generates corrupted audio for Spanish text
-TTS_VOICE = "presenter_male"  # kept for reference, NOT used
-TTS_PRIMARY = "edge"  # Use edge-tts as primary
+# TTS voice: MiniMax TTS with Ender's cloned voice (moss_audio) — PRIMARY
+# Edge-TTS Jorge is fallback
+TTS_VOICE = "moss_audio_d2531039-2c43-11f1-918f-5a2de67f838a"  # Ender J cloned voice
+TTS_PRIMARY = "minimax"  # Use MiniMax cloned voice as primary
 TTS_SPEED = 1.0
-TTS_MODEL = "speech-02-hd"
+TTS_MODEL = "speech-2.8-hd"  # Latest and best quality
 
 # Video generation
 VIDEO_MODEL = "MiniMax-Hailuo-2.3"
@@ -440,52 +440,48 @@ def get_fallback_prompts(video_type: str) -> list:
 # ════════════════════════════════════════════════════════════════════════
 
 def minimax_tts(text: str, output_path: Path) -> float:
-    """Generate audio with MiniMax TTS. Returns duration in seconds."""
+    """Generate audio with MiniMax TTS using streaming hex chunks. Returns duration in seconds."""
     payload = {
+        "model": TTS_MODEL,
         "text": text,
+        "stream": True,
         "voice_setting": {
             "voice_id": TTS_VOICE,
-            "speed": TTS_SPEED
-        },
-        "model": TTS_MODEL
+            "speed": TTS_SPEED,
+            "volume": 1.0,
+            "pitch": 0
+        }
     }
-    
+
     try:
-        r = requests.post(f"{MINIMAX_BASE_URL}/t2a_v2", 
-                         headers=MINIMAX_HEADERS, json=payload, timeout=60)
-        data = r.json()
-        
-        status = data.get("base_resp", {}).get("status_code", -1)
-        if status != 0:
-            raise Exception(f"MiniMax TTS error: {data.get('base_resp', {}).get('status_msg', 'unknown')}")
-        
-        audio_b64 = data.get("data", {}).get("audio", "")
-        if not audio_b64:
-            raise Exception("No audio data in response")
-        
-        # Decode base64
-        padding = 4 - (len(audio_b64) % 4)
-        if padding != 4:
-            audio_b64 += "=" * padding
-        audio_bytes = base64.b64decode(audio_b64)
-        
-        # Save as raw PCM then convert to MP3
-        raw_path = output_path.with_suffix('.raw')
-        with open(raw_path, 'wb') as f:
-            f.write(audio_bytes)
-        
-        # Convert raw PCM to MP3 (MiniMax outputs 32000Hz 16-bit mono PCM)
-        result = subprocess.run([
-            "ffmpeg", "-y", "-f", "s16le", "-ar", "32000", "-ac", "1",
-            "-i", str(raw_path), "-b:a", "192k", str(output_path)
-        ], capture_output=True, text=True, timeout=30)
-        
-        if result.returncode != 0:
-            raise Exception(f"ffmpeg conversion failed: {result.stderr[:200]}")
-        
-        # Clean up raw
-        raw_path.unlink(missing_ok=True)
-        
+        r = requests.post(
+            f"{MINIMAX_BASE_URL}/t2a_v2",
+            headers=MINIMAX_HEADERS, json=payload, timeout=60, stream=True
+        )
+
+        if r.status_code != 200:
+            raise Exception(f"MiniMax TTS error {r.status_code}: {r.text[:200]}")
+
+        # Collect all hex audio chunks from SSE stream
+        audio_chunks = []
+        for line in r.iter_lines():
+            if line and line.startswith(b"data: "):
+                try:
+                    chunk = json.loads(line[6:])
+                    audio_hex = chunk["data"]["audio"]
+                    audio_bytes = bytes.fromhex(audio_hex)
+                    audio_chunks.append(audio_bytes)
+                except (json.JSONDecodeError, KeyError, ValueError):
+                    continue
+
+        if not audio_chunks:
+            raise Exception("No audio chunks received")
+
+        combined = b"".join(audio_chunks)
+
+        # Save directly (MiniMax outputs MP3 with streaming)
+        Path(output_path).write_bytes(combined)
+
         # Get duration
         dur = subprocess.run(
             ["ffprobe", "-v", "quiet", "-show_entries", "format=duration",
@@ -494,7 +490,7 @@ def minimax_tts(text: str, output_path: Path) -> float:
         )
         duration = float(dur.stdout.strip()) if dur.stdout.strip() else 0
         return duration
-        
+
     except Exception as e:
         print(f"      ⚠️ MiniMax TTS error: {e}")
         return -1
@@ -585,18 +581,19 @@ def clean_script_for_tts(text: str) -> str:
 
 
 def generate_audio(text: str, output_path: Path) -> float:
-    """Generate audio: edge-tts primary (MiniMax TTS disabled — generates static for Spanish)."""
+    """Generate audio: MiniMax cloned voice primary, Edge-TTS Jorge as fallback."""
     # Always sanitize script before TTS — strip section headers, video prompts, etc.
     text = clean_script_for_tts(text)
-    # Edge-TTS Jorge is reliable and free — use as primary
-    print("      🔊 Usando Edge-TTS (es-MX-JorgeNeural)...")
-    duration = edge_tts_fallback(text, output_path)
+
+    # Try MiniMax cloned voice first (Ender J voice)
+    print(f"      🔊 MiniMax TTS (Ender J cloned voice: {TTS_VOICE[:20]}...)...")
+    duration = minimax_tts(text, output_path)
     if duration > 0:
         return duration
-    
-    # Only try MiniMax as last resort
-    print("      ⚠️ Edge-TTS falló, intentando MiniMax TTS...")
-    return minimax_tts(text, output_path)
+
+    # Fallback to Edge-TTS Jorge if MiniMax fails
+    print("      ⚠️ MiniMax falló, usando Edge-TTS Jorge como fallback...")
+    return edge_tts_fallback(text, output_path)
 
 
 # ════════════════════════════════════════════════════════════════════════
