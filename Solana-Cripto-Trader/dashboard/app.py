@@ -1501,12 +1501,13 @@ def api_stats():
         max_win_streak  = max(max_win_streak, cur_win)
         max_loss_streak = max(max_loss_streak, cur_loss)
 
-    # Capital: TRUE EQUITY = free_cash + invested_margin + unrealized_pnl
-    # portfolio.json capital_usd is FREE CASH (margin deducted when positions open)
-    free_cash = safe_float(port.get("capital_usd", initial_capital))
-    invested = sum(safe_float(p.get("margin_usd", p.get("size_usd", 0))) for p in open_pos)
+    # Capital: paper_capital from master_state IS the equity
+    # The orchestrator does NOT deduct margin when opening positions
+    # So capital_usd = paper_capital (already the true equity)
+    capital_usd = safe_float(port.get("capital_usd", initial_capital))
+    # Unrealized PnL from open positions (informational, already reflected in capital)
     unrealized = sum(safe_float(p.get("pnl_usd", 0)) for p in open_pos)
-    capital_usd = free_cash + invested + unrealized
+    invested = sum(safe_float(p.get("margin_usd", p.get("size_usd", 0))) for p in open_pos)
 
     return_pct = ((capital_usd - initial_capital) / initial_capital * 100) \
                  if initial_capital > 0 else 0.0
@@ -1615,13 +1616,12 @@ def api_stats_post_reset():
     win_rate = (wins / total * 100) if total > 0 else 0.0
     total_pnl = sum(safe_float(t.get("pnl_usd", 0)) for t in post_reset)
 
-    # Current capital: total equity (free cash + margin + unrealized P&L)
+    # Current capital: paper_capital from master_state IS the equity
+    # The orchestrator does NOT deduct margin when opening positions
+    # So capital_usd already represents total equity
     port = load_portfolio()
-    free_cash = safe_float(port.get("capital_usd", reset_capital))
+    current_capital = safe_float(port.get("capital_usd", reset_capital))
     open_pos = [p for p in port.get("positions", []) if p.get("status") == "open"]
-    invested = sum(safe_float(p.get("margin_usd", p.get("size_usd", 0))) for p in open_pos)
-    unrealized = sum(safe_float(p.get("pnl_usd", 0)) for p in open_pos)
-    current_capital = free_cash + invested + unrealized
 
     # Drawdown since reset
     cap = reset_capital

@@ -1,5 +1,5 @@
 {
-  "capital_usd": 471.74519033148005,
+  "capital_usd": 471.75,
   "initial_capital": 500.0,
   "positions": [
     {
@@ -7,80 +7,76 @@
       "direction": "short",
       "entry_price": 1.27,
       "current_price": 1.27,
-      "margin_usd": 0,
-      "size_usd": 117.93629758287003,
+      "margin_usd": 23.59,
+      "size_usd": 117.94,
       "leverage": 5.0,
-      "pnl_usd": -0.2835470733126223,
+      "pnl_usd": -0.2849,
       "pnl_pct": 0.0,
       "status": "open",
-      "open_time": "2026-03-29T05:29:49.102756",
-      "time_open": "21.0h"
+      "open_time": "2026-03-29T05:29:49.102756"
     },
     {
       "symbol": "BTC",
       "direction": "short",
       "entry_price": 65252.0,
       "current_price": 65252.0,
-      "margin_usd": 0,
-      "size_usd": 117.93629758287003,
+      "margin_usd": 23.59,
+      "size_usd": 117.94,
       "leverage": 5.0,
-      "pnl_usd": -0.16118666204230742,
+      "pnl_usd": -0.1626,
       "pnl_pct": 0.0,
       "status": "open",
-      "open_time": "2026-03-29T16:52:19.561411",
-      "time_open": "9.7h"
+      "open_time": "2026-03-29T16:52:19.561411"
     },
     {
       "symbol": "ETH",
       "direction": "short",
       "entry_price": 2028.79,
       "current_price": 2028.79,
-      "margin_usd": 0,
-      "size_usd": 117.93629758287003,
+      "margin_usd": 23.59,
+      "size_usd": 117.94,
       "leverage": 5.0,
-      "pnl_usd": -0.12412906257375392,
+      "pnl_usd": -0.1255,
       "pnl_pct": 0.0,
       "status": "open",
-      "open_time": "2026-03-29T21:00:51.376422",
-      "time_open": "5.5h"
+      "open_time": "2026-03-29T21:00:51.376422"
     },
     {
       "symbol": "ADA",
       "direction": "short",
       "entry_price": 0.245896,
       "current_price": 0.245896,
-      "margin_usd": 0,
-      "size_usd": 117.93629758287003,
+      "margin_usd": 23.59,
+      "size_usd": 117.94,
       "leverage": 5.0,
-      "pnl_usd": -0.12412906237391742,
+      "pnl_usd": -0.1255,
       "pnl_pct": 0.0,
       "status": "open",
-      "open_time": "2026-03-29T21:00:51.376486",
-      "time_open": "5.5h"
+      "open_time": "2026-03-29T21:00:51.376486"
     },
     {
       "symbol": "SOL",
       "direction": "short",
       "entry_price": 83.9,
       "current_price": 83.9,
-      "margin_usd": 0,
-      "size_usd": 117.93629758287003,
+      "margin_usd": 23.59,
+      "size_usd": 117.94,
       "leverage": 5.0,
-      "pnl_usd": -0.09822641882920055,
+      "pnl_usd": -0.0996,
       "pnl_pct": 0.0,
       "status": "open",
-      "open_time": "2026-03-29T23:12:38.146387",
-      "time_open": "3.3h"
+      "open_time": "2026-03-29T23:12:38.146387"
     }
   ],
   "status": "ACTIVE",
   "mode": "paper_drift",
-  "last_updated": "2026-03-30T08:32:55.564462+00:00",
-  "total_trades": 23,
-  "wins": 10,
-  "losses": 13,
+  "last_updated": "2026-03-30T08:39:42.081956+00:00",
+  "total_trades": 413,
+  "wins": 45,
+  "losses": 368,
   "flat_trades": 0,
-  "win_rate": 43.5,
-  "total_pnl": -70.26,
-  "total_fees": 5.1076
+  "win_rate": 10.9,
+  "total_pnl": -99.26,
+  "total_fees": 23.5094,
+  "note": "capital_usd = paper_capital from master_state.json (single source of truth)"
 }
