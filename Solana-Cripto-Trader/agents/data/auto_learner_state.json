@@ -10,7 +10,7 @@
   "total_trades_learned": 413,
   "last_adaptation": "2026-03-30T08:57:40.500748+00:00",
   "adaptation_count": 4,
-  "last_updated": "2026-03-30T08:57:40.500770+00:00",
+  "last_updated": "2026-03-30T08:59:15.314907+00:00",
   "notes": "Reset capital $500.0 - conocimiento preservado",
   "last_trade_count": 413,
   "last_analysis": "This strategy is catastrophically broken with a 10.9% win rate and -$99.26 total loss. The three liquidations alone account for $70.76 (71% of total losses), each costing ~$23.59. The trailing stop change to 2.0% didn't help - 27 trailing stop trades all lost, suggesting positions are being stopped out before breaking even despite being in profit. Short positions in ADA, SOL, and ETH are the primary destroyers of capital.",
