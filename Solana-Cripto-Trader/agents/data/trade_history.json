@@ -1698,5 +1698,61 @@
     "close_time": "2026-03-30T07:41:44.807726+00:00",
     "close_reason": "EMERGENCY_CLOSE",
     "strategy": "trend_momentum"
+  },
+  {
+    "id": "MOODENG_1774856572",
+    "symbol": "MOODENG",
+    "direction": "short",
+    "entry_price": 0.0472452,
+    "exit_price": 0.0473281,
+    "size_usd": 300,
+    "pnl_usd": -0.5264,
+    "pnl_pct": -0.1755,
+    "open_time": "2026-03-30T07:42:52.020524+00:00",
+    "close_time": "2026-03-30T07:45:06.150358+00:00",
+    "close_reason": "EMERGENCY_CLOSE",
+    "strategy": "trend_momentum"
+  },
+  {
+    "id": "TRUMP_1774856639",
+    "symbol": "TRUMP",
+    "direction": "short",
+    "entry_price": 2.97677704,
+    "exit_price": 2.97739627,
+    "size_usd": 300,
+    "pnl_usd": -0.0624,
+    "pnl_pct": -0.0208,
+    "open_time": "2026-03-30T07:43:59.032287+00:00",
+    "close_time": "2026-03-30T07:45:06.150358+00:00",
+    "close_reason": "EMERGENCY_CLOSE",
+    "strategy": "trend_momentum"
+  },
+  {
+    "id": "BTC_1774856899",
+    "symbol": "BTC",
+    "direction": "short",
+    "entry_price": 67021.48390064,
+    "exit_price": 67457.60391116,
+    "size_usd": 300,
+    "pnl_usd": -1.9522,
+    "pnl_pct": -0.6507,
+    "open_time": "2026-03-30T07:48:19.894297+00:00",
+    "close_time": "2026-03-30T08:00:16.515679+00:00",
+    "close_reason": "EMERGENCY_CLOSE",
+    "strategy": "trend_momentum"
+  },
+  {
+    "id": "MOODENG_1774857549",
+    "symbol": "MOODENG",
+    "direction": "short",
+    "entry_price": 0.04725736,
+    "exit_price": 0.04732019,
+    "size_usd": 300,
+    "pnl_usd": -0.3989,
+    "pnl_pct": -0.133,
+    "open_time": "2026-03-30T07:59:09.357611+00:00",
+    "close_time": "2026-03-30T08:00:16.515679+00:00",
+    "close_reason": "EMERGENCY_CLOSE",
+    "strategy": "trend_momentum"
   }
 ]

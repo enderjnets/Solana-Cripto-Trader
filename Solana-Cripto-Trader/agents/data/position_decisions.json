@@ -1,8 +1,8 @@
 {
-  "timestamp": "2026-03-30T07:42:53.125208+00:00",
+  "timestamp": "2026-03-30T08:16:26.578404+00:00",
   "decisions": [
     {
-      "symbol": "MOODENG",
+      "symbol": "GOAT",
       "direction": "short",
       "action": "HOLD",
       "confidence": 0.72,
@@ -10,7 +10,7 @@
       "quant_score": 15,
       "quant_action": "HOLD",
       "quant_reasons": [
-        "RR_BUENO (2.00x)",
+        "RR_BUENO (2.67x)",
         "TENDENCIA_EN_CONTRA (BULLISH 70%)",
         "PANICO_EXTREMO (F&G=8)"
       ],
@@ -20,11 +20,11 @@
       "llm_source": "quantitative_fallback",
       "pnl_usd": 0.0,
       "pnl_pct": 0.0,
-      "dist_tp_pct": 5.0,
-      "dist_sl_pct": 2.5,
-      "rr_remaining": 2.0,
+      "dist_tp_pct": 4.0,
+      "dist_sl_pct": 1.5,
+      "rr_remaining": 2.667,
       "hours_open": 0,
-      "evaluated_at": "2026-03-30T07:42:53.125130+00:00"
+      "evaluated_at": "2026-03-30T08:16:26.578365+00:00"
     }
   ]
 }

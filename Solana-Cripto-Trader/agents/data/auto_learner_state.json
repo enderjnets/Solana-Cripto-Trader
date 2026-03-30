@@ -1,14 +1,14 @@
 {
   "params": {
-    "sl_pct": 0.025,
-    "tp_pct": 0.05,
+    "sl_pct": 0.015,
+    "tp_pct": 0.04,
     "leverage_tier": 2,
     "risk_per_trade": 0.02,
-    "max_positions": 5
+    "max_positions": 3
   },
-  "total_trades_learned": 0,
-  "last_adaptation": null,
-  "adaptation_count": 0,
-  "last_updated": "2026-03-29T21:49:49.060496+00:00",
-  "notes": "Reset capital $500.0 - conocimiento preservado"
+  "total_trades_learned": 30,
+  "last_adaptation": "2026-03-30T08:14:55.953508+00:00",
+  "adaptation_count": 2,
+  "last_updated": "2026-03-30T08:07:33.488031+00:00",
+  "notes": "R:R optimization: SL 2.5%\u21921.5%, TP 5.0%\u21924%, max_pos 5\u21923. Reduces avg loss and fee exposure."
 }

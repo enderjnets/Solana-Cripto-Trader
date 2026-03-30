@@ -179,7 +179,15 @@ class MasterState:
         line = f"[{ts}] {msg}\n"
         with open(LOG_FILE, 'a') as f:
             f.write(line)
-        print(line.strip())
+        # Only print to stdout if it's NOT the same as LOG_FILE
+        # (avoids duplicate lines when stdout is redirected to log)
+        import sys
+        if hasattr(sys.stdout, 'name') and sys.stdout.name == str(LOG_FILE):
+            pass  # skip — already written to file
+        elif not sys.stdout.isatty():
+            pass  # stdout redirected — skip to avoid dupes
+        else:
+            print(line.strip())
 
 
 # ============================================================================
@@ -1153,8 +1161,9 @@ class PaperTradingAgent:
 
                 if net_pnl_value > 0:
                     stats["wins"] += 1
-                else:
+                elif net_pnl_value < 0:
                     stats["losses"] += 1
+                # net_pnl_value == 0 → flat/emergency, not counted as W or L
 
                 self.state.log(f"📝 DRIFT: Closed {token} @ ${current:.2f} | P&L: ${net_pnl_value:+.2f} ({pnl_pct:+.1f}%) | Reason: {close_reason} | Fees: ${total_fees:.4f}")
 
@@ -1165,9 +1174,12 @@ class PaperTradingAgent:
         total_pnl = sum(p.get("pnl_final", 0) for p in closed_positions)
         open_pnl = sum(p.get("pnl_value", 0) for p in positions)
 
-        # Calculate win rate
-        if stats["total_trades"] > 0:
-            stats["win_rate"] = (stats["wins"] / stats["total_trades"]) * 100
+        # Calculate win rate (excluding flat/zero-pnl trades for accuracy)
+        decisive = stats["wins"] + stats["losses"]
+        if decisive > 0:
+            stats["win_rate"] = (stats["wins"] / decisive) * 100
+        elif stats["total_trades"] > 0:
+            stats["win_rate"] = 0.0
 
         # Update state
         self.state.data["paper_positions"] = positions
