@@ -245,7 +245,11 @@ def main():
             if sched_dt <= now:
                 # ── QA Agent gate (full 9-check suite) ───────────────
                 script_id = item.get("script_id","")
-                if _qa_available and _qa_agent_instance:
+                # Skip QA if already manually approved
+                if item.get("quality_decision") == "manual-approved":
+                    ready_to_upload.append((i, item))
+                    log(f"Item {i}: ✅ QA bypassed (manual-approved) — {item.get('title','?')[:40]}", "DEBUG")
+                elif _qa_available and _qa_agent_instance:
                     qa_result = _qa_agent_instance.run_all_checks(
                         video_path=item.get("output_file",""),
                         thumb_path=item.get("thumbnail_path", item.get("thumbnail","")),
@@ -271,7 +275,11 @@ def main():
         else:
             # ── QA Agent gate (no scheduled date) ────────────────────
             script_id = item.get("script_id","")
-            if _qa_available and _qa_agent_instance:
+            # Skip QA if already manually approved
+            if item.get("quality_decision") == "manual-approved":
+                ready_to_upload.append((i, item))
+                log(f"Item {i}: ✅ QA bypassed (manual-approved) — {item.get('title','?')[:40]}", "DEBUG")
+            elif _qa_available and _qa_agent_instance:
                 qa_result = _qa_agent_instance.run_all_checks(
                     video_path=item.get("output_file",""),
                     thumb_path=item.get("thumbnail_path", item.get("thumbnail","")),
