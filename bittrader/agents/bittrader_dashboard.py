@@ -398,20 +398,23 @@ def api_agent_notes_stream():
             _sse_clients.add(client)
         # Send initial state immediately
         notes = load_notes()
-        yield f"data: {json.dumps({'type': 'init', 'notes': notes}, ensure_ascii=False)}\n\n"
+        yield f"event: init\ndata: {json.dumps({'type': 'init', 'notes': notes}, ensure_ascii=False)}\n\n"
         last_count = len(notes.get("messages", []))
+        last_mtime = AGENT_NOTES_FILE.stat().st_mtime if AGENT_NOTES_FILE.exists() else 0
         try:
             while True:
                 time.sleep(1)
-                notes = load_notes()
-                msgs = notes.get("messages", [])
-                if len(msgs) != last_count:
-                    last_count = len(msgs)
-                    # Check if this is a NEW user message — trigger agent immediately
-                    latest = msgs[-1] if msgs else None
-                    if latest and latest.get("sender") == "user":
-                        _trigger_agent_now(latest)
-                    yield f"data: {json.dumps({'type': 'update', 'notes': notes}, ensure_ascii=False)}\n\n"
+                # Detect file changes by mtime + message count
+                cur_mtime = AGENT_NOTES_FILE.stat().st_mtime if AGENT_NOTES_FILE.exists() else 0
+                if cur_mtime != last_mtime:
+                    last_mtime = cur_mtime
+                    notes = load_notes()
+                    msgs = notes.get("messages", [])
+                    if len(msgs) != last_count:
+                        last_count = len(msgs)
+                        yield f"event: update\ndata: {json.dumps({'type': 'update', 'notes': notes}, ensure_ascii=False)}\n\n"
+                # Send keepalive every 15s to prevent browser timeout
+                yield ": keepalive\n\n"
         except GeneratorExit:
             pass
         finally:
@@ -880,24 +883,35 @@ async function sendAnNote(){
 function connectSSE(){
   if(evtSource)evtSource.close();
   evtSource=new EventSource('/api/agent-notes/stream');
-  evtSource.oninit=function(e){
-    const d=JSON.parse(e.data);
-    if(d.type==='init')renderNotes(d.notes);
-  };
+  // Handle named events
   evtSource.addEventListener('init',function(e){
-    const d=JSON.parse(e.data);
-    renderNotes(d.notes);
+    try{const d=JSON.parse(e.data);renderNotes(d.notes);}catch(x){console.error('init parse:',x);}
   });
   evtSource.addEventListener('update',function(e){
-    const d=JSON.parse(e.data);
-    renderNotes(d.notes);
+    try{const d=JSON.parse(e.data);renderNotes(d.notes);}catch(x){console.error('update parse:',x);}
   });
-  evtSource.onerror=function(){
-    console.error('SSE error, reconnecting...');
-    setTimeout(connectSSE,5000);
+  // Fallback: handle unnamed events too
+  evtSource.onmessage=function(e){
+    try{
+      const d=JSON.parse(e.data);
+      if(d.notes)renderNotes(d.notes);
+    }catch(x){}
+  };
+  evtSource.onerror=function(e){
+    console.log('SSE reconnecting...');
+    evtSource.close();
+    setTimeout(connectSSE,3000);
   };
 }
 
+// Also load notes via API on page load as fallback
+async function loadAgentNotes(){
+  try{
+    const d=await(await fetch('/api/agent-notes')).json();
+    renderNotes(d);
+  }catch(e){}
+}
+loadAgentNotes();
 connectSSE();
 
 loadAll();
