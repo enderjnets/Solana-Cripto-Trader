@@ -8,9 +8,11 @@ Port: 8001
 import json
 import os
 import math
+import threading
+import time as _time
 from datetime import datetime, timezone
 from pathlib import Path
-from flask import Flask, jsonify, render_template_string, request
+from flask import Flask, jsonify, render_template_string, request, Response
 
 app = Flask(__name__)
 
@@ -52,6 +54,21 @@ def load_trade_history():
     # Fallback: portfolio.json positions
     port = load_json(DATA / "portfolio.json")
     return port.get("positions", [])
+
+# ── Agent Notes (Chat) ────────────────────────────────────────────────────────
+AGENT_NOTES_FILE = DATA / "agent_notes.json"
+
+def load_notes():
+    try:
+        with open(AGENT_NOTES_FILE) as f:
+            return json.load(f)
+    except Exception:
+        return {"messages": [], "last_updated": None}
+
+def save_notes(data):
+    data["last_updated"] = datetime.now().isoformat()
+    with open(AGENT_NOTES_FILE, "w") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
 
 def safe_float(v, default=0.0):
     try:
@@ -319,6 +336,39 @@ DASHBOARD_HTML = r"""
     table { font-size: 11px; }
     thead th, tbody td { padding: 5px 6px; }
   }
+  /* ── Agent Chat ── */
+  .chat-section{margin-top:20px}
+  .chat-card{background:var(--bg2);border:1px solid var(--border);border-radius:10px;overflow:hidden;border-left:3px solid var(--purple)}
+  .chat-header{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:var(--bg3);border-bottom:1px solid var(--border);font-size:12px;color:var(--text2)}
+  .chat-badge{background:rgba(63,185,80,.15);color:var(--green);padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600}
+  .chat-messages{max-height:400px;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:8px}
+  .cmsg{display:flex;flex-direction:column;gap:2px}
+  .cmsg-agent{align-items:flex-start}
+  .cmsg-user{align-items:flex-end}
+  .cmsg-meta{font-size:10px;margin-bottom:2px}
+  .cmsg-agent .cmsg-meta{color:var(--purple)}
+  .cmsg-user .cmsg-meta{color:var(--green)}
+  .cmsg-bubble{padding:8px 12px;font-size:12px;line-height:1.5;max-width:85%;border-radius:12px;white-space:pre-wrap;word-wrap:break-word}
+  .cmsg-agent .cmsg-bubble{background:#1f1f3d;border:1px solid #3d3d6e;border-radius:12px 12px 12px 2px}
+  .cmsg-user .cmsg-bubble{background:#1a3d1a;border:1px solid #2d6e2d;border-radius:12px 12px 2px 12px}
+  .chat-input-row{display:flex;gap:8px;padding:10px 12px;border-top:1px solid var(--border);background:var(--bg3)}
+  .chat-input-row input{flex:1;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:8px;font-size:12px}
+  .chat-input-row input:focus{border-color:var(--purple);outline:none}
+  .chat-input-row button{background:var(--purple);color:#fff;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600}
+  .chat-input-row button:hover{opacity:.85}
+  .chat-input-row button:disabled{opacity:.4;cursor:not-allowed}
+  .chat-hint{font-size:10px;color:var(--text2);padding:4px 12px 8px;text-align:center}
+  .typing-wrap{display:none;padding:4px 14px}
+  .typing-wrap.active{display:flex;align-items:flex-start;flex-direction:column}
+  .typing-label{color:var(--purple);font-size:10px;margin-bottom:3px}
+  .typing-row{background:#1f1f3d;border:1px solid #3d3d6e;border-radius:12px 12px 12px 2px;padding:8px 14px;display:flex;align-items:center;gap:8px}
+  .typing-dots{display:flex;gap:4px}
+  .typing-dots .dot{width:7px;height:7px;border-radius:50%;background:var(--purple);animation:dotBounce 1.4s infinite ease-in-out both}
+  .typing-dots .dot:nth-child(2){animation-delay:.2s}
+  .typing-dots .dot:nth-child(3){animation-delay:.4s}
+  @keyframes dotBounce{0%,80%,100%{transform:scale(.4);opacity:.4}40%{transform:scale(1);opacity:1}}
+  .typing-text{color:var(--text2);font-size:11px;animation:tPulse 2s infinite}
+  @keyframes tPulse{0%,100%{opacity:.5}50%{opacity:1}}
 </style>
 </head>
 <body>
@@ -509,6 +559,33 @@ DASHBOARD_HTML = r"""
       <div class="table-wrap" id="resetHistoryTable">
         <div class="empty">Sin resets registrados</div>
       </div>
+    </div>
+  </section>
+
+  <!-- AGENT CHAT -->
+  <section class="chat-section">
+    <div class="section-title">💬 Agente de Trading — Chat en Vivo</div>
+    <div class="chat-card">
+      <div class="chat-header">
+        <span>🤖 <strong>Solana Trading Agent</strong></span>
+        <span class="chat-badge" id="chatBadge">0 notas</span>
+      </div>
+      <div class="chat-messages" id="chatMessages">
+        <div class="empty">Conectando con el agente...</div>
+      </div>
+      <div class="typing-wrap" id="chatTyping">
+        <div class="typing-label">🤖 Agente</div>
+        <div class="typing-row">
+          <div class="typing-dots"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+          <span class="typing-text" id="chatTypingText">Pensando...</span>
+        </div>
+      </div>
+      <div class="chat-input-row">
+        <input type="text" id="chatInput" placeholder="Escribe una nota o pregunta al agente..." maxlength="500"
+               onkeydown="if(event.key==='Enter')sendChatNote()">
+        <button onclick="sendChatNote()" id="chatSendBtn">Enviar ▸</button>
+      </div>
+      <div class="chat-hint">🚀 El agente responde automáticamente. Presiona Enter para enviar.</div>
     </div>
   </section>
 
@@ -1204,6 +1281,104 @@ function fmtPrice(v) {
 function escHtml(str) {
   return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
+
+// ── Agent Chat (SSE real-time) ────────────────────────────────────────────
+let chatSSE = null;
+let chatLastCount = 0;
+let chatTypingInterval = null;
+
+function renderChat(notes){
+  const msgs = notes.messages || [];
+  const count = msgs.length;
+  document.getElementById('chatBadge').textContent = count + ' ' + (count===1?'nota':'notas');
+  if(count===0){
+    document.getElementById('chatMessages').innerHTML='<div class="empty">Sin notas aún. El agente dejará actualizaciones aquí.</div>';
+    return;
+  }
+  let h='';
+  for(const m of msgs){
+    const cls = m.sender==='agent' ? 'cmsg-agent' : 'cmsg-user';
+    const label = m.sender==='agent' ? '🤖 Agente' : '👤 Ender';
+    const time = new Date(m.ts).toLocaleString('es-MX',{timeZone:'America/Denver',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
+    h += '<div class="cmsg '+cls+'"><div class="cmsg-meta">'+label+' · '+time+'</div><div class="cmsg-bubble">'+escHtml(m.text)+'</div></div>';
+  }
+  document.getElementById('chatMessages').innerHTML = h;
+  const box = document.getElementById('chatMessages');
+  box.scrollTop = box.scrollHeight;
+  // New agent message arrived → hide typing
+  if(count > chatLastCount && chatLastCount > 0){
+    const latest = msgs[msgs.length-1];
+    if(latest && latest.sender==='agent') showChatTyping(false);
+  }
+  chatLastCount = count;
+}
+
+function showChatTyping(show){
+  const el = document.getElementById('chatTyping');
+  if(show){
+    el.className = 'typing-wrap active';
+    const box = document.getElementById('chatMessages');
+    box.scrollTop = box.scrollHeight;
+    if(!chatTypingInterval){
+      const statuses=['Pensando...','Analizando posiciones...','Revisando mercado...','Preparando respuesta...','Escribiendo...'];
+      let idx=0;
+      chatTypingInterval = setInterval(()=>{
+        idx=(idx+1)%statuses.length;
+        document.getElementById('chatTypingText').textContent=statuses[idx];
+      },3000);
+    }
+  } else {
+    el.className = 'typing-wrap';
+    if(chatTypingInterval){clearInterval(chatTypingInterval);chatTypingInterval=null;}
+  }
+}
+
+async function sendChatNote(){
+  const inp = document.getElementById('chatInput');
+  const text = inp.value.trim();
+  if(!text) return;
+  inp.value = '';
+  inp.disabled = true;
+  document.getElementById('chatSendBtn').disabled = true;
+  showChatTyping(true);
+  try{
+    await fetch('/api/agent-notes',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({message:text,sender:'user'})
+    });
+  }catch(e){console.error('Chat send error:',e);showChatTyping(false);}
+  inp.disabled = false;
+  document.getElementById('chatSendBtn').disabled = false;
+  inp.focus();
+}
+
+function connectChatSSE(){
+  if(chatSSE) chatSSE.close();
+  chatSSE = new EventSource('/api/agent-notes/stream');
+  chatSSE.addEventListener('init', function(e){
+    try{renderChat(JSON.parse(e.data).notes);}catch(x){}
+  });
+  chatSSE.addEventListener('update', function(e){
+    try{renderChat(JSON.parse(e.data).notes);}catch(x){}
+  });
+  chatSSE.onmessage = function(e){
+    try{const d=JSON.parse(e.data);if(d.notes)renderChat(d.notes);}catch(x){}
+  };
+  chatSSE.onerror = function(){
+    chatSSE.close();
+    setTimeout(connectChatSSE, 3000);
+  };
+}
+
+// Load chat on page load + connect SSE
+(async function(){
+  try{
+    const d = await(await fetch('/api/agent-notes')).json();
+    renderChat(d);
+  }catch(e){}
+  connectChatSSE();
+})();
 </script>
 </body>
 </html>
@@ -1909,6 +2084,59 @@ def api_reset():
         })
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
+
+
+# ── Agent Notes API ──────────────────────────────────────────────────────────
+
+@app.route('/api/agent-notes', methods=['GET', 'POST'])
+def api_agent_notes():
+    if request.method == 'POST':
+        data = request.get_json(force=True)
+        msg_text = data.get("message", "").strip()
+        sender = data.get("sender", "user")
+        if not msg_text:
+            return jsonify({"error": "empty message"}), 400
+        notes = load_notes()
+        notes.setdefault("messages", []).append({
+            "sender": sender,
+            "text": msg_text,
+            "ts": datetime.now().isoformat()
+        })
+        save_notes(notes)
+        return jsonify({"ok": True})
+    return jsonify(load_notes())
+
+@app.route('/api/agent-notes/last')
+def api_agent_last_note():
+    notes = load_notes()
+    agent_msgs = [m for m in notes.get("messages", []) if m.get("sender") == "agent"]
+    if agent_msgs:
+        return jsonify(agent_msgs[-1])
+    return jsonify({"text": None})
+
+@app.route('/api/agent-notes/stream')
+def api_agent_notes_stream():
+    def generate():
+        notes = load_notes()
+        yield f"event: init\ndata: {json.dumps({'type': 'init', 'notes': notes}, ensure_ascii=False)}\n\n"
+        last_mtime = AGENT_NOTES_FILE.stat().st_mtime if AGENT_NOTES_FILE.exists() else 0
+        last_count = len(notes.get("messages", []))
+        try:
+            while True:
+                _time.sleep(1)
+                cur_mtime = AGENT_NOTES_FILE.stat().st_mtime if AGENT_NOTES_FILE.exists() else 0
+                if cur_mtime != last_mtime:
+                    last_mtime = cur_mtime
+                    notes = load_notes()
+                    msgs = notes.get("messages", [])
+                    if len(msgs) != last_count:
+                        last_count = len(msgs)
+                        yield f"event: update\ndata: {json.dumps({'type': 'update', 'notes': notes}, ensure_ascii=False)}\n\n"
+                yield ": keepalive\n\n"
+        except GeneratorExit:
+            pass
+    return Response(generate(), mimetype='text/event-stream',
+                    headers={'Cache-Control': 'no-cache', 'X-Accel-Buffering': 'no', 'Connection': 'keep-alive'})
 
 
 if __name__ == '__main__':
