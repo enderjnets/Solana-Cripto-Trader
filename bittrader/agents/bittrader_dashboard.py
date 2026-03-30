@@ -10,7 +10,7 @@ import subprocess
 import re
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
-from flask import Flask, jsonify, render_template_string
+from flask import Flask, jsonify, render_template_string, request
 
 app = Flask(__name__)
 
@@ -26,6 +26,21 @@ def load_json(path, default=None):
             return json.load(f)
     except Exception:
         return default if default is not None else {}
+
+# ── Agent notes ──────────────────────────────────────────────────────────────
+AGENT_NOTES_FILE = DATA_DIR / "agent_notes.json"
+
+def load_notes():
+    try:
+        with open(AGENT_NOTES_FILE) as f:
+            return json.load(f)
+    except:
+        return {"messages": [], "last_updated": None}
+
+def save_notes(data):
+    data["last_updated"] = datetime.now().isoformat()
+    with open(AGENT_NOTES_FILE, "w") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
 
 # ── API endpoints ────────────────────────────────────────────────────────────
 
@@ -251,6 +266,33 @@ def api_produced_today():
             videos.append({"id": d.name, "size_mb": sz})
     return jsonify({"count": len(videos), "videos": videos[:20]})
 
+@app.route('/api/agent-notes')
+def api_agent_notes():
+    """GET: return all notes. POST: add a message (sender=user|agent)."""
+    if request.method == "POST":
+        data = request.get_json() or {}
+        msg = data.get("message", "").strip()
+        sender = data.get("sender", "user")
+        if msg:
+            notes = load_notes()
+            notes["messages"].append({
+                "sender": sender,
+                "text": msg,
+                "ts": datetime.now().isoformat(),
+            })
+            save_notes(notes)
+        return jsonify({"ok": True})
+    return jsonify(load_notes())
+
+@app.route('/api/agent-notes/last')
+def api_agent_last_note():
+    """GET: return only the last note from the agent (for polling)."""
+    notes = load_notes()
+    agent_msgs = [m for m in notes.get("messages", []) if m.get("sender") == "agent"]
+    if agent_msgs:
+        return jsonify(agent_msgs[-1])
+    return jsonify({"text": None})
+
 
 # ── HTML Template ────────────────────────────────────────────────────────────
 
@@ -327,6 +369,24 @@ header h1{font-size:20px;color:#58a6ff}
 .mono .big{font-size:36px;font-weight:800}
 .mono .bar{height:12px;background:#21262d;border-radius:6px;margin-top:6px;overflow:hidden}
 .mono .fill{height:100%;border-radius:6px}
+
+/* ── Agent Notes Chat ── */
+.chat-box{background:#161b22;border:1px solid #21262d;border-radius:10px;overflow:hidden}
+.chat-agent-header{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:#1c2128;border-bottom:1px solid #21262d;font-size:12px;color:#8b949e}
+.chat-badge{background:#238636;color:#fff;padding:1px 8px;border-radius:10px;font-size:10px}
+.an-empty{color:#484f58;font-size:12px;text-align:center;padding:20px}
+.chat-messages{max-height:320px;overflow-y:auto;padding:10px}
+.msg{margin-bottom:10px;display:flex;flex-direction:column}
+.msg-agent .msg-bubble{background:#1f2d3d;border:1px solid #2d4a6e;color:#c9d1d9;align-self:flex-start;max-width:85%;border-radius:12px 12px 12px 2px}
+.msg-user .msg-bubble{background:#1a3d1a;border:1px solid #2d6e2d;color:#c9d1d9;align-self:flex-end;max-width:85%;border-radius:12px 12px 2px 12px;text-align:right}
+.msg-agent .msg-meta{color:#58a6ff;font-size:10px;margin-bottom:3px}
+.msg-user .msg-meta{color:#3fb950;font-size:10px;margin-bottom:3px;text-align:right}
+.msg-bubble{padding:8px 12px;font-size:12px;line-height:1.5}
+.chat-input-row{display:flex;gap:8px;padding:10px;border-top:1px solid #21262d;background:#1c2128}
+.chat-input-row input{flex:1;background:#0d1117;border:1px solid #30363d;color:#e6edf3;padding:8px 12px;border-radius:6px;font-size:12px;outline:none}
+.chat-input-row input:focus{border-color:#58a6ff}
+.chat-tip{font-size:10px;color:#484f58;padding:4px 14px 8px;background:#1c2128}
+
 </style>
 </head>
 <body>
@@ -421,6 +481,25 @@ header h1{font-size:20px;color:#58a6ff}
 <div class="sec">
   <div class="sec-t">🎥 Videos Recientes</div>
   <div class="crd"><div id="rv-list">Cargando...</div></div>
+</div>
+
+<!-- ═══ AGENT NOTES / CHAT ═══ -->
+<div class="sec">
+  <div class="sec-t green">💬 Notas del Agente — BitTrader Team</div>
+  <div class="chat-box">
+    <div class="chat-agent-header">
+      <span>🤖 CEO Agent / Scout</span>
+      <span class="chat-badge" id="an-count">0 notas</span>
+    </div>
+    <div class="chat-messages" id="an-messages">
+      <div class="an-empty">Cargando notas del equipo...</div>
+    </div>
+    <div class="chat-input-row">
+      <input type="text" id="an-input" placeholder="Escribe una nota o mensaje para el agente..." maxlength="500" onkeydown="if(event.key==='Enter'&&!event.shiftKey)sendAnNote()">
+      <button class="btn" onclick="sendAnNote()">📤</button>
+    </div>
+    <div class="chat-tip">📌 Las notas del agente aparecen automáticamente. Presiona Enter para enviar.</div>
+  </div>
 </div>
 
 </div>
@@ -589,6 +668,65 @@ async function loadAll(){
   document.getElementById('ts').textContent=new Date().toLocaleString('es-MX',{timeZone:'America/Denver'});
   await Promise.all([loadYT(),loadQueue(),loadScripts(),loadProduced(),loadMacs(),loadProducer(),loadMiniMax()]);
 }
+
+// ── Agent Notes ──
+var anLastCount = 0;
+
+async function loadAgentNotes(){
+  try{
+    const d=await(await fetch('/api/agent-notes')).json();
+    const msgs=d.messages||[];
+    const count=msgs.length;
+    document.getElementById('an-count').textContent=count+' '+(count===1?'nota':'notas');
+    if(count===0){
+      document.getElementById('an-messages').innerHTML='<div class="an-empty">Sin notas aún. El agente dejará actualizaciones aquí.</div>';
+      return;
+    }
+    let h='';
+    for(const m of msgs){
+      const cls=m.sender==='agent'?'msg-agent':'msg-user';
+      const label=m.sender==='agent'?'🤖 Agente':'👤 Ender';
+      const time=new Date(m.ts).toLocaleString('es-MX',{timeZone:'America/Denver',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
+      h+=`<div class="msg ${cls}"><div class="msg-meta">${label} · ${time}</div><div class="msg-bubble">${escapeHtml(m.text)}</div></div>`;
+    }
+    document.getElementById('an-messages').innerHTML=h;
+    // Auto-scroll to bottom
+    const box=document.getElementById('an-messages');
+    box.scrollTop=box.scrollHeight;
+    if(count>anLastCount && anLastCount>0){
+      // New note arrived — flash header briefly
+      const hdr=document.querySelector('.chat-agent-header');
+      hdr.style.background='#1f3d1f';
+      setTimeout(()=>hdr.style.background='#1c2128',1000);
+    }
+    anLastCount=count;
+  }catch(e){console.error('Notes error:',e)}
+}
+
+function escapeHtml(t){
+  return String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+async function sendAnNote(){
+  const inp=document.getElementById('an-input');
+  const text=inp.value.trim();
+  if(!text)return;
+  inp.value='';
+  inp.disabled=true;
+  try{
+    await fetch('/api/agent-notes',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({message:text,sender:'user'})
+    });
+    await loadAgentNotes();
+  }catch(e){console.error('Send error:',e)}
+  inp.disabled=false;
+  inp.focus();
+}
+
+loadAgentNotes();
+setInterval(loadAgentNotes,30000); // check every 30s
 
 loadAll();
 setInterval(loadAll,60000);
