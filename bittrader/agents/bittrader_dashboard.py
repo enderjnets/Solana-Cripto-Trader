@@ -514,6 +514,18 @@ header h1{font-size:20px;color:#58a6ff}
 .msg-agent .msg-meta{color:#58a6ff;font-size:10px;margin-bottom:3px}
 .msg-user .msg-meta{color:#3fb950;font-size:10px;margin-bottom:3px;text-align:right}
 .msg-bubble{padding:8px 12px;font-size:12px;line-height:1.5}
+.typing-indicator{display:flex;align-items:center;gap:4px;padding:10px 14px}
+.typing-indicator .dot{width:8px;height:8px;border-radius:50%;background:#58a6ff;animation:typingBounce 1.4s infinite ease-in-out both}
+.typing-indicator .dot:nth-child(1){animation-delay:0s}
+.typing-indicator .dot:nth-child(2){animation-delay:.2s}
+.typing-indicator .dot:nth-child(3){animation-delay:.4s}
+@keyframes typingBounce{0%,80%,100%{transform:scale(0.4);opacity:.4}40%{transform:scale(1);opacity:1}}
+.thinking-wrap{display:none;padding:6px 14px}
+.thinking-wrap.active{display:flex;align-items:flex-start;flex-direction:column}
+.thinking-label{color:#58a6ff;font-size:10px;margin-bottom:4px}
+.thinking-bubble{background:#1f2d3d;border:1px solid #2d4a6e;border-radius:12px 12px 12px 2px;padding:10px 16px;display:flex;align-items:center;gap:8px}
+.thinking-text{color:#8b949e;font-size:12px;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:.5}50%{opacity:1}}
 .chat-input-row{display:flex;gap:8px;padding:10px;border-top:1px solid #21262d;background:#1c2128}
 .chat-input-row input{flex:1;background:#0d1117;border:1px solid #30363d;color:#e6edf3;padding:8px 12px;border-radius:6px;font-size:12px;outline:none}
 .chat-input-row input:focus{border-color:#58a6ff}
@@ -846,13 +858,37 @@ function showThinking(show){
     const box=document.getElementById('an-messages');
     const el=document.createElement('div');
     el.id='an-thinking';
-    el.className='msg msg-agent';
-    el.innerHTML='<div class="msg-meta">🤖 Agente</div><div class="msg-bubble" id="an-thinking-bubble">🤔 El agente está pensando...</div>';
+    el.className='thinking-wrap';
+    el.innerHTML=`
+      <div class="thinking-label">🤖 Agente</div>
+      <div class="thinking-bubble">
+        <div class="typing-indicator">
+          <div class="dot"></div><div class="dot"></div><div class="dot"></div>
+        </div>
+        <span class="thinking-text">Pensando...</span>
+      </div>`;
     box.appendChild(el);
     thinkingEl=el;
     box.scrollTop=box.scrollHeight;
   }
-  thinkingEl.style.display=show?'flex':'none';
+  if(show){
+    thinkingEl.className='thinking-wrap active';
+    const box=document.getElementById('an-messages');
+    box.scrollTop=box.scrollHeight;
+    // Start cycling status messages
+    if(!thinkingEl._interval){
+      const statuses=['Pensando...','Analizando datos...','Preparando respuesta...','Consultando al equipo...','Escribiendo...'];
+      let idx=0;
+      thinkingEl._interval=setInterval(()=>{
+        idx=(idx+1)%statuses.length;
+        const txt=thinkingEl.querySelector('.thinking-text');
+        if(txt)txt.textContent=statuses[idx];
+      },3000);
+    }
+  }else{
+    thinkingEl.className='thinking-wrap';
+    if(thinkingEl._interval){clearInterval(thinkingEl._interval);thinkingEl._interval=null;}
+  }
 }
 
 function escapeHtml(t){
