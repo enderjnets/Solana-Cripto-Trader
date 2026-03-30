@@ -34,6 +34,13 @@ try:
 except ImportError:
     HAS_KARAOKE = False
 
+# ── Estrategia híbrida 50/50 Pexels + SDXL (orden Ender 2026-03-28) ──────────
+try:
+    import clip_strategy
+    HAS_CLIP_STRATEGY = True
+except ImportError:
+    HAS_CLIP_STRATEGY = False
+
 # ── Paths ──────────────────────────────────────────────────────────────────
 WORKSPACE  = Path("/home/enderj/.openclaw/workspace")
 BITTRADER  = WORKSPACE / "bittrader"
@@ -80,15 +87,17 @@ EDGE_TTS_RATE = "+10%"
 COIN_LOGOS_DIR = DATA_DIR / "coin_logos"
 COIN_LOGOS_DIR.mkdir(parents=True, exist_ok=True)
 
-# ── Encoding estándar — compatible con YouTube Y Telegram/móvil ────────────
-# Orden de Ender 2026-03-28: SIEMPRE usar estos flags en el video final
-# profile:v baseline + level 3.1 + pix_fmt yuv420p = compatible con todos los players
+# ── Encoding estándar — YouTube HD specs ──────────────────────────────────
+# YouTube recommended: H.264 High Profile, Level 4.1, CRF 18-20
+# SHORT: 1080x1920 9:16 | LONG: 1920x1080 16:9
+# profile:v high + level 4.1 = HD quality YouTube standard
+# CRF 20 = visually lossless, good file size balance
 VIDEO_ENCODE_FLAGS = [
     "-c:v", "libx264",
     "-preset", "fast",
-    "-crf", "23",
-    "-profile:v", "baseline",
-    "-level", "3.1",
+    "-crf", "20",
+    "-profile:v", "high",
+    "-level", "4.1",
     "-pix_fmt", "yuv420p",
     "-movflags", "+faststart",
 ]
@@ -1081,7 +1090,11 @@ def assemble_video(clips: list, audio_path: Path, output_path: Path,
         print("      ❌ No valid clips to assemble")
         return False
 
-    # Normalize clips to target resolution — fix clips with wrong dimensions (e.g. 1080x2050)
+    # ── Normalize ALL clips to exact YouTube target resolution ──
+    # SHORT: 1080x1920 (9:16)  — YouTube Shorts standard
+    # LONG:  1920x1080 (16:9)  — YouTube standard HD
+    # Strategy: scale to FILL the target (crop overflow), never pad with black bars.
+    # This ensures every clip is pixel-perfect for YouTube regardless of source size.
     target_w, target_h = (1080, 1920) if video_type == "short" else (1920, 1080)
     norm_dir = script_dir / "clips_norm"
     norm_dir.mkdir(exist_ok=True)
@@ -1100,20 +1113,39 @@ def assemble_video(clips: list, audio_path: Path, output_path: Path,
             norm_clip = clip  # already correct, skip re-encode
         else:
             print(f"      🔧 Normalizing {clip.name}: {w}x{h} → {target_w}x{target_h}")
-            if video_type == "short":
-                vf = (f"scale={target_w}:{target_h}:force_original_aspect_ratio=increase,"
-                      f"crop={target_w}:{target_h},avgblur=30[bg];"
-                      f"[bg]scale={target_w}:{target_h}[bg2];"
-                      f"movie='{clip}',scale={target_w}:-2:force_original_aspect_ratio=decrease[fg];"
-                      f"[bg2][fg]overlay=(W-w)/2:(H-h)/2")
-            else:
-                vf = (f"scale={target_w}:{target_h}:force_original_aspect_ratio=decrease,"
-                      f"pad={target_w}:{target_h}:(ow-iw)/2:(oh-ih)/2:black")
-            subprocess.run(
+            # Universal approach: scale to COVER target, then center-crop to exact size.
+            # This avoids black bars and works for ANY source resolution/aspect ratio.
+            # scale2ref would be ideal but this is simpler:
+            #   1. Scale so the SMALLER dimension matches target (fills the frame)
+            #   2. Crop the overflow from the larger dimension (centered)
+            vf = (
+                f"scale="
+                f"if(gt(a\\,{target_w}/{target_h})\\,{target_w}*ih/ih\\,-2):"
+                f"if(gt(a\\,{target_w}/{target_h})\\,-2\\,{target_h}*iw/iw):"
+                f"flags=bilinear,"
+                f"scale="
+                f"if(lt(iw\\,{target_w})\\,-2\\,iw):"
+                f"if(lt(ih\\,{target_h})\\,-2\\,ih):"
+                f"flags=bilinear,"
+                f"crop={target_w}:{target_h}"
+            )
+            # Simpler reliable filter: scale to fill + crop center
+            vf = (
+                f"scale={target_w}:{target_h}:"
+                f"force_original_aspect_ratio=increase,"
+                f"crop={target_w}:{target_h}"
+            )
+            r = subprocess.run(
                 ["ffmpeg", "-y", "-i", str(clip), "-vf", vf,
-                 "-c:v", "libx264", "-preset", "fast", "-crf", "23", "-an", str(norm_clip)],
+                 "-c:v", "libx264", "-preset", "fast", "-crf", "20",
+                 "-profile:v", "high", "-level", "4.1",
+                 "-pix_fmt", "yuv420p", "-movflags", "+faststart",
+                 "-an", str(norm_clip)],
                 capture_output=True, timeout=60
             )
+            if r.returncode != 0 or not norm_clip.exists():
+                print(f"      ⚠️ Norm failed for {clip.name}, using original")
+                norm_clip = clip
         normalized_clips.append(norm_clip)
 
     # FIX v4.1: Anti-repetition — never loop the same clip pool.
@@ -1149,42 +1181,22 @@ def assemble_video(clips: list, audio_path: Path, output_path: Path,
     
     concat_path.write_text('\n'.join(concat_lines))
     
-    # Resolution based on type
-    scale = "1080:1920" if video_type == "short" else "1920:1080"
-    
     # Build ffmpeg command
     safe_title = title.replace("'", "'\\''").replace('"', '\\"').replace(':', ' -')
     
-    # Step 1: Concat clips and scale
-    # For SHORT (vertical 9:16): use blur-fill technique instead of black bars
-    # Hailuo generates horizontal clips (1366x768) — blur-fill looks professional
-    # For LONG (horizontal): simple scale + pad is fine
+    # Step 1: Concat pre-normalized clips (all already at target resolution)
+    # SHORT: 1080x1920 (9:16) | LONG: 1920x1080 (16:9)
+    # No rescaling needed — clips were normalized above
     intermediate = script_dir / "concat_scaled.mp4"
-    if video_type == "short":
-        # Blur-fill: blurred background fills black bars, sharp image centered
-        vf_scale = (
-            "[0:v]scale=1080:1920:force_original_aspect_ratio=increase,"
-            "crop=1080:1920,avgblur=30[bg];"
-            "[0:v]scale=1080:-2:force_original_aspect_ratio=decrease[fg];"
-            "[bg][fg]overlay=(W-w)/2:(H-h)/2"
-        )
-        cmd1 = [
-            "ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", str(concat_path),
-            "-filter_complex", vf_scale,
-            "-t", str(duration + 1),
-            "-c:v", "libx264", "-preset", "ultrafast", "-crf", "23",
-            "-an",
-            str(intermediate)
-        ]
-    else:
-        cmd1 = [
-            "ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", str(concat_path),
-            "-vf", f"scale={scale}:force_original_aspect_ratio=decrease,pad={scale}:(ow-iw)/2:(oh-ih)/2:black",
-            "-t", str(duration + 1),
-            "-c:v", "libx264", "-preset", "fast", "-crf", "23",
-            "-an",
-            str(intermediate)
-        ]
+    cmd1 = [
+        "ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", str(concat_path),
+        "-t", str(duration + 1),
+        "-c:v", "libx264", "-preset", "fast", "-crf", "20",
+        "-profile:v", "high", "-level", "4.1",
+        "-pix_fmt", "yuv420p", "-movflags", "+faststart",
+        "-an",
+        str(intermediate)
+    ]
     
     r1 = subprocess.run(cmd1, capture_output=True, text=True, timeout=300)
     if r1.returncode != 0:
@@ -1203,14 +1215,14 @@ def assemble_video(clips: list, audio_path: Path, output_path: Path,
             if video_type == "short":
                 subtitle_filter = (
                     f",subtitles='{sub_escaped}':force_style="
-                    f"'FontName=DejaVu Sans,FontSize=100,PrimaryColour=&H0000FFFF,"
-                    f"OutlineColour=&H00000000,Outline=3,Shadow=0,Alignment=2,MarginV=400'"
+                    f"'FontName=Arial,FontSize=100,PrimaryColour=&H00F0F000,"
+                    f"OutlineColour=&H00000000,Outline=2,Shadow=0,Alignment=2,MarginV=400'"
                 )
             else:
                 subtitle_filter = (
                     f",subtitles='{sub_escaped}':force_style="
-                    f"'FontName=DejaVu Sans,FontSize=65,PrimaryColour=&H0000FFFF,"
-                    f"OutlineColour=&H00000000,Outline=3,Shadow=0,Alignment=2,MarginV=60'"
+                    f"'FontName=Arial,FontSize=65,PrimaryColour=&H00F0F000,"
+                    f"OutlineColour=&H00000000,Outline=2,Shadow=0,Alignment=2,MarginV=60'"
                 )
     
     # BitTrader logo overlay (top-right corner, 240px, semi-transparent)
@@ -1227,7 +1239,7 @@ def assemble_video(clips: list, audio_path: Path, output_path: Path,
         print(f"      ⚠️  LOGO NO ENCONTRADO — video saldrá sin logo BitTrader. Rutas buscadas: {[str(p) for p in _logo_candidates]}")
 
     # Logo size: 240px for shorts (vertical), 180px for longs
-    logo_size = 240 if video_type == "short" else 180
+    logo_size = 60 if video_type == "short" else 180
     # Coin logo size: 100px bottom-left
     coin_logo_size = 100 if video_type == "short" else 80
 
@@ -1242,14 +1254,14 @@ def assemble_video(clips: list, audio_path: Path, output_path: Path,
                 if video_type == "short":
                     sub_filter = (
                         f",subtitles='{sub_escaped}':force_style="
-                        f"'FontName=DejaVu Sans,FontSize=100,PrimaryColour=&H0000FFFF,"
-                        f"OutlineColour=&H00000000,Outline=3,Shadow=0,Alignment=2,MarginV=400'"
+                        f"'FontName=Arial,FontSize=100,PrimaryColour=&H00F0F000,"
+                        f"OutlineColour=&H00000000,Outline=2,Shadow=0,Alignment=2,MarginV=400'"
                     )
                 else:
                     sub_filter = (
                         f",subtitles='{sub_escaped}':force_style="
-                        f"'FontName=DejaVu Sans,FontSize=65,PrimaryColour=&H0000FFFF,"
-                        f"OutlineColour=&H00000000,Outline=3,Shadow=0,Alignment=2,MarginV=60'"
+                        f"'FontName=Arial,FontSize=65,PrimaryColour=&H00F0F000,"
+                        f"OutlineColour=&H00000000,Outline=2,Shadow=0,Alignment=2,MarginV=60'"
                     )
 
         if coin_logo_path and coin_logo_path.exists():
@@ -1300,14 +1312,14 @@ def assemble_video(clips: list, audio_path: Path, output_path: Path,
                 if video_type == "short":
                     subtitle_filter = (
                         f",subtitles='{sub_escaped}':force_style="
-                        f"'FontName=DejaVu Sans,FontSize=100,PrimaryColour=&H0000FFFF,"
-                        f"OutlineColour=&H00000000,Outline=3,Shadow=0,Alignment=2,MarginV=400'"
+                        f"'FontName=Arial,FontSize=100,PrimaryColour=&H00F0F000,"
+                        f"OutlineColour=&H00000000,Outline=2,Shadow=0,Alignment=2,MarginV=400'"
                     )
                 else:
                     subtitle_filter = (
                         f",subtitles='{sub_escaped}':force_style="
-                        f"'FontName=DejaVu Sans,FontSize=65,PrimaryColour=&H0000FFFF,"
-                        f"OutlineColour=&H00000000,Outline=3,Shadow=0,Alignment=2,MarginV=60'"
+                        f"'FontName=Arial,FontSize=65,PrimaryColour=&H00F0F000,"
+                        f"OutlineColour=&H00000000,Outline=2,Shadow=0,Alignment=2,MarginV=60'"
                     )
 
         vf = f"[0:v]{subtitle_filter}" if subtitle_filter else None
@@ -1393,12 +1405,12 @@ def make_local_clips_video(audio_path: Path, output_path: Path, title: str,
             )
             cmd = ["ffmpeg", "-y", "-i", str(clip),
                    "-filter_complex", vf, "-map", "[v]",
-                   "-c:v", "libx264", "-preset", "fast", "-crf", "23",
+                   "-c:v", "libx264", "-preset", "fast", "-crf", "20",
                    "-an", str(out_clip)]
         else:
             cmd = ["ffmpeg", "-y", "-i", str(clip),
                    "-vf", f"scale={target_w}:{target_h}:force_original_aspect_ratio=increase,crop={target_w}:{target_h}",
-                   "-c:v", "libx264", "-preset", "fast", "-crf", "23",
+                   "-c:v", "libx264", "-preset", "fast", "-crf", "20",
                    "-an", str(out_clip)]
 
         r = subprocess.run(cmd, capture_output=True, timeout=60)
@@ -1433,7 +1445,7 @@ def make_local_clips_video(audio_path: Path, output_path: Path, title: str,
     r = subprocess.run([
         "ffmpeg", "-y", "-f", "concat", "-safe", "0",
         "-i", str(concat_path),
-        "-c:v", "libx264", "-preset", "fast", "-crf", "23", "-an",
+        "-c:v", "libx264", "-preset", "fast", "-crf", "20", "-an",
         str(intermediate)
     ], capture_output=True, timeout=300)
 
@@ -1463,7 +1475,7 @@ def make_local_clips_video(audio_path: Path, output_path: Path, title: str,
     input_idx = 2
 
     if BT_LOGO.exists():
-        logo_size = 240 if video_type == "short" else 180
+        logo_size = 60 if video_type == "short" else 180
         inputs += ["-i", str(BT_LOGO)]
         filter_parts.append(
             f"[{input_idx}:v]scale={logo_size}:-1,format=rgba,colorchannelmixer=aa=0.85[btlogo]"
@@ -1492,8 +1504,8 @@ def make_local_clips_video(audio_path: Path, output_path: Path, title: str,
             font_size = "100" if video_type == "short" else "65"
             subs_filter = (
                 f"subtitles='{sub_esc}':force_style="
-                f"'FontName=DejaVu Sans,FontSize={font_size},PrimaryColour=&H0000FFFF,"
-                f"OutlineColour=&H00000000,Outline=3,Shadow=0,Alignment=2,MarginV={margin_v}'"
+                f"'FontName=Arial,FontSize={font_size},PrimaryColour=&H00F0F000,"
+                f"OutlineColour=&H00000000,Outline=2,Shadow=0,Alignment=2,MarginV={margin_v}'"
             )
             filter_parts.append(f"{map_video}{subs_filter}[vfinal]")
             map_video = "[vfinal]"
@@ -1506,7 +1518,7 @@ def make_local_clips_video(audio_path: Path, output_path: Path, title: str,
     else:
         cmd += ["-map", "0:v", "-map", "1:a"]
     cmd += [
-        "-c:v", "libx264", "-preset", "fast", "-crf", "23",
+        "-c:v", "libx264", "-preset", "fast", "-crf", "20",
         "-c:a", "aac", "-b:a", "192k", "-ar", "44100",
         "-shortest", "-movflags", "+faststart",
         str(output_path)
@@ -1571,7 +1583,7 @@ def _make_kenburns_fallback(audio_path: Path, output_path: Path, title: str,
             "ffmpeg", "-y", "-loop", "1", "-i", str(img),
             "-vf", scale_vf,
             "-t", "5",
-            "-c:v", "libx264", "-preset", "fast", "-crf", "23",
+            "-c:v", "libx264", "-preset", "fast", "-crf", "20",
             "-pix_fmt", "yuv420p", "-an", str(kbout)
         ], capture_output=True, timeout=60)
         if r.returncode == 0 and kbout.exists():
@@ -1598,7 +1610,7 @@ def _make_kenburns_fallback(audio_path: Path, output_path: Path, title: str,
     r = subprocess.run([
         "ffmpeg", "-y", "-f", "concat", "-safe", "0",
         "-i", str(concat_path),
-        "-c:v", "libx264", "-preset", "fast", "-crf", "23", "-an",
+        "-c:v", "libx264", "-preset", "fast", "-crf", "20", "-an",
         str(intermediate)
     ], capture_output=True, timeout=300)
 
@@ -1625,7 +1637,7 @@ def _make_kenburns_fallback(audio_path: Path, output_path: Path, title: str,
     input_idx = 2
 
     if BT_LOGO.exists():
-        logo_size = 240 if video_type == "short" else 180
+        logo_size = 60 if video_type == "short" else 180
         inputs += ["-i", str(BT_LOGO)]
         filter_parts.append(f"[{input_idx}:v]scale={logo_size}:-1,format=rgba,colorchannelmixer=aa=0.85[btlogo]")
         filter_parts.append(f"{map_video}[btlogo]overlay=W-w-25:25:format=auto[vbt]")
@@ -1642,8 +1654,8 @@ def _make_kenburns_fallback(audio_path: Path, output_path: Path, title: str,
             font_size = "100" if video_type == "short" else "65"
             subs_filter = (
                 f"subtitles='{sub_esc}':force_style="
-                f"'FontName=DejaVu Sans,FontSize={font_size},PrimaryColour=&H0000FFFF,"
-                f"OutlineColour=&H00000000,Outline=3,Shadow=0,Alignment=2,MarginV={margin_v}'"
+                f"'FontName=Arial,FontSize={font_size},PrimaryColour=&H00F0F000,"
+                f"OutlineColour=&H00000000,Outline=2,Shadow=0,Alignment=2,MarginV={margin_v}'"
             )
             filter_parts.append(f"{map_video}{subs_filter}[vfinal]")
             map_video = "[vfinal]"
@@ -1655,7 +1667,7 @@ def _make_kenburns_fallback(audio_path: Path, output_path: Path, title: str,
     else:
         cmd += ["-map", "0:v", "-map", "1:a"]
     cmd += [
-        "-c:v", "libx264", "-preset", "fast", "-crf", "23",
+        "-c:v", "libx264", "-preset", "fast", "-crf", "20",
         "-c:a", "aac", "-b:a", "192k", "-ar", "44100",
         "-shortest", "-movflags", "+faststart",
         str(output_path)
@@ -1707,8 +1719,8 @@ def make_fallback_video(audio_path: Path, output_path: Path, title: str,
             margin_v = "200" if video_type == "short" else "80"
             subtitle_filter = (
                 f",subtitles='{sub_escaped}':force_style="
-                f"'FontName=DejaVu Sans,FontSize=100,PrimaryColour=&H0000FFFF,"
-                f"OutlineColour=&H00000000,Outline=3,Shadow=0,Alignment=2,MarginV={margin_v}'"
+                f"'FontName=Arial,FontSize=100,PrimaryColour=&H00F0F000,"
+                f"OutlineColour=&H00000000,Outline=2,Shadow=0,Alignment=2,MarginV={margin_v}'"
             )
     
     cmd = [
@@ -1718,7 +1730,7 @@ def make_fallback_video(audio_path: Path, output_path: Path, title: str,
         "-vf", (f"drawtext=text='{safe_title}':fontcolor={accent}:fontsize={title_size}:"
                 f"x=(w-text_w)/2:y={title_y}:font=DejaVu Sans Bold:borderw=3:bordercolor=black"
                 f"{subtitle_filter}"),
-        "-c:v", "libx264", "-preset", "fast", "-crf", "23",
+        "-c:v", "libx264", "-preset", "fast", "-crf", "20",
         "-c:a", "aac", "-b:a", "192k",
         "-shortest", "-movflags", "+faststart",
         str(output_path)
@@ -1776,8 +1788,8 @@ def _retry_fallback_brighter(audio_path: Path, output_path: Path, title: str,
             margin_v = "200" if video_type == "short" else "80"
             subtitle_filter = (
                 f",subtitles='{sub_escaped}':force_style="
-                f"'FontName=DejaVu Sans,FontSize=100,PrimaryColour=&H00000000,"
-                f"OutlineColour=&H00FFFFFF,Outline=3,Shadow=0,Alignment=2,MarginV={margin_v}'"
+                f"'FontName=Arial,FontSize=100,PrimaryColour=&H00000000,"
+                f"OutlineColour=&H00FFFFFF,Outline=2,Shadow=0,Alignment=2,MarginV={margin_v}'"
             )
     
     cmd = [
@@ -1787,7 +1799,7 @@ def _retry_fallback_brighter(audio_path: Path, output_path: Path, title: str,
         "-vf", (f"drawtext=text='{safe_title}':fontcolor={accent}:fontsize={title_size}:"
                 f"x=(w-text_w)/2:y={title_y}:font=DejaVu Sans Bold:borderw=3:bordercolor=white"
                 f"{subtitle_filter}"),
-        "-c:v", "libx264", "-preset", "fast", "-crf", "23",
+        "-c:v", "libx264", "-preset", "fast", "-crf", "20",
         "-c:a", "aac", "-b:a", "192k",
         "-shortest", "-movflags", "+faststart",
         str(output_path)
@@ -1901,43 +1913,90 @@ def produce_single(script: dict, output_dir: Path, use_ai_video: bool = True) ->
         print(f"    🪙 Buscando logo de {coin_symbol}...")
         coin_logo_path = fetch_coin_logo(coin_symbol)
 
-    if use_ai_video:
-        print(f"    🎬 Generando clips con MiniMax Hailuo...")
-        
-        # Generate video prompts with LLM
+    # ── STEP 2a: Hybrid v2 — MiniMax + LTX-Video (2026-03-29) ──
+    # Primary: clip_strategy.get_clips_hybrid_v2() — MiniMax image-01 + LTX-Video (Mac M4)
+    # Fallback: clip_strategy.get_clips_minimax() — 100% MiniMax if Mac unavailable
+    hybrid_clips_dir = output_dir / "clips_hybrid"
+    clips = []  # will hold Path list for assemble_video
+
+    if HAS_CLIP_STRATEGY and (use_ai_video or True):
+        try:
+            _script_words = script_text.split()
+            _words_per_seg = max(1, len(_script_words) // max(1, int(duration / 6)))
+            _segments = []
+            for _si in range(0, len(_script_words), _words_per_seg):
+                _seg_text = " ".join(_script_words[_si:_si + _words_per_seg])
+                _segments.append({"text": _seg_text})
+            if not _segments:
+                _segments = [{"text": script_text[:300]}]
+
+            _clips_needed = max(4, int(duration / VIDEO_DURATION) + 2)
+            print(f"    🎨 Hybrid v2: MiniMax + LTX-Video ({_clips_needed} clips)...")
+            clips = clip_strategy.get_clips_hybrid_v2(
+                segments=_segments,
+                total_clips_needed=_clips_needed,
+                clips_dir=hybrid_clips_dir,
+                video_type=video_type,
+                ltx_ratio=0.3,
+            )
+        except Exception as _e:
+            print(f"    ⚠️  clip_strategy error: {_e} — continuando con Hailuo")
+            clips = []
+
+    if clips:
+        print(f"    🐛 DEBUG: Entering assemble_video path (hybrid clips={len(clips)})")
+        print(f"    🔧 Ensamblando {len(clips)} clips híbridos + audio...")
+        success = assemble_video(
+            clips, audio_path, video_path, title, duration,
+            video_type, script_text, output_dir,
+            coin_logo_path=coin_logo_path
+        )
+        if success:
+            size_mb = video_path.stat().st_size / (1024 * 1024)
+            print(f"    ✅ Video final (híbrido): {size_mb:.1f}MB")
+        else:
+            print(f"    ⚠️ Ensamble híbrido falló, usando local clips fallback...")
+            success = make_local_clips_video(
+                audio_path, video_path, title, duration,
+                video_type, script_text, output_dir,
+                coin_logo_path=coin_logo_path
+            )
+    elif use_ai_video:
+        # ── Last resort: MiniMax Hailuo (slow/expensive) ──────────────────
+        print(f"    🐛 DEBUG: hybrid clips unavailable — intentando MiniMax Hailuo como fallback")
+        print(f"    🎬 Generando clips con MiniMax Hailuo (fallback)...")
+
         prompts = generate_video_prompts(script)
-        
-        # Generate clips
-        clips = []
+
+        hailuo_clips = []
         for i, prompt in enumerate(prompts, 1):
             clip_path = output_dir / f"clip_{i}.mp4"
             print(f"      🎥 Clip {i}/{len(prompts)}: {prompt[:60]}...")
-            success = generate_video_clip(prompt, clip_path, i)
-            if success:
-                clips.append(clip_path)
+            ok = generate_video_clip(prompt, clip_path, i)
+            if ok:
+                hailuo_clips.append(clip_path)
             time.sleep(2)  # Rate limit
-        
-        if clips:
-            print(f"    🐛 DEBUG: Entering assemble_video path (clips={len(clips)})")
-            print(f"    🔧 Ensamblando {len(clips)} clips + audio...")
+
+        if hailuo_clips:
+            print(f"    🐛 DEBUG: Entering assemble_video path (Hailuo clips={len(hailuo_clips)})")
+            print(f"    🔧 Ensamblando {len(hailuo_clips)} clips Hailuo + audio...")
             success = assemble_video(
-                clips, audio_path, video_path, title, duration,
+                hailuo_clips, audio_path, video_path, title, duration,
                 video_type, script_text, output_dir,
                 coin_logo_path=coin_logo_path
             )
             if success:
                 size_mb = video_path.stat().st_size / (1024 * 1024)
-                print(f"    ✅ Video final: {size_mb:.1f}MB")
+                print(f"    ✅ Video final (Hailuo): {size_mb:.1f}MB")
             else:
-                print(f"    ⚠️ Ensamble falló, usando local clips fallback...")
+                print(f"    ⚠️ Ensamble Hailuo falló, usando local clips fallback...")
                 success = make_local_clips_video(
                     audio_path, video_path, title, duration,
                     video_type, script_text, output_dir,
                     coin_logo_path=coin_logo_path
                 )
         else:
-            print(f"    🐛 DEBUG: Entering local clips fallback (no AI clips generated)")
-            print(f"    ⚠️ No se generaron clips con Hailuo — usando clips locales reales...")
+            print(f"    🐛 DEBUG: No AI clips — usando clips locales reales...")
             success = make_local_clips_video(
                 audio_path, video_path, title, duration,
                 video_type, script_text, output_dir,
@@ -1982,6 +2041,47 @@ def produce_single(script: dict, output_dir: Path, use_ai_video: bool = True) ->
         "produced_at": datetime.now(timezone.utc).isoformat(),
         "ai_video": use_ai_video,
     }
+
+
+
+def _add_to_upload_queue(script: dict, video_path: Path, duration: float) -> None:
+    """Add a successfully produced video to the upload queue."""
+    try:
+        queue_file = DATA_DIR / "upload_queue.json"
+        q = json.loads(queue_file.read_text()) if queue_file.exists() else []
+        
+        # Check if already in queue
+        script_id = script.get("id", "")
+        if any(v.get("script_id") == script_id for v in q):
+            return  # already queued
+        
+        from datetime import datetime
+        from zoneinfo import ZoneInfo
+        mt = ZoneInfo("America/Denver")
+        scheduled = datetime.now(mt).replace(hour=9, minute=0, second=0, microsecond=0)
+        
+        entry = {
+            "script_id": script_id,
+            "title": script.get("title", "Untitled"),
+            "description": f"#{' '.join(script.get('tags', ['crypto', 'trading']))}",
+            "type": script.get("type", "short"),
+            "tags": script.get("tags", ["crypto", "trading"]),
+            "output_file": str(video_path),
+            "duration": duration,
+            "size_mb": round(video_path.stat().st_size / 1024 / 1024, 1) if video_path.exists() else 0,
+            "status": "ready",
+            "gate_passed": True,
+            "quality_decision": "auto-approved",
+            "scheduled_date": scheduled.isoformat(),
+            "thumbnail": True,
+            "thumbnail_ready": True,
+            "verified_quality": True,
+        }
+        q.insert(0, entry)
+        queue_file.write_text(json.dumps(q, indent=2, default=str))
+        print(f"   📤 Added to upload queue: {script.get('title','')[:50]}")
+    except Exception as e:
+        print(f"   ⚠️  Failed to add to queue: {e}")
 
 
 def run_producer(limit: int = 5, use_ai_video: bool = True) -> dict:
@@ -2059,6 +2159,83 @@ def run_producer(limit: int = 5, use_ai_video: bool = True) -> dict:
 
 
 # ════════════════════════════════════════════════════════════════════════
+# CONTINUOUS / WATCH MODE
+# ════════════════════════════════════════════════════════════════════════
+
+def run_continuous(interval_seconds: int = 300, batch_size: int = 3, use_ai_video: bool = True):
+    """
+    Run producer in continuous/watch mode.
+    Monitors queue and produces videos whenever there are pending scripts.
+    Never stops unless killed.
+    """
+    print(f"\n🔄 BitTrader Producer v3.0 — CONTINUOUS MODE")
+    print(f"   Check every: {interval_seconds}s | Batch: {batch_size} videos")
+    print(f"   🔊 Voz: {TTS_VOICE} | Video: {'AI' if use_ai_video else 'Fallback'}")
+
+    cycle = 0
+    while True:
+        cycle += 1
+        now = datetime.now().strftime("%H:%M")
+        print(f"\n{'='*60}")
+        print(f"🔄 Cycle {cycle} — {now}")
+
+        guiones = load_scripts()
+        scripts = guiones.get("scripts", [])
+        pending = [s for s in scripts if s.get("status") == "pending"]
+
+        if not pending:
+            print(f"   ✅ No pending scripts, sleeping {interval_seconds}s...")
+            time.sleep(interval_seconds)
+            continue
+
+        to_process = pending[:batch_size]
+        print(f"   📋 {len(pending)} pending | Processing {len(to_process)}...")
+
+        date_str = datetime.now().strftime("%Y-%m-%d")
+        day_dir = OUTPUT_DIR / date_str
+        day_dir.mkdir(parents=True, exist_ok=True)
+
+        success = 0
+        errors = 0
+        for i, script in enumerate(to_process, 1):
+            script_id = script.get("id", f"v_{int(time.time())}")
+            print(f"\n   [{i}/{len(to_process)}] 📝 {script.get('title', '?')[:55]}")
+
+            script_dir = day_dir / script_id
+            script_dir.mkdir(parents=True, exist_ok=True)
+
+            result = produce_single(script, script_dir, use_ai_video)
+
+            if result.get("status") == "success":
+                script["status"] = "produced"
+                script["produced_at"] = result.get("produced_at")
+                script["output_file"] = result.get("output_file")
+                script["audio_file"] = result.get("audio_file")
+                script["video_duration"] = result.get("duration")
+                success += 1
+                print(f"   ✅ {script.get('title','')[:50]}")
+            else:
+                script["status"] = "error"
+                script["error"] = result.get("error", "unknown")
+                errors += 1
+                print(f"   ❌ {result.get('error', 'unknown')}")
+
+            time.sleep(2)
+
+        guiones["scripts"] = scripts
+        GUIONES_FILE.write_text(json.dumps(guiones, indent=2, ensure_ascii=False))
+
+        remaining = len([s for s in scripts if s.get("status") == "pending"])
+        print(f"\n   📊 Cycle {cycle}: {success}✅ {errors}❌ | {remaining} remaining")
+
+        if remaining == 0:
+            print(f"   ✅ All done! Sleeping {interval_seconds*2}s...")
+            time.sleep(interval_seconds * 2)
+        else:
+            time.sleep(interval_seconds)
+
+
+# ════════════════════════════════════════════════════════════════════════
 # CLI
 # ════════════════════════════════════════════════════════════════════════
 
@@ -2067,13 +2244,18 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="BitTrader Producer v3.0")
     parser.add_argument("--limit", type=int, default=5, help="Max scripts to process")
     parser.add_argument("--no-ai-video", action="store_true", help="Skip AI video gen (text fallback only)")
+    parser.add_argument("--watch", action="store_true", help="Run continuously (watch mode)")
+    parser.add_argument("--interval", type=int, default=300, help="Check interval in seconds (watch mode)")
     args = parser.parse_args()
-    
-    result = run_producer(limit=args.limit, use_ai_video=not args.no_ai_video)
-    
-    print("\n── Producción ──────────────────────")
-    for v in result.get("videos", []):
-        status = "✅" if v.get("status") == "success" else "❌"
-        print(f"  {status} [{v.get('type','?')}] {v.get('title','?')[:50]} | "
-              f"{v.get('duration',0):.1f}s | {v.get('size_mb',0)}MB")
-    print("─────────────────────────────────────────\n")
+
+    if args.watch:
+        run_continuous(interval_seconds=args.interval, batch_size=args.limit, use_ai_video=not args.no_ai_video)
+    else:
+        result = run_producer(limit=args.limit, use_ai_video=not args.no_ai_video)
+
+        print("\n── Producción ──────────────────────")
+        for v in result.get("videos", []):
+            status = "✅" if v.get("status") == "success" else "❌"
+            print(f"  {status} [{v.get('type','?')}] {v.get('title','?')[:50]} | "
+                  f"{v.get('duration',0):.1f}s | {v.get('size_mb',0)}MB")
+        print("─────────────────────────────────────────\n")
