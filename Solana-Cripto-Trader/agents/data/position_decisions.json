@@ -1,78 +1,30 @@
 {
-  "timestamp": "2026-03-26T09:00:05.889802+00:00",
+  "timestamp": "2026-03-30T07:42:53.125208+00:00",
   "decisions": [
     {
-      "symbol": "FARTCOIN",
-      "direction": "long",
-      "action": "CLOSE",
-      "confidence": 0.4,
-      "alignment": "SPLIT (quant=HOLD, llm=CLOSE)",
-      "quant_score": -30,
-      "quant_action": "HOLD",
-      "quant_reasons": [
-        "RR_BUENO (2.91x)",
-        "TENDENCIA_FAVOR (BULLISH 70%)"
-      ],
-      "llm_action": "CLOSE",
-      "llm_confidence": 0.5,
-      "llm_reasoning": "Analicemos la posici\u00f3n:\n\n**Situaci\u00f3n actual:**\n- Posici\u00f3n perdedora: -1.50%\n- Stop loss a 1.56% de distancia\n- R/R restante: 2.90x (bueno)\n- Score: -30 (no es >50, as\u00ed que no hay se\u00f1al clara de cerrar",
-      "llm_source": "llm_text_fallback",
-      "pnl_usd": -1.4972,
-      "pnl_pct": -1.4972,
-      "dist_tp_pct": 4.537,
-      "dist_sl_pct": 1.562,
-      "rr_remaining": 2.905,
-      "hours_open": 0,
-      "evaluated_at": "2026-03-26T08:59:49.917584+00:00"
-    },
-    {
-      "symbol": "GOAT",
-      "direction": "long",
-      "action": "CLOSE",
-      "confidence": 0.4,
-      "alignment": "SPLIT (quant=HOLD, llm=CLOSE)",
-      "quant_score": -30,
-      "quant_action": "HOLD",
-      "quant_reasons": [
-        "RR_BUENO (5.12x)",
-        "TENDENCIA_FAVOR (BULLISH 70%)"
-      ],
-      "llm_action": "CLOSE",
-      "llm_confidence": 0.5,
-      "llm_reasoning": "Analizo la posici\u00f3n:\n\n- Precio entrada: $0.016780\n- Precio actual: $0.016609 (est\u00e1 en p\u00e9rdida de -3.16%)\n- Stop Loss: $0.016443 (0.99% de distancia - muy cercano)\n- Take Profit: $0.017454 (5.09% de di",
-      "llm_source": "llm_text_fallback",
-      "pnl_usd": -3.16,
-      "pnl_pct": -3.16,
-      "dist_tp_pct": 5.091,
-      "dist_sl_pct": 0.995,
-      "rr_remaining": 5.118,
-      "hours_open": 0,
-      "evaluated_at": "2026-03-26T08:59:54.010314+00:00"
-    },
-    {
-      "symbol": "JUP",
+      "symbol": "MOODENG",
       "direction": "short",
-      "action": "CLOSE",
-      "confidence": 0.4,
-      "alignment": "SPLIT (quant=HOLD, llm=CLOSE)",
+      "action": "HOLD",
+      "confidence": 0.72,
+      "alignment": "ALIGNED",
       "quant_score": 15,
       "quant_action": "HOLD",
       "quant_reasons": [
-        "RR_BUENO (4.41x)",
+        "RR_BUENO (2.00x)",
         "TENDENCIA_EN_CONTRA (BULLISH 70%)",
-        "PANICO_EXTREMO (F&G=10)"
+        "PANICO_EXTREMO (F&G=8)"
       ],
-      "llm_action": "CLOSE",
-      "llm_confidence": 0.5,
-      "llm_reasoning": "Voy a analizar esta posici\u00f3n de SHORT en JUP:\n\n**Situaci\u00f3n actual:**\n- Posici\u00f3n SHORT en p\u00e9rdida: -2.62%\n- Stop Loss: 1.10% de distancia (relativamente ajustado)\n- Take Profit: 4.86% de distancia\n- R/",
-      "llm_source": "llm_text_fallback",
-      "pnl_usd": -2.6211,
-      "pnl_pct": -2.6211,
-      "dist_tp_pct": 4.859,
-      "dist_sl_pct": 1.101,
-      "rr_remaining": 4.414,
+      "llm_action": "HOLD",
+      "llm_confidence": 0.6,
+      "llm_reasoning": "Decisi\u00f3n cuantitativa (LLM no disponible). Score: 15",
+      "llm_source": "quantitative_fallback",
+      "pnl_usd": 0.0,
+      "pnl_pct": 0.0,
+      "dist_tp_pct": 5.0,
+      "dist_sl_pct": 2.5,
+      "rr_remaining": 2.0,
       "hours_open": 0,
-      "evaluated_at": "2026-03-26T09:00:05.889714+00:00"
+      "evaluated_at": "2026-03-30T07:42:53.125130+00:00"
     }
   ]
 }

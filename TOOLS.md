@@ -46,6 +46,17 @@ curl -s http://localhost:11434/v1/chat/completions \
 - `injectNumCtxForOpenAICompat: false` es obligatorio (evita error de RAM)
 - contextWindow: 32768 en config (mínimo OpenClaw es 16K)
 
+## Coding Agent — Configuración de Modelos
+
+### Orden de preferencia (orden de Ender, 2026-03-29):
+1. **Opus 4.6** (`claude/claude-opus-4-6`) — Primera opción
+2. **MiniMax M2.7** (`minimax/MiniMax-M2.7`) — Fallback
+
+### Uso:
+- **Claude Code CLI**: `claude --model claude-opus-4-6 --permission-mode bypassPermissions --print 'tarea'`
+- **Sub-agente OpenClaw**: `sessions_spawn(task="...", model="claude/claude-opus-4-6")`
+- **Si Opus falla (rate limit/error)**: reintentar con `model="minimax/MiniMax-M2.7"`
+
 ## Herramientas de Desarrollo
 
 ### Python

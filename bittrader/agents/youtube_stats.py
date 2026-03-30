@@ -30,7 +30,7 @@ def get_youtube_client():
 
     d = json.loads(YT_CREDS.read_text())
     creds = Credentials(
-        token=d["access_token"],
+        token=d.get("token") or d.get("access_token"),
         refresh_token=d["refresh_token"],
         token_uri=d["token_uri"],
         client_id=d["client_id"],
@@ -39,7 +39,8 @@ def get_youtube_client():
     )
     if creds.expired and creds.refresh_token:
         creds.refresh(Request())
-        d["access_token"] = creds.token
+        d["token"] = creds.token
+        d["access_token"] = creds.token  # also for backward compat
         YT_CREDS.write_text(json.dumps(d, indent=2))
     return build("youtube", "v3", credentials=creds)
 

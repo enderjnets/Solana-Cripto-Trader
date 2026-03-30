@@ -22,5 +22,11 @@
       "script_id": "short_1773470428_706"
     },
     "result": "CREATOR_FAILED: usage: creator.py [-h] [--dry-run]\ncreator.py: error: unrecognized arguments: --topic \u00bfQu\u00e9 es BTC (B"
+  },
+  {
+    "timestamp": "2026-03-28T03:21:57.364590+00:00",
+    "action": "run_full_pipeline",
+    "details": {},
+    "result": "SUCCESS"
   }
 ]

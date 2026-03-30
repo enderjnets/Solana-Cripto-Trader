@@ -489,6 +489,11 @@ def score_long(ind: dict) -> tuple[float, list]:
     Puntúa la probabilidad de un trade LONG.
     Retorna (score 0-1, lista de razones).
     """
+    # ── FILTRO: No abrir LONGs en Fear Extremo ──
+    fear_greed = ind.get("fear_greed", 50)
+    if fear_greed <= 20:
+        return (0.0, [f"⛔ BLOQUEADO: Fear & Greed {fear_greed} ≤ 20 — NO LONGs en Extreme Fear"])
+
     score   = 0.0
     reasons = []
     price   = ind["price"]

@@ -64,12 +64,12 @@ log = logging.getLogger("risk_manager")
 
 # ─── Parámetros de Riesgo — OPTIMIZADO 2026-03-27 (post-drawdown crítico) ────
 
-RISK_PER_TRADE_PCT    = 0.010  # 1.0% del capital por trade (era 1.5% — menos riesgo)
-SL_PCT                = 0.015  # Stop loss: 1.5% (era 3% — mucho más ajustado)
-TP_MULTIPLIER         = 2.0    # TP = 2x SL → 3% (era 2.5x — más realista)
-MAX_OPEN_POSITIONS    = 2      # Máximo 2 posiciones (era 3 — menos exposición)
-MAX_DRAWDOWN_PCT      = 0.05   # 5% drawdown máximo antes de parar (era 10%)
-PAUSE_DRAWDOWN_PCT    = 0.03   # 3% → PAUSED (era 8% — más conservador)
+RISK_PER_TRADE_PCT    = 0.010  # 1.0% del capital por trade
+SL_PCT                = 0.025  # Stop loss: 2.5% — crypto necesita espacio (1.5% causó 70% SL hits)
+TP_MULTIPLIER         = 2.0    # TP = 2x SL → 5.0% (R:R 1:2)
+MAX_OPEN_POSITIONS    = 2      # Máximo 2 posiciones
+MAX_DRAWDOWN_PCT      = 0.10   # 10% drawdown máximo — 5% era muy restrictivo para crypto
+PAUSE_DRAWDOWN_PCT    = 0.06   # 6% → PAUSED — da warning antes del stop
 MIN_POSITION_USD      = 5.0    # Mínimo $5 margen (era $8 — ajustado a capital bajo)
 MAX_SINGLE_EXPOSURE   = 0.15   # Máximo 15% del capital en margen (era 25%)
 

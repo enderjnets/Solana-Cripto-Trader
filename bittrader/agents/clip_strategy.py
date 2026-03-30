@@ -20,7 +20,7 @@ from pathlib import Path
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
 _THIS_DIR = Path(__file__).parent
-_KEYS_DIR  = _THIS_DIR / "keys"
+_KEYS_DIR  = _THIS_DIR.parent / "keys"
 _MEM_DIR   = _THIS_DIR / "memory"
 
 # ── Pexels config ──────────────────────────────────────────────────────────────
@@ -159,7 +159,7 @@ def _is_green_screen(video_path: Path) -> bool:
 def _trim_and_scale_pexels(src: Path, dst: Path, video_type: str = "long") -> bool:
     """
     Trim clip to CLIP_DURATION seconds and scale to target resolution without black bars.
-    long  → 1280×720
+    long  → 1920×1080
     short → 1080×1920
     Uses scale+crop (lanczos) + setsar + fps=30.
     """
@@ -171,8 +171,8 @@ def _trim_and_scale_pexels(src: Path, dst: Path, video_type: str = "long") -> bo
         )
     else:
         vf = (
-            "scale=1280:720:force_original_aspect_ratio=increase:flags=lanczos,"
-            "crop=1280:720:(iw-1280)/2:(ih-720)/2,"
+            "scale=1920:1080:force_original_aspect_ratio=increase:flags=lanczos,"
+            "crop=1920:1080:(iw-1920)/2:(ih-1080)/2,"
             "setsar=1,fps=30"
         )
 
@@ -355,13 +355,13 @@ def _image_to_kenburns_clip(img_path: Path, out_path: Path, video_type: str = "l
     """
     Convert a static image to a 6-second video clip with Ken Burns effect (zoom + pan).
     Uses zoompan ffmpeg filter as specified in the task.
-    long  → 1280×720
+    long  → 1920×1080
     short → 1080×1920
     """
     if video_type == "short":
         target_w, target_h = 1080, 1920
     else:
-        target_w, target_h = 1280, 720
+        target_w, target_h = 1920, 1080
 
     # Vary KB direction per clip for visual interest
     KB_STYLES = [
@@ -503,7 +503,7 @@ def get_clips_hybrid(
                              un dict con clave "text" o simplemente un string.
         total_clips_needed : número total de clips .mp4 que se necesitan.
         clips_dir          : Path (o str) donde guardar los clips descargados/generados.
-        video_type         : "long" (1280×720)  |  "short" (1080×1920)
+        video_type         : "long" (1920×1080)  |  "short" (1080×1920)
 
     Retorna: lista de Path a clips .mp4 listos para usar en ffmpeg concat.
     """
@@ -563,4 +563,524 @@ def get_clips_hybrid(
     print(f"   ✅ clip_strategy: {len(result)} clips listos "
           f"({sum(1 for c in result if 'pexels' in c.name)} Pexels, "
           f"{sum(1 for c in result if 'sdxl' in c.name)} SDXL)\n")
+    return result
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# MiniMax image-01 — Pure AI clips (orden Ender 2026-03-29)
+# 100% generated with MiniMax image-01 + Ken Burns animation
+
+def _build_visual_prompt(seg_text: str, video_type: str = "long") -> str:
+    """
+    Convert segment text into a vivid visual prompt for MiniMax image generation.
+    Handles trading/financial content with specific visual descriptors.
+    """
+    text = seg_text.lower().strip()
+
+    # Trading/financial keywords → specific visuals
+    trading_keywords = {
+        "trading": "professional trader at computer with multiple screens showing stock charts and candlestick patterns, dramatic lighting",
+        "bitcoin": "golden Bitcoin coin on dark background with green arrow pointing up, dramatic cinematic lighting, 4K quality",
+        "ethereum": "ethereum cryptocurrency logo glowing on dark blue background with geometric patterns, dramatic lighting",
+        "crypto": "cryptocurrency concept with multiple coins and charts on dark background, green and gold colors, dramatic lighting",
+        "bolsa": "stock market trading floor with screens showing stock prices rising, professional photography",
+        "bolsas": "stock market trading floor with screens showing stock prices, professional photography",
+        "invertir": "investor analyzing financial charts on large monitor, professional office, dramatic lighting",
+        "inversion": "investment growth chart with green arrow pointing up, gold coins, dark background, dramatic lighting",
+        "dinero": "stack of gold coins and dollar bills on dark background, dramatic lighting, cinematic",
+        "ganar dinero": "golden coins growing from laptop computer, dark background, dramatic lighting",
+        "perder dinero": "red stock chart declining with worried investor silhouette, dark dramatic background",
+        "trader": "professional trader at desk with multiple monitors showing trading charts, dramatic lighting",
+        " Wall Street": "Wall Street sign with New York stock exchange building, dramatic urban photography",
+        "nasdaq": "NASDAQ sign glowing blue at night, New York city skyline, dramatic photography",
+        "media movil": "stock chart with moving average line highlighted in bright yellow, green upward trend, professional trading platform",
+        "media movil": "candlestick stock chart with moving average line in orange, professional trading software, dark background",
+        "cruza": "stock chart showing moving average crossover point highlighted with bright circle, green arrow, professional trading platform",
+        " compra ": "green buy button on trading platform with stock chart rising, professional trading software",
+        "venta": "red sell button on trading platform with stock chart, professional trading software",
+        "ethereum": "ethereum logo glowing purple on dark background with geometric patterns",
+        "solana": "solana blockchain logo with geometric sun rays on dark blue gradient background, dramatic lighting",
+        "altcoin": "variety of altcoin logos including Ethereum, Solana, Cardano on dark background with green glow",
+        "tokens": "cryptocurrency tokens floating in space on dark background with geometric patterns and glow effects",
+        "exchange": "cryptocurrency exchange trading platform on multiple screens, professional setup, dark room",
+        " Whale ": "large whale swimming in ocean at sunset, dramatic photography",  # crypto whale
+        " Whale": "large whale in ocean at sunset, dramatic nature photography",
+        "robot": "futuristic robot working on laptop computer, dark background, neon lighting, sci-fi style",
+        "ia artificial": "artificial intelligence visualization with glowing neural network and brain circuits on dark blue background",
+        "inteligencia artificial": "artificial intelligence visualization with glowing circuits and data streams on dark background",
+        "agentes ia": "humanoid robot talking to human at computer, futuristic office, dramatic lighting",
+        "trading bot": "AI trading bot interface on screen with charts and automated trading signals, dark theme",
+        "bot de trading": "AI trading bot interface showing automated buy/sell signals on stock charts, dark professional theme",
+        "chart": "detailed stock chart with candlesticks and technical indicators on dark background, professional trading",
+        "tradingview": "trading chart on TradingView platform with indicators, dark theme, professional look",
+        "portafolio": "investment portfolio showing diversified holdings with pie charts and growth graphs, professional",
+        "balance": "financial balance scale with gold coins on one side, dark background, dramatic lighting",
+        "balance": "trading account balance showing positive PnL with green numbers on dark background",
+        "broker": "professional forex broker trading at multiple screens, modern office, dramatic lighting",
+        "broker": "online broker trading platform on laptop with charts and financial data, modern minimal style",
+        "alza": "stock market surge with arrow pointing sharply upward, green light rays, dramatic",
+        "baja": "stock market decline with red arrow pointing down, red light, dramatic dark background",
+        "mercado": "global financial market concept with interconnected nodes and charts on dark blue background",
+        "sube": "stock chart with sharp green line pointing upward, dramatic lighting, bullish momentum",
+        "cae": "stock chart with red line pointing downward, bearish trend, dramatic dark red background",
+        "grafico": "detailed financial chart with candlesticks on dark background, professional trading platform",
+        "precio": "cryptocurrency price chart with glowing numbers and trend arrows on dark background",
+        "analisis": "financial analyst studying stock charts on multiple screens, professional office, dramatic lighting",
+        "estrategia": "chess board with stock charts and trading plan documents, strategic planning concept",
+        "riesgo": "risk management concept with stop-loss levels on trading chart, professional dark theme",
+        "apalancamiento": "leverage trading concept with magnifying glass over stock charts, dramatic lighting",
+        "futuros": "futures trading platform showing contract prices, professional dark theme",
+        "forex": "forex trading platform showing currency pairs with trend lines, professional dark theme",
+        "opciones": "options trading chain with strike prices on professional trading platform, dark theme",
+        "metaverso": "futuristic metaverse world with digital avatars and VR headsets, sci-fi dark environment",
+        "web3": "Web3 concept with blockchain network visualization on dark background with neon blue lighting",
+        "defi": "DeFi decentralized finance concept with floating coins and blockchain network on dark background",
+        "nft": "NFT digital art concept with glowing digital artwork frame on dark background, colorful",
+        " staking ": "cryptocurrency staking concept with locked coins in glowing lock on blockchain, dark background",
+    }
+
+    # Check for keywords and build enhanced prompt
+    for keyword, visual in trading_keywords.items():
+        if keyword in text:
+            # Add subject context
+            if any(w in text for w in ["por que", "porque", "razón", "verdad", "error", "fracaso"]):
+                return f"{visual}, emotional narrative photography, powerful and dramatic composition"
+            elif any(w in text for w in ["como", "manera", "forma", "estrategia", "secret"]):
+                return f"{visual}, tutorial style photography, clear and professional, dramatic lighting"
+            elif any(w in text for w in ["qué es", "que es", "introduccion", "Guía"]):
+                return f"{visual}, educational clear illustration, professional quality, dramatic lighting"
+            else:
+                return f"{visual}, cinematic photography, dramatic lighting, 4K quality"
+
+    # Generic fallback — but still make it visually interesting for trading/tech
+    if video_type == "short":
+        return f"futuristic trading concept with abstract financial data streams on dark background, green and gold neon lights, cinematic dramatic lighting, 4K"
+    else:
+        return f"professional financial technology concept with abstract charts and data visualization on dark blue background, dramatic cinematic lighting, 4K quality"
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+
+def _get_minimax_key() -> str:
+    """Load MiniMax Token Plan API key."""
+    try:
+        import json
+        keys_file = _THIS_DIR.parent / "keys" / "minimax.json"
+        return json.loads(keys_file.read_text())["minimax_token_plan_key"]
+    except Exception:
+        return ""
+
+
+def _generate_minimax_image(prompt: str, out_path: Path,
+                             resolution: str = "1024x1024",
+                             aspect_ratio: str = "16:9") -> bool:
+    """Generate image with MiniMax image-01 API."""
+    api_key = _get_minimax_key()
+    if not api_key:
+        print(f"      ⚠️ MiniMax: no API key found")
+        return False
+
+    try:
+        payload = {
+            "model": "image-01",
+            "prompt": prompt,
+            "aspect_ratio": aspect_ratio,
+            "resolution": resolution,
+            "prompt_optimizer": True,
+        }
+        r = requests.post(
+            "https://api.minimax.io/v1/image_generation",
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+            },
+            json=payload, timeout=120
+        )
+        data = r.json()
+        if r.status_code != 200 or data.get("base_resp", {}).get("status_code") != 0:
+            print(f"      ⚠️ MiniMax HTTP {r.status_code}: {str(data)[:100]}")
+            return False
+
+        urls = data.get("data", {}).get("image_urls", [])
+        if not urls:
+            return False
+
+        img_resp = requests.get(urls[0], timeout=120)
+        img_resp.raise_for_status()
+        out_path.write_bytes(img_resp.content)
+        return True
+    except Exception as e:
+        print(f"      ⚠️ MiniMax error: {e}")
+        return False
+
+
+def get_clips_minimax(
+    segments,
+    total_clips_needed: int,
+    clips_dir,
+    video_type: str = "long",
+) -> list:
+    """
+    Genera clips 100% con MiniMax image-01 + Ken Burns.
+    Sin Pexels, sin HuggingFace SDXL.
+
+    Parámetros:
+        segments: lista de segmentos del guión
+        total_clips_needed: número de clips necesarios
+        clips_dir: Path donde guardar clips
+        video_type: "long" (1920x1080) | "short" (1080x1920)
+
+    Retorna: lista de Path a clips .mp4
+    """
+    clips_dir = Path(clips_dir)
+    minimax_dir = clips_dir / "minimax"
+    minimax_dir.mkdir(parents=True, exist_ok=True)
+
+    # Normalise segments
+    norm_segs = []
+    for s in (segments or []):
+        if isinstance(s, dict):
+            norm_segs.append(s)
+        else:
+            norm_segs.append({"text": str(s)})
+
+    # Calculate clips per segment
+    clips_per_seg = max(1, total_clips_needed // max(1, len(norm_segs)))
+    clip_dur = CLIP_DURATION  # 6 seconds default
+
+    print(f"\n   🎨 clip_strategy: MiniMax image-01 ({total_clips_needed} clips | video_type={video_type})")
+
+    clips = []
+    for seg_idx, seg in enumerate(norm_segs):
+        seg_text = seg.get("text", "")
+        # Generate 1 image per segment, use as 1+ clips with Ken Burns variation
+        img_path = minimax_dir / f"seg_{seg_idx:03d}.png"
+
+        # Retry up to 2 times
+        ok = False
+        for attempt in range(3):
+            aspect = "9:16" if video_type == "short" else "16:9"
+            res = "1080x1920" if video_type == "short" else "1920x1080"
+            visual_prompt = _build_visual_prompt(seg_text, video_type)
+            if _generate_minimax_image(visual_prompt, img_path, resolution=res, aspect_ratio=aspect):
+                ok = True
+                break
+            if attempt < 2:
+                print(f"      🔄 Reintentando clip {seg_idx}...")
+                time.sleep(2)
+
+        if not ok:
+            # Fallback: use a black frame
+            print(f"      ⚠️ MiniMax falló para seg {seg_idx} — usando fallback")
+            img_path = minimax_dir / f"seg_{seg_idx:03d}.png"
+            # Create black image as fallback
+            try:
+                subprocess.run(
+                    ["ffmpeg", "-y", "-f", "lavfi", "-i", "color=black:s=1920x1080:d=1",
+                     "-frames:v", "1", str(img_path)],
+                    capture_output=True, timeout=10
+                )
+            except Exception:
+                pass
+
+        # Create 1-2 Ken Burns variants per image
+        n_variants = min(2, max(1, clips_per_seg))
+        for var in range(n_variants):
+            if len(clips) >= total_clips_needed:
+                break
+            mp4_path = minimax_dir / f"clip_{seg_idx:03d}_{var}.mp4"
+            kb_ok = _image_to_kenburns(img_path, mp4_path, seg_idx + var, clip_dur, video_type)
+            if kb_ok:
+                clips.append(mp4_path)
+                print(f"      🎞️ MiniMax clip {len(clips)}: OK ({mp4_path.stat().st_size//1024}KB)")
+
+    # Pad if short
+    while len(clips) < total_clips_needed and clips:
+        clips.append(clips[len(clips) % len(clips)])
+
+    result = clips[:total_clips_needed]
+    print(f"   ✅ clip_strategy: {len(result)} clips MiniMax listos\n")
+    return result
+
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# MiniMax image-01 — Pure AI clips (orden Ender 2026-03-29)
+# 100% generated with MiniMax image-01 + Ken Burns animation
+# ══════════════════════════════════════════════════════════════════════════════
+
+def _get_minimax_key() -> str:
+    """Load MiniMax Token Plan API key."""
+    try:
+        import json
+        keys_file = _THIS_DIR.parent / "keys" / "minimax.json"
+        return json.loads(keys_file.read_text())["minimax_token_plan_key"]
+    except Exception:
+        return ""
+
+
+def _generate_minimax_image(prompt: str, out_path: Path,
+                             resolution: str = "1024x1024",
+                             aspect_ratio: str = "16:9") -> bool:
+    """Generate image with MiniMax image-01 API."""
+    api_key = _get_minimax_key()
+    if not api_key:
+        print(f"      WARNING: MiniMax no API key found")
+        return False
+    try:
+        payload = {
+            "model": "image-01",
+            "prompt": prompt,
+            "aspect_ratio": aspect_ratio,
+            "resolution": resolution,
+            "prompt_optimizer": True,
+        }
+        r = requests.post(
+            "https://api.minimax.io/v1/image_generation",
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+            },
+            json=payload, timeout=120
+        )
+        data = r.json()
+        if r.status_code != 200 or data.get("base_resp", {}).get("status_code") != 0:
+            print(f"      WARNING: MiniMax HTTP {r.status_code}")
+            return False
+        urls = data.get("data", {}).get("image_urls", [])
+        if not urls:
+            return False
+        img_resp = requests.get(urls[0], timeout=120)
+        img_resp.raise_for_status()
+        out_path.write_bytes(img_resp.content)
+        return True
+    except Exception as e:
+        print(f"      WARNING: MiniMax error: {e}")
+        return False
+
+
+# Ken Burns styles per video type — YouTube correct resolutions
+KB_STYLES_SHORT = [   # 1080×1920 (9:16 YouTube Shorts)
+    "zoompan=z='min(zoom+0.0015,1.5)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=150:s=1080x1920",
+    "zoompan=z='if(lte(zoom,1.0),1.5,zoom-0.0015)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=150:s=1080x1920",
+]
+KB_STYLES_LONG = [    # 1920×1080 (16:9 YouTube HD)
+    "zoompan=z='min(zoom+0.0015,1.5)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=150:s=1920x1080",
+    "zoompan=z='if(lte(zoom,1.0),1.5,zoom-0.0015)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=150:s=1920x1080",
+]
+
+
+def _image_to_kenburns(img_path: Path, out_path: Path,
+                       clip_num: int, duration: float,
+                       video_type: str = "long") -> bool:
+    """Convert image to Ken Burns MP4 clip at correct YouTube resolution."""
+    kb_styles = KB_STYLES_SHORT if video_type == "short" else KB_STYLES_LONG
+    kb = kb_styles[clip_num % len(kb_styles)]
+    vf = f"scale=8000:-1:flags=lanczos,{kb},setsar=1,fps=30"
+    try:
+        r = subprocess.run(
+            ["ffmpeg", "-y", "-loop", "1", "-i", str(img_path),
+             "-vf", vf, "-t", str(duration),
+             "-c:v", "libx264", "-preset", "fast", "-crf", "20",
+             "-profile:v", "high", "-level", "4.1",
+             "-pix_fmt", "yuv420p", "-movflags", "+faststart", "-an",
+             str(out_path)],
+            capture_output=True, timeout=120,
+        )
+        if r.returncode == 0 and out_path.exists():
+            return True
+        print(f"      WARNING: KenBurns ffmpeg error")
+        return False
+    except Exception as e:
+        print(f"      WARNING: KenBurns error: {e}")
+        return False
+
+
+def get_clips_minimax(
+    segments,
+    total_clips_needed: int,
+    clips_dir,
+    video_type: str = "long",
+) -> list:
+    """
+    Genera clips 100% con MiniMax image-01 + Ken Burns.
+    Sin Pexels, sin HuggingFace SDXL.
+    """
+    clips_dir = Path(clips_dir)
+    minimax_dir = clips_dir / "minimax"
+    minimax_dir.mkdir(parents=True, exist_ok=True)
+
+    norm_segs = []
+    for s in (segments or []):
+        if isinstance(s, dict):
+            norm_segs.append(s)
+        else:
+            norm_segs.append({"text": str(s)})
+
+    clips_per_seg = max(1, total_clips_needed // max(1, len(norm_segs)))
+    clip_dur = CLIP_DURATION
+
+    print(f"   MINIMAX: {total_clips_needed} clips (video_type={video_type})")
+
+    clips = []
+    for seg_idx, seg in enumerate(norm_segs):
+        seg_text = seg.get("text", "")
+        img_path = minimax_dir / f"seg_{seg_idx:03d}.png"
+
+        ok = False
+        for attempt in range(3):
+            aspect = "9:16" if video_type == "short" else "16:9"
+            res = "1080x1920" if video_type == "short" else "1920x1080"
+            visual_prompt = _build_visual_prompt(seg_text, video_type)
+            if _generate_minimax_image(visual_prompt, img_path, resolution=res, aspect_ratio=aspect):
+                ok = True
+                break
+            if attempt < 2:
+                time.sleep(2)
+
+        if not ok:
+            print(f"      WARNING: MiniMax fall seg {seg_idx}")
+            try:
+                subprocess.run(
+                    ["ffmpeg", "-y", "-f", "lavfi", "-i", "color=black:s=1920x1080:d=1",
+                     "-frames:v", "1", str(img_path)],
+                    capture_output=True, timeout=10
+                )
+            except Exception:
+                pass
+
+        n_variants = min(2, max(1, clips_per_seg))
+        for var in range(n_variants):
+            if len(clips) >= total_clips_needed:
+                break
+            mp4_path = minimax_dir / f"clip_{seg_idx:03d}_{var}.mp4"
+            kb_ok = _image_to_kenburns(img_path, mp4_path, seg_idx + var, clip_dur, video_type)
+            if kb_ok:
+                clips.append(mp4_path)
+
+    while len(clips) < total_clips_needed and clips:
+        clips.append(clips[len(clips) % len(clips)])
+
+    result = clips[:total_clips_needed]
+    print(f"   DONE: {len(result)} clips MiniMax ready")
+    return result
+
+
+# ── Hybrid Mode: MiniMax + LTX-Video ─────────────────────────────────────────
+
+def get_clips_hybrid_v2(
+    segments,
+    total_clips_needed: int,
+    clips_dir,
+    video_type: str = "long",
+    ltx_ratio: float = 0.3,
+) -> list:
+    """
+    Pipeline híbrido v2: MiniMax image-01 + Ken Burns (default) + LTX-Video (dynamic scenes).
+    
+    - ltx_ratio: fracción de clips generados con LTX-Video (0.0 a 1.0)
+    - Escenas con keywords dinámicas → LTX-Video
+    - El resto → MiniMax image-01 + Ken Burns
+    - Si Mac no está disponible → 100% MiniMax fallback
+    """
+    from pathlib import Path
+    
+    clips_dir = Path(clips_dir)
+    
+    # Check if LTX-Video is available
+    ltx_available = False
+    try:
+        from ltx_client import is_available
+        ltx_available = is_available()
+    except Exception:
+        pass
+    
+    if not ltx_available:
+        print("   ⚠️ LTX-Video not available, using 100% MiniMax")
+        return get_clips_minimax(segments, total_clips_needed, clips_dir, video_type)
+    
+    # Classify segments: dynamic (LTX) vs static (MiniMax)
+    dynamic_keywords = [
+        "spinning", "rotating", "moving", "walking", "running", "trading",
+        "explosion", "celebration", "action", "typing", "coding", "scrolling",
+        "gira", "mueve", "corre", "explota", "celebra", "escribe", "teclea",
+    ]
+    
+    norm_segs = []
+    for s in (segments or []):
+        if isinstance(s, dict):
+            norm_segs.append(s)
+        else:
+            norm_segs.append({"text": str(s)})
+    
+    # Determine which segments are dynamic
+    ltx_indices = []
+    for i, seg in enumerate(norm_segs):
+        text_lower = seg.get("text", "").lower()
+        if any(kw in text_lower for kw in dynamic_keywords):
+            ltx_indices.append(i)
+    
+    # Cap at ltx_ratio
+    max_ltx = max(1, int(total_clips_needed * ltx_ratio))
+    ltx_indices = ltx_indices[:max_ltx]
+    
+    print(f"\n   🎬 clip_strategy HYBRID v2: {len(ltx_indices)} LTX + {total_clips_needed - len(ltx_indices)} MiniMax")
+    
+    # Generate LTX clips
+    ltx_clips = {}
+    if ltx_indices:
+        from ltx_client import generate_clip
+        import random
+        ltx_dir = clips_dir / "ltx"
+        ltx_dir.mkdir(parents=True, exist_ok=True)
+        
+        for idx in ltx_indices:
+            seg_text = norm_segs[idx].get("text", "trading scene")
+            # Create English prompt for LTX (it works better in English)
+            prompt = f"{seg_text}, cinematic lighting, high quality, 4K"
+            mp4_path = ltx_dir / f"ltx_seg_{idx:03d}.mp4"
+            
+            ok = generate_clip(
+                prompt=prompt,
+                output_path=mp4_path,
+                # YouTube correct resolutions: LONG 1920x1080, SHORT 1080x1920
+                # LTX-Video 2B works best at 16:9 or 9:16 ratios
+                width=1280 if video_type == "long" else 540,
+                height=720 if video_type == "long" else 960,
+                num_frames=97,
+                steps=12,
+                seed=random.randint(0, 2**32),
+            )
+            if ok:
+                ltx_clips[idx] = mp4_path
+    
+    # Generate MiniMax clips for the rest
+    minimax_indices = [i for i in range(len(norm_segs)) if i not in ltx_clips]
+    minimax_segs = [norm_segs[i] for i in minimax_indices]
+    minimax_needed = total_clips_needed - len(ltx_clips)
+    
+    minimax_clips_list = get_clips_minimax(
+        minimax_segs, minimax_needed, clips_dir, video_type
+    )
+    
+    # Merge clips in order
+    all_clips = []
+    mm_idx = 0
+    clips_per_seg = max(1, total_clips_needed // max(1, len(norm_segs)))
+    
+    for i in range(len(norm_segs)):
+        if i in ltx_clips:
+            all_clips.append(ltx_clips[i])
+        else:
+            for _ in range(clips_per_seg):
+                if mm_idx < len(minimax_clips_list):
+                    all_clips.append(minimax_clips_list[mm_idx])
+                    mm_idx += 1
+    
+    # Pad if needed
+    while len(all_clips) < total_clips_needed and all_clips:
+        all_clips.append(all_clips[len(all_clips) % len(all_clips)])
+    
+    result = all_clips[:total_clips_needed]
+    print(f"   DONE: {len(result)} hybrid clips ({len(ltx_clips)} LTX + {len(result) - len(ltx_clips)} MiniMax)")
     return result

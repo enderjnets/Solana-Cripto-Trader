@@ -1670,5 +1670,33 @@
     "close_time": "2026-03-30T07:37:25.579566+00:00",
     "close_reason": "EMERGENCY_CLOSE",
     "strategy": "trend_momentum"
+  },
+  {
+    "id": "MOODENG_1774856373",
+    "symbol": "MOODENG",
+    "direction": "short",
+    "entry_price": 0.04723096,
+    "exit_price": 0.04751829,
+    "size_usd": 300,
+    "pnl_usd": -1.8251,
+    "pnl_pct": -0.6084,
+    "open_time": "2026-03-30T07:39:33.613153+00:00",
+    "close_time": "2026-03-30T07:41:44.807726+00:00",
+    "close_reason": "EMERGENCY_CLOSE",
+    "strategy": "trend_momentum"
+  },
+  {
+    "id": "BTC_1774856439",
+    "symbol": "BTC",
+    "direction": "short",
+    "entry_price": 67150.08091116,
+    "exit_price": 67147.47658924,
+    "size_usd": 300,
+    "pnl_usd": 0.0116,
+    "pnl_pct": 0.0039,
+    "open_time": "2026-03-30T07:40:39.175477+00:00",
+    "close_time": "2026-03-30T07:41:44.807726+00:00",
+    "close_reason": "EMERGENCY_CLOSE",
+    "strategy": "trend_momentum"
   }
 ]

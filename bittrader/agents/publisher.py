@@ -445,7 +445,6 @@ def run_publisher(production_file: Path = None, video_ids: list = None,
 
         # Check scheduled date (for queue-based uploads)
         if process_queue and sched_date:
-            from datetime import datetime, timezone
             now = datetime.now(timezone.utc)
             try:
                 sched_dt = datetime.fromisoformat(sched_date)

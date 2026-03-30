@@ -87,9 +87,10 @@ def call_glm_5(prompt: str, system: str = "", max_tokens: int = 2000) -> str:
         "Authorization": f"Bearer {ZAI_CODING_KEY}"
     }
 
+    # GLM-5 soporta system role correctamente
     messages = []
     if system:
-        messages.append({"role": "user", "content": system})
+        messages.append({"role": "system", "content": system})
     messages.append({"role": "user", "content": prompt})
 
     data = {
@@ -104,16 +105,43 @@ def call_glm_5(prompt: str, system: str = "", max_tokens: int = 2000) -> str:
         r.raise_for_status()
         response = r.json()
 
-        # Endpoint de coding usa reasoning_content
+        # Usar content (no reasoning_content que puede tener meta-texto)
         if "choices" in response and len(response["choices"]) > 0:
             msg = response["choices"][0]["message"]
             content = msg.get("content", "")
-            reasoning = msg.get("reasoning_content", "")
-            return reasoning if reasoning else content or str(response)
-        return str(response)
+            # Post-process: eliminar contaminación común de GLM
+            content = _clean_llm_output(content)
+            return content if content else None
+        return None
     except Exception as e:
         print(f"    ⚠️ GLM-5 error: {e}")
         return None
+
+
+def _clean_llm_output(text: str) -> str:
+    """Elimina contaminación de prompt del output del LLM"""
+    if not text:
+        return text
+    
+    import re
+    
+    # Patrones de contaminación a eliminar
+    contamination_patterns = [
+        r"^.*?(?=TITULO:)",  # Todo antes de TITULO:
+        r"(?:el usuario quiere|el usuario necesita|el usuario pide).*?\n",
+        r"(?:REGLA|INSTRUCCION|BUCLE|NOTA)[\s\d]*:.*?\n",
+        r"(?:Responde|Genera|Crea).*?(?:guión|script|video).*?\n",
+        r"\*\*Instrucciones.*?\*\*.*?\n",
+        r"---+\s*\n",  # Separadores
+    ]
+    
+    for pattern in contamination_patterns:
+        text = re.sub(pattern, "", text, flags=re.IGNORECASE | re.DOTALL)
+    
+    # Limpiar líneas vacías múltiples
+    text = re.sub(r"\n{3,}", "\n\n", text)
+    
+    return text.strip()
 
 
 def call_minimax_llm(prompt: str, system: str = "", max_tokens: int = 2000) -> str:

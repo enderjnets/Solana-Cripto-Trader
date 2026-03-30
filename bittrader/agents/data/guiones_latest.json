@@ -1,12 +1,12 @@
 {
-  "generated_at": "2026-03-26T02:38:48.262493+00:00",
-  "date": "2026-03-26",
+  "generated_at": "2026-03-30T04:30:17.610148+00:00",
+  "date": "2026-03-30",
   "plan": [
     {
       "type": "short",
       "priority": "urgente",
       "theme": "noticias",
-      "topic": "📰 BREAKING: Franklin Templeton, Ondo to launch tokenized ETFs with 24/7 trading via crypto wallets",
+      "topic": "📰 BREAKING: Cathie Wood's Ark Invest Dumps Meta, Nvidia and Bitcoin ETF Shares in Major Tech Sell-Off",
       "crypto_data": {}
     },
     {
@@ -18,46 +18,16 @@
         "global": {},
         "trending_coins": [
           {
-            "id": "binancecoin",
-            "name": "BNB",
-            "symbol": "BNB",
-            "rank": 4
-          },
-          {
             "id": "bittensor",
             "name": "Bittensor",
             "symbol": "TAO",
             "rank": 33
           },
           {
-            "id": "siren-2",
-            "name": "Siren",
-            "symbol": "SIREN",
-            "rank": 50
-          },
-          {
-            "id": "pudgy-penguins",
-            "name": "Pudgy Penguins",
-            "symbol": "PENGU",
-            "rank": 105
-          },
-          {
-            "id": "tezos",
-            "name": "Tezos",
-            "symbol": "XTZ",
-            "rank": 112
-          },
-          {
-            "id": "monad",
-            "name": "Monad",
-            "symbol": "MON",
-            "rank": 137
-          },
-          {
-            "id": "backpack",
-            "name": "Backpack",
-            "symbol": "BP",
-            "rank": 475
+            "id": "coredaoorg",
+            "name": "Core",
+            "symbol": "CORE",
+            "rank": 560
           },
           {
             "id": "bitcoin",
@@ -66,32 +36,62 @@
             "rank": 1
           },
           {
-            "id": "rain",
-            "name": "Rain",
-            "symbol": "RAIN",
-            "rank": 25
+            "id": "hyperliquid",
+            "name": "Hyperliquid",
+            "symbol": "HYPE",
+            "rank": 13
           },
           {
-            "id": "tether-gold",
-            "name": "Tether Gold",
-            "symbol": "XAUT",
-            "rank": 37
+            "id": "pudgy-penguins",
+            "name": "Pudgy Penguins",
+            "symbol": "PENGU",
+            "rank": 108
+          },
+          {
+            "id": "siren-2",
+            "name": "Siren",
+            "symbol": "SIREN",
+            "rank": 60
+          },
+          {
+            "id": "solana",
+            "name": "Solana",
+            "symbol": "SOL",
+            "rank": 7
+          },
+          {
+            "id": "chainlink",
+            "name": "Chainlink",
+            "symbol": "LINK",
+            "rank": 17
+          },
+          {
+            "id": "ethereum",
+            "name": "Ethereum",
+            "symbol": "ETH",
+            "rank": 2
+          },
+          {
+            "id": "pi-network",
+            "name": "Pi Network",
+            "symbol": "PI",
+            "rank": 46
           }
         ],
         "top_movers": [],
         "trending_nfts": [
-          "Doodles",
-          "Lil Pudgys",
+          "Mad Lads",
+          "Azuki",
           "Ordinal Maxi Biz (OMB)",
-          "Mutant Ape Yacht Club",
-          "Bitcoin Shrooms"
+          "Bitcoin Shrooms",
+          "CryptoPunks"
         ],
         "trending_categories": [
-          "Tokenized Commodities",
-          "Tokenized Assets",
-          "Four.meme Ecosystem (BNB Memes)",
-          "Binance Alpha Spotlight",
-          "Real World Assets (RWA)"
+          "RWA Protocol",
+          "Chain Abstraction",
+          "Privacy",
+          "Meme",
+          "Frog-Themed"
         ]
       }
     },
@@ -104,46 +104,16 @@
         "global": {},
         "trending_coins": [
           {
-            "id": "binancecoin",
-            "name": "BNB",
-            "symbol": "BNB",
-            "rank": 4
-          },
-          {
             "id": "bittensor",
             "name": "Bittensor",
             "symbol": "TAO",
             "rank": 33
           },
           {
-            "id": "siren-2",
-            "name": "Siren",
-            "symbol": "SIREN",
-            "rank": 50
-          },
-          {
-            "id": "pudgy-penguins",
-            "name": "Pudgy Penguins",
-            "symbol": "PENGU",
-            "rank": 105
-          },
-          {
-            "id": "tezos",
-            "name": "Tezos",
-            "symbol": "XTZ",
-            "rank": 112
-          },
-          {
-            "id": "monad",
-            "name": "Monad",
-            "symbol": "MON",
-            "rank": 137
-          },
-          {
-            "id": "backpack",
-            "name": "Backpack",
-            "symbol": "BP",
-            "rank": 475
+            "id": "coredaoorg",
+            "name": "Core",
+            "symbol": "CORE",
+            "rank": 560
           },
           {
             "id": "bitcoin",
@@ -152,32 +122,62 @@
             "rank": 1
           },
           {
-            "id": "rain",
-            "name": "Rain",
-            "symbol": "RAIN",
-            "rank": 25
+            "id": "hyperliquid",
+            "name": "Hyperliquid",
+            "symbol": "HYPE",
+            "rank": 13
           },
           {
-            "id": "tether-gold",
-            "name": "Tether Gold",
-            "symbol": "XAUT",
-            "rank": 37
+            "id": "pudgy-penguins",
+            "name": "Pudgy Penguins",
+            "symbol": "PENGU",
+            "rank": 108
+          },
+          {
+            "id": "siren-2",
+            "name": "Siren",
+            "symbol": "SIREN",
+            "rank": 60
+          },
+          {
+            "id": "solana",
+            "name": "Solana",
+            "symbol": "SOL",
+            "rank": 7
+          },
+          {
+            "id": "chainlink",
+            "name": "Chainlink",
+            "symbol": "LINK",
+            "rank": 17
+          },
+          {
+            "id": "ethereum",
+            "name": "Ethereum",
+            "symbol": "ETH",
+            "rank": 2
+          },
+          {
+            "id": "pi-network",
+            "name": "Pi Network",
+            "symbol": "PI",
+            "rank": 46
           }
         ],
         "top_movers": [],
         "trending_nfts": [
-          "Doodles",
-          "Lil Pudgys",
+          "Mad Lads",
+          "Azuki",
           "Ordinal Maxi Biz (OMB)",
-          "Mutant Ape Yacht Club",
-          "Bitcoin Shrooms"
+          "Bitcoin Shrooms",
+          "CryptoPunks"
         ],
         "trending_categories": [
-          "Tokenized Commodities",
-          "Tokenized Assets",
-          "Four.meme Ecosystem (BNB Memes)",
-          "Binance Alpha Spotlight",
-          "Real World Assets (RWA)"
+          "RWA Protocol",
+          "Chain Abstraction",
+          "Privacy",
+          "Meme",
+          "Frog-Themed"
         ]
       }
     },
@@ -190,46 +190,16 @@
         "global": {},
         "trending_coins": [
           {
-            "id": "binancecoin",
-            "name": "BNB",
-            "symbol": "BNB",
-            "rank": 4
-          },
-          {
             "id": "bittensor",
             "name": "Bittensor",
             "symbol": "TAO",
             "rank": 33
           },
           {
-            "id": "siren-2",
-            "name": "Siren",
-            "symbol": "SIREN",
-            "rank": 50
-          },
-          {
-            "id": "pudgy-penguins",
-            "name": "Pudgy Penguins",
-            "symbol": "PENGU",
-            "rank": 105
-          },
-          {
-            "id": "tezos",
-            "name": "Tezos",
-            "symbol": "XTZ",
-            "rank": 112
-          },
-          {
-            "id": "monad",
-            "name": "Monad",
-            "symbol": "MON",
-            "rank": 137
-          },
-          {
-            "id": "backpack",
-            "name": "Backpack",
-            "symbol": "BP",
-            "rank": 475
+            "id": "coredaoorg",
+            "name": "Core",
+            "symbol": "CORE",
+            "rank": 560
           },
           {
             "id": "bitcoin",
@@ -238,118 +208,62 @@
             "rank": 1
           },
           {
-            "id": "rain",
-            "name": "Rain",
-            "symbol": "RAIN",
-            "rank": 25
-          },
-          {
-            "id": "tether-gold",
-            "name": "Tether Gold",
-            "symbol": "XAUT",
-            "rank": 37
-          }
-        ],
-        "top_movers": [],
-        "trending_nfts": [
-          "Doodles",
-          "Lil Pudgys",
-          "Ordinal Maxi Biz (OMB)",
-          "Mutant Ape Yacht Club",
-          "Bitcoin Shrooms"
-        ],
-        "trending_categories": [
-          "Tokenized Commodities",
-          "Tokenized Assets",
-          "Four.meme Ecosystem (BNB Memes)",
-          "Binance Alpha Spotlight",
-          "Real World Assets (RWA)"
-        ]
-      }
-    },
-    {
-      "type": "short",
-      "priority": "media",
-      "theme": "noticia",
-      "topic": "BNB está en tendencia — ¿vale la pena comprar?",
-      "crypto_data": {
-        "global": {},
-        "trending_coins": [
-          {
-            "id": "binancecoin",
-            "name": "BNB",
-            "symbol": "BNB",
-            "rank": 4
-          },
-          {
-            "id": "bittensor",
-            "name": "Bittensor",
-            "symbol": "TAO",
-            "rank": 33
-          },
-          {
-            "id": "siren-2",
-            "name": "Siren",
-            "symbol": "SIREN",
-            "rank": 50
+            "id": "hyperliquid",
+            "name": "Hyperliquid",
+            "symbol": "HYPE",
+            "rank": 13
           },
           {
             "id": "pudgy-penguins",
             "name": "Pudgy Penguins",
             "symbol": "PENGU",
-            "rank": 105
+            "rank": 108
           },
           {
-            "id": "tezos",
-            "name": "Tezos",
-            "symbol": "XTZ",
-            "rank": 112
+            "id": "siren-2",
+            "name": "Siren",
+            "symbol": "SIREN",
+            "rank": 60
           },
           {
-            "id": "monad",
-            "name": "Monad",
-            "symbol": "MON",
-            "rank": 137
+            "id": "solana",
+            "name": "Solana",
+            "symbol": "SOL",
+            "rank": 7
           },
           {
-            "id": "backpack",
-            "name": "Backpack",
-            "symbol": "BP",
-            "rank": 475
+            "id": "chainlink",
+            "name": "Chainlink",
+            "symbol": "LINK",
+            "rank": 17
           },
           {
-            "id": "bitcoin",
-            "name": "Bitcoin",
-            "symbol": "BTC",
-            "rank": 1
+            "id": "ethereum",
+            "name": "Ethereum",
+            "symbol": "ETH",
+            "rank": 2
           },
           {
-            "id": "rain",
-            "name": "Rain",
-            "symbol": "RAIN",
-            "rank": 25
-          },
-          {
-            "id": "tether-gold",
-            "name": "Tether Gold",
-            "symbol": "XAUT",
-            "rank": 37
+            "id": "pi-network",
+            "name": "Pi Network",
+            "symbol": "PI",
+            "rank": 46
           }
         ],
         "top_movers": [],
         "trending_nfts": [
-          "Doodles",
-          "Lil Pudgys",
+          "Mad Lads",
+          "Azuki",
           "Ordinal Maxi Biz (OMB)",
-          "Mutant Ape Yacht Club",
-          "Bitcoin Shrooms"
+          "Bitcoin Shrooms",
+          "CryptoPunks"
         ],
         "trending_categories": [
-          "Tokenized Commodities",
-          "Tokenized Assets",
-          "Four.meme Ecosystem (BNB Memes)",
-          "Binance Alpha Spotlight",
-          "Real World Assets (RWA)"
+          "RWA Protocol",
+          "Chain Abstraction",
+          "Privacy",
+          "Meme",
+          "Frog-Themed"
         ]
       }
     },
@@ -362,46 +276,16 @@
         "global": {},
         "trending_coins": [
           {
-            "id": "binancecoin",
-            "name": "BNB",
-            "symbol": "BNB",
-            "rank": 4
-          },
-          {
             "id": "bittensor",
             "name": "Bittensor",
             "symbol": "TAO",
             "rank": 33
           },
           {
-            "id": "siren-2",
-            "name": "Siren",
-            "symbol": "SIREN",
-            "rank": 50
-          },
-          {
-            "id": "pudgy-penguins",
-            "name": "Pudgy Penguins",
-            "symbol": "PENGU",
-            "rank": 105
-          },
-          {
-            "id": "tezos",
-            "name": "Tezos",
-            "symbol": "XTZ",
-            "rank": 112
-          },
-          {
-            "id": "monad",
-            "name": "Monad",
-            "symbol": "MON",
-            "rank": 137
-          },
-          {
-            "id": "backpack",
-            "name": "Backpack",
-            "symbol": "BP",
-            "rank": 475
+            "id": "coredaoorg",
+            "name": "Core",
+            "symbol": "CORE",
+            "rank": 560
           },
           {
             "id": "bitcoin",
@@ -410,32 +294,62 @@
             "rank": 1
           },
           {
-            "id": "rain",
-            "name": "Rain",
-            "symbol": "RAIN",
-            "rank": 25
+            "id": "hyperliquid",
+            "name": "Hyperliquid",
+            "symbol": "HYPE",
+            "rank": 13
           },
           {
-            "id": "tether-gold",
-            "name": "Tether Gold",
-            "symbol": "XAUT",
-            "rank": 37
+            "id": "pudgy-penguins",
+            "name": "Pudgy Penguins",
+            "symbol": "PENGU",
+            "rank": 108
+          },
+          {
+            "id": "siren-2",
+            "name": "Siren",
+            "symbol": "SIREN",
+            "rank": 60
+          },
+          {
+            "id": "solana",
+            "name": "Solana",
+            "symbol": "SOL",
+            "rank": 7
+          },
+          {
+            "id": "chainlink",
+            "name": "Chainlink",
+            "symbol": "LINK",
+            "rank": 17
+          },
+          {
+            "id": "ethereum",
+            "name": "Ethereum",
+            "symbol": "ETH",
+            "rank": 2
+          },
+          {
+            "id": "pi-network",
+            "name": "Pi Network",
+            "symbol": "PI",
+            "rank": 46
           }
         ],
         "top_movers": [],
         "trending_nfts": [
-          "Doodles",
-          "Lil Pudgys",
+          "Mad Lads",
+          "Azuki",
           "Ordinal Maxi Biz (OMB)",
-          "Mutant Ape Yacht Club",
-          "Bitcoin Shrooms"
+          "Bitcoin Shrooms",
+          "CryptoPunks"
         ],
         "trending_categories": [
-          "Tokenized Commodities",
-          "Tokenized Assets",
-          "Four.meme Ecosystem (BNB Memes)",
-          "Binance Alpha Spotlight",
-          "Real World Assets (RWA)"
+          "RWA Protocol",
+          "Chain Abstraction",
+          "Privacy",
+          "Meme",
+          "Frog-Themed"
         ]
       }
     },
@@ -443,16 +357,10 @@
       "type": "short",
       "priority": "media",
       "theme": "noticia",
-      "topic": "SIREN está en tendencia — ¿vale la pena comprar?",
+      "topic": "CORE está en tendencia — ¿vale la pena comprar?",
       "crypto_data": {
         "global": {},
         "trending_coins": [
-          {
-            "id": "binancecoin",
-            "name": "BNB",
-            "symbol": "BNB",
-            "rank": 4
-          },
           {
             "id": "bittensor",
             "name": "Bittensor",
@@ -460,34 +368,10 @@
             "rank": 33
           },
           {
-            "id": "siren-2",
-            "name": "Siren",
-            "symbol": "SIREN",
-            "rank": 50
-          },
-          {
-            "id": "pudgy-penguins",
-            "name": "Pudgy Penguins",
-            "symbol": "PENGU",
-            "rank": 105
-          },
-          {
-            "id": "tezos",
-            "name": "Tezos",
-            "symbol": "XTZ",
-            "rank": 112
-          },
-          {
-            "id": "monad",
-            "name": "Monad",
-            "symbol": "MON",
-            "rank": 137
-          },
-          {
-            "id": "backpack",
-            "name": "Backpack",
-            "symbol": "BP",
-            "rank": 475
+            "id": "coredaoorg",
+            "name": "Core",
+            "symbol": "CORE",
+            "rank": 560
           },
           {
             "id": "bitcoin",
@@ -496,32 +380,148 @@
             "rank": 1
           },
           {
-            "id": "rain",
-            "name": "Rain",
-            "symbol": "RAIN",
-            "rank": 25
+            "id": "hyperliquid",
+            "name": "Hyperliquid",
+            "symbol": "HYPE",
+            "rank": 13
           },
           {
-            "id": "tether-gold",
-            "name": "Tether Gold",
-            "symbol": "XAUT",
-            "rank": 37
+            "id": "pudgy-penguins",
+            "name": "Pudgy Penguins",
+            "symbol": "PENGU",
+            "rank": 108
+          },
+          {
+            "id": "siren-2",
+            "name": "Siren",
+            "symbol": "SIREN",
+            "rank": 60
+          },
+          {
+            "id": "solana",
+            "name": "Solana",
+            "symbol": "SOL",
+            "rank": 7
+          },
+          {
+            "id": "chainlink",
+            "name": "Chainlink",
+            "symbol": "LINK",
+            "rank": 17
+          },
+          {
+            "id": "ethereum",
+            "name": "Ethereum",
+            "symbol": "ETH",
+            "rank": 2
+          },
+          {
+            "id": "pi-network",
+            "name": "Pi Network",
+            "symbol": "PI",
+            "rank": 46
           }
         ],
         "top_movers": [],
         "trending_nfts": [
-          "Doodles",
-          "Lil Pudgys",
+          "Mad Lads",
+          "Azuki",
           "Ordinal Maxi Biz (OMB)",
-          "Mutant Ape Yacht Club",
-          "Bitcoin Shrooms"
+          "Bitcoin Shrooms",
+          "CryptoPunks"
         ],
         "trending_categories": [
-          "Tokenized Commodities",
-          "Tokenized Assets",
-          "Four.meme Ecosystem (BNB Memes)",
-          "Binance Alpha Spotlight",
-          "Real World Assets (RWA)"
+          "RWA Protocol",
+          "Chain Abstraction",
+          "Privacy",
+          "Meme",
+          "Frog-Themed"
+        ]
+      }
+    },
+    {
+      "type": "short",
+      "priority": "media",
+      "theme": "noticia",
+      "topic": "BTC está en tendencia — ¿vale la pena comprar?",
+      "crypto_data": {
+        "global": {},
+        "trending_coins": [
+          {
+            "id": "bittensor",
+            "name": "Bittensor",
+            "symbol": "TAO",
+            "rank": 33
+          },
+          {
+            "id": "coredaoorg",
+            "name": "Core",
+            "symbol": "CORE",
+            "rank": 560
+          },
+          {
+            "id": "bitcoin",
+            "name": "Bitcoin",
+            "symbol": "BTC",
+            "rank": 1
+          },
+          {
+            "id": "hyperliquid",
+            "name": "Hyperliquid",
+            "symbol": "HYPE",
+            "rank": 13
+          },
+          {
+            "id": "pudgy-penguins",
+            "name": "Pudgy Penguins",
+            "symbol": "PENGU",
+            "rank": 108
+          },
+          {
+            "id": "siren-2",
+            "name": "Siren",
+            "symbol": "SIREN",
+            "rank": 60
+          },
+          {
+            "id": "solana",
+            "name": "Solana",
+            "symbol": "SOL",
+            "rank": 7
+          },
+          {
+            "id": "chainlink",
+            "name": "Chainlink",
+            "symbol": "LINK",
+            "rank": 17
+          },
+          {
+            "id": "ethereum",
+            "name": "Ethereum",
+            "symbol": "ETH",
+            "rank": 2
+          },
+          {
+            "id": "pi-network",
+            "name": "Pi Network",
+            "symbol": "PI",
+            "rank": 46
+          }
+        ],
+        "top_movers": [],
+        "trending_nfts": [
+          "Mad Lads",
+          "Azuki",
+          "Ordinal Maxi Biz (OMB)",
+          "Bitcoin Shrooms",
+          "CryptoPunks"
+        ],
+        "trending_categories": [
+          "RWA Protocol",
+          "Chain Abstraction",
+          "Privacy",
+          "Meme",
+          "Frog-Themed"
         ]
       }
     },
@@ -534,46 +534,16 @@
         "global": {},
         "trending_coins": [
           {
-            "id": "binancecoin",
-            "name": "BNB",
-            "symbol": "BNB",
-            "rank": 4
-          },
-          {
             "id": "bittensor",
             "name": "Bittensor",
             "symbol": "TAO",
             "rank": 33
           },
           {
-            "id": "siren-2",
-            "name": "Siren",
-            "symbol": "SIREN",
-            "rank": 50
-          },
-          {
-            "id": "pudgy-penguins",
-            "name": "Pudgy Penguins",
-            "symbol": "PENGU",
-            "rank": 105
-          },
-          {
-            "id": "tezos",
-            "name": "Tezos",
-            "symbol": "XTZ",
-            "rank": 112
-          },
-          {
-            "id": "monad",
-            "name": "Monad",
-            "symbol": "MON",
-            "rank": 137
-          },
-          {
-            "id": "backpack",
-            "name": "Backpack",
-            "symbol": "BP",
-            "rank": 475
+            "id": "coredaoorg",
+            "name": "Core",
+            "symbol": "CORE",
+            "rank": 560
           },
           {
             "id": "bitcoin",
@@ -582,118 +552,62 @@
             "rank": 1
           },
           {
-            "id": "rain",
-            "name": "Rain",
-            "symbol": "RAIN",
-            "rank": 25
-          },
-          {
-            "id": "tether-gold",
-            "name": "Tether Gold",
-            "symbol": "XAUT",
-            "rank": 37
-          }
-        ],
-        "top_movers": [],
-        "trending_nfts": [
-          "Doodles",
-          "Lil Pudgys",
-          "Ordinal Maxi Biz (OMB)",
-          "Mutant Ape Yacht Club",
-          "Bitcoin Shrooms"
-        ],
-        "trending_categories": [
-          "Tokenized Commodities",
-          "Tokenized Assets",
-          "Four.meme Ecosystem (BNB Memes)",
-          "Binance Alpha Spotlight",
-          "Real World Assets (RWA)"
-        ]
-      }
-    },
-    {
-      "type": "short",
-      "priority": "media",
-      "theme": "educativo",
-      "topic": "¿Qué es BNB (BNB) y por qué está en tendencia ahora?",
-      "crypto_data": {
-        "global": {},
-        "trending_coins": [
-          {
-            "id": "binancecoin",
-            "name": "BNB",
-            "symbol": "BNB",
-            "rank": 4
-          },
-          {
-            "id": "bittensor",
-            "name": "Bittensor",
-            "symbol": "TAO",
-            "rank": 33
-          },
-          {
-            "id": "siren-2",
-            "name": "Siren",
-            "symbol": "SIREN",
-            "rank": 50
+            "id": "hyperliquid",
+            "name": "Hyperliquid",
+            "symbol": "HYPE",
+            "rank": 13
           },
           {
             "id": "pudgy-penguins",
             "name": "Pudgy Penguins",
             "symbol": "PENGU",
-            "rank": 105
+            "rank": 108
           },
           {
-            "id": "tezos",
-            "name": "Tezos",
-            "symbol": "XTZ",
-            "rank": 112
+            "id": "siren-2",
+            "name": "Siren",
+            "symbol": "SIREN",
+            "rank": 60
           },
           {
-            "id": "monad",
-            "name": "Monad",
-            "symbol": "MON",
-            "rank": 137
+            "id": "solana",
+            "name": "Solana",
+            "symbol": "SOL",
+            "rank": 7
           },
           {
-            "id": "backpack",
-            "name": "Backpack",
-            "symbol": "BP",
-            "rank": 475
+            "id": "chainlink",
+            "name": "Chainlink",
+            "symbol": "LINK",
+            "rank": 17
           },
           {
-            "id": "bitcoin",
-            "name": "Bitcoin",
-            "symbol": "BTC",
-            "rank": 1
+            "id": "ethereum",
+            "name": "Ethereum",
+            "symbol": "ETH",
+            "rank": 2
           },
           {
-            "id": "rain",
-            "name": "Rain",
-            "symbol": "RAIN",
-            "rank": 25
-          },
-          {
-            "id": "tether-gold",
-            "name": "Tether Gold",
-            "symbol": "XAUT",
-            "rank": 37
+            "id": "pi-network",
+            "name": "Pi Network",
+            "symbol": "PI",
+            "rank": 46
           }
         ],
         "top_movers": [],
         "trending_nfts": [
-          "Doodles",
-          "Lil Pudgys",
+          "Mad Lads",
+          "Azuki",
           "Ordinal Maxi Biz (OMB)",
-          "Mutant Ape Yacht Club",
-          "Bitcoin Shrooms"
+          "Bitcoin Shrooms",
+          "CryptoPunks"
         ],
         "trending_categories": [
-          "Tokenized Commodities",
-          "Tokenized Assets",
-          "Four.meme Ecosystem (BNB Memes)",
-          "Binance Alpha Spotlight",
-          "Real World Assets (RWA)"
+          "RWA Protocol",
+          "Chain Abstraction",
+          "Privacy",
+          "Meme",
+          "Frog-Themed"
         ]
       }
     },
@@ -706,46 +620,16 @@
         "global": {},
         "trending_coins": [
           {
-            "id": "binancecoin",
-            "name": "BNB",
-            "symbol": "BNB",
-            "rank": 4
-          },
-          {
             "id": "bittensor",
             "name": "Bittensor",
             "symbol": "TAO",
             "rank": 33
           },
           {
-            "id": "siren-2",
-            "name": "Siren",
-            "symbol": "SIREN",
-            "rank": 50
-          },
-          {
-            "id": "pudgy-penguins",
-            "name": "Pudgy Penguins",
-            "symbol": "PENGU",
-            "rank": 105
-          },
-          {
-            "id": "tezos",
-            "name": "Tezos",
-            "symbol": "XTZ",
-            "rank": 112
-          },
-          {
-            "id": "monad",
-            "name": "Monad",
-            "symbol": "MON",
-            "rank": 137
-          },
-          {
-            "id": "backpack",
-            "name": "Backpack",
-            "symbol": "BP",
-            "rank": 475
+            "id": "coredaoorg",
+            "name": "Core",
+            "symbol": "CORE",
+            "rank": 560
           },
           {
             "id": "bitcoin",
@@ -754,136 +638,479 @@
             "rank": 1
           },
           {
-            "id": "rain",
-            "name": "Rain",
-            "symbol": "RAIN",
-            "rank": 25
+            "id": "hyperliquid",
+            "name": "Hyperliquid",
+            "symbol": "HYPE",
+            "rank": 13
           },
           {
-            "id": "tether-gold",
-            "name": "Tether Gold",
-            "symbol": "XAUT",
-            "rank": 37
+            "id": "pudgy-penguins",
+            "name": "Pudgy Penguins",
+            "symbol": "PENGU",
+            "rank": 108
+          },
+          {
+            "id": "siren-2",
+            "name": "Siren",
+            "symbol": "SIREN",
+            "rank": 60
+          },
+          {
+            "id": "solana",
+            "name": "Solana",
+            "symbol": "SOL",
+            "rank": 7
+          },
+          {
+            "id": "chainlink",
+            "name": "Chainlink",
+            "symbol": "LINK",
+            "rank": 17
+          },
+          {
+            "id": "ethereum",
+            "name": "Ethereum",
+            "symbol": "ETH",
+            "rank": 2
+          },
+          {
+            "id": "pi-network",
+            "name": "Pi Network",
+            "symbol": "PI",
+            "rank": 46
           }
         ],
         "top_movers": [],
         "trending_nfts": [
-          "Doodles",
-          "Lil Pudgys",
+          "Mad Lads",
+          "Azuki",
           "Ordinal Maxi Biz (OMB)",
-          "Mutant Ape Yacht Club",
-          "Bitcoin Shrooms"
+          "Bitcoin Shrooms",
+          "CryptoPunks"
         ],
         "trending_categories": [
-          "Tokenized Commodities",
-          "Tokenized Assets",
-          "Four.meme Ecosystem (BNB Memes)",
-          "Binance Alpha Spotlight",
-          "Real World Assets (RWA)"
+          "RWA Protocol",
+          "Chain Abstraction",
+          "Privacy",
+          "Meme",
+          "Frog-Themed"
+        ]
+      }
+    },
+    {
+      "type": "short",
+      "priority": "media",
+      "theme": "educativo",
+      "topic": "¿Qué es CORE (Core) y por qué está en tendencia ahora?",
+      "crypto_data": {
+        "global": {},
+        "trending_coins": [
+          {
+            "id": "bittensor",
+            "name": "Bittensor",
+            "symbol": "TAO",
+            "rank": 33
+          },
+          {
+            "id": "coredaoorg",
+            "name": "Core",
+            "symbol": "CORE",
+            "rank": 560
+          },
+          {
+            "id": "bitcoin",
+            "name": "Bitcoin",
+            "symbol": "BTC",
+            "rank": 1
+          },
+          {
+            "id": "hyperliquid",
+            "name": "Hyperliquid",
+            "symbol": "HYPE",
+            "rank": 13
+          },
+          {
+            "id": "pudgy-penguins",
+            "name": "Pudgy Penguins",
+            "symbol": "PENGU",
+            "rank": 108
+          },
+          {
+            "id": "siren-2",
+            "name": "Siren",
+            "symbol": "SIREN",
+            "rank": 60
+          },
+          {
+            "id": "solana",
+            "name": "Solana",
+            "symbol": "SOL",
+            "rank": 7
+          },
+          {
+            "id": "chainlink",
+            "name": "Chainlink",
+            "symbol": "LINK",
+            "rank": 17
+          },
+          {
+            "id": "ethereum",
+            "name": "Ethereum",
+            "symbol": "ETH",
+            "rank": 2
+          },
+          {
+            "id": "pi-network",
+            "name": "Pi Network",
+            "symbol": "PI",
+            "rank": 46
+          }
+        ],
+        "top_movers": [],
+        "trending_nfts": [
+          "Mad Lads",
+          "Azuki",
+          "Ordinal Maxi Biz (OMB)",
+          "Bitcoin Shrooms",
+          "CryptoPunks"
+        ],
+        "trending_categories": [
+          "RWA Protocol",
+          "Chain Abstraction",
+          "Privacy",
+          "Meme",
+          "Frog-Themed"
         ]
       }
     }
   ],
   "scripts": [
     {
-      "id": "short_1774492258_436",
+      "id": "short_1774844591_588",
       "type": "short",
-      "title": "📰 BREAKING: Franklin Templeton, Ondo to launch tokenized ETF",
-      "status": "invalid_content",
-      "error": "Script validation failed: PROMPT_CONTAMINATION: matched 'el usuario quiere'",
-      "raw_response": "El usuario quiere un guión para un YouTube Short sobre la noticia de Franklin Templeton y Ondo lanzando ETFs tokenizados con trading 24/7.\n\nReglas clave:\n- Español neutro/latino\n- Máximo 50 segundos (~130 palabras)\n- Título menos de 50 caracteres\n- Gancho inmediato\n- Usar \"TÚ\" más que \"YO\"\n- Bucle narrativo al final\n- NO emojis en el guión de voz\n- Personaje mascota: rinoceronte antropomórfico 3D hiperrealista\n- NO mostrar razonamiento, solo el formato solicitado\n\nTema: Franklin Templeton + Ondo",
-      "original_topic": "📰 BREAKING: Franklin Templeton, Ondo to launch tokenized ETFs with 24/7 trading via crypto wallets",
-      "created_at": "2026-03-26T02:30:58.306718+00:00"
+      "theme": "noticias",
+      "priority": "urgente",
+      "title": "Ark Invest VENDE Meta, Nvidia y Bitcoin",
+      "description": "Cathie Wood sorprende al mercado con una venta masiva. Ark Invest se desprende de Meta, Nvidia y Bitcoin ETF. Que significa esto para tu portafolio?",
+      "tags": [
+        "cathie wood",
+        "ark invest",
+        "meta",
+        "nvidia",
+        "bitcoin etf",
+        "noticias cripto",
+        "trading",
+        "mercados",
+        "bitcoin",
+        "inversiones"
+      ],
+      "script": "Cathie Wood acaba de prenderle fuego al mercado. Ark Invest vendio millones de dolares en acciones de Meta, Nvidia y tambien solto parte de su Bitcoin ETF. Esto no es un movimiento casual. Cuando la inversora mas influyente de Wall Street se va de los activos mas calientes del momento, tienes que preguntarte que sabe ella que tu no sabes. Es una senal de que la correccion ya llego o simplemente esta reacomodando su estrategia para entrar mas barato. Los mercados de futuros ya estan reaccionando con volatilidad y los traders de prop firms estan ajustando sus posiciones ahora mismo. Tu crees que Cathie Wood esta anticipando una caida mas profunda o solo esta tomando ganancias? Dejame tu analisis en los comentarios.",
+      "video_prompts": [
+        "A hyper-realistic 3D anthropomorphic rhinoceros in a modern trading office, standing in front of multiple screens showing red candlestick charts and news headlines about Ark Invest. The rhinoceros wears a sleek dark blue vest and holds a tablet, looking concerned but focused. The screens display falling stock graphs. Dramatic lighting with blue and red ambient glow from the monitors. Urgent, news-anchor style atmosphere. Vertical 9:16 aspect ratio, highly detailed fur texture, realistic eyes reflecting the screen light."
+      ],
+      "original_topic": "📰 BREAKING: Cathie Wood's Ark Invest Dumps Meta, Nvidia and Bitcoin ETF Shares in Major Tech Sell-Off",
+      "status": "produced",
+      "created_at": "2026-03-30T04:23:11.653968+00:00",
+      "content_validated": true,
+      "produced_at": "2026-03-30T04:48:13.121500+00:00",
+      "output_file": "/home/enderj/.openclaw/workspace/bittrader/agents/output/2026-03-29/short_1774844591_588/short_1774844591_588.mp4",
+      "audio_file": "/home/enderj/.openclaw/workspace/bittrader/agents/output/2026-03-29/short_1774844591_588/short_1774844591_588.mp3",
+      "video_duration": 41.8
     },
     {
-      "id": "short_1774492305_779",
+      "id": "short_1774844629_186",
       "type": "short",
-      "title": "Claude AI creó un bot de trading en 10 minutos — ¿funciona?",
-      "status": "invalid_content",
-      "error": "Script validation failed: PROMPT_CONTAMINATION: matched 'el usuario quiere'",
-      "raw_response": "El usuario quiere un guión completo para un YouTube Short del canal BitTrader. El tema es sobre Claude AI creando un bot de trading en 10 minutos.\n\nNecesito seguir las reglas:\n1. Español neutro/latino\n2. Tono directo, energético\n3. Máximo 50 segundos al leerlo (≈130 palabras)\n4. Terminar con CTA con pregunta\n5. NO emojis en el guión de voz\n6. Escribir exactamente como se va a narrar\n7. NO mostrar razonamiento visible\n8. Incluir el personaje mascota: rinoceronte antropomórfico 3D hiperrealista\n\nR",
+      "theme": "ia_trading",
+      "priority": "alta",
+      "title": "Claude creó mi bot en 10 min - ¿Funciona?",
+      "description": "Le pedí a Claude AI que programara un bot de trading desde cero. En 10 minutos tenía el código listo. Esto fue lo que pasó. #Trading #IA #ClaudeAI #BitTrader",
+      "tags": [
+        "claude ai",
+        "bot trading",
+        "inteligencia artificial",
+        "trading automatico",
+        "cripto",
+        "bitcoin",
+        "automatizacion",
+        "bots",
+        "programacion",
+        "bittrader"
+      ],
+      "script": "Le pedí a Claude AI que creara un bot de trading desde cero. En 10 minutos tenía el código funcionando. Parecía demasiado fácil. El bot usaba una estrategia simple de cruce de medias móviles en Bitcoin. Lo probé en backtesting con datos de los últimos seis meses. El resultado fue sorprendente. Seis de cada diez operaciones fueron rentables. Pero aqui viene lo importante. Cuando lo puse en vivo con cien dólares reales, la realidad fue otra. El spread y las comisiones comieron gran parte de las ganancias. La conclusión es clara. Claude puede escribir código funcional muy rapido, pero tu tienes que validar cada linea. No confies ciegamente en la IA. Tu dejarias que un bot programado por Claude maneje tu dinero? Escribelo en los comentarios.",
+      "video_prompts": [
+        "A hyper-realistic 3D anthropomorphic rhinoceros sitting at a modern trading desk with multiple monitors showing code and trading charts. The rhino is typing on a keyboard, looking focused and analytical. Blue and purple LED ambient lighting. One screen shows Python code, another shows Bitcoin charts with moving averages. The rhino wears a casual dark hoodie. Cinematic lighting, 9:16 vertical aspect ratio, photorealistic fur texture, intelligent expression."
+      ],
       "original_topic": "Claude AI creó un bot de trading en 10 minutos — ¿funciona?",
-      "created_at": "2026-03-26T02:31:45.106829+00:00"
+      "status": "produced",
+      "created_at": "2026-03-30T04:23:49.295061+00:00",
+      "content_validated": true,
+      "produced_at": "2026-03-30T05:21:24.097056+00:00",
+      "output_file": "/home/enderj/.openclaw/workspace/bittrader/agents/output/2026-03-29/short_1774844629_186/short_1774844629_186.mp4",
+      "audio_file": "/home/enderj/.openclaw/workspace/bittrader/agents/output/2026-03-29/short_1774844629_186/short_1774844629_186.mp3",
+      "video_duration": 49.3
     },
     {
-      "id": "long_1774492410_187",
+      "id": "long_1774844707_298",
       "type": "long",
-      "title": "Agentes de trading con IA: el futuro de la automatización",
-      "status": "invalid_content",
-      "error": "Script validation failed: PROMPT_CONTAMINATION: matched 'el usuario quiere'",
-      "raw_response": "El usuario quiere un guión completo para un video de YouTube de 3-5 minutos del canal BitTrader. El tema es \"Agentes de trading con IA: el futuro de la automatización\".\n\nDebo seguir las reglas:\n1. Español neutro/latino\n2. Tono directo, energético\n3. Estructura clara con ejemplos reales\n4. CTA con pregunta al final\n5. Sin emojis en el guión de voz\n6. Sin razonamiento visible - SOLO el formato solicitado\n7. El personaje mascota es un RINOCERONTE ANTROPOMÓRFICO 3D hiperrealista\n8. Reglas MrBeast: t",
+      "theme": "ia_trading",
+      "priority": "alta",
+      "title": "Agentes IA: El futuro del trading hoy",
+      "description": "Descubre como los agentes de inteligencia artificial estan revolucionando el trading automatico. Aprende la diferencia entre bots tradicionales y agentes con IA, y como puedes implementarlos HOY. #Trading #InteligenciaArtificial #BitTrader #AgentesIA #TradingAutomatico",
+      "tags": [
+        "trading con ia",
+        "agentes de trading",
+        "inteligencia artificial trading",
+        "bots de trading",
+        "trading automatico",
+        "claude trading",
+        "gpt trading",
+        "automatizacion trading",
+        "cripto trading",
+        "futuros trading",
+        "bittrader",
+        "ia para traders",
+        "trading algoritmico",
+        "prop firms",
+        "finanzas"
+      ],
+      "script": "Imagina tener un trader que nunca duerme, que analiza miles de datos por segundo, que aprende de sus errores y que ademas puede leer noticias en tiempo real para tomar decisiones. No es ciencia ficcion. Es lo que esta pasando ahorita mismo en los mercados.\n\nHoy vas a descubrir por que los agentes de IA estan cambiando las reglas del juego y como puedes usarlos antes de que todos los demas se den cuenta.\n\nPrimero lo basico pero importante. Un bot tradicional sigue reglas fijas que tu programas. Si el precio cruza la media movil, compra. Punto. No hay pensamiento, solo ejecucion. Pero un agente de IA es diferente. Puede razonar, adaptarse y tomar decisiones basadas en contexto, no solo en numeros.\n\nAhorita mismo hay traders usando Claude y GPT para analizar patrones graficos, leer reportes de ganancias en segundos, y hasta interpretar el sentimiento de Twitter y Reddit. Cosas que antes tomaban horas ahora las hace un agente en segundos.\n\nTe voy a dar un ejemplo real. Puedes",
+      "video_prompts": [
+        "A hyperrealistic 3D anthropomorphic rhinoceros in a modern trading office, wearing a sleek dark blazer over a fitted shirt, standing confidently in front of multiple monitors displaying complex trading charts and AI interfaces. The rhino has intelligent eyes and a confident smirk, gesturing with one hand toward the screens while looking directly at the camera. Cinematic lighting, photorealistic fur texture, 16:9 aspect ratio., anthropomorphic rhinoceros character, hyper-realistic 3D render, muscular but elegant, wearing modern casual trading clothes, expressive face, dramatic cinematic lighting, ultra HD, photorealistic textures, 16:9 widescreen, dark moody background",
+        "The anthropomorphic rhinocorus sitting at a high-tech desk with holographic displays floating around, actively typing on a mechanical keyboard while multiple AI agent windows are visible on screens showing code, news feeds, and market data. The rhino appears focused and in command, with ambient blue and purple LED lighting creating a futuristic atmosphere. Photorealistic 3D render, 16:9 aspect ratio.",
+        "The anthropomorphic rhinoceros standing on a futuristic balcony overlooking a city skyline at sunset, holding a tablet with trading data, looking thoughtfully at the horizon with an expression of confident anticipation. Warm golden hour lighting illuminating the scene, photorealistic fur and clothing details, modern professional attire, 16:9 aspect ratio., anthropomorphic rhinoceros character, hyper-realistic 3D render, muscular but elegant, wearing modern casual trading clothes, expressive face, dramatic cinematic lighting, ultra HD, photorealistic textures, 16:9 widescreen, dark moody background"
+      ],
       "original_topic": "Agentes de trading con IA: el futuro de la automatización",
-      "created_at": "2026-03-26T02:33:30.027934+00:00"
+      "status": "produced",
+      "created_at": "2026-03-30T04:25:07.243106+00:00",
+      "content_validated": true,
+      "produced_at": "2026-03-30T05:25:01.738914+00:00",
+      "output_file": "/home/enderj/.openclaw/workspace/bittrader/agents/output/2026-03-29/long_1774844707_298/long_1774844707_298.mp4",
+      "audio_file": "/home/enderj/.openclaw/workspace/bittrader/agents/output/2026-03-29/long_1774844707_298/long_1774844707_298.mp3",
+      "video_duration": 62.2
     },
     {
-      "id": "short_1774492450_976",
+      "id": "short_1774844757_641",
       "type": "short",
-      "title": "La IA que predice movimientos del mercado antes que nadie",
-      "status": "invalid_content",
-      "error": "Script validation failed: PROMPT_CONTAMINATION: matched 'Gancho inmediato'",
-      "raw_response": "TITULO: Algo con menos de 50 caracteres, con número o gancho\n- \"Esta IA predice el mercado ANTES\" (35 chars) ✓\n- \"La IA que ve el futuro del trading\" (34 chars) ✓\n- \"Predice el mercado ANTES que nadie\" (34 chars) ✓\n\nDESCRIPCION: 100-150 chars con hashtags\n\nTAGS: 8-10 tags\n\nGUION: \n- Gancho inmediato\n- Desarrollo\n- Dato impactante\n- CTA con pregunta\n- Bucle final: \"...y lo que pasó después te sorprenderá\"\n\nVIDEO_PROMPT: Escena con el rinoceronte, hyper-realistic 3D, 9:16 vertical\n\nVamos a escribi",
+      "theme": "ia_trading",
+      "priority": "alta",
+      "title": "Esta IA predice el mercado ANTES que todos",
+      "description": "Descubre como la inteligencia artificial puede anticipar movimientos del mercado antes que Wall Street. Trading avanzado con IA. #trading #IA #cripto #Bitcoin #inversion",
+      "tags": [
+        "trading",
+        "inteligencia artificial",
+        "IA trading",
+        "cripto",
+        "Bitcoin",
+        "mercado",
+        "bots",
+        "inversion",
+        "analisis",
+        "tecnologia"
+      ],
+      "script": "Imaginate saber hacia donde va Bitcoin antes de que el grafico se mueva. Los hedge funds mas grandes ya usan agentes de IA que analizan miles de noticias, tuits y transacciones en tiempo real. Mientras tu ves una vela verde, estos sistemas ya ejecutaron cien operaciones.\n\nPero aqui esta el secreto: tu tambien puedes acceder a esta tecnologia. Modelos como Claude y GPT pueden monitorear el sentimiento del mercado y alertarte antes de que ocurra un movimiento grande. No es magia, es velocidad de procesamiento masiva.\n\nLa pregunta es: ya estas usando IA en tu trading o sigues operando a ciegas mientras los algoritmos te ganan? Dejame en los comentarios que herramienta de IA te gustaria conocer primero.",
+      "video_prompts": [
+        "Anthropomorphic rhinoceros — Un rinoceronte antropomorfico 3D hiperrealista parado frente a multiples pantallas holograficas flotantes que muestran graficos de trading con datos en tiempo real, lineas verdes y rojas brillantes formando patrones predictivos. El rinoceronte viste un chaleco tecnico moderno gris oscuro con detalles neon azules y sostiene una tablet transparente futurista. Su expresion es de concentracion e inteligencia aguda mientras senala una zona del grafico que brilla intensamente. El ambiente es una oficina de trading futurista con luces LED ambientales cyan y morado, multiples monitores en el fondo. Iluminacion cinematografica dramatica, atmosfera de alta tecnologia y precision. Hyper-realistic 3D render, formato 9:16 vertical., anthropomorphic rhinoceros character, hyper-realistic 3D render, muscular but elegant, wearing modern casual trading clothes, expressive face, dramatic cinematic lighting, ultra HD, photorealistic textures, 9:16 vertical aspect ratio, dark moody background"
+      ],
       "original_topic": "La IA que predice movimientos del mercado antes que nadie",
-      "created_at": "2026-03-26T02:34:10.415058+00:00"
+      "status": "produced",
+      "created_at": "2026-03-30T04:25:57.637897+00:00",
+      "content_validated": true,
+      "produced_at": "2026-03-30T05:42:26.509747+00:00",
+      "output_file": "/home/enderj/.openclaw/workspace/bittrader/agents/output/2026-03-29/short_1774844757_641/short_1774844757_641.mp4",
+      "audio_file": "/home/enderj/.openclaw/workspace/bittrader/agents/output/2026-03-29/short_1774844757_641/short_1774844757_641.mp3",
+      "video_duration": 42.4
     },
     {
-      "id": "short_1774492521_553",
+      "id": "short_1774844792_320",
       "type": "short",
-      "title": "BNB está en tendencia — ¿vale la pena comprar?",
-      "status": "invalid_content",
-      "error": "Script validation failed: PROMPT_CONTAMINATION: matched 'Gancho inmediato'",
-      "raw_response": "El usuario quiere un guión completo para un YouTube Short sobre BNB que está en tendencia y si vale la pena comprar.\n\nTema: BNB está en tendencia — ¿vale la pena comprar?\nCategoría: noticia\n\nReglas a seguir:\n1. Título menos de 50 caracteres\n2. Gancho inmediato\n3. Usar \"TÚ\" más que \"YO\"\n4. Bucle narrativo: terminar con \"...y lo que pasó después te sorprenderá\"\n5. Español neutro/latino\n6. Máximo 50 segundos (≈130 palabras)\n7. Sin emojis en el guión\n8. CTA con pregunta\n9. Video prompt con el rinoce",
-      "original_topic": "BNB está en tendencia — ¿vale la pena comprar?",
-      "created_at": "2026-03-26T02:35:21.952926+00:00"
-    },
-    {
-      "id": "short_1774492560_220",
-      "type": "short",
-      "title": "TAO está en tendencia — ¿vale la pena comprar?",
-      "status": "invalid_content",
-      "error": "Script validation failed: PROMPT_CONTAMINATION: matched 'Gancho inmediato'",
-      "raw_response": "El usuario quiere un guión completo para un YouTube Short sobre TAO (Bittensor), que está en tendencia. Necesito seguir todas las reglas:\n\n1. Español neutro/latino\n2. Tono directo, energético\n3. Máximo 50 segundos (≈130 palabras)\n4. CTA con pregunta\n5. Sin emojis en el guión\n6. Título menos de 50 caracteres\n7. Gancho inmediato\n8. Usar \"TÚ\" más que \"YO\"\n9. Bucle narrativo al final\n10. El VIDEO_PROMPT debe incluir el rinoceronte antropomórfico 3D como protagonista\n\nTAO es el token de Bittensor, un",
+      "theme": "noticia",
+      "priority": "media",
+      "title": "TAO explota: ¿Comprar o esperar?",
+      "description": "TAO de Bittensor está en tendencia y muchos se preguntan si es momento de entrar. Analizamos los factores clave antes de decidir. #TAO #Cripto #Trading",
+      "tags": [
+        "TAO",
+        "Bittensor",
+        "criptomonedas",
+        "trading",
+        "inversión",
+        "altcoins",
+        "Bitcoin",
+        "IA",
+        "análisis cripto",
+        "BitTrader"
+      ],
+      "script": "TAO ha subido más de 40 por ciento en solo una semana y todos se preguntan lo mismo. ¿Es momento de entrar o ya llegaste tarde? Bittensor no es solo otra altcoin, conecta inteligencia artificial descentralizada con blockchain, y eso tiene a muchos inversores muy emocionados. Pero cuidado, comprar solo porque algo está en tendencia es la forma más rápida de perder dinero. Antes de entrar revisa el volumen, mira los niveles de soporte y define tu riesgo. Si ya estás dentro, considera tomar ganancias parciales. La pregunta clave es: ¿TAO es una inversión a largo plazo o solo un pump temporal? Cuéntame en los comentarios si ya compraste o estás esperando una corrección.",
+      "video_prompts": [
+        "A hyper-realistic 3D anthropomorphic rhinoceros in a modern trading office with multiple monitors showing crypto charts. The rhinoceros wears a sleek dark blue blazer over a black turtleneck. He points confidently at a screen displaying TAO price charts with green candlesticks. The office has ambient blue LED lighting, a glass desk with a laptop, and holographic data visualizations floating in the air. The rhinocorse has an intelligent, analytical expression with bright alert eyes. Cinematic lighting, shallow depth of field, vertical 9:16 composition."
+      ],
       "original_topic": "TAO está en tendencia — ¿vale la pena comprar?",
-      "created_at": "2026-03-26T02:36:00.452036+00:00"
+      "status": "produced",
+      "created_at": "2026-03-30T04:26:32.652143+00:00",
+      "content_validated": true,
+      "produced_at": "2026-03-30T05:52:05.486002+00:00",
+      "output_file": "/home/enderj/.openclaw/workspace/bittrader/agents/output/2026-03-29/short_1774844792_320/short_1774844792_320.mp4",
+      "audio_file": "/home/enderj/.openclaw/workspace/bittrader/agents/output/2026-03-29/short_1774844792_320/short_1774844792_320.mp3",
+      "video_duration": 41.3
     },
     {
-      "id": "short_1774492597_347",
+      "id": "short_1774844841_587",
       "type": "short",
-      "title": "SIREN está en tendencia — ¿vale la pena comprar?",
-      "status": "invalid_content",
-      "error": "Script validation failed: PROMPT_CONTAMINATION: matched 'Gancho inmediato'",
-      "raw_response": "El usuario quiere un guión completo para un YouTube Short sobre SIREN, que está en tendencia. Necesito seguir todas las reglas:\n\n1. Español neutro/latino\n2. Tono directo, energético\n3. Máximo 50 segundos (≈130 palabras)\n4. CTA con pregunta\n5. Sin emojis en el guión\n6. Sin razonamiento visible - SOLO el formato\n7. Reglas MrBeast: título <50 chars, gancho inmediato, \"tú\" más que \"yo\", bucle narrativo\n8. Video prompt con el rinoceronte antropomórfico 3D\n\nTema: SIREN está en tendencia - ¿vale la pen",
-      "original_topic": "SIREN está en tendencia — ¿vale la pena comprar?",
-      "created_at": "2026-03-26T02:36:37.416185+00:00"
+      "theme": "noticia",
+      "priority": "media",
+      "title": "CORE subio 40% esta semana, ¿entrar o esperar?",
+      "description": "CORE rompio estructura con volumen masivo. Te explico si es momento de entrar o ya llegaste tarde. Analisis rapido y directo. #CORE #Crypto #Trading #BitTrader",
+      "tags": [
+        "CORE",
+        "crypto",
+        "criptomonedas",
+        "trading",
+        "altcoins",
+        "Bitcoin",
+        "análisis técnico",
+        "inversión",
+        "tendencia",
+        "BitTrader"
+      ],
+      "script": "CORE subio mas de 40% en pocos dias y tu probablemente estas pensando si ya es tarde para entrar. Escucha esto. El volumen de CORE se triplico en la ultima semana, lo que indica interes institucional real, no solo hype de retail. Pero aqui esta el detalle: el precio esta tocando una resistencia clave. Si rompe con volumen, podrias ver otro impulso importante. Si rebota, habria retroceso antes de otra oportunidad clara. No compres a ciegas solo porque esta en tendencia. Espera confirmacion de ruptura o espera el pullback. Tu capital te lo agradecera. ¿Que harías tu? ¿Entras ahora o esperas correccion? Dejame tu estrategia en los comentarios.",
+      "video_prompts": [
+        "Anthropomorphic rhinoceros — Un rinoceronte antropomorfico 3D hiperrealista vestido con camisa oscura profesional, de pie frente a multiples pantallas de computadoras que muestran graficos de velas verdes y rojas con el simbolo CORE destacado. El rinoceronte senala con confianza hacia una pantalla grande central donde se ve un grafico con tendencia alcista marcada en verde intenso. Iluminacion moderna con tonos azul y neol suaves. Ambiente de oficina de trading profesional con tecnologia avanzada, monitores multiples y luces LED ambientales. Expresion segura y analitica. Formato vertical 9:16, calidad cinematografica, estilo financial educator., anthropomorphic rhinoceros character, hyper-realistic 3D render, muscular but elegant, wearing modern casual trading clothes, expressive face, dramatic cinematic lighting, ultra HD, photorealistic textures, 9:16 vertical aspect ratio, dark moody background"
+      ],
+      "original_topic": "CORE está en tendencia — ¿vale la pena comprar?",
+      "status": "produced",
+      "created_at": "2026-03-30T04:27:21.661286+00:00",
+      "content_validated": true,
+      "produced_at": "2026-03-30T06:02:18.555416+00:00",
+      "output_file": "/home/enderj/.openclaw/workspace/bittrader/agents/output/2026-03-29/short_1774844841_587/short_1774844841_587.mp4",
+      "audio_file": "/home/enderj/.openclaw/workspace/bittrader/agents/output/2026-03-29/short_1774844841_587/short_1774844841_587.mp3",
+      "video_duration": 43.4
     },
     {
-      "id": "short_1774492650_980",
+      "id": "short_1774844887_102",
       "type": "short",
-      "title": "¿FTMO es una estafa? Lo que nadie te dice de las prop firms",
-      "status": "invalid_content",
-      "error": "Script validation failed: PROMPT_CONTAMINATION: matched 'el usuario quiere'",
-      "raw_response": "El usuario quiere un guión completo para un YouTube Short del canal BitTrader sobre si FTMO es una estafa. Necesito seguir todas las reglas:\n\n1. Español neutro/latino (no español de España)\n2. Tono directo, energético, sin relleno\n3. Máximo 50 segundos al leerlo (≈130 palabras)\n4. Sin emojis en el guión de voz\n5. Escribir exactamente como se va a narrar\n6. NO generar razonamiento visible\n7. Título menos de 50 caracteres\n8. Gancho inmediato\n9. USA \"TÚ\" más que \"YO\"\n10. Bucle narrativo al final\n11",
+      "theme": "noticia",
+      "priority": "media",
+      "title": "BTC sube: ¿Compras o esperas?",
+      "description": "Bitcoin marca nuevos máximos y todos preguntan lo mismo. ¿Es momento de entrar o ya llegaste tarde? Analizamos los datos. #Bitcoin #Trading #Cripto",
+      "tags": [
+        "Bitcoin",
+        "BTC",
+        "criptomonedas",
+        "trading",
+        "análisis técnico",
+        "inversión",
+        "mercado alcista",
+        "tendencia",
+        "BitTrader",
+        "cripto noticias"
+      ],
+      "script": "Bitcoin acaba de romper su tendencia bajista y tú sigues sin saber si entrar. Escucha esto. El precio ya superó los setenta mil dólares y el volumen está confirmando el movimiento. Pero aquí está la realidad que nadie te cuenta. Comprar en máximos históricos sin una estrategia es la forma más rápida de perder tu capital. Lo inteligente no es perseguir el precio, sino esperar confirmaciones. Mira el soporte más cercano, revisa los indicadores de fuerza y nunca pongas más del cinco por ciento de tu capital en una sola entrada. Si ya estás dentro, tu trailing stop es tu mejor amigo. Ahora te toca. ¿Ya compraste o sigues esperando una corrección? Cuéntamelo en los comentarios.",
+      "video_prompts": [
+        "A hyper-realistic 3D anthropomorphic rhinoceros standing confidently in a modern trading floor with multiple vertical screens showing Bitcoin charts with green candlestick patterns and upward trend lines. The rhinoceros wears a sleek dark blue vest over a white shirt, holding a tablet in one hand while gesturing toward the charts with the other. The environment has blue and green LED ambient lighting reflecting off polished surfaces. Professional trading atmosphere with holographic data floating in the air. Vertical 9:16 format, cinematic lighting, photorealistic fur texture on the rhinoceros."
+      ],
+      "original_topic": "BTC está en tendencia — ¿vale la pena comprar?",
+      "status": "produced",
+      "created_at": "2026-03-30T04:28:07.377253+00:00",
+      "content_validated": true,
+      "produced_at": "2026-03-30T06:22:18.381769+00:00",
+      "output_file": "/home/enderj/.openclaw/workspace/bittrader/agents/output/2026-03-30/short_1774844887_102/short_1774844887_102.mp4",
+      "audio_file": "/home/enderj/.openclaw/workspace/bittrader/agents/output/2026-03-30/short_1774844887_102/short_1774844887_102.mp3",
+      "video_duration": 42.8
+    },
+    {
+      "id": "short_1774844927_574",
+      "type": "short",
+      "theme": "controversial",
+      "priority": "baja",
+      "title": "FTMO estafa o tu mejor oportunidad?",
+      "description": "Descubre la verdad sobre FTMO y las prop firms. No es una estafa, pero hay reglas que nadie te cuenta antes de invertir. #ftmo #propfirms #trading",
+      "tags": [
+        "ftmo",
+        "prop firms",
+        "trading",
+        "fondeo",
+        "traders",
+        "invertir",
+        "futuros",
+        "forex",
+        "brokers",
+        "educacion financiera"
+      ],
+      "script": "FTMO no es una estafa, pero tampoco es lo que crees. Miles de traders pierden su dinero no porque la empresa sea fraudulenta, sino porque no leen las reglas. Las reglas de.drawdown, el tiempo mínimo de operaciones, los límites diarios. Todo está diseñado para filtrar a quienes no saben gestionar riesgo. FTMO gana cuando tú pierdes, pero también gana cuando tú ganas. Es un modelo de negocio, no caridad. Si tienes una estrategia rentable y disciplina férrea, puedes construir capital sin arriesgar tu propio dinero. Pero si buscas atajos, vas a perder. Ya te pasó con alguna prop firm o estás pensando en empezar? Cuéntame en los comentarios.",
+      "video_prompts": [
+        "A hyper-realistic 3D anthropomorphic rhinoceros in a modern trading office, wearing a sleek dark blue blazer over a white shirt. The rhinoceros stands confidently in front of multiple computer screens displaying trading charts with red and green candles. One screen shows the FTMO logo. The rhinocorneos gestures with one hand while holding a tablet in the other, looking directly at the camera with an alert, intelligent expression. Dramatic lighting from the screens illuminates the rhinoceros face. Professional trading desk setup with keyboard, mouse, and coffee mug. Vertical 9:16 aspect ratio, cinematic quality, sharp details."
+      ],
       "original_topic": "¿FTMO es una estafa? Lo que nadie te dice de las prop firms",
-      "created_at": "2026-03-26T02:37:30.096040+00:00"
+      "status": "produced",
+      "created_at": "2026-03-30T04:28:47.391206+00:00",
+      "content_validated": true,
+      "produced_at": "2026-03-30T06:25:05.387579+00:00",
+      "output_file": "/home/enderj/.openclaw/workspace/bittrader/agents/output/2026-03-30/short_1774844927_574/short_1774844927_574.mp4",
+      "audio_file": "/home/enderj/.openclaw/workspace/bittrader/agents/output/2026-03-30/short_1774844927_574/short_1774844927_574.mp3",
+      "video_duration": 43.0
     },
     {
-      "id": "short_1774492690_663",
+      "id": "short_1774844974_496",
       "type": "short",
-      "title": "¿Qué es BNB (BNB) y por qué está en tendencia ahora?",
-      "status": "invalid_content",
-      "error": "Script validation failed: PROMPT_CONTAMINATION: matched 'el usuario quiere'",
-      "raw_response": "El usuario quiere un guión completo para un YouTube Short sobre BNB (BNB). Necesito seguir todas las reglas:\n\n1. Español neutro/latino\n2. Tono directo, energético\n3. Máximo 50 segundos (≈130 palabras)\n4. Título menos de 50 caracteres\n5. Gancho inmediato\n6. Usar \"TÚ\" más que \"YO\"\n7. Bucle narrativo al final\n8. CTA con pregunta\n9. Sin emojis en el guión de voz\n10. Video prompt con el rinoceronte mascota\n\nTema: ¿Qué es BNB y por qué está en tendencia ahora?\n\nVoy a crear contenido educativo sobre BN",
-      "original_topic": "¿Qué es BNB (BNB) y por qué está en tendencia ahora?",
-      "created_at": "2026-03-26T02:38:10.399301+00:00"
-    },
-    {
-      "id": "short_1774492727_539",
-      "type": "short",
-      "title": "¿Qué es TAO (Bittensor) y por qué está en tendencia ahora?",
-      "status": "invalid_content",
-      "error": "Script validation failed: PROMPT_CONTAMINATION: matched 'Gancho inmediato'",
-      "raw_response": "El usuario quiere un guión completo para un YouTube Short sobre TAO (Bittensor). Necesito seguir todas las reglas:\n\n1. Español neutro/latino\n2. Tono directo, energético\n3. Máximo 50 segundos (≈130 palabras)\n4. CTA con pregunta\n5. Sin emojis en el guión de voz\n6. Sin didascalias ni acotaciones\n7. Reglas MrBeast: título <50 chars, gancho inmediato, usar \"TÚ\", bucle narrativo\n8. El personaje es un rinoceronte antropomórfico 3D hiperrealista\n\nTema: ¿Qué es TAO (Bittensor) y por qué está en tendencia",
+      "theme": "educativo",
+      "priority": "media",
+      "title": "TAO Bittensor: Por qué EXPLOTA ahora",
+      "description": "Descubre qué es TAO de Bittensor y por qué esta cripto de inteligencia artificial está en tendencia. IA + blockchain explicado fácil. #TAO #Bittensor #Cripto #IA",
+      "tags": [
+        "TAO",
+        "Bittensor",
+        "criptomonedas",
+        "inteligencia artificial",
+        "blockchain",
+        "IA",
+        "trading",
+        "cripto educación",
+        "Bitcoin",
+        "DeFi"
+      ],
+      "script": "¿Sabías que hay una cripto que combina inteligencia artificial con blockchain y está explotando? Se llama TAO, de Bittensor. Piensa en Bittensor como el Bitcoin de la inteligencia artificial: una red descentralizada donde cualquiera puede aportar poder de cómputo para entrenar modelos de IA y ganar recompensas en TAO. ¿Por qué está en tendencia ahora? Porque los gigantes tecnológicos están invirtiendo miles de millones en IA, y Bittensor te permite participar de ese crecimiento de forma descentralizada, sin intermediarios. Su modelo de staking y su emisión limitada lo hacen escaso por diseño. Si te interesa la intersección entre cripto e inteligencia artificial, este es un proyecto que no puedes ignorar. ¿Ya tienes TAO en tu portafolio o prefieres esperar? Cuéntame en los comentarios.",
+      "video_prompts": [
+        "A hyper-realistic 3D anthropomorphic rhinoceros wearing a sleek dark blue tech jacket stands in a futuristic digital command center. The rhino gestures confidently toward floating holographic displays showing TAO token charts, neural network visualizations, and blockchain nodes connecting globally. The environment glows with cyan and purple ambient lighting. Cinematic lighting, shallow depth of field, 9:16 vertical aspect ratio, photorealistic fur texture on the rhino, professional trading setup in background with multiple screens displaying AI data streams."
+      ],
       "original_topic": "¿Qué es TAO (Bittensor) y por qué está en tendencia ahora?",
-      "created_at": "2026-03-26T02:38:47.261235+00:00"
+      "status": "produced",
+      "created_at": "2026-03-30T04:29:34.934797+00:00",
+      "content_validated": true,
+      "produced_at": "2026-03-30T06:35:28.206350+00:00",
+      "output_file": "/home/enderj/.openclaw/workspace/bittrader/agents/output/2026-03-30/short_1774844974_496/short_1774844974_496.mp4",
+      "audio_file": "/home/enderj/.openclaw/workspace/bittrader/agents/output/2026-03-30/short_1774844974_496/short_1774844974_496.mp3",
+      "video_duration": 46.9
+    },
+    {
+      "id": "short_1774845016_956",
+      "type": "short",
+      "theme": "educativo",
+      "priority": "media",
+      "title": "CORE: La cripto que sube sin parar",
+      "description": "Descubre qué es Core DAO y por qué esta criptomoneda está en tendencia. Bitcoin + Proof of Stake combinados. #Core #Cripto #Bitcoin #Trading",
+      "tags": [
+        "Core crypto",
+        "Core DAO",
+        "criptomonedas 2024",
+        "Bitcoin",
+        "Satoshi Plus",
+        "Proof of Stake",
+        "trading cripto",
+        "altcoins",
+        "DeFi",
+        "BitTrader"
+      ],
+      "script": "Core DAO está subiendo y tú todavía no sabes qué es. Déjame explicarte rápido. Core es una blockchain que combina la seguridad de Bitcoin con la eficiencia del Proof of Stake. Su sistema se llama Satoshi Plus y permite a los mineros de Bitcoin delegar su poder de hash para ganar rendimientos adicionales. ¿Por qué está en tendencia ahora? Porque el ecosistema DeFi de Core está creciendo, con más de 200 millones en valor bloqueado y asociaciones con proyectos importantes. Además, su modelo deflacionario quema tokens con cada transacción. Si te interesa el mundo cripto, Core es un proyecto que debes vigilar. ¿Ya conocías Core o es la primera vez que escuchas de él? Cuéntame en los comentarios.",
+      "video_prompts": [
+        "Anthropomorphic rhinoceros — Un rinoceronte antropomórfico 3D hiperrealista parado frente a múltiples pantallas de computadoras con gráficos verdes y rojos de trading. El rinoceronte viste una camisa oscura moderna y señala con confianza hacia una pantalla que muestra un gráfico ascendente con el símbolo de Core. El entorno es una oficina de trading con iluminación azul y neblina suave. El personaje tiene expresión inteligente y segura. Fondo borroso con pantallas adicionales mostrando datos de criptomonedas. Formato vertical 9:16, calidad cinematográfica, iluminación dramática de estudio., anthropomorphic rhinoceros character, hyper-realistic 3D render, muscular but elegant, wearing modern casual trading clothes, expressive face, dramatic cinematic lighting, ultra HD, photorealistic textures, 9:16 vertical aspect ratio, dark moody background"
+      ],
+      "original_topic": "¿Qué es CORE (Core) y por qué está en tendencia ahora?",
+      "status": "produced",
+      "created_at": "2026-03-30T04:30:16.608104+00:00",
+      "content_validated": true,
+      "produced_at": "2026-03-30T06:49:21.047333+00:00",
+      "output_file": "/home/enderj/.openclaw/workspace/bittrader/agents/output/2026-03-30/short_1774845016_956/short_1774845016_956.mp4",
+      "audio_file": "/home/enderj/.openclaw/workspace/bittrader/agents/output/2026-03-30/short_1774845016_956/short_1774845016_956.mp3",
+      "video_duration": 43.4
     }
   ],
   "stats": {

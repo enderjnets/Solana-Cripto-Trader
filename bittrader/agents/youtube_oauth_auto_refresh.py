@@ -93,6 +93,7 @@ def auto_refresh_token() -> dict:
         # Save the refreshed credentials
         creds_data = {
             'token': creds.token,
+            'access_token': creds.token,  # for youtube_stats.py compat
             'refresh_token': creds.refresh_token,
             'token_uri': creds.token_uri,
             'client_id': creds.client_id,

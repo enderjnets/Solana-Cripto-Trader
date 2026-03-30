@@ -1,0 +1,24 @@
+{
+  "account": "XFA Consistency",
+  "account_size": "50K EXPRESS",
+  "mll": -2000,
+  "target_payout": 3000,
+  "current_cycle": {
+    "start_date": "2026-03-27",
+    "total_profit": 706.30,
+    "best_day_profit": 706.30,
+    "best_day_pct": 100.0,
+    "days": [
+      {
+        "date": "2026-03-27",
+        "day_number": 1,
+        "trades": 5,
+        "net_profit": 706.30,
+        "cumulative_balance": 706.30,
+        "pct_of_total": 100.0,
+        "notes": "Viernes - 5 trades en verde, meta superada"
+      }
+    ]
+  },
+  "history": []
+}

@@ -1,47 +1,71 @@
 {
-  "produced_at": "2026-03-14T16:37:46.488602+00:00",
-  "date": "2026-03-14",
+  "produced_at": "2026-03-30T05:46:40.053295+00:00",
+  "date": "2026-03-29",
   "videos": [
     {
-      "script_id": "short_1773470306_372",
-      "title": "NEIRO explota: Qué está pasando",
+      "script_id": "short_1774844591_588",
+      "title": "Ark Invest VENDE Meta, Nvidia y Bitcoin",
       "type": "short",
       "status": "success",
-      "audio_file": "/home/enderj/.openclaw/workspace/bittrader/agents/output/2026-03-14/short_1773470306_372/short_1773470306_372.mp3",
-      "output_file": "/home/enderj/.openclaw/workspace/bittrader/agents/output/2026-03-14/short_1773470306_372/short_1773470306_372.mp4",
-      "duration": 46.2,
-      "size_mb": 1.8,
-      "produced_at": "2026-03-14T16:36:30.581125+00:00",
-      "ai_video": false
+      "audio_file": "/home/enderj/.openclaw/workspace/bittrader/agents/output/2026-03-29/short_1774844591_588/short_1774844591_588.mp3",
+      "output_file": "/home/enderj/.openclaw/workspace/bittrader/agents/output/2026-03-29/short_1774844591_588/short_1774844591_588.mp4",
+      "duration": 41.8,
+      "size_mb": 42.8,
+      "produced_at": "2026-03-30T04:41:21.428099+00:00",
+      "ai_video": true
     },
     {
-      "script_id": "long_1773470394_349",
-      "title": "SUI y DOT caerán más? Análisis",
+      "script_id": "short_1774844629_186",
+      "title": "Claude creó mi bot en 10 min - ¿Funciona?",
+      "type": "short",
+      "status": "success",
+      "audio_file": "/home/enderj/.openclaw/workspace/bittrader/agents/output/2026-03-29/short_1774844629_186/short_1774844629_186.mp3",
+      "output_file": "/home/enderj/.openclaw/workspace/bittrader/agents/output/2026-03-29/short_1774844629_186/short_1774844629_186.mp4",
+      "duration": 49.3,
+      "size_mb": 64.0,
+      "produced_at": "2026-03-30T05:14:23.965001+00:00",
+      "ai_video": true
+    },
+    {
+      "script_id": "long_1774844707_298",
+      "title": "Agentes IA: El futuro del trading hoy",
       "type": "long",
       "status": "success",
-      "audio_file": "/home/enderj/.openclaw/workspace/bittrader/agents/output/2026-03-14/long_1773470394_349/long_1773470394_349.mp3",
-      "output_file": "/home/enderj/.openclaw/workspace/bittrader/agents/output/2026-03-14/long_1773470394_349/long_1773470394_349.mp4",
-      "duration": 83.3,
-      "size_mb": 2.7,
-      "produced_at": "2026-03-14T16:36:55.230984+00:00",
-      "ai_video": false
+      "audio_file": "/home/enderj/.openclaw/workspace/bittrader/agents/output/2026-03-29/long_1774844707_298/long_1774844707_298.mp3",
+      "output_file": "/home/enderj/.openclaw/workspace/bittrader/agents/output/2026-03-29/long_1774844707_298/long_1774844707_298.mp4",
+      "duration": 62.2,
+      "size_mb": 64.8,
+      "produced_at": "2026-03-30T05:17:56.714112+00:00",
+      "ai_video": true
     },
     {
-      "script_id": "short_1773470428_706",
-      "title": "¿Qué es BTC (Bitcoin) y por qué está en tendencia ahora?",
+      "script_id": "short_1774844757_641",
+      "title": "Esta IA predice el mercado ANTES que todos",
       "type": "short",
       "status": "success",
-      "audio_file": "/home/enderj/.openclaw/workspace/bittrader/agents/output/2026-03-14/short_1773470428_706/short_1773470428_706.mp3",
-      "output_file": "/home/enderj/.openclaw/workspace/bittrader/agents/output/2026-03-14/short_1773470428_706/short_1773470428_706.mp4",
-      "duration": 96.7,
-      "size_mb": 4.3,
-      "produced_at": "2026-03-14T16:37:45.486810+00:00",
-      "ai_video": false
+      "audio_file": "/home/enderj/.openclaw/workspace/bittrader/agents/output/2026-03-29/short_1774844757_641/short_1774844757_641.mp3",
+      "output_file": "/home/enderj/.openclaw/workspace/bittrader/agents/output/2026-03-29/short_1774844757_641/short_1774844757_641.mp4",
+      "duration": 42.4,
+      "size_mb": 43.0,
+      "produced_at": "2026-03-30T05:36:47.435532+00:00",
+      "ai_video": true
+    },
+    {
+      "script_id": "short_1774844792_320",
+      "title": "TAO explota: ¿Comprar o esperar?",
+      "type": "short",
+      "status": "success",
+      "audio_file": "/home/enderj/.openclaw/workspace/bittrader/agents/output/2026-03-29/short_1774844792_320/short_1774844792_320.mp3",
+      "output_file": "/home/enderj/.openclaw/workspace/bittrader/agents/output/2026-03-29/short_1774844792_320/short_1774844792_320.mp4",
+      "duration": 41.3,
+      "size_mb": 54.2,
+      "produced_at": "2026-03-30T05:46:39.052104+00:00",
+      "ai_video": true
     }
   ],
   "stats": {
-    "total": 3,
-    "success": 3,
+    "total": 5,
+    "success": 5,
     "errors": 0
   }
 }
