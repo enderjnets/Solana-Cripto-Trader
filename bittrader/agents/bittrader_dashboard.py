@@ -8,9 +8,11 @@ import json
 import os
 import subprocess
 import re
+import threading
+import time
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
-from flask import Flask, jsonify, render_template_string, request
+from flask import Flask, jsonify, render_template_string, request, Response
 
 app = Flask(__name__)
 
@@ -41,6 +43,96 @@ def save_notes(data):
     data["last_updated"] = datetime.now().isoformat()
     with open(AGENT_NOTES_FILE, "w") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
+    # Notify SSE clients of new data
+    _notify_sse()
+
+# ── SSE streaming ────────────────────────────────────────────────────────────
+_sse_clients = set()
+_sse_lock = threading.Lock()
+
+def _notify_sse():
+    """Push current notes state to all connected SSE clients."""
+    try:
+        notes = load_notes()
+        data = json.dumps({"type": "update", "notes": notes}, ensure_ascii=False)
+        dead = set()
+        for client in _sse_clients:
+            try:
+                client.put(data)
+            except:
+                dead.add(client)
+        if dead:
+            with _sse_lock:
+                _sse_clients -= dead
+    except Exception as e:
+        print(f"SSE notify error: {e}")
+
+class SSEClient:
+    """Simple queue-based SSE client."""
+    def __init__(self):
+        self.queue = []
+        self.lock = threading.Lock()
+    def put(self, data):
+        with self.lock:
+            self.queue.append(data)
+    def get(self, timeout=50):
+        while True:
+            time.sleep(1)
+            with self.lock:
+                if self.queue:
+                    return self.queue.pop(0)
+
+def _notes_watcher():
+    """Background thread: monitors notes file and triggers agent when Ender writes."""
+    last_mtime = 0
+    last_size = 0
+    trigger_file = DATA_DIR / "agent_inbox_trigger.json"
+    while True:
+        try:
+            if AGENT_NOTES_FILE.exists():
+                mtime = AGENT_NOTES_FILE.stat().st_mtime
+                size = AGENT_NOTES_FILE.stat().st_size
+                if last_mtime and (mtime != last_mtime or size != last_size):
+                    # File changed — check if user wrote something new
+                    notes = load_notes()
+                    for m in notes.get("messages", []):
+                        if m.get("sender") == "user":
+                            ts = m.get("ts", "")
+                            # Only trigger if it's recent (< 2 min old)
+                            try:
+                                msg_time = datetime.fromisoformat(ts.replace("Z", "+00:00"))
+                                age = (datetime.now(timezone.utc) - msg_time).total_seconds()
+                                if age < 120:
+                                    # New user message — trigger agent IMMEDIATELY
+                                    print(f"NEW MESSAGE from Ender detected: {m['text'][:60]}")
+                                    _trigger_agent_now(m)
+                            except:
+                                pass
+                last_mtime = mtime
+                last_size = size
+        except Exception as e:
+            print(f"Watcher error: {e}")
+        time.sleep(2)
+
+def _trigger_agent_now(user_msg):
+    """Trigger the CEO agent immediately via sessions_send to main session."""
+    try:
+        msg_text = user_msg.get("text", "")[:500]
+        # Write trigger file
+        trigger_file = DATA_DIR / "agent_inbox_trigger.json"
+        with open(trigger_file, "w") as f:
+            json.dump({
+                "triggered_at": datetime.now().isoformat(),
+                "pending_response": True,
+                "messages": [user_msg]
+            }, f, ensure_ascii=False, indent=2)
+        print(f"Agent trigger written for message: {msg_text[:80]}")
+    except Exception as e:
+        print(f"Trigger error: {e}")
+
+# Start the background watcher thread
+_watcher_thread = threading.Thread(target=_notes_watcher, daemon=True)
+_watcher_thread.start()
 
 # ── API endpoints ────────────────────────────────────────────────────────────
 
@@ -266,7 +358,7 @@ def api_produced_today():
             videos.append({"id": d.name, "size_mb": sz})
     return jsonify({"count": len(videos), "videos": videos[:20]})
 
-@app.route('/api/agent-notes')
+@app.route('/api/agent-notes', methods=['GET', 'POST'])
 def api_agent_notes():
     """GET: return all notes. POST: add a message (sender=user|agent)."""
     if request.method == "POST":
@@ -292,6 +384,43 @@ def api_agent_last_note():
     if agent_msgs:
         return jsonify(agent_msgs[-1])
     return jsonify({"text": None})
+
+@app.route('/api/agent-notes/stream')
+def api_agent_notes_stream():
+    """
+    SSE stream — pushes note updates to the browser in real time.
+    Browser connects once, receives instant pushes on every new note.
+    Also immediately triggers CEO agent when Ender sends a message.
+    """
+    def generate():
+        client = SSEClient()
+        with _sse_lock:
+            _sse_clients.add(client)
+        # Send initial state immediately
+        notes = load_notes()
+        yield f"data: {json.dumps({'type': 'init', 'notes': notes}, ensure_ascii=False)}\n\n"
+        last_count = len(notes.get("messages", []))
+        try:
+            while True:
+                time.sleep(1)
+                notes = load_notes()
+                msgs = notes.get("messages", [])
+                if len(msgs) != last_count:
+                    last_count = len(msgs)
+                    # Check if this is a NEW user message — trigger agent immediately
+                    latest = msgs[-1] if msgs else None
+                    if latest and latest.get("sender") == "user":
+                        _trigger_agent_now(latest)
+                    yield f"data: {json.dumps({'type': 'update', 'notes': notes}, ensure_ascii=False)}\n\n"
+        except GeneratorExit:
+            pass
+        finally:
+            with _sse_lock:
+                _sse_clients.discard(client)
+    return Response(generate(), mimetype='text/event-stream',
+                    headers={'Cache-Control': 'no-cache',
+                             'X-Accel-Buffering': 'no',
+                             'Connection': 'keep-alive'})
 
 
 # ── HTML Template ────────────────────────────────────────────────────────────
@@ -669,38 +798,58 @@ async function loadAll(){
   await Promise.all([loadYT(),loadQueue(),loadScripts(),loadProduced(),loadMacs(),loadProducer(),loadMiniMax()]);
 }
 
-// ── Agent Notes ──
+// ── Agent Notes — Real-time SSE ──
+var evtSource = null;
 var anLastCount = 0;
+var thinkingEl = null;
 
-async function loadAgentNotes(){
-  try{
-    const d=await(await fetch('/api/agent-notes')).json();
-    const msgs=d.messages||[];
-    const count=msgs.length;
-    document.getElementById('an-count').textContent=count+' '+(count===1?'nota':'notas');
-    if(count===0){
-      document.getElementById('an-messages').innerHTML='<div class="an-empty">Sin notas aún. El agente dejará actualizaciones aquí.</div>';
-      return;
-    }
-    let h='';
-    for(const m of msgs){
-      const cls=m.sender==='agent'?'msg-agent':'msg-user';
-      const label=m.sender==='agent'?'🤖 Agente':'👤 Ender';
-      const time=new Date(m.ts).toLocaleString('es-MX',{timeZone:'America/Denver',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
-      h+=`<div class="msg ${cls}"><div class="msg-meta">${label} · ${time}</div><div class="msg-bubble">${escapeHtml(m.text)}</div></div>`;
-    }
-    document.getElementById('an-messages').innerHTML=h;
-    // Auto-scroll to bottom
-    const box=document.getElementById('an-messages');
-    box.scrollTop=box.scrollHeight;
-    if(count>anLastCount && anLastCount>0){
-      // New note arrived — flash header briefly
-      const hdr=document.querySelector('.chat-agent-header');
+function renderNotes(notes){
+  const msgs=notes.messages||[];
+  const count=msgs.length;
+  document.getElementById('an-count').textContent=count+' '+(count===1?'nota':'notas');
+  if(count===0){
+    document.getElementById('an-messages').innerHTML='<div class="an-empty">Sin notas aún. El agente dejará actualizaciones aquí.</div>';
+    return;
+  }
+  let h='';
+  for(const m of msgs){
+    const cls=m.sender==='agent'?'msg-agent':'msg-user';
+    const label=m.sender==='agent'?'🤖 Agente':'👤 Ender';
+    const time=new Date(m.ts).toLocaleString('es-MX',{timeZone:'America/Denver',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
+    h+=`<div class="msg ${cls}"><div class="msg-meta">${label} · ${time}</div><div class="msg-bubble">${escapeHtml(m.text)}</div></div>`;
+  }
+  document.getElementById('an-messages').innerHTML=h;
+  const box=document.getElementById('an-messages');
+  box.scrollTop=box.scrollHeight;
+  if(count>anLastCount && anLastCount>0){
+    const hdr=document.querySelector('.chat-agent-header');
+    // Flash green for new agent msg
+    const latest=msgs[msgs.length-1];
+    if(latest && latest.sender==='agent'){
+      hdr.style.background='#1f3d1f';
+      setTimeout(()=>hdr.style.background='#1c2128',2000);
+      showThinking(false);
+    } else {
       hdr.style.background='#1f3d1f';
       setTimeout(()=>hdr.style.background='#1c2128',1000);
     }
-    anLastCount=count;
-  }catch(e){console.error('Notes error:',e)}
+  }
+  anLastCount=count;
+}
+
+function showThinking(show){
+  if(!thinkingEl) thinkingEl=document.getElementById('an-thinking');
+  if(!thinkingEl){
+    const box=document.getElementById('an-messages');
+    const el=document.createElement('div');
+    el.id='an-thinking';
+    el.className='msg msg-agent';
+    el.innerHTML='<div class="msg-meta">🤖 Agente</div><div class="msg-bubble" id="an-thinking-bubble">🤔 El agente está pensando...</div>';
+    box.appendChild(el);
+    thinkingEl=el;
+    box.scrollTop=box.scrollHeight;
+  }
+  thinkingEl.style.display=show?'flex':'none';
 }
 
 function escapeHtml(t){
@@ -713,20 +862,43 @@ async function sendAnNote(){
   if(!text)return;
   inp.value='';
   inp.disabled=true;
+  const btn=inp.nextElementSibling;
+  if(btn)btn.disabled=true;
+  showThinking(true);
   try{
     await fetch('/api/agent-notes',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({message:text,sender:'user'})
     });
-    await loadAgentNotes();
-  }catch(e){console.error('Send error:',e)}
+  }catch(e){console.error('Send error:',e);showThinking(false);}
   inp.disabled=false;
+  if(btn)btn.disabled=false;
   inp.focus();
 }
 
-loadAgentNotes();
-setInterval(loadAgentNotes,30000); // check every 30s
+function connectSSE(){
+  if(evtSource)evtSource.close();
+  evtSource=new EventSource('/api/agent-notes/stream');
+  evtSource.oninit=function(e){
+    const d=JSON.parse(e.data);
+    if(d.type==='init')renderNotes(d.notes);
+  };
+  evtSource.addEventListener('init',function(e){
+    const d=JSON.parse(e.data);
+    renderNotes(d.notes);
+  });
+  evtSource.addEventListener('update',function(e){
+    const d=JSON.parse(e.data);
+    renderNotes(d.notes);
+  });
+  evtSource.onerror=function(){
+    console.error('SSE error, reconnecting...');
+    setTimeout(connectSSE,5000);
+  };
+}
+
+connectSSE();
 
 loadAll();
 setInterval(loadAll,60000);
