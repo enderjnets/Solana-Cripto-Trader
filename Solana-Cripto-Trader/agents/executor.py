@@ -66,9 +66,9 @@ MIN_CONFIDENCE      = 0.85     # Solo ejecutar señales con alta confianza
 BLOCK_LONGS_FG      = 35       # Bloquear LONGs si Fear & Greed < 35 (mercado bajista)
 MAX_TRADES_PER_DAY  = 0        # 0 = sin límite
 
-# ─── Regla de Ender (31-Mar-2026): $1 min profit, $0.50 max risk ────────────
-MIN_NET_PROFIT_USD  = 1.00     # Mínimo $1 de ganancia neta después de comisiones
-MAX_RISK_USD        = 0.50     # Máximo $0.50 de riesgo por trade (pérdida en SL + fees)
+# ─── Regla de Ender (31-Mar-2026): $2 min profit, $1 max risk ────────────
+MIN_NET_PROFIT_USD  = 2.00     # Mínimo $2 de ganancia neta después de comisiones
+MAX_RISK_USD        = 1.00     # Máximo $1 de riesgo por trade (pérdida en SL + fees)
 
 # ─── Drift Protocol Simulation ───────────────────────────────────────────────
 TAKER_FEE           = 0.001    # 0.1% taker fee (Drift Protocol)
