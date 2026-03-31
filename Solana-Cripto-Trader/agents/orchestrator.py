@@ -208,10 +208,10 @@ def run_cycle(safe=True, debug=False):
     stale_positions = []
     if portfolio_data:
         try:
-            # OPTIMIZADO 2026-03-24: max_hours 72→96, improvement_hours 24→36
-            # Las posiciones necesitan más tiempo para desarrollar momentum
+            # OPTIMIZADO 2026-03-31 (orden de Ender): max_hours 96→24, improvement_hours 36→12
+            # Rotar posiciones más rápido para iterar y aprender
             stale_positions = rm.check_stale_losing_positions(
-                portfolio_data, max_hours=96, improvement_hours=36
+                portfolio_data, max_hours=24, improvement_hours=12
             )
         except Exception as e:
             log.warning(f"   ⚠️ Error: {e}")

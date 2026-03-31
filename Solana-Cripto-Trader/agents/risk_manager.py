@@ -401,8 +401,8 @@ def check_stale_losing_positions(portfolio: dict, max_hours: int = 48, improveme
         if pnl_pct >= 0:
             continue  # Solo perdedoras
         
-        # Verificar tiempo abierto
-        opened_at_str = pos.get("opened_at")
+        # Verificar tiempo abierto (campo puede ser "open_time" o "opened_at")
+        opened_at_str = pos.get("open_time") or pos.get("opened_at")
         if not opened_at_str:
             continue
         

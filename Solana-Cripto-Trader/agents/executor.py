@@ -61,10 +61,14 @@ log = logging.getLogger("executor")
 INITIAL_CAPITAL = 500.0   # Capital paper inicial
 PAPER_MODE      = True    # Cambia a False para trades reales
 
-# ─── Risk Management (ajustado 27-Mar-2026) ──────────────────────────────────
-MIN_CONFIDENCE      = 0.85     # Solo ejecutar señales con alta confianza (antes 0.75)
+# ─── Risk Management (ajustado 31-Mar-2026 — orden de Ender) ─────────────────
+MIN_CONFIDENCE      = 0.85     # Solo ejecutar señales con alta confianza
 BLOCK_LONGS_FG      = 35       # Bloquear LONGs si Fear & Greed < 35 (mercado bajista)
-MAX_TRADES_PER_DAY  = 0        # 0 = sin límite (orden de Ender 2026-03-29)
+MAX_TRADES_PER_DAY  = 0        # 0 = sin límite
+
+# ─── Regla de Ender (31-Mar-2026): $1 min profit, $0.50 max risk ────────────
+MIN_NET_PROFIT_USD  = 1.00     # Mínimo $1 de ganancia neta después de comisiones
+MAX_RISK_USD        = 0.50     # Máximo $0.50 de riesgo por trade (pérdida en SL + fees)
 
 # ─── Drift Protocol Simulation ───────────────────────────────────────────────
 TAKER_FEE           = 0.001    # 0.1% taker fee (Drift Protocol)
@@ -300,43 +304,80 @@ def paper_open_position(signal: dict, portfolio: dict, market: dict) -> Optional
     leverage = signal.get("leverage", DEFAULT_LEVERAGE)
     leverage = max(1, min(leverage, MAX_LEVERAGE))
 
-    # size_usd = margen que el trader pone (lo que se descuenta del capital)
-    margin_usd = signal.get("suggested_size_usd", 0)
-    if margin_usd <= 0:
-        margin_usd = portfolio["capital_usd"] * 0.02  # 2% fallback
+    # ─── Position Sizing basado en Regla de Ender ─────────────────────────
+    # Regla: ganar mín $1 neto después de comisiones, arriesgar máx $0.50
+    #
+    # Cálculo:
+    #   max_risk = notional * sl_pct + notional * fee * 2  ≤  MAX_RISK_USD
+    #   min_profit = notional * tp_pct - notional * fee * 2  ≥  MIN_NET_PROFIT_USD
+    #
+    # De max_risk: notional ≤ MAX_RISK_USD / (sl_pct + fee*2)
+    # De min_profit: notional ≥ MIN_NET_PROFIT_USD / (tp_pct - fee*2)
 
-    # Verificar capital suficiente para el margen
+    # SL/TP: usar los del signal si existen, sino defaults
+    sl_pct = 0.02   # 2% SL (ajustado para regla de Ender)
+    tp_pct = 0.05   # 5% TP (2.5:1 R:R → $1.09 profit, $0.50 risk)
+
+    if signal.get("sl_price", 0) > 0 and signal.get("tp_price", 0) > 0:
+        if signal["direction"] == "long":
+            sl_pct = abs(price - signal["sl_price"]) / price
+            tp_pct = abs(signal["tp_price"] - price) / price
+        else:
+            sl_pct = abs(signal["sl_price"] - price) / price
+            tp_pct = abs(price - signal["tp_price"]) / price
+
+    # Asegurar R:R mínimo de 2:1 para cumplir la regla
+    if tp_pct < sl_pct * 2:
+        tp_pct = sl_pct * 2.5  # Forzar 2.5:1 si el signal no lo da
+        log.info(f"📐 TP ajustado a {tp_pct*100:.1f}% para mantener R:R ≥ 2.5:1")
+
+    fee_round_trip = TAKER_FEE * 2  # Entry + exit fees
+
+    # Calcular notional óptimo
+    max_notional_by_risk = MAX_RISK_USD / (sl_pct + fee_round_trip)
+    min_notional_by_profit = MIN_NET_PROFIT_USD / (tp_pct - fee_round_trip)
+
+    if min_notional_by_profit > max_notional_by_risk:
+        # Imposible cumplir ambas reglas → ajustar TP para que funcione
+        # Necesitamos: tp_pct >= (MIN_NET_PROFIT_USD / max_notional_by_risk) + fee_round_trip
+        needed_tp = (MIN_NET_PROFIT_USD / max_notional_by_risk) + fee_round_trip
+        log.info(f"📐 Ajustando TP de {tp_pct*100:.1f}% a {needed_tp*100:.1f}% para cumplir regla de Ender")
+        tp_pct = needed_tp
+
+    notional_value = max_notional_by_risk  # Usar max permitido por riesgo
+    margin_usd = notional_value / leverage
+
+    # Verificar capital suficiente
     if portfolio["capital_usd"] < margin_usd:
-        log.warning(f"⚠️  Capital insuficiente para margen: ${portfolio['capital_usd']:.2f} < ${margin_usd:.2f}")
+        log.warning(f"⚠️  Capital insuficiente: ${portfolio['capital_usd']:.2f} < ${margin_usd:.2f}")
         return None
 
-    # Notional = margen * leverage (tamaño real de la posición)
-    notional_value = margin_usd * leverage
+    # Verificar que el trade cumple la regla antes de ejecutar
+    expected_profit = notional_value * tp_pct - notional_value * fee_round_trip
+    expected_risk = notional_value * sl_pct + notional_value * fee_round_trip
+    log.info(f"💰 Sizing: notional=${notional_value:.1f} margin=${margin_usd:.1f} SL={sl_pct*100:.1f}% TP={tp_pct*100:.1f}%")
+    log.info(f"   Expected profit: ${expected_profit:.2f} | Max risk: ${expected_risk:.2f} | R:R 1:{expected_profit/expected_risk:.1f}")
 
-    # Fees sobre el notional (como en Drift)
+    if expected_profit < MIN_NET_PROFIT_USD:
+        log.warning(f"⚠️  Trade rechazado: profit esperado ${expected_profit:.2f} < ${MIN_NET_PROFIT_USD}")
+        return None
+
+    # Fees sobre el notional
     fee_entry = notional_value * TAKER_FEE
     tokens = (notional_value - fee_entry) / price
 
     # Margen de mantenimiento
     margin_maintenance = notional_value * MAINTENANCE_MARGIN
 
-    # Precio de liquidación (cuando P&L = -margen)
+    # Precio de liquidación
     if signal["direction"] == "long":
         liq_price = price * (1 - (margin_usd - fee_entry) / notional_value)
     else:
         liq_price = price * (1 + (margin_usd - fee_entry) / notional_value)
 
-    # SL/TP defaults (ajustados 27-Mar-2026 para reducir stops prematuros)
-    sl_pct = 0.035  # 3.5% SL (antes 2.5%)
-    tp_pct = 0.07   # 7% TP (antes 5%)
+    # Calcular SL/TP prices
     sl_price = price * (1 - sl_pct) if signal["direction"] == "long" else price * (1 + sl_pct)
     tp_price = price * (1 + tp_pct) if signal["direction"] == "long" else price * (1 - tp_pct)
-
-    # Si el signal tiene SL/TP del risk manager, usarlos
-    if signal.get("sl_price", 0) > 0:
-        sl_price = signal["sl_price"]
-    if signal.get("tp_price", 0) > 0:
-        tp_price = signal["tp_price"]
 
     position = {
         "id": f"{symbol}_{int(time.time())}",
