@@ -755,7 +755,7 @@ def run(safe: bool = True, debug: bool = False) -> dict:
     opened = []
     open_count = len([p for p in portfolio["positions"] if p.get("status") == "open"])
 
-    MAX_POSITIONS = 3  # Optimizado 2026-03-08 (era 5 — más concentrado)
+    MAX_POSITIONS = 5  # Ajustado 2026-03-31 (orden de Ender) — modo moderado
     for signal in signals:
         if open_count >= MAX_POSITIONS:
             log.info(f"📊 Máximo de posiciones alcanzado ({MAX_POSITIONS})")
