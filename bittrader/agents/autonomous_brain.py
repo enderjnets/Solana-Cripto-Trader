@@ -252,6 +252,30 @@ def read_full_system_status() -> dict:
             "action":   "run_creator_and_producer",
         })
 
+    # ── QA Agent Alerts: escalaciones pendientes ──────────────────────────
+    qa_alerts_file = DATA_DIR / "qa_alerts_for_ceo.json"
+    if qa_alerts_file.exists():
+        try:
+            qa_alerts = json.loads(qa_alerts_file.read_text())
+            pending_qa = [a for a in qa_alerts if a.get("status") == "pending"]
+            for alert in pending_qa:
+                status["issues"].append({
+                    "type":      "QA_ESCALATION",
+                    "priority":  alert.get("severity", "HIGH"),
+                    "title":     alert.get("title", "?"),
+                    "script_id": alert.get("script_id", ""),
+                    "qa_issues": alert.get("issues", []),
+                    "action":    alert.get("action_required", "Revisar y corregir issues de QA"),
+                    "source":    "qa_agent",
+                    "timestamp": alert.get("timestamp", ""),
+                })
+            status["qa_alerts"] = {
+                "total":   len(qa_alerts),
+                "pending": len(pending_qa),
+            }
+        except (json.JSONDecodeError, OSError):
+            pass
+
     return status
 
 
@@ -351,6 +375,24 @@ def action_retry_upload(script_id: str) -> str:
     return "SUCCESS" if result.returncode == 0 else "FAILED"
 
 
+def _mark_qa_alert_processed(identifier: str):
+    """Marca alertas QA como procesadas por el CEO."""
+    qa_alerts_file = DATA_DIR / "qa_alerts_for_ceo.json"
+    if not qa_alerts_file.exists():
+        return
+    try:
+        alerts = json.loads(qa_alerts_file.read_text())
+        for a in alerts:
+            if a.get("status") == "pending" and (
+                a.get("script_id") == identifier or a.get("title") == identifier
+            ):
+                a["status"] = "processed_by_ceo"
+                a["processed_at"] = datetime.now(timezone.utc).isoformat()
+        qa_alerts_file.write_text(json.dumps(alerts, indent=2, ensure_ascii=False))
+    except Exception:
+        pass
+
+
 def action_run_full_pipeline() -> str:
     """Run full content pipeline: Creator → Producer → Thumbnail → Guardian → Queue."""
     print("  🚀 Running full pipeline...")
@@ -434,6 +476,28 @@ def ceo_decide_and_act(status: dict, dry_run: bool = False) -> list:
             else:
                 result = action_run_full_pipeline()
                 state["last_production_run"] = datetime.now(timezone.utc).isoformat()
+
+        elif itype == "QA_ESCALATION":
+            # CEO recibe alerta de QA y delega corrección
+            qa_issues = issue.get("qa_issues", [])
+            action_desc = issue.get("action", "")
+            print(f"    📋 QA escaló: {title[:50]}")
+            print(f"       Issues: {qa_issues}")
+            print(f"       Acción: {action_desc}")
+
+            # Delegar tarea al equipo
+            state.setdefault("tasks_delegated", []).append({
+                "task": f"Corregir video '{title}': {action_desc}",
+                "source": "qa_agent_escalation",
+                "qa_issues": qa_issues,
+                "script_id": script_id,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            })
+
+            # Marcar alerta QA como procesada por CEO
+            _mark_qa_alert_processed(script_id or title)
+
+            result = "DELEGATED"
 
         # Update retry count
         if result not in ("SUCCESS", "ALREADY_RAN_TODAY"):

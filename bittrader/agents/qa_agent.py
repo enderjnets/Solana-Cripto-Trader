@@ -1272,7 +1272,7 @@ class QAAgent:
         return result
 
     def _notify_qa_failure(self, title: str, issues: list, video_path: str = ""):
-        """Send Telegram alert about a QA failure."""
+        """Send Telegram alert about a QA failure AND escalate to CEO."""
         issues_str = "\n".join(f"  • <b>{i}</b>" for i in issues)
         msg = (
             f"⚠️ <b>Video bloqueado por QA</b>\n\n"
@@ -1283,6 +1283,9 @@ class QAAgent:
         if video_path:
             msg += f"\n\n<code>{video_path}</code>"
         notify_ender(msg)
+
+        # Escalar al CEO para que coordine la corrección
+        self._escalate_to_ceo(title, issues, video_path)
 
     def _notify_narration_contamination(self, title: str, check_result: dict):
         """
@@ -1304,6 +1307,71 @@ class QAAgent:
             f"(Bug tipo NEIRO/BTC — texto de instrucciones en pantalla)"
         )
         notify_ender(msg)
+
+    @staticmethod
+    def _escalate_to_ceo(title: str, issues: list, video_path: str = "", script_id: str = ""):
+        """Escala problemas de QA al CEO Agent para que coordine la corrección.
+        
+        Escribe una alerta en data/qa_alerts_for_ceo.json que el CEO recoge
+        en su próximo ciclo autónomo.
+        """
+        alerts_file = Path(__file__).parent / "data" / "qa_alerts_for_ceo.json"
+        try:
+            alerts = json.loads(alerts_file.read_text()) if alerts_file.exists() else []
+        except (json.JSONDecodeError, OSError):
+            alerts = []
+
+        alert = {
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "source": "qa_agent",
+            "severity": "HIGH",
+            "title": title,
+            "script_id": script_id,
+            "video_path": video_path,
+            "issues": issues,
+            "status": "pending",  # CEO marca como 'resolved' después de actuar
+            "action_required": _build_ceo_action(issues),
+        }
+        alerts.append(alert)
+
+        # Mantener solo las últimas 50 alertas
+        if len(alerts) > 50:
+            alerts = alerts[-50:]
+
+        alerts_file.write_text(json.dumps(alerts, indent=2, ensure_ascii=False))
+        _log(f"📋 Alerta escalada al CEO: {title[:50]} — {len(issues)} issues", "INFO")
+
+
+def _build_ceo_action(issues: list) -> str:
+    """Genera instrucción clara para el CEO basada en los issues encontrados."""
+    actions = []
+    for issue in issues:
+        if issue in ("NO_DESCRIPTION", "DESCRIPTION_TOO_SHORT", "DESCRIPTION_GENERIC", "DESCRIPTION_QUALITY"):
+            actions.append("Regenerar descripción del video con contenido profesional (usar build_description o reescribir manualmente)")
+        elif issue == "FEW_TAGS" or "TAGS" in str(issue).upper():
+            actions.append("Agregar tags relevantes al video (mín 5 tags específicos del tema)")
+        elif issue == "FEW_HASHTAGS":
+            actions.append("Agregar hashtags a la descripción (mín 5)")
+        elif issue == "NO_THUMBNAIL" or "THUMBNAIL" in str(issue).upper():
+            actions.append("Generar y subir thumbnail para este video")
+        elif issue == "DARK_VIDEO":
+            actions.append("Video demasiado oscuro — regenerar con fondos más brillantes")
+        elif "NARRATION" in str(issue).upper() or "CONTAMINA" in str(issue).upper():
+            actions.append("URGENTE: Regenerar script — contaminación de system prompt detectada")
+        elif "DUPLICATE" in str(issue).upper():
+            actions.append("Video duplicado en YouTube — eliminar la copia o cambiar título")
+        else:
+            actions.append(f"Corregir: {issue}")
+
+    # Deduplicar
+    seen = set()
+    unique = []
+    for a in actions:
+        if a not in seen:
+            unique.append(a)
+            seen.add(a)
+
+    return " | ".join(unique) if unique else "Revisar y corregir issues de calidad"
 
 
 # ══════════════════════════════════════════════════════════════════════════════
