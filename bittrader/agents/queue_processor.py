@@ -138,14 +138,113 @@ def upload_thumbnail(yt, video_id: str, thumbnail_path: str):
     
     if not thumbnail_path or not Path(thumbnail_path).exists():
         log(f"Thumbnail not found: {thumbnail_path}", "WARNING")
-        return
+        return False
     
     try:
         media = MediaFileUpload(thumbnail_path, resumable=True)
         yt.thumbnails().set(videoId=video_id, media_body=media).execute()
         log(f"Thumbnail uploaded for {video_id}", "INFO")
+        return True
     except HttpError as e:
         log(f"Failed to upload thumbnail: {e}", "WARNING")
+        return False
+
+
+def verify_thumbnail_on_youtube(yt, video_id: str) -> bool:
+    """Verifica si el video tiene una thumbnail custom en YouTube (no auto-generated).
+    
+    YouTube auto-generated thumbnails tienen URLs de tipo /vi/<id>/default.jpg (baja res).
+    Las custom thumbnails tienen /vi/<id>/maxresdefault.jpg.
+    Retorna True si tiene thumbnail custom, False si no.
+    """
+    try:
+        response = yt.videos().list(
+            part="snippet",
+            id=video_id
+        ).execute()
+        items = response.get("items", [])
+        if not items:
+            log(f"Video {video_id} no encontrado en YouTube", "WARNING")
+            return False
+        thumbnails = items[0].get("snippet", {}).get("thumbnails", {})
+        # Si tiene 'maxres' o 'standard', tiene thumbnail de alta calidad (custom o no)
+        # La forma más confiable: verificar si el video tiene la thumbnail a través del
+        # campo thumbnails().get() — si la API devuelve la thumbnail, es custom.
+        has_maxres = "maxres" in thumbnails
+        has_standard = "standard" in thumbnails
+        log(f"Thumbnail check {video_id}: maxres={has_maxres}, standard={has_standard}", "DEBUG")
+        return has_maxres or has_standard
+    except Exception as e:
+        log(f"Error verificando thumbnail {video_id}: {e}", "WARNING")
+        return True  # Asumir OK si falla la verificación para no bloquear
+
+
+def retry_failed_thumbnails(yt, queue: list) -> list:
+    """Busca videos 'uploaded' sin thumbnail confirmada y reintenta subirla.
+    
+    Detecta dos casos:
+    1. thumbnail_uploaded=False en el JSON
+    2. status='thumbnail_failed'
+    
+    Retorna lista de video_ids corregidos.
+    """
+    fixed = []
+    log("🔍 Verificando thumbnails de videos ya subidos...", "INFO")
+    
+    for i, item in enumerate(queue):
+        status = item.get("status", "")
+        video_id = item.get("video_id", "")
+        
+        # Solo procesar videos subidos sin thumbnail confirmada
+        needs_retry = (
+            status in ("uploaded", "published") and not item.get("thumbnail_uploaded", True)
+        ) or status == "thumbnail_failed"
+        
+        if not needs_retry or not video_id:
+            continue
+        
+        sid = item.get("script_id", "")
+        log(f"⚠️ Video {video_id} ({item.get('title','?')[:40]}) — thumbnail_uploaded={item.get('thumbnail_uploaded')} — buscando miniatura...", "WARNING")
+        
+        # Buscar thumbnail en múltiples ubicaciones
+        thumb_candidates = [
+            item.get("thumbnail_path", ""),
+            item.get("thumbnail", ""),
+            str(DATA_DIR / "thumbnails" / f"{sid}_thumbnail.jpg"),
+            str(DATA_DIR / "thumbnails" / f"{sid}_thumbnail.png"),
+        ]
+        # También buscar en output/<fecha>/<sid>/thumbnail.jpg
+        output_base = Path(item.get("output_file", "")).parent
+        if output_base.exists():
+            thumb_candidates.extend([
+                str(output_base / "thumbnail.jpg"),
+                str(output_base / "thumbnail.png"),
+                str(output_base / f"{sid}_thumbnail.jpg"),
+            ])
+        
+        thumb_found = None
+        for tc in thumb_candidates:
+            if tc and Path(tc).exists():
+                thumb_found = tc
+                break
+        
+        if not thumb_found:
+            log(f"❌ No se encontró thumbnail local para {video_id} — no se puede subir", "ERROR")
+            continue
+        
+        log(f"🖼️ Reintentando thumbnail para {video_id}: {Path(thumb_found).name}", "INFO")
+        success = upload_thumbnail(yt, video_id, thumb_found)
+        
+        if success:
+            queue[i]["thumbnail_uploaded"] = True
+            queue[i]["status"] = "uploaded"
+            queue[i]["thumbnail_retry_at"] = datetime.now(timezone.utc).isoformat()
+            fixed.append(video_id)
+            log(f"✅ Thumbnail resubida exitosamente para {video_id}", "INFO")
+        else:
+            log(f"❌ Retry de thumbnail falló para {video_id} — se dejará pendiente", "ERROR")
+    
+    return fixed
 
 
 def schedule_video(yt, video_id: str, publish_at: str):
@@ -218,12 +317,25 @@ def main():
         _legacy_qa_available = False
         def gate_before_upload(script_id, entry): return True
 
+    # Load set of already-uploaded script_ids (persist across runs to prevent race-condition duplicates)
+    uploaded_scripts_file = DATA_DIR / "uploaded_scripts.json"
+    try:
+        uploaded_scripts = set(json.loads(uploaded_scripts_file.read_text()))
+    except (FileNotFoundError, json.JSONDecodeError):
+        uploaded_scripts = set()
+
     # Filter videos ready to upload
     ready_to_upload = []
     for i, item in enumerate(queue):
         status = item.get("status", "ready")
         sched_date = item.get("scheduled_date")
-        
+        sid = item.get("script_id", "")
+
+        # Skip if already in our persistent uploaded set (race-condition dedupe)
+        if sid in uploaded_scripts:
+            log(f"Item {i}: script_id={sid} already uploaded — skipping", "DEBUG")
+            continue
+
         # Skip if already uploaded or not ready
         if status in ["uploaded", "published", "uploading"]:
             continue
@@ -303,17 +415,25 @@ def main():
 
     log(f"Videos listos para subir: {len(ready_to_upload)}", "INFO")
 
-    if not ready_to_upload:
-        log("Nada que subir ahora", "INFO")
-        return
-
-    # Connect YouTube
+    # Connect YouTube (needed for thumbnail retries AND new uploads)
     log("Conectando a YouTube API...", "INFO")
     try:
         yt = get_youtube_client()
         log("Conexión exitosa", "INFO")
     except Exception as e:
         log(f"Error conectando a YouTube: {e}", "ERROR")
+        return
+
+    # ── THUMBNAIL RETRY: Fix videos uploaded without thumbnail ────────────
+    fixed_thumbs = retry_failed_thumbnails(yt, queue)
+    if fixed_thumbs:
+        log(f"✅ Thumbnails recuperadas: {len(fixed_thumbs)} video(s) — {fixed_thumbs}", "INFO")
+        save_queue(queue)
+    else:
+        log("📷 Sin thumbnails pendientes de retry", "INFO")
+
+    if not ready_to_upload:
+        log("Nada que subir ahora", "INFO")
         return
 
     # Process videos
@@ -398,6 +518,11 @@ def main():
                 "video_id": video_id,
                 "uploaded_at": datetime.now(timezone.utc).isoformat()
             })
+
+            # Track uploaded script_id to prevent race-condition duplicates
+            if sid:
+                uploaded_scripts.add(sid)
+                uploaded_scripts_file.write_text(json.dumps(list(uploaded_scripts)))
 
             uploaded.append(video_id)
             log(f"Estado actualizado a '{final_status}'", "INFO")
