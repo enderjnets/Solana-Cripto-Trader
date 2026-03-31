@@ -43,15 +43,20 @@ def load_all_scripts() -> dict:
 
 # ── Generar descripción a partir del título (para los que no tienen guión) ──
 def generate_description_from_title(title: str, video_type: str) -> dict:
-    """Genera una descripción razonable basada solo en el título del video."""
+    """Genera una descripción profesional basada en el título del video.
     
-    # Detectar tema principal del título para generar tags relevantes
+    Cada descripción debe:
+    - Tener un párrafo introductorio que enganche (no repetir el título)
+    - Explicar qué va a aprender/ver el espectador
+    - Incluir un CTA conversacional al final
+    - Sonar como escrita por un humano, no genérica
+    """
     title_lower = title.lower()
+    clean_title = title.rstrip("💰🚀💸😱📈📉 ")
     
     tags = []
-    desc_parts = []
     
-    # Crypto tokens mencionados
+    # Detectar tokens cripto mencionados
     tokens_map = {
         "bitcoin": "Bitcoin", "btc": "Bitcoin", "sol": "Solana", "solana": "Solana",
         "ethereum": "Ethereum", "eth": "Ethereum", "pi network": "PI Network",
@@ -66,29 +71,24 @@ def generate_description_from_title(title: str, video_type: str) -> dict:
             detected_tokens.append(name)
             tags.append(name)
     
-    # Temas
-    if any(w in title_lower for w in ["trading", "trader", "trade", "opera"]):
-        tags.extend(["Trading", "Day Trading"])
-        desc_parts.append("trading y mercados financieros")
-    if any(w in title_lower for w in ["crypto", "cripto", "criptomoneda"]):
-        tags.extend(["Crypto", "Criptomonedas"])
-        desc_parts.append("criptomonedas")
-    if any(w in title_lower for w in ["bot", "ia", "inteligencia artificial", "claude", "gpt", "agente"]):
-        tags.extend(["IA", "Inteligencia Artificial", "Bot Trading", "Automatización"])
-        desc_parts.append("inteligencia artificial y automatización")
-    if any(w in title_lower for w in ["ftmo", "prop firm", "funded"]):
-        tags.extend(["FTMO", "Prop Firm", "Funded Trader"])
-        desc_parts.append("prop firms y funded trading")
-    if any(w in title_lower for w in ["explota", "pump", "sube", "rompe", "gainer"]):
-        tags.extend(["Análisis Técnico", "Señales Cripto"])
-    if any(w in title_lower for w in ["tendencia", "trending"]):
-        tags.extend(["Tendencia", "Trending"])
-    if any(w in title_lower for w in ["circle", "blackrock", "cathie", "ark"]):
-        tags.extend(["Noticias Financieras", "Institucionales"])
-        desc_parts.append("noticias financieras institucionales")
+    # Detectar categoría para generar descripción contextual
+    is_trading = any(w in title_lower for w in ["trading", "trader", "trade", "opera", "cuenta", "rentable"])
+    is_crypto = any(w in title_lower for w in ["crypto", "cripto", "criptomoneda", "bitcoin", "btc", "sol", "eth"])
+    is_ai = any(w in title_lower for w in ["bot", "ia", "inteligencia artificial", "claude", "gpt", "agente", "automatiz"])
+    is_news = any(w in title_lower for w in ["circle", "blackrock", "cathie", "ark", "billones", "regulación"])
+    is_pump = any(w in title_lower for w in ["explota", "pump", "sube", "rompe", "gainer", "+"])
+    is_education = any(w in title_lower for w in ["qué es", "cómo", "secreto", "verdad", "error", "pierde", "aprende"])
+    is_ftmo = any(w in title_lower for w in ["ftmo", "prop firm", "funded", "fondeo"])
     
-    # Base tags siempre
-    tags.extend(["BitTrader", "Finanzas", "Inversión"])
+    # Tags por categoría
+    if is_trading: tags.extend(["trading", "day trading", "gestión de riesgo", "estrategia trading"])
+    if is_crypto: tags.extend(["criptomonedas", "crypto", "inversión"])
+    if is_ai: tags.extend(["inteligencia artificial", "bot trading", "automatización", "IA trading"])
+    if is_news: tags.extend(["noticias financieras", "institucionales", "mercados"])
+    if is_pump: tags.extend(["análisis técnico", "señales cripto", "altcoins"])
+    if is_education: tags.extend(["educación financiera", "aprender trading"])
+    if is_ftmo: tags.extend(["FTMO", "prop firm", "funded trader"])
+    tags.extend(["BitTrader", "finanzas"])
     
     # Deduplicar tags
     seen = set()
@@ -98,18 +98,76 @@ def generate_description_from_title(title: str, video_type: str) -> dict:
             unique_tags.append(t)
             seen.add(t.lower())
     
-    # Construir descripción
-    clean_title = title.rstrip("💰🚀💸😱📈📉")
-    if detected_tokens:
-        token_text = ", ".join(detected_tokens[:3])
-        description = f"{clean_title}\n\nEn este video hablamos de {token_text}"
-        if desc_parts:
-            description += f" — {desc_parts[0]}"
-        description += ". ¿Qué opinas tú?"
-    elif desc_parts:
-        description = f"{clean_title}\n\nAnálisis y perspectiva sobre {desc_parts[0]}."
+    # ── Generar descripción contextual ────────────────────────────────────
+    
+    if detected_tokens and is_pump:
+        token_list = ", ".join(detected_tokens[:3])
+        description = (
+            f"{token_list} está dando de qué hablar. ¿Hay fundamentos detrás de este "
+            f"movimiento o es pura especulación?\n\n"
+            f"Analizo la acción de precio, volumen, y qué lo diferencia de otros pumps "
+            f"que duran 24 horas. Todo lo que necesitas saber antes de tomar una decisión.\n\n"
+            f"⚠️ Esto NO es consejo financiero. Siempre haz tu propia investigación (DYOR)."
+        )
+    elif detected_tokens and is_education:
+        token_list = ", ".join(detected_tokens[:3])
+        description = (
+            f"Te explico qué es {token_list}, cómo funciona, y si tiene potencial real "
+            f"o es solo narrativa del momento.\n\n"
+            f"Análisis técnico + fundamentales para que tomes decisiones informadas, "
+            f"no basadas en hype.\n\n"
+            f"💡 La educación es tu mejor inversión antes de meter capital."
+        )
+    elif detected_tokens and is_news:
+        token_list = ", ".join(detected_tokens[:3])
+        description = (
+            f"Noticias importantes sobre {token_list} que pueden impactar el mercado. "
+            f"Te explico qué está pasando, qué significa, y cómo puede afectar tu portfolio.\n\n"
+            f"Los movimientos institucionales son la señal más importante del mercado. "
+            f"Aquí te doy el contexto que necesitas.\n\n"
+            f"📊 ¿Qué opinas? Déjame tu análisis en los comentarios."
+        )
+    elif is_ai and is_trading:
+        description = (
+            f"La inteligencia artificial está cambiando las reglas del trading. "
+            f"¿Pero realmente funciona o es puro marketing?\n\n"
+            f"Te muestro resultados reales, sin filtros. Lo bueno, lo malo, y lo que "
+            f"nadie te dice sobre usar IA para operar en los mercados.\n\n"
+            f"🤖 El futuro del trading es la automatización. ¿Tú ya la usas?"
+        )
+    elif is_education and is_trading:
+        description = (
+            f"La mayoría de traders pierde dinero. Pero no es por falta de indicadores "
+            f"o estrategias — es por algo que nadie te enseña.\n\n"
+            f"En este video te explico lo que realmente marca la diferencia entre "
+            f"un trader que pierde todo y uno que es consistentemente rentable.\n\n"
+            f"💬 ¿Ya sabías esto? Cuéntame tu experiencia en los comentarios."
+        )
+    elif is_trading:
+        description = (
+            f"Lecciones reales de trading que solo aprendes operando. No teoría de libro — "
+            f"experiencia directa del mercado.\n\n"
+            f"Te comparto exactamente qué hice, por qué lo hice, y qué puedes "
+            f"aprender de esto para mejorar tus propias operaciones.\n\n"
+            f"💬 ¿Cuál ha sido tu mejor lección del mercado? Comenta abajo."
+        )
+    elif detected_tokens:
+        token_list = ", ".join(detected_tokens[:3])
+        description = (
+            f"Análisis completo de {token_list}: qué está pasando, por qué importa, "
+            f"y qué deberías tener en cuenta antes de tomar acción.\n\n"
+            f"No te quedes solo con el titular — aquí tienes el contexto completo "
+            f"para tomar decisiones inteligentes.\n\n"
+            f"📊 ¿Tú qué opinas? Déjalo en los comentarios."
+        )
     else:
-        description = f"{clean_title}\n\nAnálisis y estrategias de trading y criptomonedas."
+        description = (
+            f"Análisis y perspectiva directa del mercado. Sin rodeos, sin hype — "
+            f"solo la información que necesitas para tomar mejores decisiones.\n\n"
+            f"Cada video en este canal está diseñado para darte valor real, ya sea "
+            f"que estés empezando o ya tengas experiencia en trading y cripto.\n\n"
+            f"💬 Déjame tu pregunta en los comentarios. Leo todos."
+        )
     
     return {
         "title": title,
