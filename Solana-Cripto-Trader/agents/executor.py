@@ -67,12 +67,19 @@ BLOCK_LONGS_FG      = 35       # Bloquear LONGs si Fear & Greed < 35 (mercado ba
 MAX_TRADES_PER_DAY  = 0        # 0 = sin límite
 
 # ─── Regla de Ender (31-Mar-2026): $4 min profit, $2 max risk ────────────
-MIN_NET_PROFIT_USD  = 4.00     # Mínimo $4 de ganancia neta después de comisiones
-MAX_RISK_USD        = 2.00     # Máximo $2 de riesgo por trade (pérdida en SL + fees)
+MAX_RISK_USD        = 2.00     # Máximo $2 de riesgo por POSICIÓN individual (pérdida en SL + fees)
 
 # ─── Portfolio Take Profit (31-Mar-2026) — orden de Ender ─────────────────
 PORTFOLIO_TP_USD     = 2.00     # Cerrar todo si el P&L combinado llega a $2
 PORTFOLIO_MIN_USD    = 1.00     # Si está en $1+ pero AI duda, cerrar y asegurar $1
+
+# ─── Coordinated Portfolio Sizing (31-Mar-2026 v2) — orden de Ender ───────
+# El sizing se calcula a nivel de PORTAFOLIO, no por posición aislada.
+# La IA decide cuántas posiciones abrir (N), y el sistema distribuye el
+# target de ganancias entre todas ellas, ajustando por volatilidad.
+# Cuando el P&L combinado llega al PORTFOLIO_TP → cerrar TODO.
+PORTFOLIO_MAX_RISK_USD = 10.00  # Riesgo total máximo del portafolio (todas las posiciones)
+MIN_PROFIT_PER_POS_USD = 0.50   # Profit mínimo por posición ($0.50, flexible según N)
 
 # ─── Drift Protocol Simulation ───────────────────────────────────────────────
 TAKER_FEE           = 0.001    # 0.1% taker fee (Drift Protocol)
@@ -337,10 +344,12 @@ def paper_open_position(signal: dict, portfolio: dict, market: dict) -> Optional
 
     fee_round_trip = TAKER_FEE * 2  # Entry + exit fees
 
-    # ─── Volatility-Adaptive Sizing (2026-03-31, orden de Ender) ──────────
-    # En baja volatilidad el precio se mueve poco → necesitamos más notional
-    # para que el profit sea significativo en un tiempo razonable.
-    # vol_factor = REFERENCE_VOL / actual_ATR% (clamped a [0.5, 3.0])
+    # ─── Volatility-Adaptive + Coordinated Sizing (2026-03-31 v2) ────────
+    # El sistema coordina el sizing de TODAS las posiciones del portafolio:
+    # 1. La IA decide cuántas posiciones abrir (N)
+    # 2. El profit target se distribuye: target_por_pos = PORTFOLIO_TP / N
+    # 3. El notional se calcula para alcanzar ese target, ajustado por ATR
+    # 4. Portfolio TP cierra TODO cuando se alcanza el target combinado
     REFERENCE_VOL = 0.025    # 2.5% = volatilidad "normal" de referencia
     VOL_MULT_MIN  = 0.5      # Alta vol → posición más chica
     VOL_MULT_MAX  = 3.0      # Baja vol → posición hasta 3x más grande
@@ -362,20 +371,29 @@ def paper_open_position(signal: dict, portfolio: dict, market: dict) -> Optional
         effective_atr = max(token_atr_pct / 100.0, VOL_ATR_FLOOR)
         vol_factor = REFERENCE_VOL / effective_atr
         vol_factor = max(VOL_MULT_MIN, min(vol_factor, VOL_MULT_MAX))
-        log.info(f"📊 Vol-adaptive: ATR={token_atr_pct:.2f}% → factor={vol_factor:.2f}x")
 
-    # Aplicar factor de volatilidad al riesgo máximo
-    adjusted_risk = MAX_RISK_USD * vol_factor
+    # Usar sizing coordinado si viene del orchestrator
+    coordinated_risk = signal.get("_coordinated_risk", MAX_RISK_USD)
+    coordinated_profit = signal.get("_coordinated_profit_target", PORTFOLIO_TP_USD)
+    n_positions = signal.get("_coordinated_n", 1)
+
+    # Aplicar factor de volatilidad al riesgo coordinado
+    adjusted_risk = coordinated_risk * vol_factor
+    # Hard cap: adjusted_risk × N no puede exceder PORTFOLIO_MAX_RISK_USD
+    max_adj_per_pos = PORTFOLIO_MAX_RISK_USD / max(n_positions, 1)
+    adjusted_risk = min(adjusted_risk, max_adj_per_pos)
+
+    log.info(f"📊 Coordinated sizing: {n_positions} pos | risk=${coordinated_risk:.2f}×vol{vol_factor:.1f}=${adjusted_risk:.2f} | target=${coordinated_profit:.2f}/pos"
+             + (f" | ATR={token_atr_pct:.2f}%" if token_atr_pct else ""))
 
     # Calcular notional óptimo
     max_notional_by_risk = adjusted_risk / (sl_pct + fee_round_trip)
-    min_notional_by_profit = MIN_NET_PROFIT_USD / (tp_pct - fee_round_trip)
+    min_notional_by_profit = coordinated_profit / (tp_pct - fee_round_trip)
 
     if min_notional_by_profit > max_notional_by_risk:
         # Imposible cumplir ambas reglas → ajustar TP para que funcione
-        # Necesitamos: tp_pct >= (MIN_NET_PROFIT_USD / max_notional_by_risk) + fee_round_trip
-        needed_tp = (MIN_NET_PROFIT_USD / max_notional_by_risk) + fee_round_trip
-        log.info(f"📐 Ajustando TP de {tp_pct*100:.1f}% a {needed_tp*100:.1f}% para cumplir regla de Ender")
+        needed_tp = (coordinated_profit / max_notional_by_risk) + fee_round_trip
+        log.info(f"📐 Ajustando TP de {tp_pct*100:.1f}% a {needed_tp*100:.1f}% para cumplir regla coordinada")
         tp_pct = needed_tp
 
     notional_value = max_notional_by_risk  # Usar max permitido por riesgo
@@ -392,8 +410,8 @@ def paper_open_position(signal: dict, portfolio: dict, market: dict) -> Optional
     log.info(f"💰 Sizing: notional=${notional_value:.1f} margin=${margin_usd:.1f} SL={sl_pct*100:.1f}% TP={tp_pct*100:.1f}%")
     log.info(f"   Expected profit: ${expected_profit:.2f} | Max risk: ${expected_risk:.2f} | R:R 1:{expected_profit/expected_risk:.1f}")
 
-    if expected_profit < MIN_NET_PROFIT_USD - 0.01:  # epsilon para rounding
-        log.warning(f"⚠️  Trade rechazado: profit esperado ${expected_profit:.2f} < ${MIN_NET_PROFIT_USD}")
+    if expected_profit < coordinated_profit - 0.01:  # epsilon para rounding
+        log.warning(f"⚠️  Trade rechazado: profit esperado ${expected_profit:.2f} < ${coordinated_profit:.2f}")
         return None
 
     # Fees sobre el notional
@@ -785,39 +803,69 @@ def run(safe: bool = True, debug: bool = False) -> dict:
             "closed": len(closed_this_cycle),
         }
 
-    # Abrir nuevas posiciones según señales
+    # ─── Coordinated Portfolio Opening (v2) ─────────────────────────────
     opened = []
     open_count = len([p for p in portfolio["positions"] if p.get("status") == "open"])
 
     MAX_POSITIONS = 5  # Ajustado 2026-03-31 (orden de Ender) — modo moderado
-    for signal in signals:
-        if open_count >= MAX_POSITIONS:
-            log.info(f"📊 Máximo de posiciones alcanzado ({MAX_POSITIONS})")
-            break
+    slots_available = MAX_POSITIONS - open_count
 
-        symbol = signal["symbol"]
-        # Verificar que no hay posición abierta para este token
-        existing = [p for p in portfolio["positions"]
-                    if p["symbol"] == symbol and p["status"] == "open"]
-        if existing:
-            if debug:
-                log.info(f"  ⏭️  {symbol}: posición ya abierta, skip")
-            continue
+    if slots_available <= 0:
+        log.info(f"📊 Máximo de posiciones alcanzado ({MAX_POSITIONS})")
+    else:
+        # Paso 1: Filtrar señales válidas (no duplicadas, con confidence)
+        valid_signals = []
+        open_symbols = {p["symbol"] for p in portfolio["positions"] if p.get("status") == "open"}
+        for signal in signals:
+            sym = signal["symbol"]
+            if sym in open_symbols:
+                if debug:
+                    log.info(f"  ⏭️  {sym}: posición ya abierta, skip")
+                continue
+            if signal.get("confidence", 0) < MIN_CONFIDENCE:
+                continue
+            valid_signals.append(signal)
+            if len(valid_signals) >= slots_available:
+                break
 
-        if safe:
-            pos = paper_open_position(signal, portfolio, market)
-        else:
-            pos = real_open_position(signal, portfolio)
+        # Paso 2: Calcular sizing coordinado para N posiciones
+        n_planned = len(valid_signals)
+        if n_planned > 0:
+            # El profit target por posición se distribuye entre todas
+            profit_per_pos = max(PORTFOLIO_TP_USD / n_planned, MIN_PROFIT_PER_POS_USD)
+            # El riesgo por posición = presupuesto total / N posiciones
+            # Hard cap: riesgo total NUNCA excede PORTFOLIO_MAX_RISK_USD
+            risk_per_pos = PORTFOLIO_MAX_RISK_USD / n_planned
+            # También respetar el límite individual
+            risk_per_pos = min(risk_per_pos, MAX_RISK_USD)
 
-        if pos:
-            opened.append(pos)
-            open_count += 1
-            arrow = "🟢" if pos["direction"] == "long" else "🔴"
-            lev = pos.get("leverage", 1)
-            margin = pos.get("margin_usd", pos.get("size_usd", 0))
-            notional = pos.get("notional_value", pos.get("size_usd", 0))
-            log.info(f"  {arrow} ABIERTA {symbol} [{signal['strategy']}] "
-                     f"{lev}x | Margen: ${margin:.2f} | Notional: ${notional:.2f} @ ${pos['entry_price']:.6f}")
+            log.info(f"📊 Coordinated sizing: {n_planned} posiciones planeadas")
+            log.info(f"   Target total: ${PORTFOLIO_TP_USD:.2f} → ${profit_per_pos:.2f}/pos | Risk: ${risk_per_pos:.2f}/pos (total max: ${PORTFOLIO_MAX_RISK_USD:.0f})")
+
+            # Inyectar sizing coordinado en cada signal
+            for sig in valid_signals:
+                sig["_coordinated_n"] = n_planned
+                sig["_coordinated_risk"] = risk_per_pos
+                sig["_coordinated_profit_target"] = profit_per_pos
+
+        # Paso 3: Abrir posiciones con sizing coordinado
+        for signal in valid_signals:
+            if safe:
+                pos = paper_open_position(signal, portfolio, market)
+            else:
+                pos = real_open_position(signal, portfolio)
+
+            if pos:
+                opened.append(pos)
+                open_count += 1
+                open_symbols.add(signal["symbol"])
+                arrow = "🟢" if pos["direction"] == "long" else "🔴"
+                lev = pos.get("leverage", 1)
+                margin = pos.get("margin_usd", pos.get("size_usd", 0))
+                notional = pos.get("notional_value", pos.get("size_usd", 0))
+                log.info(f"  {arrow} ABIERTA {signal['symbol']} [{signal['strategy']}] "
+                         f"{lev}x | Margen: ${margin:.2f} | Notional: ${notional:.2f} @ ${pos['entry_price']:.6f}"
+                         f" | Coord: {n_planned} pos, target ${profit_per_pos:.2f}/pos")
 
     # Calcular métricas actuales
     total_trades = portfolio.get("total_trades", 0)
