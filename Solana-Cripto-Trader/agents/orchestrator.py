@@ -356,6 +356,77 @@ def run_cycle(safe=True, debug=False):
         log.warning(f"   ⚠️ Error en position decisions: {e}")
         results["position_decisions"] = {"ok": False}
 
+    # ── Portfolio Take Profit (31-Mar-2026) — Orden de Ender ─────────────────
+    # Si el P&L combinado de todas las posiciones abiertas >= $2 → cerrar todo
+    # Si >= $1 pero AI duda que llegue a $2 → cerrar y asegurar $1
+    try:
+        portfolio_file = DATA_DIR / "portfolio.json"
+        if portfolio_file.exists():
+            portfolio_data = json.loads(portfolio_file.read_text())
+            open_positions = [p for p in portfolio_data.get("positions", []) if p.get("status") == "open"]
+            if open_positions:
+                total_pnl = sum(p.get("pnl_usd", 0) for p in open_positions)
+                symbols = [p["symbol"] for p in open_positions]
+
+                if total_pnl >= ex.PORTFOLIO_TP_USD:
+                    log.info(f"   🎯 PORTFOLIO TP HIT: P&L ${total_pnl:.2f} >= ${ex.PORTFOLIO_TP_USD}")
+                    log.info(f"   → Cerrando todas las posiciones para asegurar ganancias")
+                    try:
+                        market_data = json.loads((DATA_DIR / "market_latest.json").read_text()) if (DATA_DIR / "market_latest.json").exists() else {}
+                        history = json.loads((DATA_DIR / "trade_history.json").read_text()) if (DATA_DIR / "trade_history.json").exists() else []
+                        closed = ex.close_positions_emergency(portfolio_data, symbols, market_data, history, reason="PORTFOLIO_TP")
+                        ex.save_portfolio(portfolio_data)
+                        (DATA_DIR / "trade_history.json").write_text(json.dumps(history, indent=2))
+                        _cycle_emergency_closes += len(closed)
+                        log.info(f"   ✅ Cerradas {len(closed)} posición(es) por Portfolio TP — P&L capturado: ${total_pnl:.2f}")
+                    except Exception as e:
+                        log.warning(f"   ⚠️ Error en Portfolio TP: {e}")
+
+                elif total_pnl >= ex.PORTFOLIO_MIN_USD:
+                    # AI evalúa si las posiciones tienen chance de llegar a $2
+                    # Usamos la misma lógica de _quant_score para decidir
+                    try:
+                        from risk_manager import _quant_score
+                        research_data = json.loads((DATA_DIR / "research_latest.json").read_text()) if (DATA_DIR / "research_latest.json").exists() else {}
+                        market_for_dec = json.loads((DATA_DIR / "market_latest.json").read_text()) if (DATA_DIR / "market_latest.json").exists() else {}
+
+                        total_score = 0
+                        reachable_count = 0
+                        for pos in open_positions:
+                            qs = _quant_score(pos, market_for_dec, research_data)
+                            score = qs.get("score", 0)
+                            total_score += score
+                            # Score > 0 = signal to close (take profit), < 0 = hold
+                            if score < 0:
+                                reachable_count += 1
+
+                        avg_score = total_score / len(open_positions) if open_positions else 0
+                        # Si el score promedio es >= 0, la AI recomienda cerrar
+                        # (promedio >= 0 significa que en conjunto dice HOLD/CERRAR)
+                        will_reach = reachable_count >= len(open_positions) // 2 + 1  # mayoría dice "cerrar"
+
+                        if not will_reach and avg_score >= 0:
+                            log.info(f"   🎯 PORTFOLIO MIN: P&L ${total_pnl:.2f} >= ${ex.PORTFOLIO_MIN_USD} pero AI duda que llegue a ${ex.PORTFOLIO_TP_USD}")
+                            log.info(f"   → AI score promedio: {avg_score:.0f} → Cerrando para asegurar ${total_pnl:.2f}")
+                            try:
+                                market_data = json.loads((DATA_DIR / "market_latest.json").read_text()) if (DATA_DIR / "market_latest.json").exists() else {}
+                                history = json.loads((DATA_DIR / "trade_history.json").read_text()) if (DATA_DIR / "trade_history.json").exists() else []
+                                closed = ex.close_positions_emergency(portfolio_data, symbols, market_data, history, reason="PORTFOLIO_TP_MIN")
+                                ex.save_portfolio(portfolio_data)
+                                (DATA_DIR / "trade_history.json").write_text(json.dumps(history, indent=2))
+                                _cycle_emergency_closes += len(closed)
+                                log.info(f"   ✅ Cerradas {len(closed)} posición(es) por Portfolio Min — P&L capturado: ${total_pnl:.2f}")
+                            except Exception as e:
+                                log.warning(f"   ⚠️ Error en Portfolio Min: {e}")
+                        else:
+                            log.info(f"   💪 PORTFOLIO: P&L ${total_pnl:.2f} >= ${ex.PORTFOLIO_MIN_USD}, AI ve potencial para llegar a ${ex.PORTFOLIO_TP_USD} → Dejando correr")
+                    except ImportError:
+                        log.warning(f"   ⚠️  No se pudo importar _quant_score para Portfolio Min")
+                    except Exception as e:
+                        log.warning(f"   ⚠️  Error en Portfolio Min AI check: {e}")
+    except Exception as e:
+        log.warning(f"   ⚠️  Error en Portfolio Take Profit check: {e}")
+
     # ── Circuit Breaker Check ─────────────────────────────────────────────────
     if _cycle_emergency_closes >= CIRCUIT_BREAKER_LIMIT:
         if _circuit_breaker_check_and_record(_cycle_emergency_closes):

@@ -70,6 +70,10 @@ MAX_TRADES_PER_DAY  = 0        # 0 = sin límite
 MIN_NET_PROFIT_USD  = 4.00     # Mínimo $4 de ganancia neta después de comisiones
 MAX_RISK_USD        = 2.00     # Máximo $2 de riesgo por trade (pérdida en SL + fees)
 
+# ─── Portfolio Take Profit (31-Mar-2026) — orden de Ender ─────────────────
+PORTFOLIO_TP_USD     = 2.00     # Cerrar todo si el P&L combinado llega a $2
+PORTFOLIO_MIN_USD    = 1.00     # Si está en $1+ pero AI duda, cerrar y asegurar $1
+
 # ─── Drift Protocol Simulation ───────────────────────────────────────────────
 TAKER_FEE           = 0.001    # 0.1% taker fee (Drift Protocol)
 MAKER_FEE           = 0.001    # 0.1% maker fee (Drift Protocol)
