@@ -362,13 +362,18 @@ def main():
                     ready_to_upload.append((i, item))
                     log(f"Item {i}: ✅ QA bypassed (manual-approved) — {item.get('title','?')[:40]}", "DEBUG")
                 elif _qa_available and _qa_agent_instance:
+                    # Construir descripción real para QA (misma lógica que publisher)
+                    _sd = item.get("script_data") or {}
+                    _qa_desc = _sd.get("description") or item.get("description", "")
+                    _qa_tags = _sd.get("tags") or item.get("tags", [])
                     qa_result = _qa_agent_instance.run_all_checks(
                         video_path=item.get("output_file",""),
                         thumb_path=item.get("thumbnail_path", item.get("thumbnail","")),
                         title=item.get("title",""),
-                        description=item.get("description",""),
+                        description=_qa_desc,
                         script_text=item.get("script",""),
                         video_type=item.get("type","long"),
+                        tags=_qa_tags,
                     )
                     if not qa_result["passed"]:
                         log(f"Item {i}: ⛔ BLOCKED by QA Agent — {item.get('title','?')[:40]} — issues: {qa_result['issues']}", "WARNING")
@@ -392,13 +397,17 @@ def main():
                 ready_to_upload.append((i, item))
                 log(f"Item {i}: ✅ QA bypassed (manual-approved) — {item.get('title','?')[:40]}", "DEBUG")
             elif _qa_available and _qa_agent_instance:
+                _sd2 = item.get("script_data") or {}
+                _qa_desc2 = _sd2.get("description") or item.get("description", "")
+                _qa_tags2 = _sd2.get("tags") or item.get("tags", [])
                 qa_result = _qa_agent_instance.run_all_checks(
                     video_path=item.get("output_file",""),
                     thumb_path=item.get("thumbnail_path", item.get("thumbnail","")),
                     title=item.get("title",""),
-                    description=item.get("description",""),
+                    description=_qa_desc2,
                     script_text=item.get("script",""),
                     video_type=item.get("type","long"),
+                    tags=_qa_tags2,
                 )
                 if not qa_result["passed"]:
                     log(f"Item {i}: ⛔ BLOCKED by QA Agent — {item.get('title','?')[:40]} — issues: {qa_result['issues']}", "WARNING")

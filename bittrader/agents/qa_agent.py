@@ -2,7 +2,7 @@
 """
 🔬 QA Agent — BitTrader Automatic Quality Control
 Creado: 25 marzo 2026
-Actualizado: 25 marzo 2026 — CHECK 8 narration contamination, CHECK 9 visual OCR
+Actualizado: 31 marzo 2026 — CHECK 8 narration, CHECK 9 visual OCR, CHECK 10 logo, CHECK 11 description+tags quality
 
 MISIÓN: Ser el ÚLTIMO guardián antes de que cualquier video llegue a YouTube.
 Corre ANTES de cada upload. Si falla UN solo check → el video se bloquea y
@@ -570,6 +570,101 @@ def check_title(title: str) -> dict:
     return {"passed": True, "length": len(title)}
 
 
+def check_description_and_tags(
+    description: str = "",
+    tags: list = None,
+    video_type: str = "long",
+) -> dict:
+    """
+    CHECK 10 — Descripción y tags de calidad.
+    Verifica que el video tiene:
+    - Descripción con contenido real (no genérica, no vacía, no solo hashtags)
+    - Mínimo de tags relevantes
+    - Hashtags presentes en la descripción
+    """
+    issues = []
+    tags = tags or []
+    desc = (description or "").strip()
+
+    # ── Descripción vacía o muy corta ────────────────────────────────────
+    if not desc:
+        return {
+            "passed": False,
+            "issue": "NO_DESCRIPTION",
+            "detail": "El video no tiene descripción",
+        }
+
+    if len(desc) < 50:
+        return {
+            "passed": False,
+            "issue": "DESCRIPTION_TOO_SHORT",
+            "detail": f"Descripción solo tiene {len(desc)} caracteres (mín: 50)",
+            "length": len(desc),
+        }
+
+    # ── Descripción genérica (solo hashtags, solo título repetido) ───────
+    # Quitar hashtags y footer para analizar contenido real
+    lines = [l.strip() for l in desc.split("\n") if l.strip()]
+    content_lines = [
+        l for l in lines
+        if not l.startswith("#")
+        and not l.startswith("━")
+        and not l.startswith("🔔")
+        and not l.startswith("📈")
+        and not l.startswith("👉")
+        and not l.startswith("💬")
+    ]
+    content_text = " ".join(content_lines).strip()
+
+    if len(content_text) < 40:
+        return {
+            "passed": False,
+            "issue": "DESCRIPTION_GENERIC",
+            "detail": "La descripción es genérica o solo contiene hashtags/footer",
+            "content_length": len(content_text),
+        }
+
+    # Detectar frases genéricas que indican descripción auto-generada pobre
+    generic_phrases = [
+        "análisis y perspectiva sobre",
+        "análisis y estrategias de trading y criptomonedas",
+        "en este video hablamos de",
+    ]
+    content_lower = content_text.lower()
+    for phrase in generic_phrases:
+        if phrase in content_lower and len(content_text) < 120:
+            issues.append(f"LIKELY_GENERIC: contiene '{phrase}' sin más contenido")
+
+    # ── Tags ─────────────────────────────────────────────────────────────
+    if len(tags) < 3:
+        issues.append(f"FEW_TAGS: solo {len(tags)} tags (recomendado: mín 5)")
+
+    # ── Hashtags en descripción ──────────────────────────────────────────
+    hashtag_count = desc.count("#")
+    if hashtag_count < 3:
+        issues.append(f"FEW_HASHTAGS: solo {hashtag_count} hashtags en descripción (recomendado: mín 5)")
+
+    # ── Resultado ────────────────────────────────────────────────────────
+    if issues:
+        return {
+            "passed": False,
+            "issue": "DESCRIPTION_QUALITY",
+            "issues": issues,
+            "description_length": len(desc),
+            "content_length": len(content_text),
+            "tag_count": len(tags),
+            "hashtag_count": hashtag_count,
+        }
+
+    return {
+        "passed": True,
+        "description_length": len(desc),
+        "content_length": len(content_text),
+        "tag_count": len(tags),
+        "hashtag_count": hashtag_count,
+    }
+
+
 def check_audio(video_path: str) -> dict:
     """
     CHECK 6 — Audio presente.
@@ -935,6 +1030,7 @@ class QAAgent:
         script_text: str = "",
         video_type: str = "long",
         youtube_client=None,
+        tags: list = None,
     ) -> dict:
         """
         Ejecuta los 7 checks de calidad.
@@ -1140,6 +1236,18 @@ class QAAgent:
                 checks["logo_bittrader"] = {"passed": True, "note": f"check_skipped: {_e}"}
         else:
             checks["logo_bittrader"] = {"passed": False, "issue": "NO_VIDEO_PATH"}
+
+        # ── CHECK 11: Descripción y tags de calidad ─────────────────────
+        _log("CHECK 11: Descripción y tags de calidad...")
+        _video_tags = tags or []
+        r = check_description_and_tags(description, _video_tags, video_type)
+        checks["description_quality"] = r
+        if not r["passed"]:
+            issues.append(r.get("issue", "DESCRIPTION_QUALITY"))
+            detail = r.get("detail", "") or ", ".join(r.get("issues", []))
+            _log(f"  ❌ FAIL: {detail}", "WARNING")
+        else:
+            _log(f"  ✅ OK: desc={r.get('description_length')}chars, tags={r.get('tag_count')}, hashtags={r.get('hashtag_count')}")
 
         # ── RESULT ──────────────────────────────────────────────────────
         passed = len(issues) == 0
