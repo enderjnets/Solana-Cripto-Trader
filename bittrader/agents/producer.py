@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-🎬 BitTrader Producer v4.1 — MiniMax Cloned Voice (Ender J) + Edge-TTS Fallback + MiniMax Hailuo Video + ffmpeg
+🎬 BitTrader Producer v4.2 — MiniMax Spanish_ThoughtfulMan Voice + Edge-TTS Fallback + MiniMax Hailuo Video + ffmpeg
 Convierte guiones en videos completos:
-1. Genera audio con MiniMax cloned voice Ender J (moss_audio) — fallback Edge-TTS Jorge
+1. Genera audio con MiniMax Spanish_ThoughtfulMan — fallback Edge-TTS Jorge
 2. Genera clips de video con MiniMax Hailuo 2.3
 3. Ensambla video final con ffmpeg
 
 Mejoras v4.1:
-- TTS: MiniMax cloned voice (Ender J) como primario, Edge-TTS Jorge como fallback
+- TTS: MiniMax Spanish_ThoughtfulMan como primario, Edge-TTS Jorge como fallback
 - Shorts: blur-fill en vez de barras negras (Hailuo no genera vertical nativo)
 - Logo BitTrader: overlay top-right, 240px (shorts) / 180px (longs)
 - Subtítulos: 100px (shorts) / 65px (longs) — aumentado para estilo viral
@@ -66,11 +66,11 @@ MINIMAX_HEADERS = {
     "Content-Type": "application/json"
 }
 
-# TTS voice: MiniMax TTS with Ender's cloned voice (moss_audio) — PRIMARY
+# TTS voice: MiniMax Spanish_ThoughtfulMan — PRIMARY (orden Ender 2026-03-30)
 # Edge-TTS Jorge is fallback
-TTS_VOICE = "moss_audio_d2531039-2c43-11f1-918f-5a2de67f838a"  # Ender J cloned voice
+TTS_VOICE = "Spanish_ThoughtfulMan"  # Spanish thoughtful male voice
 TTS_PRIMARY = "minimax"  # Use MiniMax cloned voice as primary
-TTS_SPEED = 1.0
+TTS_SPEED = 1.3  # 30% faster
 TTS_MODEL = "speech-2.8-hd"  # Latest and best quality
 
 # Video generation
@@ -581,12 +581,12 @@ def clean_script_for_tts(text: str) -> str:
 
 
 def generate_audio(text: str, output_path: Path) -> float:
-    """Generate audio: MiniMax cloned voice primary, Edge-TTS Jorge as fallback."""
+    """Generate audio: Spanish_ThoughtfulMan primary, Edge-TTS Jorge as fallback."""
     # Always sanitize script before TTS — strip section headers, video prompts, etc.
     text = clean_script_for_tts(text)
 
-    # Try MiniMax cloned voice first (Ender J voice)
-    print(f"      🔊 MiniMax TTS (Ender J cloned voice: {TTS_VOICE[:20]}...)...")
+    # Try MiniMax Spanish_ThoughtfulMan voice first
+    print(f"      🔊 MiniMax TTS (Spanish_ThoughtfulMan)...")
     duration = minimax_tts(text, output_path)
     if duration > 0:
         return duration
@@ -2045,10 +2045,21 @@ def _add_to_upload_queue(script: dict, video_path: Path, duration: float) -> Non
     """Add a successfully produced video to the upload queue."""
     try:
         queue_file = DATA_DIR / "upload_queue.json"
+        uploaded_scripts_file = DATA_DIR / "uploaded_scripts.json"
+
+        # Load uploaded scripts set (already-uploaded script_ids)
+        try:
+            uploaded_scripts = set(json.loads(uploaded_scripts_file.read_text()))
+        except (FileNotFoundError, json.JSONDecodeError):
+            uploaded_scripts = set()
+
+        # Load current queue
         q = json.loads(queue_file.read_text()) if queue_file.exists() else []
-        
-        # Check if already in queue
+
+        # Check if already uploaded OR already in queue (double dedupe)
         script_id = script.get("id", "")
+        if script_id in uploaded_scripts:
+            return  # already uploaded
         if any(v.get("script_id") == script_id for v in q):
             return  # already queued
         
@@ -2060,7 +2071,7 @@ def _add_to_upload_queue(script: dict, video_path: Path, duration: float) -> Non
         entry = {
             "script_id": script_id,
             "title": script.get("title", "Untitled"),
-            "description": f"#{' '.join(script.get('tags', ['crypto', 'trading']))}",
+            "description": script.get("description", ""),  # descripción real del guión
             "type": script.get("type", "short"),
             "tags": script.get("tags", ["crypto", "trading"]),
             "output_file": str(video_path),
@@ -2073,6 +2084,14 @@ def _add_to_upload_queue(script: dict, video_path: Path, duration: float) -> Non
             "thumbnail": True,
             "thumbnail_ready": True,
             "verified_quality": True,
+            "script_data": {              # guardar datos del guión para el publisher
+                "title":       script.get("title", ""),
+                "description": script.get("description", ""),
+                "tags":        script.get("tags", []),
+                "hook":        script.get("hook", ""),
+                "cta":         script.get("cta", ""),
+                "category":    script.get("category", script.get("theme", "")),
+            },
         }
         q.insert(0, entry)
         queue_file.write_text(json.dumps(q, indent=2, default=str))

@@ -191,22 +191,70 @@ def reset_schedule_slots():
 
 
 def build_description(script: dict, video_type: str) -> str:
-    base_desc = script.get("description", "")
+    """Genera una descripción completa para YouTube.
+    
+    Estructura:
+    1. Descripción principal del video (del guión)
+    2. Sección de comunidad / CTA
+    3. Hashtags relevantes (del guión + base)
+    4. Footer de canal
+    """
+    base_desc = script.get("description", "").strip()
+    title = script.get("title", "").strip()
+    hook = script.get("hook", "").strip()
+    cta = script.get("cta", "").strip()
+    script_tags = script.get("tags", [])
+
+    # ── 1. Descripción principal ─────────────────────────────────────────
     if not base_desc:
-        base_desc = script.get("title", "")
+        # Fallback: usar título + hook si están disponibles
+        base_desc = title
+        if hook:
+            base_desc += f"\n\n{hook}"
 
-    hashtags_short = "\n\n#Crypto #Trading #Bitcoin #Shorts #Finanzas #Criptomonedas #BitTrader #Inversion"
-    hashtags_long  = "\n\n#Crypto #Trading #Bitcoin #Finanzas #Criptomonedas #Educacion #BitTrader #NAS100 #Futuros"
+    # ── 2. CTA personalizado ──────────────────────────────────────────────
+    if cta:
+        cta_block = f"\n\n{cta}"
+    elif video_type == "short":
+        cta_block = "\n\n👉 Sígueme para más análisis diarios de cripto y trading."
+    else:
+        cta_block = (
+            "\n\n👉 ¿Te fue útil? Suscríbete para más estrategias de trading y cripto.\n"
+            "💬 Déjame tu pregunta en los comentarios."
+        )
 
+    # ── 3. Hashtags ───────────────────────────────────────────────────────
+    # Combinar tags del guión con base de canal (sin duplicados, máx 30)
+    base_tags_short = ["Crypto", "Trading", "Bitcoin", "Shorts", "Finanzas",
+                       "Criptomonedas", "BitTrader", "Inversion"]
+    base_tags_long  = ["Crypto", "Trading", "Bitcoin", "Finanzas", "Criptomonedas",
+                       "Educacion", "BitTrader", "NAS100", "Futuros", "Inversion"]
+    base_tags = base_tags_short if video_type == "short" else base_tags_long
+
+    # Normalizar tags del guión (quitar # iniciales si los tienen)
+    clean_script_tags = [t.lstrip("#") for t in script_tags if t]
+
+    # Unir: tags del guión primero, luego los base que no estén ya
+    all_tags = clean_script_tags[:]
+    seen = {t.lower() for t in all_tags}
+    for bt in base_tags:
+        if bt.lower() not in seen:
+            all_tags.append(bt)
+            seen.add(bt.lower())
+
+    # Máximo 30 hashtags (límite YouTube)
+    hashtag_line = " ".join(f"#{t.replace(' ', '')}" for t in all_tags[:30])
+    hashtags_block = f"\n\n{hashtag_line}"
+
+    # ── 4. Footer del canal ───────────────────────────────────────────────
     footer = (
         "\n\n━━━━━━━━━━━━━━━━━━━━━\n"
-        "🔔 Suscríbete para más contenido de trading y crypto\n"
-        "📈 Canal: BitTrader\n"
+        "🔔 Suscríbete: @bittrader9259\n"
+        "📈 Análisis diario de cripto, trading y automatización con IA\n"
         "━━━━━━━━━━━━━━━━━━━━━"
     )
 
-    hashtags = hashtags_short if video_type == "short" else hashtags_long
-    return base_desc + hashtags + footer
+    return base_desc + cta_block + hashtags_block + footer
 
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -251,11 +299,23 @@ def upload_video(yt, video: dict, scout_data: dict = None) -> dict:
     if not video_path.exists():
         raise FileNotFoundError(f"Video no encontrado: {video_path}")
 
-    vtype      = video.get("type", "short")
-    script     = video.get("script_data", {})
-    title      = video.get("title", video_path.stem)[:100]
-    tags       = script.get("tags", []) or (DEFAULT_TAGS_SHORTS if vtype == "short" else DEFAULT_TAGS_LONG)
-    cat_id     = CAT_SHORTS if vtype == "short" else CAT_EDUCATION
+    vtype  = video.get("type", "short")
+    title  = video.get("title", video_path.stem)[:100]
+    cat_id = CAT_SHORTS if vtype == "short" else CAT_EDUCATION
+
+    # Construir script dict para build_description:
+    # Prioridad: script_data > campos directos del entry > defaults
+    script_data = video.get("script_data") or {}
+    script = {
+        "title":       script_data.get("title")       or video.get("title", ""),
+        "description": script_data.get("description") or video.get("description", ""),
+        "tags":        script_data.get("tags")        or video.get("tags", []),
+        "hook":        script_data.get("hook", ""),
+        "cta":         script_data.get("cta", ""),
+        "category":    script_data.get("category", ""),
+    }
+
+    tags        = script["tags"] or (DEFAULT_TAGS_SHORTS if vtype == "short" else DEFAULT_TAGS_LONG)
     description = build_description(script, vtype)
 
     # Schedule
