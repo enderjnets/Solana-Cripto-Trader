@@ -624,10 +624,15 @@ def _quant_score(pos: dict, market: dict, research: dict) -> dict:
     }
 
 
-def _llm_decision(pos: dict, quant: dict, market: dict, research: dict) -> dict:
+def _llm_decision(pos: dict, quant: dict, market: dict, research: dict,
+                   portfolio_context: dict = None) -> dict:
     """
     Pide al LLM (Claude Sonnet 4.6) su recomendación basada en el análisis cuantitativo.
     Retorna: {"action": "CLOSE"|"HOLD"|"REDUCE", "confidence": 0-1, "reasoning": str}
+    
+    portfolio_context: dict con info del portafolio coordinado:
+      - total_positions, portfolio_pnl, portfolio_target,
+      - other_positions (lista de {symbol, pnl_usd, pnl_pct, direction})
     """
     symbol    = pos["symbol"]
     direction = pos["direction"].upper()
@@ -638,6 +643,29 @@ def _llm_decision(pos: dict, quant: dict, market: dict, research: dict) -> dict:
     pnl_usd   = pos.get("pnl_usd", 0)
     pnl_pct   = pos.get("pnl_pct", 0)
     leverage  = pos.get("leverage", 3)
+
+    # Construir sección de contexto de portafolio
+    portfolio_section = ""
+    if portfolio_context:
+        total_pos = portfolio_context.get("total_positions", 1)
+        port_pnl = portfolio_context.get("portfolio_pnl", 0)
+        port_target = portfolio_context.get("portfolio_target", 2.0)
+        others = portfolio_context.get("other_positions", [])
+        
+        portfolio_section = f"""
+CONTEXTO DE PORTAFOLIO COORDINADO:
+- Posiciones abiertas: {total_pos}
+- P&L total del portafolio: ${port_pnl:.2f}
+- Target de ganancia del portafolio: ${port_target:.2f}
+- Progreso hacia target: {port_pnl/port_target*100:.0f}% {'✅' if port_pnl >= port_target else ''}
+- Otras posiciones: {', '.join(f"{o['symbol']} {o['direction']} ${o['pnl_usd']:.2f}" for o in others) if others else 'ninguna'}
+
+REGLA CRÍTICA DE PORTAFOLIO:
+- Si esta posición va NEGATIVA y las otras van POSITIVAS, considerar CLOSE para no lastrar el portafolio
+- Si esta posición va negativa Y las otras también, considerar CLOSE si no tiene runway (R/R < 1.0x)
+- Prioridad: llegar al target de ${port_target:.2f} lo más rápido posible
+- Una posición perdedora que no mejora después de horas es PESO MUERTO → cerrar
+"""
 
     prompt = f"""Eres un gestor de riesgo experto en crypto. Analiza esta posición y decide: CLOSE, HOLD o REDUCE.
 
@@ -660,11 +688,12 @@ ANÁLISIS CUANTITATIVO:
 CONTEXTO DE MERCADO:
 - Tendencia: {research.get('trend', 'NEUTRAL')} (confianza: {research.get('confidence', 0.5):.0%})
 - Fear & Greed: {market.get('fear_greed', {}).get('value', 50)}/100
-
+{portfolio_section}
 REGLAS DE DECISIÓN:
 1. CLOSE si: TP a <1% Y score>30, O SL a <0.5%, O R/R < 0.5x Y perdedor
-2. HOLD si: buena tendencia a favor, R/R > 1.5x, posición ganadora con runway
-3. REDUCE si: ganancia >8% pero aún tiene potencial — cerrar 50% y mover SL a entrada
+2. CLOSE si: posición NEGATIVA por más de 2 horas Y otras posiciones van positivas (peso muerto)
+3. HOLD si: buena tendencia a favor, R/R > 1.5x, posición ganadora con runway
+4. REDUCE si: ganancia >8% pero aún tiene potencial — cerrar 50% y mover SL a entrada
 
 Responde SOLO en JSON válido:
 {{"action": "CLOSE|HOLD|REDUCE", "confidence": 0.0-1.0, "reasoning": "máx 2 oraciones"}}"""
@@ -734,6 +763,10 @@ def evaluate_position_decision(portfolio: dict, market: dict, research: dict) ->
 
     decisions = []
 
+    # Construir contexto de portafolio para decisiones coordinadas
+    portfolio_pnl = sum(p.get("pnl_usd", 0) for p in open_positions)
+    portfolio_target = 2.0  # PORTFOLIO_TP_USD — hardcoded aquí, sync con executor.py
+
     for pos in open_positions:
         symbol = pos["symbol"]
         log.info(f"   🧠 Evaluando {symbol}...")
@@ -741,8 +774,22 @@ def evaluate_position_decision(portfolio: dict, market: dict, research: dict) ->
         # Step 1: Quantitative analysis
         quant = _quant_score(pos, market, research)
 
-        # Step 2: LLM recommendation
-        llm_rec = _llm_decision(pos, quant, market, research)
+        # Step 2: Build portfolio context for coordinated decisions
+        other_positions = [
+            {"symbol": p["symbol"], "direction": p["direction"],
+             "pnl_usd": round(p.get("pnl_usd", 0), 2),
+             "pnl_pct": round(p.get("pnl_pct", 0), 2)}
+            for p in open_positions if p["symbol"] != symbol
+        ]
+        portfolio_context = {
+            "total_positions": len(open_positions),
+            "portfolio_pnl": round(portfolio_pnl, 2),
+            "portfolio_target": portfolio_target,
+            "other_positions": other_positions,
+        }
+
+        # Step 3: LLM recommendation with portfolio context
+        llm_rec = _llm_decision(pos, quant, market, research, portfolio_context=portfolio_context)
 
         # Step 3: Combine (LLM has 60% weight, quant has 40%)
         # If both agree → high confidence final decision
