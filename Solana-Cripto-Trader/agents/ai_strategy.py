@@ -244,10 +244,19 @@ Responde ÚNICAMENTE en formato JSON válido con esta estructura:
 
 REGLAS DE TRADING:
 1. RIESGO POR TRADE: 2% del capital ($10 USD)
-2. STOP LOSS: 2.5% del entry
-3. TAKE PROFIT: 5% del entry (2x SL) — o trailing stop si las condiciones lo ameritan
-4. MÁXIMO 3 señales por ciclo
+2. STOP LOSS: 2.5-3% del entry
+3. TAKE PROFIT: 5-6% del entry (2x SL) — o trailing stop si las condiciones lo ameritan
+4. MÁXIMO 5 señales por ciclo — APROVECHA condiciones extremas del mercado
 5. NO generar señal si el token YA tiene posición abierta
+
+REGLA DE SENTIMIENTO EXTREMO (OBLIGATORIA):
+- Fear & Greed ≤ 20 (Extreme Fear): el mercado está en PÁNICO → genera la MAYOR cantidad de SHORTs posibles (3-5). El pánico tiende a continuar. NO generes LONGs.
+- Fear & Greed ≤ 35 (Fear): mercado con miedo → prioriza SHORTs (2-4). LONGs solo en tokens con RSI < 25 (sobreventa extrema).
+- Fear & Greed ≥ 75 (Greed): mercado eufórico → genera la MAYOR cantidad de LONGs posibles (3-5). La euforia tiende a continuar. SHORTs solo en tokens con RSI > 80.
+- Fear & Greed ≥ 85 (Extreme Greed): → genera 4-5 LONGs agresivos. La tendencia es tu amiga.
+- Fear & Greed 35-75 (Neutral): genera señales normales basadas en técnico (2-3).
+
+OBJETIVO: Aprovechar al MÁXIMO las condiciones del mercado abriendo tantas posiciones como la situación lo permita, siempre respetando el riesgo.
 
 EXIT MODE — Elige el modo de salida más apropiado para CADA señal:
 - "fixed": TP fijo. Ideal para mercados laterales, baja volatilidad, o reversión a la media (oversold_bounce).
@@ -274,7 +283,28 @@ EVITAR SEÑALES EN:
 - Tokens con market cap < $50M"""
 
     # Prompt del usuario
+    # Get Fear & Greed for prompt
+    fg_data = market.get("fear_greed", {})
+    fg_value = fg_data.get("value", 50) if isinstance(fg_data, dict) else 50
+    fg_label = fg_data.get("label", "Neutral") if isinstance(fg_data, dict) else "Neutral"
+    
+    # Determine how many signals to request based on sentiment
+    if fg_value <= 20:
+        target_signals = "4-5 SHORTs (Extreme Fear — APROVECHA el pánico)"
+    elif fg_value <= 35:
+        target_signals = "3-4 SHORTs (Fear — mercado bajista)"
+    elif fg_value >= 85:
+        target_signals = "4-5 LONGs (Extreme Greed — APROVECHA la euforia)"
+    elif fg_value >= 75:
+        target_signals = "3-4 LONGs (Greed — mercado alcista)"
+    else:
+        target_signals = "2-3 señales mixtas (mercado neutral)"
+
     user_prompt = f"""Genera señales de trading basado en estos datos:
+
+⚠️ SENTIMIENTO DEL MERCADO:
+- Fear & Greed Index: {fg_value}/100 ({fg_label})
+- OBJETIVO DE SEÑALES: {target_signals}
 
 RESEARCH DEL MERCADO:
 - Tendencia: {research.get('trend', 'NEUTRAL')}

@@ -152,17 +152,49 @@ def run_cycle(safe=True, debug=False):
         log.warning(f"   ⚠️ Error: {e}")
         results["risk_manager"] = {"ok": False}
     
-    # Paso 3: Strategy
+    # Paso 3: Strategy (Technical + AI)
     log.info("━" * 40)
     log.info("🧠 [3/5] Strategy")
     try:
         result = st.run(debug=debug)
         n_signals = result.get("total_signals", 0)
         results["strategy"] = {"ok": True, "signals": n_signals}
-        log.info(f"   → {n_signals} señal(es)")
+        log.info(f"   → {n_signals} señal(es) técnicas")
     except Exception as e:
         log.warning(f"   ⚠️ Error: {e}")
         results["strategy"] = {"ok": False}
+    
+    # Paso 3b: AI Strategy — genera señales LLM en condiciones extremas
+    try:
+        market_file = DATA_DIR / "market_latest.json"
+        portfolio_file_3b = DATA_DIR / "portfolio.json"
+        if market_file.exists():
+            mkt = json.loads(market_file.read_text())
+            fg = mkt.get("fear_greed", {})
+            fg_val = fg.get("value", 50) if isinstance(fg, dict) else 50
+            
+            # Solo invocar AI strategy si F&G es extremo o si hay pocas señales técnicas
+            if fg_val <= 25 or fg_val >= 75 or n_signals < 2:
+                import ai_strategy
+                port_3b = json.loads(portfolio_file_3b.read_text()) if portfolio_file_3b.exists() else {}
+                research_file = DATA_DIR / "research_latest.json"
+                res_3b = json.loads(research_file.read_text()) if research_file.exists() else {}
+                
+                ai_signals = ai_strategy.generate_signals_with_llm(mkt, res_3b, port_3b)
+                if ai_signals:
+                    # Guardar en strategy_llm.json para que el executor las use
+                    llm_out = DATA_DIR / "strategy_llm.json"
+                    llm_out.write_text(json.dumps({
+                        "signals": ai_signals,
+                        "generated_at": datetime.now(timezone.utc).isoformat(),
+                        "fear_greed": fg_val,
+                        "source": "ai_strategy_extreme"
+                    }, indent=2))
+                    log.info(f"   🤖 AI Strategy: {len(ai_signals)} señales LLM (F&G={fg_val})")
+                else:
+                    log.info(f"   🤖 AI Strategy: 0 señales (F&G={fg_val})")
+    except Exception as e:
+        log.warning(f"   ⚠️ AI Strategy error: {e}")
     
     # Paso 4: Executor
     log.info("━" * 40)
