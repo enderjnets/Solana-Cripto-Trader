@@ -831,16 +831,37 @@ def run(safe: bool = True, debug: bool = False) -> dict:
         # Paso 2: Calcular sizing coordinado para N posiciones
         n_planned = len(valid_signals)
         if n_planned > 0:
-            # El profit target por posición se distribuye entre todas
-            profit_per_pos = max(PORTFOLIO_TP_USD / n_planned, MIN_PROFIT_PER_POS_USD)
-            # El riesgo por posición = presupuesto total / N posiciones
-            # Hard cap: riesgo total NUNCA excede PORTFOLIO_MAX_RISK_USD
-            risk_per_pos = PORTFOLIO_MAX_RISK_USD / n_planned
-            # También respetar el límite individual
-            risk_per_pos = min(risk_per_pos, MAX_RISK_USD)
+            # Calcular riesgo ACTUAL de posiciones ya abiertas
+            existing_risk = 0.0
+            for epos in portfolio.get("positions", []):
+                if epos.get("status") != "open":
+                    continue
+                e_entry = epos.get("entry_price", 0)
+                e_notional = epos.get("notional_value", 0)
+                e_sl = epos.get("sl_price", 0)
+                if e_entry > 0 and e_notional > 0:
+                    sl_dist = abs(e_sl - e_entry) / e_entry
+                    existing_risk += e_notional * sl_dist + e_notional * TAKER_FEE * 2
+            
+            # Presupuesto de riesgo restante para nuevas posiciones
+            remaining_risk_budget = max(0, PORTFOLIO_MAX_RISK_USD - existing_risk)
+            
+            if remaining_risk_budget <= 0:
+                log.warning(f"⚠️ Sin presupuesto de riesgo: existente ${existing_risk:.2f} ≥ cap ${PORTFOLIO_MAX_RISK_USD:.2f}")
+                n_planned = 0
+                valid_signals = []
+            else:
+                # El profit target por posición se distribuye entre todas (existentes + nuevas)
+                total_positions = open_count + n_planned
+                profit_per_pos = max(PORTFOLIO_TP_USD / total_positions, MIN_PROFIT_PER_POS_USD)
+                # El riesgo por posición = presupuesto RESTANTE / N nuevas posiciones
+                risk_per_pos = remaining_risk_budget / n_planned
+                # También respetar el límite individual
+                risk_per_pos = min(risk_per_pos, MAX_RISK_USD)
 
-            log.info(f"📊 Coordinated sizing: {n_planned} posiciones planeadas")
-            log.info(f"   Target total: ${PORTFOLIO_TP_USD:.2f} → ${profit_per_pos:.2f}/pos | Risk: ${risk_per_pos:.2f}/pos (total max: ${PORTFOLIO_MAX_RISK_USD:.0f})")
+                log.info(f"📊 Coordinated sizing: {n_planned} nuevas + {open_count} existentes")
+                log.info(f"   Risk existente: ${existing_risk:.2f} | Restante: ${remaining_risk_budget:.2f}")
+                log.info(f"   Target: ${profit_per_pos:.2f}/pos | Risk: ${risk_per_pos:.2f}/pos")
 
             # Inyectar sizing coordinado en cada signal
             for sig in valid_signals:
