@@ -180,8 +180,16 @@ def run_cycle(safe=True, debug=False):
                 research_file = DATA_DIR / "research_latest.json"
                 res_3b = json.loads(research_file.read_text()) if research_file.exists() else {}
                 
-                ai_signals = ai_strategy.generate_signals_with_llm(mkt, res_3b, port_3b)
-                if ai_signals:
+                ai_result = ai_strategy.generate_signals_with_llm(mkt, res_3b, port_3b)
+                # Extract signals list from result (can be dict with "signals" key or list)
+                if isinstance(ai_result, dict):
+                    ai_signals = ai_result.get("signals", [])
+                elif isinstance(ai_result, list):
+                    ai_signals = ai_result
+                else:
+                    ai_signals = []
+                
+                if ai_signals and len(ai_signals) > 0:
                     # Guardar en strategy_llm.json para que el executor las use
                     llm_out = DATA_DIR / "strategy_llm.json"
                     llm_out.write_text(json.dumps({
