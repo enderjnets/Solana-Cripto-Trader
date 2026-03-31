@@ -47,23 +47,24 @@ def save_notes(data):
     _notify_sse()
 
 # ── SSE streaming ────────────────────────────────────────────────────────────
-_sse_clients = set()
+sse_clients = set()
 _sse_lock = threading.Lock()
 
 def _notify_sse():
     """Push current notes state to all connected SSE clients."""
+    global sse_clients
     try:
         notes = load_notes()
         data = json.dumps({"type": "update", "notes": notes}, ensure_ascii=False)
         dead = set()
-        for client in _sse_clients:
+        for client in sse_clients:
             try:
                 client.put(data)
             except:
                 dead.add(client)
         if dead:
             with _sse_lock:
-                _sse_clients -= dead
+                sse_clients -= dead
     except Exception as e:
         print(f"SSE notify error: {e}")
 
@@ -83,50 +84,87 @@ class SSEClient:
                     return self.queue.pop(0)
 
 def _notes_watcher():
-    """Background thread: monitors notes file and triggers agent when Ender writes."""
-    last_mtime = 0
-    last_size = 0
-    trigger_file = DATA_DIR / "agent_inbox_trigger.json"
+    """Background thread: monitors notes file and triggers agent when Ender writes.
+    
+    Anti-loop protections:
+    1. Only checks the LAST user message (not all messages)
+    2. Tracks triggered message ts to avoid re-triggering
+    3. Ignores file changes caused by agent writes (cooldown after trigger)
+    4. Rate limits: max 1 trigger per 60 seconds
+    """
+    last_mtime = AGENT_NOTES_FILE.stat().st_mtime if AGENT_NOTES_FILE.exists() else 0
+    last_size = AGENT_NOTES_FILE.stat().st_size if AGENT_NOTES_FILE.exists() else 0
+    last_triggered_ts = None  # Track last triggered message timestamp
+    last_trigger_time = 0     # Track when we last triggered (for cooldown)
+    COOLDOWN_SECONDS = 60     # Min seconds between triggers
+    
     while True:
         try:
             if AGENT_NOTES_FILE.exists():
                 mtime = AGENT_NOTES_FILE.stat().st_mtime
                 size = AGENT_NOTES_FILE.stat().st_size
-                if last_mtime and (mtime != last_mtime or size != last_size):
-                    # File changed — check if user wrote something new
+                if mtime != last_mtime or size != last_size:
+                    last_mtime = mtime
+                    last_size = size
+                    
+                    # Cooldown check — ignore changes within cooldown period
+                    now = time.time()
+                    if now - last_trigger_time < COOLDOWN_SECONDS:
+                        continue
+                    
+                    # Only look at the LAST message in the file
                     notes = load_notes()
-                    for m in notes.get("messages", []):
-                        if m.get("sender") == "user":
-                            ts = m.get("ts", "")
-                            # Only trigger if it's recent (< 2 min old)
-                            try:
-                                msg_time = datetime.fromisoformat(ts.replace("Z", "+00:00"))
-                                age = (datetime.now(timezone.utc) - msg_time).total_seconds()
-                                if age < 120:
-                                    # New user message — trigger agent IMMEDIATELY
-                                    print(f"NEW MESSAGE from Ender detected: {m['text'][:60]}")
-                                    _trigger_agent_now(m)
-                            except:
-                                pass
-                last_mtime = mtime
-                last_size = size
+                    msgs = notes.get("messages", [])
+                    if not msgs:
+                        continue
+                    
+                    last_msg = msgs[-1]
+                    
+                    # Only trigger for USER messages (ignore agent writes)
+                    if last_msg.get("sender") != "user":
+                        continue
+                    
+                    ts = last_msg.get("ts", "")
+                    
+                    # Skip if already triggered for this exact message
+                    if ts == last_triggered_ts:
+                        continue
+                    
+                    # Only trigger if recent (< 5 min old)
+                    try:
+                        msg_time = datetime.fromisoformat(ts.replace("Z", "+00:00"))
+                        if msg_time.tzinfo is None:
+                            from zoneinfo import ZoneInfo
+                            msg_time = msg_time.replace(tzinfo=ZoneInfo("America/Denver"))
+                        age = (datetime.now(timezone.utc) - msg_time).total_seconds()
+                        if age < 300:
+                            last_triggered_ts = ts
+                            last_trigger_time = now
+                            print(f"NEW MESSAGE from Ender detected: {last_msg['text'][:60]}")
+                            _trigger_agent_now(last_msg)
+                    except Exception as e:
+                        print(f"Watcher time parse error: {e}")
         except Exception as e:
             print(f"Watcher error: {e}")
-        time.sleep(2)
+        time.sleep(3)
+
 
 def _trigger_agent_now(user_msg):
-    """Trigger the CEO agent immediately via sessions_send to main session."""
+    """Trigger real-time response via local LLM.
+    
+    Does NOT write to agent_notes.json (avoids re-triggering the watcher).
+    The responder itself handles writing and has its own lockfile.
+    """
     try:
         msg_text = user_msg.get("text", "")[:500]
-        # Write trigger file
-        trigger_file = DATA_DIR / "agent_inbox_trigger.json"
-        with open(trigger_file, "w") as f:
-            json.dump({
-                "triggered_at": datetime.now().isoformat(),
-                "pending_response": True,
-                "messages": [user_msg]
-            }, f, ensure_ascii=False, indent=2)
-        print(f"Agent trigger written for message: {msg_text[:80]}")
+
+        # Spawn real-time responder (has PID lockfile + rate limit built in)
+        import subprocess
+        subprocess.Popen(
+            ["python3", str(Path(__file__).parent / "realtime_responder.py")],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+        )
+        print(f"Agent triggered (real-time): {msg_text[:80]}")
     except Exception as e:
         print(f"Trigger error: {e}")
 
@@ -198,17 +236,26 @@ def api_queue():
     qa_failed = sum(1 for v in q if v.get("status") == "qa_failed")
     items = []
     for v in q:
-        if v.get("status") != "uploaded":
-            items.append({
-                "title": v.get("title", "?")[:60],
-                "type": v.get("type", "?"),
-                "status": v.get("status", "?"),
-                "size_mb": v.get("size_mb", 0),
-            })
+        sched = v.get("scheduled_date", "sin fecha")
+        try:
+            from datetime import datetime, timezone, timedelta
+            dt = datetime.fromisoformat(sched.replace("Z","+00:00"))
+            sched = dt.astimezone(timezone(timedelta(hours=-6))).strftime("%d/%m %I:%M %p MT")
+        except:
+            pass
+        items.append({
+            "title": v.get("title", "?")[:70],
+            "type": v.get("type", "?"),
+            "status": v.get("status", "?"),
+            "size_mb": v.get("size_mb", 0),
+            "scheduled": sched,
+            "script_id": v.get("script_id", ""),
+            "privacy": v.get("privacy", "public"),
+        })
     return jsonify({
         "total": total, "ready": ready, "blocked": blocked,
         "uploaded": uploaded, "qa_failed": qa_failed,
-        "items": items[:20],
+        "items": items,
     })
 
 @app.route('/api/scripts')
@@ -218,11 +265,13 @@ def api_scripts():
     pending = [s for s in scripts if s.get("status") == "pending"]
     produced = [s for s in scripts if s.get("status") == "produced"]
     items = []
-    for s in pending[:8]:
+    for s in pending[:20]:
         items.append({
             "title": s.get("title", "?")[:70],
             "type": s.get("type", "short"),
-            "tags": s.get("tags", [])[:3],
+            "tags": s.get("tags", [])[:5],
+            "script_id": s.get("script_id", ""),
+            "created_at": s.get("created_at", ""),
         })
     return jsonify({
         "pending": len(pending),
@@ -269,9 +318,9 @@ def _check_comfyui(url, timeout=3):
 @app.route('/api/producer-live')
 def api_producer_live():
     try:
-        proc = subprocess.run(["pgrep", "-af", "producer.py"],
+        proc = subprocess.run(["pgrep", "-af", "producer|orchestrator.*produce"],
                               capture_output=True, text=True, timeout=3)
-        running = "producer.py" in proc.stdout
+        running = "producer.py" in proc.stdout or "produce" in proc.stdout
     except:
         running = False
 
@@ -348,15 +397,154 @@ def api_produced_today():
     out_dir = OUTPUT_DIR / today
     if not out_dir.exists():
         return jsonify({"count": 0, "videos": []})
+
     videos = []
+
+    # Load guiones for titles/types (has today's produced scripts)
+    guiones = load_json(DATA_DIR / "guiones_latest.json", {})
+    guiones_by_id = {s.get("id", ""): s for s in guiones.get("scripts", [])}
+
+    # Load queue for scheduled_date
+    queue = load_json(DATA_DIR / "upload_queue.json", [])
+    # Normalize queue paths: strip leading "output/" or "agents/data/output/"
+    queue_by_id = {}
+    for v in queue:
+        script_id = v.get("script_id", v.get("id", ""))
+        if script_id:
+            queue_by_id[script_id] = v
+
     for d in sorted(out_dir.iterdir()):
         if not d.is_dir():
             continue
         mp4 = d / f"{d.name}.mp4"
         if mp4.exists():
             sz = round(mp4.stat().st_size / (1024 * 1024), 1)
-            videos.append({"id": d.name, "size_mb": sz})
-    return jsonify({"count": len(videos), "videos": videos[:20]})
+
+            # Get duration
+            dur = None
+            try:
+                r = subprocess.run(
+                    ["ffprobe", "-v", "quiet", "-print_format", "json",
+                     "-show_streams", str(mp4)],
+                    capture_output=True, text=True, timeout=5
+                )
+                streams = json.loads(r.stdout).get("streams", [])
+                for s in streams:
+                    if s.get("codec_type") == "video":
+                        dur = float(s.get("duration", 0))
+                        break
+            except Exception:
+                pass
+
+            dur_str = f"{int(dur//60)}m {int(dur%60)}s" if dur else "?"
+
+            # Look up by script_id (d.name = script_id from producer)
+            guion = guiones_by_id.get(d.name, {})
+            q_entry = queue_by_id.get(d.name, {})
+            videos.append({
+                "id": d.name,
+                "size_mb": sz,
+                "duration": dur_str,
+                "title": guion.get("title", "?")[:70] if guion else "?",
+                "type": guion.get("type", "?") if guion else "?",
+                "scheduled": q_entry.get("scheduled_date", ""),
+            })
+
+    return jsonify({"count": len(videos), "videos": videos})
+
+@app.route('/api/qa-status')
+def api_qa_status():
+    """QA Agent status: recent checks, alerts, and pending escalations."""
+    qa_log = load_json(DATA_DIR / "qa_log.json", [])
+    qa_alerts = load_json(DATA_DIR / "qa_alerts_for_ceo.json", [])
+
+    # Last 10 QA checks
+    recent = qa_log[-10:] if isinstance(qa_log, list) else []
+    passed = sum(1 for r in recent if r.get("passed"))
+    failed = sum(1 for r in recent if not r.get("passed"))
+
+    # Pending CEO escalations
+    pending_alerts = [a for a in qa_alerts if a.get("status") == "pending"] if isinstance(qa_alerts, list) else []
+
+    return jsonify({
+        "recent_checks": len(recent),
+        "passed": passed,
+        "failed": failed,
+        "pass_rate": f"{(passed/(passed+failed)*100):.0f}%" if (passed+failed) > 0 else "N/A",
+        "pending_escalations": len(pending_alerts),
+        "alerts": [
+            {
+                "title": a.get("title", "?")[:60],
+                "issues": a.get("issues", []),
+                "timestamp": a.get("timestamp", ""),
+                "action": a.get("action_required", ""),
+            }
+            for a in pending_alerts[-5:]
+        ],
+        "recent": [
+            {
+                "title": r.get("title", "?")[:50],
+                "passed": r.get("passed", False),
+                "issues": r.get("issues", []),
+                "timestamp": r.get("timestamp", ""),
+            }
+            for r in recent[-5:]
+        ],
+    })
+
+
+@app.route('/api/pipeline-status')
+def api_pipeline_status():
+    """Current pipeline activity: what's running, what's pending."""
+    # Check running processes
+    try:
+        proc = subprocess.run(["ps", "aux"], capture_output=True, text=True, timeout=3)
+        ps_out = proc.stdout
+    except:
+        ps_out = ""
+
+    producer_running = "producer.py" in ps_out or ("orchestrator" in ps_out and "produce" in ps_out)
+    creator_running = "creator.py" in ps_out
+    publisher_running = "publisher.py" in ps_out or ("orchestrator" in ps_out and "publish" in ps_out)
+    scout_running = "scout" in ps_out and "orchestrator" in ps_out
+
+    # Guiones status
+    guiones = load_json(DATA_DIR / "guiones_latest.json", {})
+    scripts = guiones.get("scripts", []) if isinstance(guiones, dict) else guiones
+    pending = [s for s in scripts if s.get("status") == "pending"]
+    produced = [s for s in scripts if s.get("status") in ("produced", "success")]
+
+    # Queue status
+    queue = load_json(DATA_DIR / "upload_queue.json", [])
+    ready = [v for v in queue if v.get("status") == "ready"]
+    qa_failed = [v for v in queue if v.get("status") == "qa_failed"]
+    thumb_failed = [v for v in queue if v.get("status") == "thumbnail_failed"]
+
+    # Today's output
+    today = datetime.now().strftime("%Y-%m-%d")
+    out_dir = OUTPUT_DIR / today
+    today_count = len(list(out_dir.iterdir())) if out_dir.exists() else 0
+
+    return jsonify({
+        "processes": {
+            "producer": producer_running,
+            "creator": creator_running,
+            "publisher": publisher_running,
+            "scout": scout_running,
+        },
+        "scripts": {
+            "pending": len(pending),
+            "produced": len(produced),
+            "total": len(scripts),
+        },
+        "queue": {
+            "ready_to_upload": len(ready),
+            "qa_failed": len(qa_failed),
+            "thumbnail_failed": len(thumb_failed),
+        },
+        "today_produced": today_count,
+    })
+
 
 @app.route('/api/agent-notes', methods=['GET', 'POST'])
 def api_agent_notes():
@@ -395,7 +583,7 @@ def api_agent_notes_stream():
     def generate():
         client = SSEClient()
         with _sse_lock:
-            _sse_clients.add(client)
+            sse_clients.add(client)
         # Send initial state immediately
         notes = load_notes()
         yield f"event: init\ndata: {json.dumps({'type': 'init', 'notes': notes}, ensure_ascii=False)}\n\n"
@@ -419,7 +607,7 @@ def api_agent_notes_stream():
             pass
         finally:
             with _sse_lock:
-                _sse_clients.discard(client)
+                sse_clients.discard(client)
     return Response(generate(), mimetype='text/event-stream',
                     headers={'Cache-Control': 'no-cache',
                              'X-Accel-Buffering': 'no',
@@ -530,6 +718,24 @@ header h1{font-size:20px;color:#58a6ff}
 .chat-input-row input{flex:1;background:#0d1117;border:1px solid #30363d;color:#e6edf3;padding:8px 12px;border-radius:6px;font-size:12px;outline:none}
 .chat-input-row input:focus{border-color:#58a6ff}
 .chat-tip{font-size:10px;color:#484f58;padding:4px 14px 8px;background:#1c2128}
+.exp-list{margin-top:8px;border-radius:8px;overflow:hidden;background:#161b22;border:1px solid #21262d}
+.exp-list .vl-item{padding:6px 10px;border-bottom:1px solid #21262d;font-size:11px;display:flex;justify-content:space-between;align-items:center;gap:8px}
+.exp-list .vl-item:last-child{border-bottom:none}
+.exp-list .vl-item:hover{background:#1c2128}
+.exp-list .vl-title{flex:1;color:#e6edf3;font-weight:500;word-break:break-word;min-width:0}
+.exp-list .vl-meta{display:flex;gap:6px;flex-shrink:0;color:#8b949e;font-size:10px;flex-wrap:wrap;justify-content:flex-end}
+.exp-list .vl-tag{padding:1px 6px;border-radius:4px;font-size:10px}
+.exp-list .vl-tag.short{background:#2f4a1e;color:#85d485}
+.exp-list .vl-tag.long{background:#1e3a5f;color:#79c0ff}
+.exp-list .vl-tag.ready{background:#1a3a1a;color:#56d364}
+.exp-list .vl-tag.blocked{background:#3a1a1a;color:#f85149}
+.exp-list .vl-tag.qa{background:#2a1a3a;color:#a371f7}
+.exp-list .vl-tag.uploaded{background:#161b22;color:#8b949e}
+.exp-list .vl-sched{color:#bc8cff;font-size:10px}
+.exp-list .vl-dur{color:#58a6ff;font-size:10px}
+.hidden{display:none}
+.clickable{cursor:pointer;transition:background 0.15s}
+.clickable:hover{background:#1c2128}
 
 </style>
 </head>
@@ -602,13 +808,17 @@ header h1{font-size:20px;color:#58a6ff}
   <div>
     <div class="sec-t yellow">🎬 Pipeline de Producción</div>
     <div class="g g3">
-      <div class="cd"><div class="lb">Scripts Pendientes</div><div class="vl yellow" id="sc-pend">—</div></div>
-      <div class="cd"><div class="lb">Producidos (hoy)</div><div class="vl green" id="sc-prod">—</div></div>
-      <div class="cd"><div class="lb">En Cola Upload</div><div class="vl blue" id="q-total">—</div></div>
-      <div class="cd"><div class="lb">Listos para Subir</div><div class="vl green" id="q-ready">—</div></div>
+      <div class="cd clickable" onclick="toggleSection('sc-pend-list')"><div class="lb">Scripts Pendientes</div><div class="vl yellow" id="sc-pend">—</div><div class="lb" style="font-size:9px;color:#555;margin-top:2px">▼ click para ver</div></div>
+      <div class="cd clickable" onclick="toggleSection('sc-prod-list')"><div class="lb">Producidos (hoy)</div><div class="vl green" id="sc-prod">—</div><div class="lb" style="font-size:9px;color:#555;margin-top:2px">▼ click para ver</div></div>
+      <div class="cd clickable" onclick="toggleSection('q-all-list')"><div class="lb">En Cola Upload</div><div class="vl blue" id="q-total">—</div><div class="lb" style="font-size:9px;color:#555;margin-top:2px">▼ click para ver</div></div>
+      <div class="cd clickable" onclick="toggleSection('q-ready-list')"><div class="lb">Listos para Subir</div><div class="vl green" id="q-ready">—</div><div class="lb" style="font-size:9px;color:#555;margin-top:2px">▼ click para ver</div></div>
     </div>
+    <!-- Expandable lists -->
+    <div id="sc-pend-list" class="exp-list hidden"></div>
+    <div id="sc-prod-list" class="exp-list hidden"></div>
+    <div id="q-all-list" class="exp-list hidden"></div>
+    <div id="q-ready-list" class="exp-list hidden"></div>
     <div class="crd mt"><div class="crd-t">🔄 Producción Activa</div><div id="prod-info" class="muted" style="font-size:12px">Cargando...</div></div>
-    <div class="crd"><div class="crd-t">📋 Próximos Scripts</div><div id="sc-list">Cargando...</div></div>
   </div>
   <div>
     <div class="sec-t red">📤 Cola de Upload</div>
@@ -625,6 +835,33 @@ header h1{font-size:20px;color:#58a6ff}
 <div class="sec">
   <div class="sec-t">🎥 Videos Recientes</div>
   <div class="crd"><div id="rv-list">Cargando...</div></div>
+</div>
+
+<!-- ═══ PIPELINE & QA STATUS ═══ -->
+<div class="two">
+  <div class="sec">
+    <div class="sec-t yellow">⚙️ Pipeline Status</div>
+    <div class="crd">
+      <div id="pipeline-processes" style="margin-bottom:10px"></div>
+      <div class="g3">
+        <div class="cd"><div class="lb">Guiones Pendientes</div><div class="vl blue" id="pl-pending">-</div></div>
+        <div class="cd"><div class="lb">Producidos Hoy</div><div class="vl green" id="pl-today">-</div></div>
+        <div class="cd"><div class="lb">Listos p/ Upload</div><div class="vl yellow" id="pl-ready">-</div></div>
+        <div class="cd"><div class="lb">QA Failed</div><div class="vl red" id="pl-qa-fail">-</div></div>
+      </div>
+    </div>
+  </div>
+  <div class="sec">
+    <div class="sec-t" style="border-color:#6e40c9">🔬 QA Agent</div>
+    <div class="crd">
+      <div style="display:flex;gap:12px;margin-bottom:10px">
+        <div class="cd" style="flex:1"><div class="lb">Pass Rate</div><div class="vl green" id="qa-rate">-</div></div>
+        <div class="cd" style="flex:1"><div class="lb">Alertas CEO</div><div class="vl yellow" id="qa-alerts">-</div></div>
+      </div>
+      <div class="crd-t">Últimos checks</div>
+      <div id="qa-recent" class="muted" style="font-size:12px">Cargando...</div>
+    </div>
+  </div>
 </div>
 
 <!-- ═══ AGENT NOTES / CHAT ═══ -->
@@ -651,6 +888,18 @@ header h1{font-size:20px;color:#58a6ff}
 <script>
 function fmt(n){if(n>=1e6)return(n/1e6).toFixed(1)+'M';if(n>=1e3)return(n/1e3).toFixed(1)+'K';return String(n)}
 function fmtH(h){return h>=1000?fmt(h):h.toFixed(0)+'h'}
+
+function toggleSection(id){
+  const el=document.getElementById(id);
+  if(!el)return;
+  const wasHidden=el.classList.contains('hidden');
+  // Close all sections first
+  document.querySelectorAll('.exp-list').forEach(e=>e.classList.add('hidden'));
+  if(wasHidden){
+    el.classList.remove('hidden');
+    el.scrollIntoView({behavior:'smooth',block:'nearest'});
+  }
+}
 
 async function loadYT(){
   try{
@@ -706,8 +955,26 @@ async function loadQueue(){
     document.getElementById('q-blocked').textContent=d.blocked;
     document.getElementById('q-qa').textContent=d.qa_failed;
     document.getElementById('q-uploaded').textContent=d.uploaded;
-    let h='';
+    // All queue items (expandable)
+    let allH='', readyH='';
     for(const i of d.items){
+      const cls=i.status==='ready'?'ready':i.status==='blocked'?'blocked':i.status==='qa_failed'?'qa':'pending';
+      const item=`<div class="vl-item">
+        <div class="vl-title">${i.title}</div>
+        <div class="vl-meta">
+          <span class="vl-tag ${i.type}">${(i.type||'short').toUpperCase()}</span>
+          <span class="vl-tag ${cls}">${i.status}</span>
+          <span class="vl-sched">📅 ${i.scheduled}</span>
+        </div>
+      </div>`;
+      allH+=item;
+      if(i.status==='ready') readyH+=item;
+    }
+    document.getElementById('q-all-list').innerHTML=allH||'<div class="vl-item"><span class="muted">Cola vacía ✅</span></div>';
+    document.getElementById('q-ready-list').innerHTML=readyH||'<div class="vl-item"><span class="muted">No hay items listos para subir</span></div>';
+    // Legacy compact list
+    let h='';
+    for(const i of d.items.slice(0,10)){
       const cls=i.status==='ready'?'s-ready':i.status==='blocked'?'s-blocked':i.status==='qa_failed'?'s-qa':'s-pending';
       h+=`<div class="qi"><div class="qi-l"><div class="qi-t">${i.title}</div><div class="qi-m">${i.type} | ${i.size_mb||0}MB</div></div><span class="sb-tag ${cls}">${i.status}</span></div>`;
     }
@@ -720,13 +987,27 @@ async function loadScripts(){
     const d=await(await fetch('/api/scripts')).json();
     document.getElementById('sc-pend').textContent=d.pending;
     document.getElementById('sc-prod').textContent=d.produced;
-    let h='';
+    // Expandable pending scripts list
+    let pendH='';
     for(const s of d.items){
+      const tags=s.tags.slice(0,4).map(t=>`<span class="vl-tag ${s.type||'short'}">${t}</span>`).join('');
+      pendH+=`<div class="vl-item">
+        <div class="vl-title">${s.title}</div>
+        <div class="vl-meta">
+          <span class="vl-tag ${s.type||'short'}">${(s.type||'short').toUpperCase()}</span>
+          ${tags}
+        </div>
+      </div>`;
+    }
+    document.getElementById('sc-pend-list').innerHTML=pendH||'<div class="vl-item"><span class="muted">Sin scripts pendientes ✅</span></div>';
+    // Legacy compact list
+    let h='';
+    for(const s of d.items.slice(0,5)){
       const bc=s.type==='long'?'b-long':'b-short';
       const tags=s.tags.map(t=>`<span class="badge" style="background:#21262d;color:#8b949e">${t}</span>`).join('');
       h+=`<div class="si"><div class="si-t">${s.title}</div><div class="si-m"><span class="badge ${bc}">${s.type.toUpperCase()}</span>${tags}</div></div>`;
     }
-    document.getElementById('sc-list').innerHTML=h||'<span class="muted">Sin scripts pendientes</span>';
+    document.getElementById('sc-list').innerHTML=h||'<span class="muted">Sin scripts pendientes ✅</span>';
   }catch(e){console.error('Scripts error:',e)}
 }
 
@@ -734,7 +1015,20 @@ async function loadProduced(){
   try{
     const d=await(await fetch('/api/produced-today')).json();
     document.getElementById('sc-prod').textContent=d.count;
-  }catch(e){}
+    // Populate expandable list
+    let h='';
+    for(const v of d.videos){
+      h+=`<div class="vl-item">
+        <div class="vl-title">${v.title||v.id}</div>
+        <div class="vl-meta">
+          <span class="vl-tag ${v.type||'short'}">${(v.type||'short').toUpperCase()}</span>
+          <span class="vl-dur">⏱ ${v.duration||'?'}</span>
+          <span class="vl-sched">📅 ${v.scheduled||'sin fecha'}</span>
+        </div>
+      </div>`;
+    }
+    document.getElementById('sc-prod-list').innerHTML=h||'<div class="vl-item"><span class="muted">Sin videos producidos hoy</span></div>';
+  }catch(e){console.error('Produced error:',e)}
 }
 
 async function loadMacs(){
@@ -808,9 +1102,40 @@ async function loadMiniMax(){
   }
 }
 
+async function loadPipeline(){
+  try{
+    const d=await(await fetch('/api/pipeline-status')).json();
+    const procs=d.processes||{};
+    const dots=Object.entries(procs).map(([k,v])=>`<span style="color:${v?'#3fb950':'#484f58'};margin-right:10px">● ${k}</span>`).join('');
+    document.getElementById('pipeline-processes').innerHTML=dots;
+    document.getElementById('pl-pending').textContent=d.scripts?.pending??'-';
+    document.getElementById('pl-today').textContent=d.today_produced??'-';
+    document.getElementById('pl-ready').textContent=d.queue?.ready_to_upload??'-';
+    document.getElementById('pl-qa-fail').textContent=d.queue?.qa_failed??'-';
+  }catch(e){}
+}
+
+async function loadQA(){
+  try{
+    const d=await(await fetch('/api/qa-status')).json();
+    document.getElementById('qa-rate').textContent=d.pass_rate||'N/A';
+    document.getElementById('qa-alerts').textContent=d.pending_escalations??0;
+    const recent=d.recent||[];
+    if(recent.length===0){
+      document.getElementById('qa-recent').innerHTML='Sin checks recientes';
+      return;
+    }
+    document.getElementById('qa-recent').innerHTML=recent.map(r=>{
+      const icon=r.passed?'✅':'❌';
+      const issues=r.issues?.length?` — ${r.issues.join(', ')}`:'';
+      return `<div class="qi"><span class="qi-t">${icon} ${r.title}</span><span class="qi-m">${issues}</span></div>`;
+    }).join('');
+  }catch(e){}
+}
+
 async function loadAll(){
   document.getElementById('ts').textContent=new Date().toLocaleString('es-MX',{timeZone:'America/Denver'});
-  await Promise.all([loadYT(),loadQueue(),loadScripts(),loadProduced(),loadMacs(),loadProducer(),loadMiniMax()]);
+  await Promise.all([loadYT(),loadQueue(),loadScripts(),loadProduced(),loadMacs(),loadProducer(),loadMiniMax(),loadPipeline(),loadQA()]);
 }
 
 // ── Agent Notes — Real-time SSE ──
@@ -836,14 +1161,20 @@ function renderNotes(notes){
   document.getElementById('an-messages').innerHTML=h;
   const box=document.getElementById('an-messages');
   box.scrollTop=box.scrollHeight;
+
+  // Control typing indicator based on server-side agent_typing state
+  if(notes.agent_typing === true){
+    showThinking(true);
+  } else {
+    showThinking(false);
+  }
+
   if(count>anLastCount && anLastCount>0){
     const hdr=document.querySelector('.chat-agent-header');
-    // Flash green for new agent msg
     const latest=msgs[msgs.length-1];
     if(latest && latest.sender==='agent'){
       hdr.style.background='#1f3d1f';
       setTimeout(()=>hdr.style.background='#1c2128',2000);
-      showThinking(false);
     } else {
       hdr.style.background='#1f3d1f';
       setTimeout(()=>hdr.style.background='#1c2128',1000);
@@ -954,6 +1285,8 @@ loadAll();
 setInterval(loadAll,60000);
 setInterval(loadMacs,10000);
 setInterval(loadProducer,15000);
+setInterval(loadPipeline,15000);
+setInterval(loadQA,30000);
 </script>
 </body>
 </html>'''
