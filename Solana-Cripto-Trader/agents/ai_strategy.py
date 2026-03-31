@@ -258,6 +258,8 @@ REGLA DE SENTIMIENTO EXTREMO (OBLIGATORIA):
 
 OBJETIVO: Aprovechar al MÁXIMO las condiciones del mercado abriendo tantas posiciones como la situación lo permita, siempre respetando el riesgo.
 
+NOTA SOBRE CONFIDENCE: En condiciones extremas (F&G ≤ 20 o ≥ 80), usa confidence de 0.80-0.95 para shorts/longs respectivamente. La probabilidad de éxito es alta cuando el sentimiento es extremo. No pongas confidence < 0.75 en señales que generes durante condiciones extremas.
+
 EXIT MODE — Elige el modo de salida más apropiado para CADA señal:
 - "fixed": TP fijo. Ideal para mercados laterales, baja volatilidad, o reversión a la media (oversold_bounce).
 - "trailing": Trailing stop. Ideal para mercados con momentum fuerte, breakouts confirmados, o tendencias claras.

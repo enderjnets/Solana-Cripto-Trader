@@ -62,7 +62,7 @@ INITIAL_CAPITAL = 500.0   # Capital paper inicial
 PAPER_MODE      = True    # Cambia a False para trades reales
 
 # ─── Risk Management (ajustado 31-Mar-2026 — orden de Ender) ─────────────────
-MIN_CONFIDENCE      = 0.85     # Solo ejecutar señales con alta confianza
+MIN_CONFIDENCE      = 0.70     # Bajado de 0.85 para aprovechar más señales en extremos (2026-03-31)
 BLOCK_LONGS_FG      = 35       # Bloquear LONGs si Fear & Greed < 35 (mercado bajista)
 MAX_TRADES_PER_DAY  = 0        # 0 = sin límite
 
