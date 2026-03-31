@@ -309,7 +309,7 @@ def paper_open_position(signal: dict, portfolio: dict, market: dict) -> Optional
     leverage = max(1, min(leverage, MAX_LEVERAGE))
 
     # ─── Position Sizing basado en Regla de Ender ─────────────────────────
-    # Regla: ganar mín $1 neto después de comisiones, arriesgar máx $0.50
+    # Regla: ganar mín $4 neto después de comisiones, arriesgar máx $2
     #
     # Cálculo:
     #   max_risk = notional * sl_pct + notional * fee * 2  ≤  MAX_RISK_USD
@@ -337,8 +337,38 @@ def paper_open_position(signal: dict, portfolio: dict, market: dict) -> Optional
 
     fee_round_trip = TAKER_FEE * 2  # Entry + exit fees
 
+    # ─── Volatility-Adaptive Sizing (2026-03-31, orden de Ender) ──────────
+    # En baja volatilidad el precio se mueve poco → necesitamos más notional
+    # para que el profit sea significativo en un tiempo razonable.
+    # vol_factor = REFERENCE_VOL / actual_ATR% (clamped a [0.5, 3.0])
+    REFERENCE_VOL = 0.025    # 2.5% = volatilidad "normal" de referencia
+    VOL_MULT_MIN  = 0.5      # Alta vol → posición más chica
+    VOL_MULT_MAX  = 3.0      # Baja vol → posición hasta 3x más grande
+    VOL_ATR_FLOOR = 0.003    # Piso para evitar extremos (0.3%)
+
+    # Obtener ATR% del token desde signals_latest.json
+    token_atr_pct = None
+    try:
+        signals_file = DATA_DIR / "signals_latest.json"
+        if signals_file.exists():
+            sig_data = json.loads(signals_file.read_text())
+            ind_summary = sig_data.get("indicator_summary", {})
+            token_atr_pct = ind_summary.get(symbol, {}).get("atr_pct")
+    except Exception:
+        pass
+
+    vol_factor = 1.0
+    if token_atr_pct and token_atr_pct > 0:
+        effective_atr = max(token_atr_pct / 100.0, VOL_ATR_FLOOR)
+        vol_factor = REFERENCE_VOL / effective_atr
+        vol_factor = max(VOL_MULT_MIN, min(vol_factor, VOL_MULT_MAX))
+        log.info(f"📊 Vol-adaptive: ATR={token_atr_pct:.2f}% → factor={vol_factor:.2f}x")
+
+    # Aplicar factor de volatilidad al riesgo máximo
+    adjusted_risk = MAX_RISK_USD * vol_factor
+
     # Calcular notional óptimo
-    max_notional_by_risk = MAX_RISK_USD / (sl_pct + fee_round_trip)
+    max_notional_by_risk = adjusted_risk / (sl_pct + fee_round_trip)
     min_notional_by_profit = MIN_NET_PROFIT_USD / (tp_pct - fee_round_trip)
 
     if min_notional_by_profit > max_notional_by_risk:

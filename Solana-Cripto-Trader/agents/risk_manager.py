@@ -71,7 +71,18 @@ MAX_OPEN_POSITIONS    = 2      # Máximo 2 posiciones
 MAX_DRAWDOWN_PCT      = 0.10   # 10% drawdown máximo — 5% era muy restrictivo para crypto
 PAUSE_DRAWDOWN_PCT    = 0.06   # 6% → PAUSED — da warning antes del stop
 MIN_POSITION_USD      = 5.0    # Mínimo $5 margen (era $8 — ajustado a capital bajo)
-MAX_SINGLE_EXPOSURE   = 0.15   # Máximo 15% del capital en margen (era 25%)
+MAX_SINGLE_EXPOSURE   = 0.25   # Máximo 25% del capital en margen (subido de 15% para vol-adaptive sizing)
+
+# ─── Volatility-Adaptive Sizing Parameters (2026-03-31, orden de Ender) ──────
+# Cuando la volatilidad es BAJA, el precio se mueve poco → necesitamos MÁS
+# notional para alcanzar el TP en un tiempo razonable.
+# Cuando la volatilidad es ALTA, el precio se mueve rápido → MENOS notional.
+#
+# Fórmula: vol_factor = REFERENCE_VOL / actual_atr_pct (clamped a [MIN, MAX])
+REFERENCE_VOL         = 0.025  # Volatilidad de referencia = SL_PCT (2.5%)
+VOL_MULT_MIN          = 0.5    # Mínimo multiplicador (alta volatilidad → posición más chica)
+VOL_MULT_MAX          = 3.0    # Máximo multiplicador (baja volatilidad → posición más grande)
+VOL_ATR_FLOOR         = 0.003  # ATR mínimo para evitar divisiones extremas (0.3%)
 
 # ─── Drift Protocol Parameters ───────────────────────────────────────────────
 DEFAULT_LEVERAGE      = 3      # 3x leverage por defecto (overridden by auto_learner)
@@ -271,13 +282,41 @@ def _kelly_risk_pct() -> float:
     return RISK_PER_TRADE_PCT  # Fallback to default
 
 
-def calculate_position_size(capital: float, price: float, sl_pct: float = SL_PCT,
-                            leverage: int = DEFAULT_LEVERAGE) -> dict:
+def volatility_multiplier(atr_pct: float = None) -> float:
     """
-    Drift Protocol position sizing:
+    Calcula el multiplicador de posición basado en volatilidad (ATR%).
+    
+    - Baja volatilidad (ATR < REFERENCE_VOL) → multiplicador > 1 → posición más grande
+    - Alta volatilidad (ATR > REFERENCE_VOL) → multiplicador < 1 → posición más chica
+    - Sin datos de ATR → multiplicador = 1.0 (sin ajuste)
+    
+    Ejemplo con REFERENCE_VOL=2.5%:
+      ATR 0.5% → factor 5.0 → clamped 3.0 → notional × 3
+      ATR 1.0% → factor 2.5 → notional × 2.5
+      ATR 2.5% → factor 1.0 → sin cambio
+      ATR 5.0% → factor 0.5 → notional × 0.5
+    """
+    if atr_pct is None or atr_pct <= 0:
+        return 1.0
+    
+    # Piso para evitar divisiones extremas
+    effective_atr = max(atr_pct / 100.0, VOL_ATR_FLOOR)  # atr_pct viene en %, convertir a decimal
+    
+    factor = REFERENCE_VOL / effective_atr
+    clamped = max(VOL_MULT_MIN, min(factor, VOL_MULT_MAX))
+    
+    return round(clamped, 2)
+
+
+def calculate_position_size(capital: float, price: float, sl_pct: float = SL_PCT,
+                            leverage: int = DEFAULT_LEVERAGE,
+                            atr_pct: float = None) -> dict:
+    """
+    Drift Protocol position sizing con ajuste de volatilidad:
     - Riesgo máximo por trade: Kelly Criterion (half-Kelly) or 1.5% fallback
     - margin_usd = riesgo / sl_pct (lo que pone el trader)
     - notional = margin * leverage (tamaño real de la posición)
+    - vol_factor ajusta el margen según volatilidad actual (ATR%)
     - tokens = notional / precio
     - liquidation_price calculado basado en margen
     """
@@ -286,6 +325,10 @@ def calculate_position_size(capital: float, price: float, sl_pct: float = SL_PCT
     kelly_pct = _kelly_risk_pct()
     risk_amount = capital * kelly_pct
     margin_usd = risk_amount / sl_pct
+
+    # ─── Volatility-Adaptive Sizing ───────────────────────────────────────
+    vol_mult = volatility_multiplier(atr_pct)
+    margin_usd *= vol_mult
 
     # Cap: margen no más de MAX_SINGLE_EXPOSURE del capital
     max_margin = capital * MAX_SINGLE_EXPOSURE
@@ -308,12 +351,17 @@ def calculate_position_size(capital: float, price: float, sl_pct: float = SL_PCT
         "sl_pct": sl_pct,
         "tp_pct": round(sl_pct * TP_MULTIPLIER, 4),
         "margin_maintenance": round(margin_maintenance, 4),
+        "vol_multiplier": vol_mult,
+        "atr_pct_used": atr_pct,
     }
 
 
 def evaluate_token(symbol: str, token_data: dict, capital: float,
-                   open_positions: list, portfolio_status: str) -> dict:
-    """Evalúa si un token puede recibir una nueva posición."""
+                   open_positions: list, portfolio_status: str,
+                   atr_pct: float = None) -> dict:
+    """Evalúa si un token puede recibir una nueva posición.
+    atr_pct: ATR% del token (de indicator_summary) para vol-adaptive sizing.
+    """
     price = token_data.get("price", 0)
     result = {
         "symbol": symbol,
@@ -360,7 +408,11 @@ def evaluate_token(symbol: str, token_data: dict, capital: float,
         sizing = calculate_compound_position_size(capital, price, effective_leverage, history)
         log.info(f"   📈 Compound sizing: capital=${capital:.2f} → margen=${sizing['margin_usd']:.2f} (kelly={sizing['kelly_risk_pct']:.2f}%)")
     else:
-        sizing = calculate_position_size(capital, price, leverage=effective_leverage)
+        sizing = calculate_position_size(capital, price, leverage=effective_leverage, atr_pct=atr_pct)
+    
+    vol_mult = sizing.get("vol_multiplier", 1.0)
+    if vol_mult != 1.0:
+        log.info(f"   📊 Vol-adaptive sizing: ATR={atr_pct:.2f}% → mult={vol_mult}x → margin=${sizing['margin_usd']:.2f}")
 
     if sizing["margin_usd"] < MIN_POSITION_USD:
         result["reason"] = f"MARGEN_MUY_PEQUEÑO (${sizing['margin_usd']:.2f})"
@@ -785,14 +837,30 @@ def run(debug: bool = False) -> dict:
     else:
         log.info(f"📊 Capital: ${capital:.2f} | Drawdown: {drawdown_pct:.2f}% | Posiciones: {len(open_positions)}/{MAX_OPEN_POSITIONS}")
 
+    # Cargar indicadores técnicos para vol-adaptive sizing
+    indicators = {}
+    signals_file = DATA_DIR / "signals_latest.json"
+    try:
+        if signals_file.exists():
+            sig_data = json.loads(signals_file.read_text())
+            indicators = sig_data.get("indicator_summary", {})
+    except Exception:
+        pass
+
     # Evaluar cada token
     tokens = market.get("tokens", {})
     evaluations = {}
     approved_count = 0
 
     for symbol, token_data in tokens.items():
+        # Obtener ATR% del token para vol-adaptive sizing
+        token_atr_pct = None
+        if symbol in indicators:
+            token_atr_pct = indicators[symbol].get("atr_pct")
+
         eval_result = evaluate_token(
-            symbol, token_data, capital, open_positions, portfolio_status
+            symbol, token_data, capital, open_positions, portfolio_status,
+            atr_pct=token_atr_pct
         )
         evaluations[symbol] = eval_result
 
@@ -800,7 +868,8 @@ def run(debug: bool = False) -> dict:
             approved_count += 1
             if debug:
                 sz = eval_result["position_size"]
-                log.info(f"  ✅ {symbol}: Margin ${sz['margin_usd']:.2f} | {sz['leverage']}x → Notional ${sz['notional_usd']:.2f} | SL: {sz['sl_pct']*100:.1f}% | TP: {sz['tp_pct']*100:.1f}%")
+                vol_info = f" | Vol×{sz.get('vol_multiplier', 1.0)}" if sz.get('vol_multiplier', 1.0) != 1.0 else ""
+                log.info(f"  ✅ {symbol}: Margin ${sz['margin_usd']:.2f} | {sz['leverage']}x → Notional ${sz['notional_usd']:.2f} | SL: {sz['sl_pct']*100:.1f}% | TP: {sz['tp_pct']*100:.1f}%{vol_info}")
         else:
             if debug:
                 log.info(f"  ❌ {symbol}: {eval_result['reason']}")
