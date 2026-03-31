@@ -358,7 +358,7 @@ def paper_open_position(signal: dict, portfolio: dict, market: dict) -> Optional
     log.info(f"💰 Sizing: notional=${notional_value:.1f} margin=${margin_usd:.1f} SL={sl_pct*100:.1f}% TP={tp_pct*100:.1f}%")
     log.info(f"   Expected profit: ${expected_profit:.2f} | Max risk: ${expected_risk:.2f} | R:R 1:{expected_profit/expected_risk:.1f}")
 
-    if expected_profit < MIN_NET_PROFIT_USD:
+    if expected_profit < MIN_NET_PROFIT_USD - 0.01:  # epsilon para rounding
         log.warning(f"⚠️  Trade rechazado: profit esperado ${expected_profit:.2f} < ${MIN_NET_PROFIT_USD}")
         return None
 
