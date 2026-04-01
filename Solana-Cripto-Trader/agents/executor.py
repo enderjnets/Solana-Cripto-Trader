@@ -200,10 +200,10 @@ def load_risk_report() -> dict:
     return {}
 
 
-def close_positions_emergency(portfolio: dict, symbols: list, market: dict, history: list) -> list:
+def close_positions_emergency(portfolio: dict, symbols: list, market: dict, history: list, reason: str = "EMERGENCY_CLOSE") -> list:
     """
     Cierra posiciones por emergencia (sin importar SL/TP).
-    Usado cuando Risk Manager detecta condiciones extremas.
+    Usado cuando Risk Manager detecta condiciones extremas, Portfolio TP, Smart Rotation, etc.
     """
     closed = []
     now = datetime.now(timezone.utc).isoformat()
@@ -218,7 +218,7 @@ def close_positions_emergency(portfolio: dict, symbols: list, market: dict, hist
 
             pos["status"] = "closed"
             pos["close_time"] = now
-            pos["close_reason"] = "EMERGENCY_CLOSE"
+            pos["close_reason"] = reason
             pos["close_price"] = pos["current_price"]
 
             # Actualizar P&L con leverage

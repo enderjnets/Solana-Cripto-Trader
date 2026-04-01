@@ -13,6 +13,25 @@ BASE_DIR = Path(__file__).parent
 DATA_DIR = BASE_DIR / "data"
 sys.path.insert(0, str(BASE_DIR))
 
+# ── Helpers para trade_history.json (puede ser dict o list) ──────────────────
+def _load_trade_history() -> list:
+    """Carga trade_history.json y retorna SIEMPRE una lista de trades."""
+    f = DATA_DIR / "trade_history.json"
+    if not f.exists():
+        return []
+    data = json.loads(f.read_text())
+    if isinstance(data, list):
+        return data
+    if isinstance(data, dict):
+        return data.get("trades", [])
+    return []
+
+def _save_trade_history(trades: list):
+    """Guarda trade_history.json en formato dict con timestamp."""
+    f = DATA_DIR / "trade_history.json"
+    data = {"trades": trades, "last_updated": datetime.now(timezone.utc).isoformat()}
+    f.write_text(json.dumps(data, indent=2))
+
 import logging
 
 LOG_FILE = Path.home() / ".config" / "solana-jupiter-bot" / "modular.log"
@@ -268,10 +287,10 @@ def run_cycle(safe=True, debug=False):
             if symbols_to_close:
                 try:
                     market_data = json.loads((DATA_DIR / "market_latest.json").read_text()) if (DATA_DIR / "market_latest.json").exists() else {}
-                    history = json.loads((DATA_DIR / "trade_history.json").read_text()) if (DATA_DIR / "trade_history.json").exists() else []
+                    history = _load_trade_history()
                     closed = ex.close_positions_emergency(portfolio_data, symbols_to_close, market_data, history, reason="SMART_ROTATION")
                     ex.save_portfolio(portfolio_data)
-                    (DATA_DIR / "trade_history.json").write_text(json.dumps(history, indent=2))
+                    _save_trade_history(history)
                     log.info(f"   ✅ Cerradas {len(closed)} posición(es) por Smart Rotation")
                 except Exception as e:
                     log.warning(f"   ⚠️ Error cerrando posiciones: {e}")
@@ -316,13 +335,13 @@ def run_cycle(safe=True, debug=False):
                                     if p.get("status") == "open" and p["symbol"] not in just_opened_symbols]
                     if open_symbols:
                         market_data = json.loads((DATA_DIR / "market_latest.json").read_text()) if (DATA_DIR / "market_latest.json").exists() else {}
-                        history = json.loads((DATA_DIR / "trade_history.json").read_text()) if (DATA_DIR / "trade_history.json").exists() else []
+                        history = _load_trade_history()
                         # FIX: Usar reason específica "DAILY_TARGET" en lugar de "EMERGENCY_CLOSE"
                         close_reason_label = f"DAILY_TARGET: {target_result['close_reason'][:60]}"
                         closed = ex.close_positions_emergency(portfolio_data, open_symbols, market_data, history, reason=close_reason_label)
                         _cycle_emergency_closes += len(closed)
                         ex.save_portfolio(portfolio_data)
-                        (DATA_DIR / "trade_history.json").write_text(json.dumps(history, indent=2))
+                        _save_trade_history(history)
                         log.info(f"   ✅ Cerradas {len(closed)} posición(es) por Daily Target")
                     elif just_opened_symbols:
                         log.info(f"   🛡️ Skipped cierre — todas las posiciones son recién abiertas")
@@ -370,11 +389,11 @@ def run_cycle(safe=True, debug=False):
                 try:
                     close_symbols = [d["symbol"] for d in close_recs]
                     market_data = json.loads((DATA_DIR / "market_latest.json").read_text()) if (DATA_DIR / "market_latest.json").exists() else {}
-                    history = json.loads((DATA_DIR / "trade_history.json").read_text()) if (DATA_DIR / "trade_history.json").exists() else []
+                    history = _load_trade_history()
                     # FIX: Usar reason específica para Position Decision
                     closed = ex.close_positions_emergency(portfolio_data, close_symbols, market_data, history, reason="POSITION_DECISION")
                     ex.save_portfolio(portfolio_data)
-                    (DATA_DIR / "trade_history.json").write_text(json.dumps(history, indent=2))
+                    _save_trade_history(history)
                     log.info(f"   ✅ Cerradas {len(closed)} posición(es) por Position Decision")
                 except Exception as e:
                     log.warning(f"   ⚠️ Error cerrando posiciones: {e}")
@@ -413,10 +432,10 @@ def run_cycle(safe=True, debug=False):
                     log.info(f"   → Cerrando todas las posiciones para asegurar ganancias")
                     try:
                         market_data = json.loads((DATA_DIR / "market_latest.json").read_text()) if (DATA_DIR / "market_latest.json").exists() else {}
-                        history = json.loads((DATA_DIR / "trade_history.json").read_text()) if (DATA_DIR / "trade_history.json").exists() else []
+                        history = _load_trade_history()
                         closed = ex.close_positions_emergency(portfolio_data, symbols, market_data, history, reason="PORTFOLIO_TP")
                         ex.save_portfolio(portfolio_data)
-                        (DATA_DIR / "trade_history.json").write_text(json.dumps(history, indent=2))
+                        _save_trade_history(history)
                         _cycle_emergency_closes += len(closed)
                         log.info(f"   ✅ Cerradas {len(closed)} posición(es) por Portfolio TP — P&L capturado: ${total_pnl:.2f}")
                     except Exception as e:
@@ -450,10 +469,10 @@ def run_cycle(safe=True, debug=False):
                             log.info(f"   → AI score promedio: {avg_score:.0f} → Cerrando para asegurar ${total_pnl:.2f}")
                             try:
                                 market_data = json.loads((DATA_DIR / "market_latest.json").read_text()) if (DATA_DIR / "market_latest.json").exists() else {}
-                                history = json.loads((DATA_DIR / "trade_history.json").read_text()) if (DATA_DIR / "trade_history.json").exists() else []
+                                history = _load_trade_history()
                                 closed = ex.close_positions_emergency(portfolio_data, symbols, market_data, history, reason="PORTFOLIO_TP_MIN")
                                 ex.save_portfolio(portfolio_data)
-                                (DATA_DIR / "trade_history.json").write_text(json.dumps(history, indent=2))
+                                _save_trade_history(history)
                                 _cycle_emergency_closes += len(closed)
                                 log.info(f"   ✅ Cerradas {len(closed)} posición(es) por Portfolio Min — P&L capturado: ${total_pnl:.2f}")
                             except Exception as e:
