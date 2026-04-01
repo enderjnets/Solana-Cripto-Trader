@@ -52,14 +52,14 @@ HISTORY_FILE         = DATA_DIR / "trade_history.json"
 COMPOUND_STATE_FILE  = DATA_DIR / "compound_state.json"
 
 # ── Parámetros del motor de compounding ──────────────────────────────────────
-RISK_PCT             = 0.015   # 1.5% del capital actual por trade
-SL_PCT               = 0.03    # Stop Loss 3%
-TP_MULTIPLIER        = 2.5     # TP = 2.5x SL = 7.5%
-DEFAULT_LEVERAGE     = 3       # 3x apalancamiento
-MAX_POSITION_PCT     = 0.30    # Máximo 30% del capital en margen por posición
-MIN_POSITION_USD     = 8.0     # Mínimo $8 de margen
-MAX_DRAWDOWN_PCT     = 0.15    # Parar si drawdown > 15%
-KELLY_FRACTION       = 0.5     # Half-Kelly para seguridad
+RISK_PCT             = 0.025   # 2.5% del capital actual por trade (subido de 1.5%)
+SL_PCT               = 0.025   # Stop Loss 2.5%
+TP_MULTIPLIER        = 2.5     # TP = 2.5x SL = 6.25%
+DEFAULT_LEVERAGE     = 5       # 5x apalancamiento (subido de 3x)
+MAX_POSITION_PCT     = 0.45    # Máximo 45% del capital en margen por posición
+MIN_POSITION_USD     = 15.0    # Mínimo $15 de margen
+MAX_DRAWDOWN_PCT     = 0.20    # Parar si drawdown > 20%
+KELLY_FRACTION       = 0.70     # 70% Kelly (subido de 50% — más agresivo)
 
 
 def load_portfolio() -> dict:

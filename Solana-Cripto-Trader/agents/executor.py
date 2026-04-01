@@ -67,7 +67,7 @@ BLOCK_LONGS_FG      = 35       # Bloquear LONGs si Fear & Greed < 35 (mercado ba
 MAX_TRADES_PER_DAY  = 0        # 0 = sin límite
 
 # ─── Regla de Ender (31-Mar-2026): $4 min profit, $2 max risk ────────────
-MAX_RISK_USD        = 2.00     # Máximo $2 de riesgo por POSICIÓN individual (pérdida en SL + fees)
+MAX_RISK_USD        = 3.00     # Máximo $3 de riesgo por POSICIÓN individual (ajustado 2026-03-31 para mercado lento)
 
 # ─── Portfolio Take Profit (31-Mar-2026) — orden de Ender ─────────────────
 PORTFOLIO_TP_USD     = 2.00     # Cerrar todo si el P&L combinado llega a $2
@@ -84,7 +84,7 @@ MIN_PROFIT_PER_POS_USD = 0.50   # Profit mínimo por posición ($0.50, flexible 
 # ─── Drift Protocol Simulation ───────────────────────────────────────────────
 TAKER_FEE           = 0.001    # 0.1% taker fee (Drift Protocol)
 MAKER_FEE           = 0.001    # 0.1% maker fee (Drift Protocol)
-DEFAULT_LEVERAGE    = 3        # 3x leverage por defecto
+DEFAULT_LEVERAGE    = 5        # 5x leverage por defecto (subido de 3x — orden Ender 2026-03-31)
 MAX_LEVERAGE        = 10       # Máximo 10x
 MAINTENANCE_MARGIN  = 0.05     # 5% margen de mantenimiento
 FUNDING_RATE        = 0.0001   # 0.01% por hora (funding rate simulado)
@@ -457,9 +457,9 @@ def paper_open_position(signal: dict, portfolio: dict, market: dict) -> Optional
         "mode": "paper",
         "confidence": signal.get("confidence", 0),
         "last_funding_time": datetime.now(timezone.utc).isoformat(),
-        # Trailing stop support
-        "exit_mode": signal.get("exit_mode", "fixed"),  # "fixed" or "trailing"
-        "trailing_pct": signal.get("trailing_pct", 0.0),  # e.g. 0.02 = 2% pullback
+        # Trailing stop support (2026-03-31: default = trailing para preservar ganancias)
+        "exit_mode": signal.get("exit_mode", "trailing"),  # "fixed" or "trailing"
+        "trailing_pct": signal.get("trailing_pct", 0.015),  # 1.5% pullback desde peak
         "peak_price": round(price, 8),  # highest price seen (for long) / lowest (for short)
         "trailing_sl": 0.0,  # dynamic SL that follows the peak
     }
@@ -807,7 +807,7 @@ def run(safe: bool = True, debug: bool = False) -> dict:
     opened = []
     open_count = len([p for p in portfolio["positions"] if p.get("status") == "open"])
 
-    MAX_POSITIONS = 5  # Ajustado 2026-03-31 (orden de Ender) — modo moderado
+    MAX_POSITIONS = 2  # Ajustado 2026-03-31 — 2 posiciones grandes > que 5 posiciones chicas
     slots_available = MAX_POSITIONS - open_count
 
     if slots_available <= 0:
