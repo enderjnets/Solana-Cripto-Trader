@@ -1,44 +1,44 @@
 {
   "lastChecks": {
-    "system": 1773419640,
-    "trading": 1773419640,
-    "communications": 1773419640,
-    "calendar": 1773419640,
-    "openclaw": 1773419640,
-    "solana": 1774835268
+    "system": "2026-03-31T22:13:00+00:00",
+    "trading": "2026-03-31T22:43:00+00:00",
+    "communications": "2026-03-31T22:13:00+00:00",
+    "calendar": "2026-03-31T22:13:00+00:00",
+    "openclaw": "2026-03-31T22:13:00+00:00",
+    "solana": "2026-04-01T03:46:40.807849+00:00"
   },
-  "alerts": [],
+  "alerts": [
+    "gog auth expired \u2014 gmail/calendar checks failing"
+  ],
   "pendingTasks": [
-    "BitTrader: Production pipeline running (as of 19:00)",
-    "Solana bot: GOAT short position open, -7.60 (16:53 MDT)"
+    "Cita medica manana 9:10 AM Kaiser Optometry (cron reminder set)",
+    "gog re-auth needed for email/calendar checks"
   ],
-  "lastHeartbeat": "2026-03-29T21:14:00-06:00",
-  "notifiedEvents": [
-    "susannah_airport_2026-03-12",
-    "dustin_airport_2026-03-20",
-    "bittrader_meeting_2026-03-13"
-  ],
-  "systemScore": "100/100",
+  "lastHeartbeat": "2026-04-01T03:46:40.807849+00:00",
+  "notifiedEvents": [],
+  "systemScore": "90/100",
   "solanaBot": {
     "status": "ACTIVE",
     "mode": "paper_drift",
-    "capital": 383.15,
-    "initial_capital": 500.0,
-    "drawdown": 23.4,
-    "openPositions": 1,
-    "last_loss": {
-      "symbol": "GOAT",
-      "pnl": -7.6,
-      "time": "16:53 MDT"
-    }
-  },
-  "youtubeOauth": {
-    "status": "COMPLETE",
-    "auto_refresh": "Daily 8AM"
+    "capital": 906.52,
+    "initial_capital": 1000.0,
+    "equity": 999.22,
+    "openPositions": 2,
+    "positions": [
+      "WIF short $-0.63",
+      "SOL short $-0.14"
+    ],
+    "unrealized_pnl": -0.77,
+    "return_pct": -0.08,
+    "leverage": "5x",
+    "rule": "$3 risk, 2 pos, 5x lev, trailing stops, $1K capital",
+    "last_check": "2026-04-01T03:46:40.807849+00:00"
   },
   "youtubeQueue": {
-    "status": "CLEAN",
-    "total": 30,
-    "uploaded": 30
+    "status": "QA_BLOCKED",
+    "total": 32,
+    "uploaded": 31,
+    "blocked": "Solana bot explainer (no logo, no person, no desc)",
+    "pipeline": "running"
   }
 }

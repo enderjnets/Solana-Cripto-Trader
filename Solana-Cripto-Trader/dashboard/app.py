@@ -1537,13 +1537,20 @@ def api_stats():
         sharpe = 0.0
 
     # Accounting discrepancy: use equity (not free capital) vs recorded PnL
+    # Suppress warning if gap ≈ initial_capital - equity_with_no_trades (manual reset scenario)
     real_capital_change = equity - initial_capital
     accounting_gap = real_capital_change - total_pnl
+    # If no closed trades and gap ≈ initial_capital, it's a manual reset — suppress
+    if abs(total_pnl) < 0.01 and abs(accounting_gap - initial_capital) < 1.0:
+        accounting_gap = 0
+        real_capital_change = 0
 
     return jsonify({
         "capital_usd":        round(equity, 2),
         "initial_capital":    round(initial_capital, 2),
-        "total_pnl":          round(total_pnl, 2),
+        "total_pnl":          round(total_pnl + unrealized, 2),
+        "realized_pnl":       round(total_pnl, 2),
+        "unrealized_pnl":     round(unrealized, 2),
         "return_pct":         round(return_pct, 2),
         "total_trades":       total,
         "wins":               wins,

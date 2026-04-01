@@ -318,9 +318,9 @@ def _check_comfyui(url, timeout=3):
 @app.route('/api/producer-live')
 def api_producer_live():
     try:
-        proc = subprocess.run(["pgrep", "-af", "producer|orchestrator.*produce"],
+        proc = subprocess.run(["pgrep", "-af", "producer.py"],
                               capture_output=True, text=True, timeout=3)
-        running = "producer.py" in proc.stdout or "produce" in proc.stdout
+        running = "producer.py" in proc.stdout
     except:
         running = False
 
@@ -451,100 +451,6 @@ def api_produced_today():
             })
 
     return jsonify({"count": len(videos), "videos": videos})
-
-@app.route('/api/qa-status')
-def api_qa_status():
-    """QA Agent status: recent checks, alerts, and pending escalations."""
-    qa_log = load_json(DATA_DIR / "qa_log.json", [])
-    qa_alerts = load_json(DATA_DIR / "qa_alerts_for_ceo.json", [])
-
-    # Last 10 QA checks
-    recent = qa_log[-10:] if isinstance(qa_log, list) else []
-    passed = sum(1 for r in recent if r.get("passed"))
-    failed = sum(1 for r in recent if not r.get("passed"))
-
-    # Pending CEO escalations
-    pending_alerts = [a for a in qa_alerts if a.get("status") == "pending"] if isinstance(qa_alerts, list) else []
-
-    return jsonify({
-        "recent_checks": len(recent),
-        "passed": passed,
-        "failed": failed,
-        "pass_rate": f"{(passed/(passed+failed)*100):.0f}%" if (passed+failed) > 0 else "N/A",
-        "pending_escalations": len(pending_alerts),
-        "alerts": [
-            {
-                "title": a.get("title", "?")[:60],
-                "issues": a.get("issues", []),
-                "timestamp": a.get("timestamp", ""),
-                "action": a.get("action_required", ""),
-            }
-            for a in pending_alerts[-5:]
-        ],
-        "recent": [
-            {
-                "title": r.get("title", "?")[:50],
-                "passed": r.get("passed", False),
-                "issues": r.get("issues", []),
-                "timestamp": r.get("timestamp", ""),
-            }
-            for r in recent[-5:]
-        ],
-    })
-
-
-@app.route('/api/pipeline-status')
-def api_pipeline_status():
-    """Current pipeline activity: what's running, what's pending."""
-    # Check running processes
-    try:
-        proc = subprocess.run(["ps", "aux"], capture_output=True, text=True, timeout=3)
-        ps_out = proc.stdout
-    except:
-        ps_out = ""
-
-    producer_running = "producer.py" in ps_out or ("orchestrator" in ps_out and "produce" in ps_out)
-    creator_running = "creator.py" in ps_out
-    publisher_running = "publisher.py" in ps_out or ("orchestrator" in ps_out and "publish" in ps_out)
-    scout_running = "scout" in ps_out and "orchestrator" in ps_out
-
-    # Guiones status
-    guiones = load_json(DATA_DIR / "guiones_latest.json", {})
-    scripts = guiones.get("scripts", []) if isinstance(guiones, dict) else guiones
-    pending = [s for s in scripts if s.get("status") == "pending"]
-    produced = [s for s in scripts if s.get("status") in ("produced", "success")]
-
-    # Queue status
-    queue = load_json(DATA_DIR / "upload_queue.json", [])
-    ready = [v for v in queue if v.get("status") == "ready"]
-    qa_failed = [v for v in queue if v.get("status") == "qa_failed"]
-    thumb_failed = [v for v in queue if v.get("status") == "thumbnail_failed"]
-
-    # Today's output
-    today = datetime.now().strftime("%Y-%m-%d")
-    out_dir = OUTPUT_DIR / today
-    today_count = len(list(out_dir.iterdir())) if out_dir.exists() else 0
-
-    return jsonify({
-        "processes": {
-            "producer": producer_running,
-            "creator": creator_running,
-            "publisher": publisher_running,
-            "scout": scout_running,
-        },
-        "scripts": {
-            "pending": len(pending),
-            "produced": len(produced),
-            "total": len(scripts),
-        },
-        "queue": {
-            "ready_to_upload": len(ready),
-            "qa_failed": len(qa_failed),
-            "thumbnail_failed": len(thumb_failed),
-        },
-        "today_produced": today_count,
-    })
-
 
 @app.route('/api/agent-notes', methods=['GET', 'POST'])
 def api_agent_notes():
@@ -837,33 +743,6 @@ header h1{font-size:20px;color:#58a6ff}
   <div class="crd"><div id="rv-list">Cargando...</div></div>
 </div>
 
-<!-- ═══ PIPELINE & QA STATUS ═══ -->
-<div class="two">
-  <div class="sec">
-    <div class="sec-t yellow">⚙️ Pipeline Status</div>
-    <div class="crd">
-      <div id="pipeline-processes" style="margin-bottom:10px"></div>
-      <div class="g3">
-        <div class="cd"><div class="lb">Guiones Pendientes</div><div class="vl blue" id="pl-pending">-</div></div>
-        <div class="cd"><div class="lb">Producidos Hoy</div><div class="vl green" id="pl-today">-</div></div>
-        <div class="cd"><div class="lb">Listos p/ Upload</div><div class="vl yellow" id="pl-ready">-</div></div>
-        <div class="cd"><div class="lb">QA Failed</div><div class="vl red" id="pl-qa-fail">-</div></div>
-      </div>
-    </div>
-  </div>
-  <div class="sec">
-    <div class="sec-t" style="border-color:#6e40c9">🔬 QA Agent</div>
-    <div class="crd">
-      <div style="display:flex;gap:12px;margin-bottom:10px">
-        <div class="cd" style="flex:1"><div class="lb">Pass Rate</div><div class="vl green" id="qa-rate">-</div></div>
-        <div class="cd" style="flex:1"><div class="lb">Alertas CEO</div><div class="vl yellow" id="qa-alerts">-</div></div>
-      </div>
-      <div class="crd-t">Últimos checks</div>
-      <div id="qa-recent" class="muted" style="font-size:12px">Cargando...</div>
-    </div>
-  </div>
-</div>
-
 <!-- ═══ AGENT NOTES / CHAT ═══ -->
 <div class="sec">
   <div class="sec-t green">💬 Notas del Agente — BitTrader Team</div>
@@ -1102,40 +981,9 @@ async function loadMiniMax(){
   }
 }
 
-async function loadPipeline(){
-  try{
-    const d=await(await fetch('/api/pipeline-status')).json();
-    const procs=d.processes||{};
-    const dots=Object.entries(procs).map(([k,v])=>`<span style="color:${v?'#3fb950':'#484f58'};margin-right:10px">● ${k}</span>`).join('');
-    document.getElementById('pipeline-processes').innerHTML=dots;
-    document.getElementById('pl-pending').textContent=d.scripts?.pending??'-';
-    document.getElementById('pl-today').textContent=d.today_produced??'-';
-    document.getElementById('pl-ready').textContent=d.queue?.ready_to_upload??'-';
-    document.getElementById('pl-qa-fail').textContent=d.queue?.qa_failed??'-';
-  }catch(e){}
-}
-
-async function loadQA(){
-  try{
-    const d=await(await fetch('/api/qa-status')).json();
-    document.getElementById('qa-rate').textContent=d.pass_rate||'N/A';
-    document.getElementById('qa-alerts').textContent=d.pending_escalations??0;
-    const recent=d.recent||[];
-    if(recent.length===0){
-      document.getElementById('qa-recent').innerHTML='Sin checks recientes';
-      return;
-    }
-    document.getElementById('qa-recent').innerHTML=recent.map(r=>{
-      const icon=r.passed?'✅':'❌';
-      const issues=r.issues?.length?` — ${r.issues.join(', ')}`:'';
-      return `<div class="qi"><span class="qi-t">${icon} ${r.title}</span><span class="qi-m">${issues}</span></div>`;
-    }).join('');
-  }catch(e){}
-}
-
 async function loadAll(){
   document.getElementById('ts').textContent=new Date().toLocaleString('es-MX',{timeZone:'America/Denver'});
-  await Promise.all([loadYT(),loadQueue(),loadScripts(),loadProduced(),loadMacs(),loadProducer(),loadMiniMax(),loadPipeline(),loadQA()]);
+  await Promise.all([loadYT(),loadQueue(),loadScripts(),loadProduced(),loadMacs(),loadProducer(),loadMiniMax()]);
 }
 
 // ── Agent Notes — Real-time SSE ──
@@ -1285,8 +1133,6 @@ loadAll();
 setInterval(loadAll,60000);
 setInterval(loadMacs,10000);
 setInterval(loadProducer,15000);
-setInterval(loadPipeline,15000);
-setInterval(loadQA,30000);
 </script>
 </body>
 </html>'''

@@ -1216,6 +1216,56 @@ def check_video_quality(video: dict) -> dict:
     if not tags:
         checks["warnings"].append("⚠️ Sin tags definidos")
 
+    # ═══ 7b. DUPLICATE CHECK — reject if already uploaded ═══
+
+    def check_youtube_duplicate(video: dict) -> dict:
+        """Check if this video's script_id or title was already uploaded to YouTube."""
+        result = {"passed": True, "issues": [], "warnings": []}
+        try:
+            script_id = video.get("script_id", "")
+            title = video.get("title", "").lower().strip()
+
+            # Check uploaded_scripts.json (persistent dedupe set)
+            uploaded_scripts_file = DATA_DIR / "uploaded_scripts.json"
+            try:
+                uploaded_set = set(json.loads(uploaded_scripts_file.read_text()))
+                if script_id and script_id in uploaded_set:
+                    result["issues"].append(f"❌ DUPLICADO: script_id={script_id} ya fue subido a YouTube")
+                    result["passed"] = False
+                    return result
+            except (FileNotFoundError, json.JSONDecodeError):
+                pass
+
+            # Check upload_queue.json for already-uploaded entries with same title
+            queue_file = DATA_DIR / "upload_queue.json"
+            try:
+                queue = json.loads(queue_file.read_text())
+                for entry in queue:
+                    if entry.get("status") == "uploaded":
+                        existing_title = entry.get("title", "").lower().strip()
+                        # Normalize for comparison
+                        norm_new = title.replace(" ", "").replace(":", "").replace("?", "").replace("'", "")
+                        norm_existing = existing_title.replace(" ", "").replace(":", "").replace("?", "").replace("'", "")
+                        if norm_new and norm_existing and norm_new == norm_existing:
+                            vid = entry.get("video_id", "N/A")
+                            result["issues"].append(f"❌ DUPLICADO: '{entry.get('title')}' ya existe en YouTube (ID: {vid})")
+                            result["passed"] = False
+                            return result
+            except (FileNotFoundError, json.JSONDecodeError):
+                pass
+        except Exception as e:
+            result["warnings"].append(f"⚠️ No se pudo verificar duplicado: {e}")
+        return result
+
+    dup_check = check_youtube_duplicate(video)
+    checks["issues"].extend(dup_check.get("issues", []))
+    if not dup_check["passed"]:
+        checks["passed"] = False
+        checks["grade"] = "F"
+        checks["details"]["duplicate_check"] = dup_check
+        return checks
+    checks["details"]["duplicate_check"] = dup_check
+
     # ═══ 8. AI VISUAL CHECK (Sonnet 4.6) ═══
     if AI_CHECK_ENABLED:
         try:

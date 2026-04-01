@@ -1,7 +1,20 @@
 [
   {
+    "script_id": "ender_solana_explanation_v2",
+    "title": "Cómo Funciona Mi Robot de Trading de Solana",
+    "type": "long",
+    "video_id": "koQWt5F2CbY",
+    "status": "uploaded",
+    "uploaded_at": "2026-04-01T08:46:54.577878+00:00",
+    "thumbnail_uploaded": true,
+    "scheduled_date": "2026-04-03T16:00:00+00:00",
+    "voice_used": "Ender cloned voice (MiniMax moss_audio)",
+    "output_file": "/home/enderj/.openclaw/workspace/bittrader/agents/output/solana_bot_explainer_v2.mp4",
+    "replaces": "eho1NZpTuAI"
+  },
+  {
     "script_id": "short_1774791261_783",
-    "title": "783",
+    "title": "CORE explota HOY: ¿Compras o esperas?",
     "type": "short",
     "tags": [
       "crypto",
@@ -12,20 +25,20 @@
     "size_mb": 13.6,
     "status": "uploaded",
     "gate_passed": true,
-    "quality_decision": "manual-approved",
+    "quality_decision": "Minor issues: []",
     "scheduled_date": "2026-03-29T21:00:00+00:00",
     "verified_quality": true,
-    "thumbnail": "/home/enderj/.openclaw/workspace/bittrader/agents/output/2026-03-29/short_1774791261_783/thumbnail.jpg",
-    "gate_checked_at": "2026-03-30T01:15:06.685338+00:00",
+    "thumbnail": true,
+    "gate_checked_at": "2026-03-30T16:03:54.950119+00:00",
     "thumbnail_path": "/home/enderj/.openclaw/workspace/bittrader/agents/output/2026-03-29/short_1774791261_783/thumbnail.jpg",
     "thumbnail_ready": true,
     "thumbnail_uploaded": true,
-    "video_id": "WqR6dKAVRmc",
-    "uploaded_at": "2026-03-30T01:15:34.434553+00:00"
+    "video_id": "OYLSpfLBGW0",
+    "uploaded_at": "2026-03-30T16:04:24.730425+00:00"
   },
   {
     "script_id": "long_1774791175_443",
-    "title": "443",
+    "title": "Agentes IA: El Futuro del Trading",
     "type": "long",
     "tags": [
       "crypto",
@@ -39,20 +52,20 @@
     "quality_decision": "Minor issues: []",
     "scheduled_date": "2026-03-29T21:00:00+00:00",
     "verified_quality": true,
-    "thumbnail": false,
+    "thumbnail": true,
     "gate_issues": [
       "NO_THUMBNAIL: No thumbnail found for long_1774791175_443 (checked 5 locations)"
     ],
-    "gate_checked_at": "2026-03-30T01:04:01.384283+00:00",
+    "gate_checked_at": "2026-03-30T16:03:55.144886+00:00",
     "thumbnail_path": "/home/enderj/.openclaw/workspace/bittrader/agents/output/2026-03-29/long_1774791175_443/thumbnail.jpg",
     "thumbnail_ready": true,
     "thumbnail_uploaded": true,
-    "video_id": "-ot82iYtxF8",
-    "uploaded_at": "2026-03-30T01:04:15.129371+00:00"
+    "video_id": "r6kWwZZCjO8",
+    "uploaded_at": "2026-03-30T16:04:30.593227+00:00"
   },
   {
     "script_id": "short_1774791299_365",
-    "title": "365",
+    "title": "El que estudia trading VS el que opera por instinto",
     "type": "short",
     "tags": [
       "crypto",
@@ -63,20 +76,20 @@
     "size_mb": 19.7,
     "status": "uploaded",
     "gate_passed": true,
-    "quality_decision": "manual-approved",
+    "quality_decision": "Minor issues: []",
     "scheduled_date": "2026-03-29T21:00:00+00:00",
     "verified_quality": true,
     "thumbnail": "/home/enderj/.openclaw/workspace/bittrader/agents/output/2026-03-29/short_1774791299_365/thumbnail.jpg",
-    "gate_checked_at": "2026-03-30T01:15:07.129353+00:00",
+    "gate_checked_at": "2026-03-30T16:03:55.583953+00:00",
     "thumbnail_path": "/home/enderj/.openclaw/workspace/bittrader/agents/output/2026-03-29/short_1774791299_365/thumbnail.jpg",
     "thumbnail_ready": true,
     "thumbnail_uploaded": true,
-    "video_id": "fnQx2LNjaxw",
-    "uploaded_at": "2026-03-30T01:15:39.974454+00:00"
+    "video_id": "f5qEpfUuFPw",
+    "uploaded_at": "2026-03-30T16:04:34.924678+00:00"
   },
   {
     "script_id": "short_1774791455_165",
-    "title": "165",
+    "title": "¿Qué es SIREN (Siren) y por qué está en tendencia",
     "type": "short",
     "tags": [
       "crypto",
@@ -87,20 +100,20 @@
     "size_mb": 16.3,
     "status": "uploaded",
     "gate_passed": true,
-    "quality_decision": "manual-approved",
+    "quality_decision": "Minor issues: []",
     "scheduled_date": "2026-03-29T21:00:00+00:00",
     "verified_quality": true,
     "thumbnail": "/home/enderj/.openclaw/workspace/bittrader/agents/output/2026-03-29/short_1774791455_165/thumbnail.jpg",
-    "gate_checked_at": "2026-03-30T01:15:07.575360+00:00",
+    "gate_checked_at": "2026-03-30T16:03:56.023213+00:00",
     "thumbnail_path": "/home/enderj/.openclaw/workspace/bittrader/agents/output/2026-03-29/short_1774791455_165/thumbnail.jpg",
     "thumbnail_ready": true,
     "thumbnail_uploaded": true,
-    "video_id": "R2dVb40GGbI",
-    "uploaded_at": "2026-03-30T01:15:44.786021+00:00"
+    "video_id": "GId2HyDCoXw",
+    "uploaded_at": "2026-03-30T16:04:39.154342+00:00"
   },
   {
     "script_id": "short_1774791221_935",
-    "title": "935",
+    "title": "Por que Bitcoin vale $66,580?",
     "type": "short",
     "tags": [
       "crypto",
@@ -111,20 +124,20 @@
     "size_mb": 45.5,
     "status": "uploaded",
     "gate_passed": true,
-    "quality_decision": "manual-approved",
+    "quality_decision": "Minor issues: []",
     "scheduled_date": "2026-03-29T21:00:00+00:00",
     "verified_quality": true,
     "thumbnail": "/home/enderj/.openclaw/workspace/bittrader/agents/output/2026-03-29/short_1774791221_935/thumbnail.jpg",
-    "gate_checked_at": "2026-03-30T01:15:08.024181+00:00",
+    "gate_checked_at": "2026-03-30T16:03:56.457882+00:00",
     "thumbnail_path": "/home/enderj/.openclaw/workspace/bittrader/agents/output/2026-03-29/short_1774791221_935/thumbnail.jpg",
     "thumbnail_ready": true,
     "thumbnail_uploaded": true,
-    "video_id": "Cj_gwhOXu38",
-    "uploaded_at": "2026-03-30T01:15:51.239386+00:00"
+    "video_id": "GNhNEQWt1n0",
+    "uploaded_at": "2026-03-30T16:04:45.237881+00:00"
   },
   {
     "script_id": "short_1774791407_777",
-    "title": "777",
+    "title": "SIREN +12.4% - La nueva gemela de BTC",
     "type": "short",
     "tags": [
       "crypto",
@@ -135,20 +148,20 @@
     "size_mb": 16.3,
     "status": "uploaded",
     "gate_passed": true,
-    "quality_decision": "manual-approved",
+    "quality_decision": "Minor issues: []",
     "scheduled_date": "2026-03-29T21:00:00+00:00",
     "verified_quality": true,
     "thumbnail": "/home/enderj/.openclaw/workspace/bittrader/agents/output/2026-03-29/short_1774791407_777/thumbnail.jpg",
-    "gate_checked_at": "2026-03-30T01:15:08.460495+00:00",
+    "gate_checked_at": "2026-03-30T16:03:56.898410+00:00",
     "thumbnail_path": "/home/enderj/.openclaw/workspace/bittrader/agents/output/2026-03-29/short_1774791407_777/thumbnail.jpg",
     "thumbnail_ready": true,
     "thumbnail_uploaded": true,
-    "video_id": "7GH_rrgp91U",
-    "uploaded_at": "2026-03-30T01:15:55.554025+00:00"
+    "video_id": "WTto-4b4upg",
+    "uploaded_at": "2026-03-30T16:04:49.345068+00:00"
   },
   {
     "script_id": "short_1774791104_213",
-    "title": "213",
+    "title": "Claude creo un bot en 10 min — Funciona?",
     "type": "short",
     "tags": [
       "crypto",
@@ -159,11 +172,11 @@
     "size_mb": 16.0,
     "status": "uploaded",
     "gate_passed": true,
-    "quality_decision": "manual-approved",
+    "quality_decision": "Minor issues: []",
     "scheduled_date": "2026-03-29T21:00:00+00:00",
     "verified_quality": true,
     "thumbnail": "/home/enderj/.openclaw/workspace/bittrader/agents/output/2026-03-29/short_1774791104_213/thumbnail.jpg",
-    "gate_checked_at": "2026-03-30T01:15:08.905162+00:00",
+    "gate_checked_at": "2026-03-30T16:03:57.332766+00:00",
     "thumbnail_path": "/home/enderj/.openclaw/workspace/bittrader/agents/output/2026-03-29/short_1774791104_213/thumbnail.jpg",
     "thumbnail_ready": true,
     "qa_issues": [
@@ -171,12 +184,12 @@
     ],
     "qa_checked_at": "2026-03-30T01:04:05.509357+00:00",
     "thumbnail_uploaded": true,
-    "video_id": "dhFvSVwuwyM",
-    "uploaded_at": "2026-03-30T01:15:59.604565+00:00"
+    "video_id": "rdJ9PgiLxcc",
+    "uploaded_at": "2026-03-30T16:04:53.429493+00:00"
   },
   {
     "script_id": "short_1774791342_721",
-    "title": "721",
+    "title": "FTMO estafa? La verdad que ocultan",
     "type": "short",
     "tags": [
       "crypto",
@@ -187,20 +200,20 @@
     "size_mb": 15.8,
     "status": "uploaded",
     "gate_passed": true,
-    "quality_decision": "manual-approved",
+    "quality_decision": "Minor issues: []",
     "scheduled_date": "2026-03-29T21:00:00+00:00",
     "verified_quality": true,
     "thumbnail": "/home/enderj/.openclaw/workspace/bittrader/agents/output/2026-03-29/short_1774791342_721/thumbnail.jpg",
-    "gate_checked_at": "2026-03-30T01:15:09.347689+00:00",
+    "gate_checked_at": "2026-03-30T16:03:57.775527+00:00",
     "thumbnail_path": "/home/enderj/.openclaw/workspace/bittrader/agents/output/2026-03-29/short_1774791342_721/thumbnail.jpg",
     "thumbnail_ready": true,
     "thumbnail_uploaded": true,
-    "video_id": "10lpdovC2m0",
-    "uploaded_at": "2026-03-30T01:16:04.136773+00:00"
+    "video_id": "GzMa56ExsBA",
+    "uploaded_at": "2026-03-30T16:04:57.373920+00:00"
   },
   {
     "script_id": "short_1774791076_541",
-    "title": "541",
+    "title": "¿Qué es TAO (Bittensor) y por qué está en tendencia",
     "type": "short",
     "tags": [
       "crypto",
@@ -211,16 +224,16 @@
     "size_mb": 34.3,
     "status": "uploaded",
     "gate_passed": true,
-    "quality_decision": "manual-approved",
+    "quality_decision": "Minor issues: []",
     "scheduled_date": "2026-03-29T21:00:00+00:00",
     "verified_quality": true,
     "thumbnail": "/home/enderj/.openclaw/workspace/bittrader/agents/output/2026-03-29/short_1774791076_541/thumbnail.jpg",
-    "gate_checked_at": "2026-03-30T01:15:09.788642+00:00",
+    "gate_checked_at": "2026-03-30T16:03:58.215840+00:00",
     "thumbnail_path": "/home/enderj/.openclaw/workspace/bittrader/agents/output/2026-03-29/short_1774791076_541/thumbnail.jpg",
     "thumbnail_ready": true,
     "thumbnail_uploaded": true,
-    "video_id": "t3gJWUp0EIg",
-    "uploaded_at": "2026-03-30T01:16:09.989209+00:00"
+    "video_id": "jsDBeS_hZt8",
+    "uploaded_at": "2026-03-30T16:05:05.884974+00:00"
   },
   {
     "script_id": "new_1774827423",
@@ -263,7 +276,7 @@
   },
   {
     "script_id": "short_1773532377_122",
-    "title": "Circle le gan\u00f3 a BlackRock en $11B",
+    "title": "Circle le ganó a BlackRock en $11B",
     "type": "short",
     "status": "uploaded",
     "output_file": "/home/enderj/.openclaw/workspace/bittrader/agents/output/2026-03-14/short_1773532377_122/short_1773532377_122.mp4",
@@ -317,7 +330,7 @@
   },
   {
     "script_id": "short_1773532415_711",
-    "title": "PI Network cay\u00f3 -20% en 24 horas",
+    "title": "PI Network cayó -20% en 24 horas",
     "type": "short",
     "status": "uploaded",
     "output_file": "/home/enderj/.openclaw/workspace/bittrader/agents/output/2026-03-14/short_1773532415_711/short_1773532415_711.mp4",
@@ -331,7 +344,7 @@
   },
   {
     "script_id": "edu_long_1774363903",
-    "title": "C\u00f3mo empezar en cripto con $100 \u2014 gu\u00eda completa para principiantes 2026",
+    "title": "Cómo empezar en cripto con $100 — guía completa para principiantes 2026",
     "type": "long",
     "youtube_id": "3Q6HeYC7DPE",
     "status": "uploaded",
@@ -339,7 +352,8 @@
     "original_youtube_id": "QrYrom05HzQ",
     "original_deleted": true,
     "fix_applied": "anti-repetition+narrator-sync v4.1",
-    "thumbnail": false
+    "thumbnail": false,
+    "video_id": "3Q6HeYC7DPE"
   },
   {
     "script_id": "short_1774708157_574",
@@ -370,7 +384,8 @@
     "thumbnail_uploaded": true,
     "video_id": "2MetK43n5A8",
     "uploaded_at": "2026-03-28T22:16:06.753744+00:00",
-    "thumbnail": false
+    "thumbnail": false,
+    "thumbnail_ready": true
   },
   {
     "script_id": "short_1774708280_155",
@@ -382,7 +397,7 @@
       "Solana",
       "criptomonedas",
       "trading",
-      "an\u00e1lisis cripto",
+      "análisis cripto",
       "pump crypto",
       "Bitcoin",
       "bittrader"
@@ -406,7 +421,8 @@
     "thumbnail_uploaded": true,
     "video_id": "IqxX9QOkTaI",
     "uploaded_at": "2026-03-28T23:05:12.177678+00:00",
-    "thumbnail": false
+    "thumbnail": false,
+    "thumbnail_ready": true
   },
   {
     "script_id": "short_1774708351_945",
@@ -441,12 +457,13 @@
     "thumbnail_uploaded": true,
     "video_id": "iCzNVLRZqiI",
     "uploaded_at": "2026-03-28T23:05:17.680595+00:00",
-    "thumbnail": false
+    "thumbnail": false,
+    "thumbnail_ready": true
   },
   {
     "script_id": "short_1774708455_613",
-    "title": "SIREN y RAIN: \u00bfPr\u00f3ximos gainers?",
-    "description": "SIREN y RAIN est\u00e1n mostrando se\u00f1ales interesantes en los charts. Analizo los niveles clave que debes vigilar. #crypto #trading #altcoins",
+    "title": "SIREN y RAIN: ¿Próximos gainers?",
+    "description": "SIREN y RAIN están mostrando señales interesantes en los charts. Analizo los niveles clave que debes vigilar. #crypto #trading #altcoins",
     "type": "short",
     "tags": [
       "crypto",
@@ -468,13 +485,14 @@
     "gate_issues": [],
     "gate_checked_at": "2026-03-28T23:24:36.995354+00:00",
     "qa_issues": [],
-    "fixed_by": "subagent \u2014 thumbnail regenerated with gradient fallback (1080x1920, no blue)",
+    "fixed_by": "subagent — thumbnail regenerated with gradient fallback (1080x1920, no blue)",
     "video_path": "output/2026-03-28/short_1774708455_613/short_1774708455_613.mp4",
     "error": null,
     "thumbnail_uploaded": true,
     "video_id": "1rA-Co7WFVE",
     "uploaded_at": "2026-03-28T23:24:53.818925+00:00",
-    "thumbnail": false
+    "thumbnail": false,
+    "thumbnail_ready": true
   },
   {
     "script_id": "short_1774708563_481",
@@ -509,7 +527,8 @@
     "thumbnail_uploaded": true,
     "video_id": "F_8erbuDrrc",
     "uploaded_at": "2026-03-28T23:05:24.197925+00:00",
-    "thumbnail": false
+    "thumbnail": false,
+    "thumbnail_ready": true
   },
   {
     "script_id": "long_1774708531_991",
@@ -542,12 +561,13 @@
     "thumbnail_uploaded": true,
     "video_id": "fMm8uwLMtUQ",
     "uploaded_at": "2026-03-29T00:05:08.664585+00:00",
-    "thumbnail": false
+    "thumbnail": false,
+    "thumbnail_ready": true
   },
   {
     "script_id": "short_1774708608_208",
     "title": "RAIN: Que es y por que sube AHORA",
-    "description": "Descubre que es RAIN y por qu\u00e9 esta en tendencia. Token lluvia, recompensas automaticas y mas. #crypto #rain #altcoins #trading",
+    "description": "Descubre que es RAIN y por qué esta en tendencia. Token lluvia, recompensas automaticas y mas. #crypto #rain #altcoins #trading",
     "type": "short",
     "tags": [
       "RAIN crypto",
@@ -569,7 +589,8 @@
     "thumbnail_uploaded": true,
     "video_id": "7wtEPVctZWk",
     "uploaded_at": "2026-03-28T23:05:29.408688+00:00",
-    "thumbnail": false
+    "thumbnail": false,
+    "thumbnail_ready": true
   },
   {
     "script_id": "short_1774708646_182",
@@ -596,11 +617,12 @@
     "thumbnail_uploaded": true,
     "video_id": "QKQalx5XHt8",
     "uploaded_at": "2026-03-28T23:05:35.086726+00:00",
-    "thumbnail": false
+    "thumbnail": false,
+    "thumbnail_ready": true
   },
   {
     "script_id": "new_1774827428",
-    "title": "Cathie Wood dice que Bitcoin a $1MILL\u00d3N es CONSERVADOR \ud83d\udc8e",
+    "title": "Cathie Wood dice que Bitcoin a $1MILLÓN es CONSERVADOR 💎",
     "output_file": "output/2026-03-29/new_1774827428/new_1774827428.mp4",
     "type": "short",
     "size_mb": 42.0,
@@ -618,7 +640,7 @@
   },
   {
     "script_id": "new_1774827426",
-    "title": "SOL va a EXPLOTAR en 2025 \u2014 Aqu\u00ed est\u00e1 el POR QU\u00c9 \ud83d\ude80",
+    "title": "SOL va a EXPLOTAR en 2025 — Aquí está el POR QUÉ 🚀",
     "output_file": "output/2026-03-29/new_1774827426/new_1774827426.mp4",
     "type": "short",
     "size_mb": 61.8,
@@ -640,7 +662,7 @@
   },
   {
     "script_id": "new_1774827425",
-    "title": "Circle tiene $11Billones y BlackRock est\u00e1 PERDIENDO \ud83d\ude31",
+    "title": "Circle tiene $11Billones y BlackRock está PERDIENDO 😱",
     "output_file": "output/2026-03-29/new_1774827425/new_1774827425.mp4",
     "type": "short",
     "size_mb": 15.4,
@@ -658,7 +680,7 @@
   },
   {
     "script_id": "new_1774827429",
-    "title": "El TRADE de mi vida lo hice con $500 y gan\u00e9 ESTO \ud83d\udcb0",
+    "title": "El TRADE de mi vida lo hice con $500 y gané ESTO 💰",
     "output_file": "output/2026-03-29/new_1774827429/new_1774827429.mp4",
     "type": "short",
     "size_mb": 66.5,
@@ -676,7 +698,7 @@
   },
   {
     "script_id": "new_1774827424",
-    "title": "Us\u00e9 un Bot de IA para tradear crypto y el resultado me dej\u00f3 SIN PALABRAS \ud83d\udcb0",
+    "title": "Usé un Bot de IA para tradear crypto y el resultado me dejó SIN PALABRAS 💰",
     "output_file": "output/2026-03-29/new_1774827424/new_1774827424.mp4",
     "type": "short",
     "size_mb": 20.4,
@@ -694,7 +716,7 @@
   },
   {
     "script_id": "new_1774827427",
-    "title": "90% de traders PIERDEN \u2014 La VERDAD que te ocultan \ud83d\udcb8",
+    "title": "90% de traders PIERDEN — La VERDAD que te ocultan 💸",
     "output_file": "output/2026-03-29/new_1774827427/new_1774827427.mp4",
     "type": "short",
     "size_mb": 66.7,
@@ -713,5 +735,42 @@
     "thumbnail_uploaded": true,
     "video_id": "FlE8GPOX7Zg",
     "uploaded_at": "2026-03-30T02:11:01.780994+00:00"
+  },
+  {
+    "script_id": "ender_raw_1774901842",
+    "title": "🚀 Grandes Cambios Vienen al Canal — IA + Trading",
+    "description": "¡Hola familia! 👋\n\nMuchos cambios vienen al canal. Mi equipo de inteligencia artificial va a estar trabajando junto a mí para traerles más y mejores contenidos, siempre al día.\n\n¡Estén pendientes! 🔥\n\n━━━━━━━━━━━━━━━━━━━━━━━━\n📊 Sígueme para más contenido de trading y cripto:\n👉 @bittrader9259\n━━━━━━━━━━━━━━━━━━━━━━━━\n\n#trading #crypto #bitcoin #cripto #ia #inteligenciaartificial #shorts #bittrader #cambios #contenido #tradingcripto",
+    "tags": [
+      "trading",
+      "crypto",
+      "bitcoin",
+      "cripto",
+      "ia",
+      "inteligencia artificial",
+      "shorts",
+      "bittrader",
+      "cambios",
+      "contenido",
+      "trading cripto",
+      "bot trading",
+      "agentes ia",
+      "youtube shorts"
+    ],
+    "type": "short",
+    "output_file": "data/raw_clips/ender_short_v2.mp4",
+    "thumbnail": "data/raw_clips/ender_thumb.jpg",
+    "status": "uploaded",
+    "scheduled_date": "2026-03-30T10:00:00+00:00",
+    "created_at": "2026-03-30T20:17:22.031875+00:00",
+    "source": "ender_raw_clip",
+    "privacy": "public",
+    "gate_passed": true,
+    "gate_issues": [],
+    "gate_checked_at": "2026-03-30T22:15:36.915568+00:00",
+    "thumbnail_path": "data/raw_clips/ender_thumb.jpg",
+    "thumbnail_ready": true,
+    "thumbnail_uploaded": true,
+    "video_id": "64cBFOtuiCE",
+    "uploaded_at": "2026-03-30T22:15:44.427286+00:00"
   }
 ]

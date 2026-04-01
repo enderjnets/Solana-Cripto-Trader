@@ -71,7 +71,7 @@ MAX_OPEN_POSITIONS    = 2      # Máximo 2 posiciones
 MAX_DRAWDOWN_PCT      = 0.10   # 10% drawdown máximo — 5% era muy restrictivo para crypto
 PAUSE_DRAWDOWN_PCT    = 0.06   # 6% → PAUSED — da warning antes del stop
 MIN_POSITION_USD      = 5.0    # Mínimo $5 margen (era $8 — ajustado a capital bajo)
-MAX_SINGLE_EXPOSURE   = 0.25   # Máximo 25% del capital en margen (subido de 15% para vol-adaptive sizing)
+MAX_SINGLE_EXPOSURE   = 0.40   # Máximo 40% del capital en margen (ajustado 2026-03-31 para mercado lento — posiciones más grandes)
 
 # ─── Volatility-Adaptive Sizing Parameters (2026-03-31, orden de Ender) ──────
 # Cuando la volatilidad es BAJA, el precio se mueve poco → necesitamos MÁS
