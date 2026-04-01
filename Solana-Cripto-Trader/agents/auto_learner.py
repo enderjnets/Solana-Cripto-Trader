@@ -84,7 +84,10 @@ def load_json(path: Path, default=None):
 
 
 def load_trades() -> List[dict]:
-    return load_json(TRADE_HISTORY, [])
+    data = load_json(TRADE_HISTORY, {})
+    if isinstance(data, list):
+        return data
+    return data.get("trades", []) if isinstance(data, dict) else []
 
 
 def load_state() -> dict:

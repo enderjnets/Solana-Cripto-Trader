@@ -23,7 +23,7 @@ MARKET_FILE = DATA_DIR / "market_latest.json"
 
 def run(debug: bool = False) -> dict:
     """
-    Ejecuta el Dream Engine. Retorna dict con insights y recommendations.
+    Ejecuta el Dream Engine + Auto-Learner (LLM-powered insights).
     Diseñado para correr via cron o entre ciclos principales.
     """
     log.info("💤 DREAM ENGINE — Iniciando analisis de fondo...")
@@ -33,53 +33,106 @@ def run(debug: bool = False) -> dict:
         "insights": [],
         "recommendations": [],
         "anomalies": [],
+        "ai_insight": None,
         "summary": ""
     }
     
     # 1. Load trade history
     history = _load_history()
     market = _load_market()
-    
-    if len(history) < 3:
-        log.info(f"   Sin suficientes trades para analisis ({len(history)} trades)")
-        insights["summary"] = f"Sin datos suficientes ({len(history)} trades)"
-        _save_insights(insights)
-        return insights
-    
-    # 2. Trade Analysis
-    trade_insights = _analyze_trades(history)
-    insights["insights"].extend(trade_insights["insights"])
-    
-    # 3. Position Post-Mortem (open positions)
     portfolio = _load_portfolio()
-    post_mortem = _analyze_open_positions(portfolio, market)
-    insights["insights"].extend(post_mortem["insights"])
+    anomalies = []
     
-    # 4. Pattern Recognition
-    patterns = _find_patterns(history, market)
-    insights["insights"].extend(patterns["insights"])
-    insights["recommendations"].extend(patterns["recommendations"])
+    # 2. Quantitative Analysis (always runs)
+    if len(history) >= 3:
+        trade_insights = _analyze_trades(history)
+        insights["insights"].extend(trade_insights["insights"])
+        post_mortem = _analyze_open_positions(portfolio, market)
+        insights["insights"].extend(post_mortem["insights"])
+        patterns = _find_patterns(history, market)
+        insights["insights"].extend(patterns["insights"])
+        insights["recommendations"].extend(patterns["recommendations"])
+        anomalies = _detect_anomalies(history, portfolio)
+        insights["anomalies"] = anomalies
+    else:
+        log.info(f"   Sin suficientes trades para analisis cuantitativo ({len(history)} trades)")
     
-    # 5. Anomaly Detection
-    anomalies = _detect_anomalies(history, portfolio)
-    insights["anomalies"] = anomalies
+    # 3. Auto-Learner (LLM-powered insights)
+    try:
+        import auto_learner
+        log.info("   🤖 Invocando Auto-Learner (LLM)...")
+        al_result = auto_learner.run(debug=debug)
+        
+        if al_result.get("status") == "no_data":
+            log.info("   ⏸️ Auto-Learner: sin datos suficientes")
+        elif al_result.get("status") == "waiting":
+            log.info(f"   ⏸️ Auto-Learner: esperando más trades ({al_result.get('trades_needed', '?')} necesarios)")
+        elif al_result.get("status") == "ok" or al_result.get("status") == "applied":
+            key_insight = al_result.get("key_insight", "")
+            confidence = al_result.get("confidence", 0)
+            analysis = al_result.get("analysis", "")
+            tokens_avoid = al_result.get("tokens_to_avoid", [])
+            tokens_prefer = al_result.get("tokens_to_prefer", [])
+            changes = al_result.get("changes", [])
+            
+            if key_insight:
+                insights["ai_insight"] = {
+                    "key_insight": key_insight,
+                    "confidence": confidence,
+                    "analysis": analysis,
+                    "tokens_to_avoid": tokens_avoid,
+                    "tokens_to_prefer": tokens_prefer,
+                    "changes": changes,
+                    "new_lessons": al_result.get("new_lessons", []),
+                }
+                log.info(f"   🤖 AI Insight: {key_insight}")
+                log.info(f"   🤖 Confidence: {confidence*100:.0f}%")
+                
+                # Convert to recommendation
+                if confidence >= 0.7:
+                    insights["recommendations"].insert(0, {
+                        "type": "ai_insight",
+                        "finding": key_insight,
+                        "action": al_result.get("analysis", "")[:200],
+                        "confidence": confidence,
+                        "auto_apply": al_result.get("status") == "applied",
+                        "is_ai": True,
+                    })
+                
+                # Add tokens to avoid/prefer as insights
+                if tokens_avoid:
+                    insights["insights"].append({
+                        "type": "token_ai",
+                        "confidence": 0.85,
+                        "finding": f"Tokens a evitar según IA: {', '.join(tokens_avoid)}",
+                    })
+                if tokens_prefer:
+                    insights["insights"].append({
+                        "type": "token_ai",
+                        "confidence": 0.85,
+                        "finding": f"Tokens preferidos según IA: {', '.join(tokens_prefer)}",
+                    })
+        else:
+            log.info(f"   Auto-Learner status: {al_result.get('status')}")
+    except Exception as e:
+        log.warning(f"   ⚠️ Auto-Learner error: {e}")
     
-    # 6. Generate markdown report
+    # 4. Generate markdown report
     report = _generate_report(insights, history, portfolio)
     REPORT_FILE.write_text(report)
     
-    # 7. Auto-apply high-confidence recommendations
+    # 5. Auto-apply high-confidence recommendations
     applied = _auto_apply_recommendations(insights["recommendations"])
     
     insights["summary"] = (
-        f"{len(history)} trades analizados | "
+        f"{len(history)} trades | "
         f"{len(insights['insights'])} insights | "
-        f"{len(anomalies)} anomalias | "
-        f"{applied} aplicados automaticamente"
+        f"{len(anomalies) if isinstance(anomalies, list) else 0} anomalias | "
+        f"{applied} aplicados | "
+        f"{'🤖 AI' if insights.get('ai_insight') else 'sin IA'}"
     )
     
     _save_insights(insights)
-    
     log.info(f"   💤 Dream Engine completado: {insights['summary']}")
     
     return insights
@@ -375,6 +428,20 @@ def _generate_report(insights: dict, history: list, portfolio: dict) -> str:
     lines.append(f"**Win Rate**: {wr:.0f}%")
     lines.append("")
     
+    # AI Insight
+    if insights.get("ai_insight"):
+        ai = insights["ai_insight"]
+        lines.append("## 🤖 AI Insight (Auto-Learner)")
+        lines.append(f"**[{ai['confidence']*100:.0f}% confidence]**")
+        lines.append(f"{ai['key_insight']}")
+        if ai.get("tokens_to_avoid"):
+            lines.append(f"- 🔴 Tokens a evitar: {', '.join(ai['tokens_to_avoid'])}")
+        if ai.get("tokens_to_prefer"):
+            lines.append(f"- 🟢 Tokens preferidos: {', '.join(ai['tokens_to_prefer'])}")
+        if ai.get("changes"):
+            lines.append(f"- ⚙️ Cambios aplicados: {', '.join(str(c) for c in ai['changes'])}")
+        lines.append("")
+    
     # Insights
     if insights["insights"]:
         lines.append("## 💡 Insights")
@@ -388,7 +455,10 @@ def _generate_report(insights: dict, history: list, portfolio: dict) -> str:
         lines.append("## 🎯 Recomendaciones")
         for rec in insights["recommendations"]:
             auto = "🤖 AUTO" if rec.get("auto_apply") else "📋 MANUAL"
-            lines.append(f"- [{auto}] {rec.get('finding', '')}")
+            if rec.get("is_ai"):
+                lines.append(f"- 🤖 **[AI]** {rec.get('finding', '')}")
+            else:
+                lines.append(f"- [{auto}] {rec.get('finding', '')}")
             lines.append(f"  → {rec.get('action', '')}")
         lines.append("")
     
