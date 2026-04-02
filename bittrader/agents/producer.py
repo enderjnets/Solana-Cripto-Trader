@@ -566,13 +566,46 @@ def clean_script_for_tts(text: str) -> str:
     # 6. Remove markdown bold/italic inline
     text = re.sub(r'\*{1,3}([^*\n]+)\*{1,3}', r'\1', text)
 
-    # 7. Remove numbered LLM meta-steps: "1. **Analyze the Request:**"
-    text = re.sub(r'^\d+\.\s+\*?\*?[A-Z][^\n]{0,60}\*?\*?:\s*$', '', text,
-                  flags=re.MULTILINE)
+    # 7. Remove numbered LLM meta-steps: "1. **Analyze the Request:**" and similar chain-of-thought
+    #    Fix 2026-04-01: Expanded to catch **bold**, multi-word, and mixed patterns
+    text = re.sub(
+        r'^\d+\.\s+(?:\*\*)?[A-Za-z][^\n]{0,80}(?:\*\*)?[:*—].*$',
+        '', text, flags=re.MULTILINE)
+    # Also catch numbered items that are pure analysis steps (no content after colon)
+    text = re.sub(r'^\d+\.\s+(?:\*\*)?[A-Za-z][^\n]*\*\*.*$', '',
+                   text, flags=re.MULTILINE)
+    # Catch remaining **bold** phrases that look like LLM instructions
+    text = re.sub(r'^\s*\*?\*?\*(?:Analyze|Request|Role|Format|Tone|Style|Output|Goal|Constraint|Requirements|Script Editor|Shorten|Respond|Constraints|Instructions|Prompt)[:\*][^\n]*$',
+                   '', text, flags=re.MULTILINE | re.IGNORECASE)
 
-    # 8. Remove bullet sub-items that are LLM metadata (start with * **Role:**)
-    text = re.sub(r'^\s*\*\s+\*\*(?:Role|Format|Tone|Style|Output)[^:]*\*\*.*$', '',
-                  text, flags=re.MULTILINE | re.IGNORECASE)
+    # 8. Remove LLM instruction lines: "Respond ONLY with the script, no"
+    #    and any "Script editor for YouTube..." system prompt text leaking in
+    text = re.sub(
+        r'(?:^|\n)(?:\*\*)?Respond ONLY[^\n]+|(?:^|\n)(?:\*\*)?Script editor for YouTube[^\n]+',
+        '', text, flags=re.IGNORECASE)
+    # Remove lines that are pure English instruction fragments with asterisks
+    text = re.sub(
+        r'^\s*\*\s+\*\*(?:Role|Format|Tone|Style|Output)[^:]*\*\*.*$', '',
+        text, flags=re.MULTILINE | re.IGNORECASE)
+
+    # 8b. CRITICAL FIX 2026-04-01: Remove any lines that contain LLM chain-of-thought
+    #     patterns that appear in the actual narration stream
+    CHAIN_PATTERNS = [
+        r'^\d+\.\s+\*\*[^*]+\*\*[:\*—]',
+        r'\*\*[A-Z][a-z]+\s+the\s+[A-Z][a-z]+\*\*',
+        r'Respond\s+ONLY\s+with',
+        r'Script\s+editor\s+for\s+YouTube',
+        r'Latin\s+American\s+Spanish',
+        r'\d+\s+words?\s*\.\s*\*',
+        r'\*\*Requirements?:\*\*',
+        r'\*\*Constraint:\*\*',
+        r'\*\*Goal:\*\*',
+        r'\*\*Role:\*\*',
+        r'Goal:\s*Shorten',
+        r'Constraint:\s*Respond',
+    ]
+    for pat in CHAIN_PATTERNS:
+        text = re.sub(pat, '', text, flags=re.MULTILINE | re.IGNORECASE)
 
     # 9. Collapse multiple blank lines
     text = re.sub(r'\n{3,}', '\n\n', text)

@@ -67,7 +67,7 @@ TITLE_MAX_LEN          = 80    # chars; longer likely concatenated
 LONG_MIN_SECONDS       = 60       # 1 minute (plan says 8-12min target, but allow 1min minimum)
 LONG_MAX_SECONDS       = 20 * 60   # 20 minutes
 SHORT_MIN_SECONDS      = 30
-SHORT_MAX_SECONDS      = 65
+SHORT_MAX_SECONDS      = 180  # YouTube Shorts limit is 180s (updated 2026-04-01)
 
 # ── Forbidden tokens ───────────────────────────────────────────────────────
 PLACEHOLDER_TOKENS = [
@@ -859,6 +859,143 @@ def check_visual_contamination(video_path: str, sample_interval: int = 5) -> dic
     }
 
 
+def extract_subtitle_text(video_path: str) -> str:
+    """Extract clean text from ASS subtitle file in the same directory as video."""
+    import re
+    video_dir = Path(video_path).parent
+    base = Path(video_path).stem
+    
+    # Look for subtitle files — match various naming conventions
+    subtitle_candidates = (
+        list(video_dir.glob("subtitles.ass")) + list(video_dir.glob("subtitles.srt")) +
+        list(video_dir.glob(f"{base}_subtitles.ass")) + list(video_dir.glob(f"{base}_subtitles.srt")) +
+        list(video_dir.glob(f"{base}.ass")) + list(video_dir.glob(f"{base}.srt")) +
+        list(video_dir.glob("*.ass")) + list(video_dir.glob("*.srt"))
+    )
+    seen = set()
+    for fname in subtitle_candidates:
+        try:
+            text_blocks = []
+            for line in fname.read_text(errors="ignore").splitlines():
+                # ASS format: Dialogue: 0,...,...,...,...,...,...,...,...{\fscx...}Actual Text Here
+                if line.startswith("Dialogue:"):
+                    # ASS Dialogue line format:
+                    # Dialogue: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text
+                    # Text is everything from the 10th comma onwards
+                    parts = line.split(",", 9)  # Split only on first 9 commas
+                    if len(parts) >= 2:
+                        raw_text = parts[9].strip() if len(parts) > 9 else ""
+                        # Remove ALL ASS override tags {param} — they may span multiple \key\value groups
+                        # Pattern: {anything until matching } (handles \fscx100\fscy100\bord3 etc.)
+                        raw_text = re.sub(r'\{[^}]*\}', '', raw_text)
+                        raw_text = raw_text.strip()
+                        if raw_text:
+                            text_blocks.append(raw_text)
+            return " ".join(text_blocks)
+        except Exception:
+            pass
+    return ""
+
+
+def check_subtitle_language(video_path: str) -> dict:
+    """
+    CHECK 12 — Subtítulos en español (no en inglés).
+    
+    Extrae texto de subtitles.ass/subtitles.srt y verifica:
+    1. Que el idioma sea español (no predominantemente inglés)
+    2. Que NO contenga patrones de chain-of-thought del LLM
+    """
+    import re
+    
+    subtitle_text = extract_subtitle_text(video_path)
+    if not subtitle_text:
+        return {"passed": True, "note": "NO_SUBTITLE_FILE_FOUND"}
+    
+    # Common Spanish words to detect Spanish language
+    spanish_words = {
+        "el", "la", "los", "las", "un", "una", "de", "en", "que", "es", "por",
+        "con", "para", "como", "más", "pero", "sus", "le", "ya", "o", "este",
+        "está", "porque", "cuando", "muy", "sin", "sobre", "también", "me",
+        "hasta", "hay", "donde", "quien", "desde", "todo", "nos", "durante",
+        "cómo", "qué", "dólar", "pesos", " Bitcoin ", "ethereum", "trading",
+        "mercado", "trader", "inversión", "cripto", "crypto", "precio", "subió",
+        "bajó", "gano", "pierde", "estrategia", "trades", "sistema", "robot",
+        "automático", "inteligencia", "artificial", "OpenAI", "éxito", "error",
+        "falla", "causa", "razón", "verdad", "mentira", "riesgo", "salida",
+        "entrada", "ganancia", "pérdida", "cuenta", "broker", "trader",
+        " explos", "sube", "cae", "crece", "mil", "millones", "billones",
+    }
+    english_words = {
+        "the", "is", "are", "was", "were", "have", "has", "had", "been", "being",
+        "this", "that", "these", "those", "it", "they", "them", "their",
+        "analyze", "request", "requirements", "constraints", "respond", "only",
+        "script", "editor", "shorten", "maximum", "words", "goal", "role",
+        "format", "tone", "style", "output", "step", "analysis", "write",
+    }
+    
+    text_lower = subtitle_text.lower()
+    
+    # Count Spanish vs English indicator words
+    spanish_count = sum(1 for w in spanish_words if w in text_lower)
+    english_count = sum(1 for w in english_words if w in text_lower)
+    
+    total_words = len(text_lower.split())
+    english_word_count = sum(1 for w in text_lower.split() if w in english_words)
+    
+    # Check: if >20% of identifiable words are English, fail
+    if total_words > 0 and english_word_count / total_words > 0.20:
+        return {
+            "passed": False,
+            "issue": "SUBTITLE_ENGLISH_DETECTED",
+            "english_words_found": english_word_count,
+            "total_words": total_words,
+            "sample": subtitle_text[:200],
+            "action": "ABORT — regenerate script, narration must be in Spanish",
+        }
+    
+    # Check for LLM chain-of-thought patterns in subtitle text
+    chain_patterns = [
+        r'analyze\s+the\s+request',
+        r'requirements?:?\s*keep',
+        r'constraints?:?\s*respond',
+        r'respond\s+only\s+with',
+        r'script\s+editor\s+for',
+        r'latin\s+american\s+spanish',
+        r'\d+\s+words?\s*\.\s*\*',
+        r'\*\*role\*\*',
+        r'\*\*goal\*\*',
+        r'\*\*constraints?\*\*',
+        r'\*\*requirements?\*\*',
+        r'\*\*analyze',
+        r'\*\*format\*\*',
+        r'\d+\.\s+\*\*[a-z]',
+    ]
+    
+    found_patterns = []
+    for pat in chain_patterns:
+        m = re.search(pat, text_lower)
+        if m:
+            snippet = text_lower[max(0, m.start()-20):m.end()+30].replace("\n", " ").strip()
+            found_patterns.append(snippet[:80])
+    
+    if found_patterns:
+        return {
+            "passed": False,
+            "issue": "SUBTITLE_LLM_CHAIN_DETECTED",
+            "matched_patterns": found_patterns[:5],
+            "sample": subtitle_text[:300],
+            "action": "ABORT — LLM chain-of-thought visible in subtitles",
+        }
+    
+    return {
+        "passed": True,
+        "spanish_words_found": spanish_count,
+        "english_words_found": english_count,
+        "total_words": total_words,
+        "note": "Subtitles appear to be in Spanish",
+    }
+
+
 def check_duration(video_path: str, video_type: str = "long") -> dict:
     """
     CHECK 7 — Duración razonable.
@@ -1165,6 +1302,22 @@ class QAAgent:
                 "note": "Script contamination already detected in CHECK 8 — OCR skipped",
             }
             # Don't add a new issue code since NARRATION_CONTAMINATED is already in issues
+
+        # ── CHECK 12: Subtítulos en español (no inglés, no chain-of-thought) ──
+        _log("CHECK 12: Subtítulos en español y sin contaminación LLM...")
+        if video_path:
+            r = check_subtitle_language(video_path)
+            checks["subtitle_language"] = r
+            if not r["passed"]:
+                issues.append(r.get("issue", "SUBTITLE_ISSUE"))
+                _log(f"  ❌ FAIL: {r.get('issue')}", "ERROR")
+                for p in r.get("matched_patterns", [])[:3]:
+                    _log(f"     Pattern: {p}", "ERROR")
+            else:
+                note = r.get("note", "OK")
+                _log(f"  ✅ OK: {note}")
+        else:
+            checks["subtitle_language"] = {"passed": True, "note": "SKIPPED_NO_VIDEO"}
 
         # ── CHECK 10: Logo BitTrader en video ────────────────────────────
         # Orden de Ender 2026-03-28: el video DEBE tener logo BitTrader visible
