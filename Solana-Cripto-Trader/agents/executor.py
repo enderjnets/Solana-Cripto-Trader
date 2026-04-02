@@ -158,7 +158,7 @@ log = logging.getLogger("executor")
 
 # ─── Parámetros ──────────────────────────────────────────────────────────────
 
-INITIAL_CAPITAL = 500.0   # Capital paper inicial
+INITIAL_CAPITAL = 1000.0   # Capital paper inicial
 PAPER_MODE      = True    # Cambia a False para trades reales
 
 # ─── Risk Management (ajustado 31-Mar-2026 — orden de Ender) ─────────────────

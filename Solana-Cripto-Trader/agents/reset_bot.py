@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 🔄 Reset Bot - Resetea todo el estado del bot a valores iniciales
-Uso: python3 reset_bot.py [--capital 500]
+Uso: python3 reset_bot.py [--capital 1000]
 """
 
 import json
@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 BASE_DIR = Path(__file__).parent
 DATA_DIR = BASE_DIR / "data"
 
-def reset_all(capital: float = 500.0):
+def reset_all(capital: float = 1000.0):
     """Resetea todos los archivos de estado del bot."""
     now = datetime.now(timezone.utc).isoformat()
     
@@ -126,7 +126,7 @@ def reset_all(capital: float = 500.0):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Reset bot state")
-    parser.add_argument("--capital", type=float, default=500.0, help="Initial capital (default: 500)")
+    parser.add_argument("--capital", type=float, default=1000.0, help="Initial capital (default: 1000)")
     args = parser.parse_args()
     
     print(f"\n🔄 Reseteando bot con capital ${args.capital}...\n")

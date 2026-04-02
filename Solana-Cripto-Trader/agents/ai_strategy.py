@@ -56,7 +56,7 @@ except ImportError:
 
 # ─── Parámetros de Trading ────────────────────────────────────────────────
 
-INITIAL_CAPITAL = 500.0
+INITIAL_CAPITAL = 1000.0
 MAX_POSITIONS = 5
 RISK_PER_TRADE = 0.02  # 2% del capital
 MIN_VOLATILITY = 0.005  # 0.5% volatilidad mínima

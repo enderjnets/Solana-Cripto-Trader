@@ -339,7 +339,7 @@ def get_dashboard_data():
     positions = portfolio.get("positions", [])
     open_pos = [p for p in positions if p.get("status") == "open"]
     capital = portfolio.get("capital_usd", 0)
-    initial = portfolio.get("initial_capital", 500)
+    initial = portfolio.get("initial_capital", 1000)
     total_margin = sum(p.get("margin_usd", 0) for p in open_pos)
     total_pnl = sum(p.get("pnl_usd", 0) for p in open_pos)
     equity = capital + total_margin + total_pnl

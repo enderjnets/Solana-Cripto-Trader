@@ -69,7 +69,7 @@ def load_portfolio() -> dict:
     if PORTFOLIO_FILE.exists():
         with open(PORTFOLIO_FILE) as f:
             return json.load(f)
-    return {"capital_usd": 500.0, "initial_capital": 500.0, "positions": [],
+    return {"capital_usd": 1000.0, "initial_capital": 1000.0, "positions": [],
             "total_trades": 0, "wins": 0, "losses": 0, "status": "ACTIVE"}
 
 
@@ -106,8 +106,8 @@ def calculate_metrics(portfolio: dict, history: list) -> dict:
     total_trades = portfolio.get("total_trades", 0)
     wins = portfolio.get("wins", 0)
     losses = portfolio.get("losses", 0)
-    capital = portfolio.get("capital_usd", 500.0)
-    initial = portfolio.get("initial_capital", 500.0)
+    capital = portfolio.get("capital_usd", 1000.0)
+    initial = portfolio.get("initial_capital", 1000.0)
 
     # Win Rate
     win_rate = (wins / total_trades * 100) if total_trades > 0 else 0.0
