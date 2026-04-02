@@ -2,5 +2,7 @@
   "enabled": true,
   "last_compound": null,
   "compound_count": 0,
-  "total_compounded": 0.0
+  "total_compounded": 0.0,
+  "initial_capital": 1000.0,
+  "capital": 1000.0
 }

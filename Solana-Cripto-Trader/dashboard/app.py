@@ -1430,7 +1430,7 @@ def api_stats():
 
     reset_capital = safe_float(reset_log.get("capital_after", 500.0)) if has_reset else 500.0
     initial_capital = reset_capital if has_reset else safe_float(
-        port.get("initial_capital", comp.get("initial_capital", 500)))
+        port.get("initial_capital", comp.get("initial_capital", 1000)))
 
     # --- Load trades, filter to post-reset if applicable ---
     trades_raw = load_trade_history()
@@ -1697,7 +1697,7 @@ def api_equity():
 
     # Build equity curve from reset baseline
     init_cap = safe_float(reset_log.get("capital_after", 500.0)) if has_reset else \
-               safe_float(port.get("initial_capital", 500))
+               safe_float(port.get("initial_capital", 1000))
     capital = init_cap
     equity_full = [init_cap]
     labels_full = ["Start"]
@@ -1955,7 +1955,7 @@ def api_reset():
         total_pnl = sum(safe_float(t.get("pnl_usd", 0)) for t in old_history if t.get("status") == "closed")
         
         old_capital = safe_float(old_portfolio.get("capital_usd", 500))
-        old_initial = safe_float(old_portfolio.get("initial_capital", 500))
+        old_initial = safe_float(old_portfolio.get("initial_capital", 1000))
         return_pct = ((old_capital - old_initial) / old_initial * 100) if old_initial > 0 else 0
         
         win_rate = (wins / total_trades * 100) if total_trades > 0 else 0
