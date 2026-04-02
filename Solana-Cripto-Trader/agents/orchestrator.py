@@ -290,7 +290,7 @@ def run_cycle(safe=True, debug=False):
                     history = _load_trade_history()
                     closed = ex.close_positions_emergency(portfolio_data, symbols_to_close, market_data, history, reason="SMART_ROTATION")
                     for pos in closed:
-                        ex.record_emergency_cooldown(pos.get("symbol", ""))
+                        ex.record_emergency_cooldown(pos.get("symbol", "")) if pos.get("symbol") else None
                     ex.save_portfolio(portfolio_data)
                     _save_trade_history(history)
                     log.info(f"   ✅ Cerradas {len(closed)} posición(es) por Smart Rotation")
@@ -342,7 +342,7 @@ def run_cycle(safe=True, debug=False):
                         close_reason_label = f"DAILY_TARGET: {target_result['close_reason'][:60]}"
                         closed = ex.close_positions_emergency(portfolio_data, open_symbols, market_data, history, reason=close_reason_label)
                         for pos in closed:
-                            ex.record_emergency_cooldown(pos.get("symbol", ""))
+                            ex.record_emergency_cooldown(pos.get("symbol", "")) if pos.get("symbol") else None
                         _cycle_emergency_closes += len(closed)
                         # FIX 3: Escribir DAILY_TARGET_HIT — previene que executor abra nuevas posiciones
                         target_hit_file = DATA_DIR / "DAILY_TARGET_HIT"
@@ -406,7 +406,7 @@ def run_cycle(safe=True, debug=False):
                     # FIX: Usar reason específica para Position Decision
                     closed = ex.close_positions_emergency(portfolio_data, close_symbols, market_data, history, reason="POSITION_DECISION")
                     for pos in closed:
-                        ex.record_emergency_cooldown(pos.get("symbol", ""))
+                        ex.record_emergency_cooldown(pos.get("symbol", "")) if pos.get("symbol") else None
                     ex.save_portfolio(portfolio_data)
                     _save_trade_history(history)
                     log.info(f"   ✅ Cerradas {len(closed)} posición(es) por Position Decision")
@@ -450,7 +450,7 @@ def run_cycle(safe=True, debug=False):
                         history = _load_trade_history()
                         closed = ex.close_positions_emergency(portfolio_data, symbols, market_data, history, reason="PORTFOLIO_TP")
                         for pos in closed:
-                            ex.record_emergency_cooldown(pos.get("symbol", ""))
+                            ex.record_emergency_cooldown(pos.get("symbol", "")) if pos.get("symbol") else None
                         ex.save_portfolio(portfolio_data)
                         _save_trade_history(history)
                         _cycle_emergency_closes += len(closed)
@@ -489,7 +489,7 @@ def run_cycle(safe=True, debug=False):
                                 history = _load_trade_history()
                                 closed = ex.close_positions_emergency(portfolio_data, symbols, market_data, history, reason="PORTFOLIO_TP_MIN")
                                 for pos in closed:
-                                    ex.record_emergency_cooldown(pos.get("symbol", ""))
+                                    ex.record_emergency_cooldown(pos.get("symbol", "")) if pos.get("symbol") else None
                                 ex.save_portfolio(portfolio_data)
                                 _save_trade_history(history)
                                 _cycle_emergency_closes += len(closed)

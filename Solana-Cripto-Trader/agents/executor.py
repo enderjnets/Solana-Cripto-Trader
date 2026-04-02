@@ -95,12 +95,14 @@ def _is_rebounding_from_fear(symbol: str, market: dict, price_history: dict) -> 
     """
     Detecta si el precio ya rebotó desde mínimos de Fear extremo.
     Retorna True si: FG < 15 Y precio subió >2% en la última hora.
+
+    price_history se ordena oldest→newest (hist[0] = más antiguo, hist[-1] = más nuevo).
     """
     fg = market.get("fear_greed", 50)
     if fg >= 15:
         return False  # No hay miedo extremo
 
-    # Obtener precio actual
+    # Obtener precio actual del market
     tokens = market.get("tokens", {})
     token_info = tokens.get(symbol.upper()) or tokens.get(symbol.lower())
     if not token_info:
@@ -109,20 +111,38 @@ def _is_rebounding_from_fear(symbol: str, market: dict, price_history: dict) -> 
     if not current_price:
         return False
 
-    # Buscar precio de hace ~1 hora en price_history
+    # Obtener price history — oldest FIRST, newest LAST
     hist = price_history.get(symbol.upper(), [])
     if not hist or len(hist) < 2:
         return False
 
-    # El más antiguo (primero en la lista) debería ser el de hace ~1h
-    oldest = hist[0]  # más antiguo
-    old_price = oldest.get("price")
-    if not old_price or old_price <= 0:
+    # Parsear timestamps para encontrar el precio de ~1 hora atrás
+    from datetime import datetime, timezone
+    now_ts = datetime.now(timezone.utc).timestamp()
+
+    price_1h_ago = None
+    for entry in reversed(hist):  # iterate newest→oldest para encontrar el más cercano a 1h
+        ts_str = entry.get("ts", "")
+        try:
+            # Parse ISO timestamp
+            if "+" in ts_str or "Z" in ts_str:
+                dt = datetime.fromisoformat(ts_str.replace("Z", "+00:00"))
+            else:
+                dt = datetime.fromisoformat(ts_str)
+            entry_ts = dt.timestamp()
+            age_seconds = now_ts - entry_ts
+            if 45 * 60 <= age_seconds <= 75 * 60:  # entre 45 min y 75 min = ~1h
+                price_1h_ago = entry.get("price")
+                break
+        except Exception:
+            continue
+
+    if not price_1h_ago or price_1h_ago <= 0:
         return False
 
-    change_1h = (current_price - old_price) / old_price * 100
+    change_1h = (current_price - price_1h_ago) / price_1h_ago * 100
     if change_1h > 2.0:
-        log.info(f"🔴 ANTI-REBOUND: {symbol} FG={fg} + precio +{change_1h:.1f}% 1h — SHORT bloqueado (rebote detectado)")
+        log.info(f"🔴 ANTI-REBOUND: {symbol} FG={fg} +{change_1h:.1f}% 1h — SHORT bloqueado (rebote en progreso)")
         return True
     return False
 
@@ -826,7 +846,9 @@ def run(safe: bool = True, debug: bool = False) -> dict:
         if emergency_closed:
             log.error(f"🚨 {len(emergency_closed)} posiciones cerradas por emergencia")
             for pos in emergency_closed:
-                record_emergency_cooldown(pos.get("symbol", ""))
+                sym = pos.get("symbol", "")
+                if sym:
+                    record_emergency_cooldown(sym)
 
     # Actualizar precios y cerrar posiciones que tocaron SL/TP
     open_before = len([p for p in portfolio["positions"] if p.get("status") == "open"])
@@ -854,10 +876,19 @@ def run(safe: bool = True, debug: bool = False) -> dict:
     if TARGET_HIT_FILE.exists():
         try:
             content = TARGET_HIT_FILE.read_text()
-            # Si es de hoy, mantener el bloqueo. Si es de ayer, limpiar.
-            if "2026-04-02" not in content and "2026-04-03" not in content:
+            # Parsear timestamp del archivo (formato: "Daily target reached: 2026-04-02T...")
+            import re
+            m = re.search(r"(\d{4}-\d{2}-\d{2})", content)
+            if m:
+                file_date = m.group(1)
+                today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+                if file_date != today:
+                    TARGET_HIT_FILE.unlink()
+                    log.info(f"🛡️ DAILY_TARGET_HIT limpiado (era del {file_date}, hoy es {today})")
+            else:
+                # Sin timestamp — limpiar por seguridad
                 TARGET_HIT_FILE.unlink()
-                log.info("🛡️ DAILY_TARGET_HIT limpiado (era de día anterior)")
+                log.info("🛡️ DAILY_TARGET_HIT limpiado (sin fecha — limpio por seguridad)")
         except Exception:
             pass
 
