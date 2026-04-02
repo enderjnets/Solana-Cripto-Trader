@@ -289,6 +289,8 @@ def run_cycle(safe=True, debug=False):
                     market_data = json.loads((DATA_DIR / "market_latest.json").read_text()) if (DATA_DIR / "market_latest.json").exists() else {}
                     history = _load_trade_history()
                     closed = ex.close_positions_emergency(portfolio_data, symbols_to_close, market_data, history, reason="SMART_ROTATION")
+                    for pos in closed:
+                        ex.record_emergency_cooldown(pos.get("symbol", ""))
                     ex.save_portfolio(portfolio_data)
                     _save_trade_history(history)
                     log.info(f"   ✅ Cerradas {len(closed)} posición(es) por Smart Rotation")
@@ -339,7 +341,18 @@ def run_cycle(safe=True, debug=False):
                         # FIX: Usar reason específica "DAILY_TARGET" en lugar de "EMERGENCY_CLOSE"
                         close_reason_label = f"DAILY_TARGET: {target_result['close_reason'][:60]}"
                         closed = ex.close_positions_emergency(portfolio_data, open_symbols, market_data, history, reason=close_reason_label)
+                        for pos in closed:
+                            ex.record_emergency_cooldown(pos.get("symbol", ""))
                         _cycle_emergency_closes += len(closed)
+                        # FIX 3: Escribir DAILY_TARGET_HIT — previene que executor abra nuevas posiciones
+                        target_hit_file = DATA_DIR / "DAILY_TARGET_HIT"
+                        from datetime import datetime, timezone
+                        target_hit_file.write_text(
+                            f"Daily target reached: {datetime.now(timezone.utc).isoformat()}\n"
+                            f"PnL: {target_result.get('daily_pnl_pct', 0):.2f}%\n"
+                            f"Closed: {len(closed)} position(s)\n"
+                        )
+                        log.info(f"   🛡️ DAILY_TARGET_HIT escrito — executor no abrirá nuevas posiciones")
                         ex.save_portfolio(portfolio_data)
                         _save_trade_history(history)
                         log.info(f"   ✅ Cerradas {len(closed)} posición(es) por Daily Target")
@@ -392,6 +405,8 @@ def run_cycle(safe=True, debug=False):
                     history = _load_trade_history()
                     # FIX: Usar reason específica para Position Decision
                     closed = ex.close_positions_emergency(portfolio_data, close_symbols, market_data, history, reason="POSITION_DECISION")
+                    for pos in closed:
+                        ex.record_emergency_cooldown(pos.get("symbol", ""))
                     ex.save_portfolio(portfolio_data)
                     _save_trade_history(history)
                     log.info(f"   ✅ Cerradas {len(closed)} posición(es) por Position Decision")
@@ -434,6 +449,8 @@ def run_cycle(safe=True, debug=False):
                         market_data = json.loads((DATA_DIR / "market_latest.json").read_text()) if (DATA_DIR / "market_latest.json").exists() else {}
                         history = _load_trade_history()
                         closed = ex.close_positions_emergency(portfolio_data, symbols, market_data, history, reason="PORTFOLIO_TP")
+                        for pos in closed:
+                            ex.record_emergency_cooldown(pos.get("symbol", ""))
                         ex.save_portfolio(portfolio_data)
                         _save_trade_history(history)
                         _cycle_emergency_closes += len(closed)
@@ -471,6 +488,8 @@ def run_cycle(safe=True, debug=False):
                                 market_data = json.loads((DATA_DIR / "market_latest.json").read_text()) if (DATA_DIR / "market_latest.json").exists() else {}
                                 history = _load_trade_history()
                                 closed = ex.close_positions_emergency(portfolio_data, symbols, market_data, history, reason="PORTFOLIO_TP_MIN")
+                                for pos in closed:
+                                    ex.record_emergency_cooldown(pos.get("symbol", ""))
                                 ex.save_portfolio(portfolio_data)
                                 _save_trade_history(history)
                                 _cycle_emergency_closes += len(closed)

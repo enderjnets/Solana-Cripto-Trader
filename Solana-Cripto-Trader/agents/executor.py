@@ -46,6 +46,86 @@ HISTORY_FILE       = DATA_DIR / "trade_history.json"
 # Máxima antigüedad de señales LLM para considerarlas válidas (en segundos)
 LLM_SIGNALS_MAX_AGE_SEC = 600  # 10 minutos (5 ciclos de 2min)
 
+# ─── FIX 2: Cooldown después de emergency close (02-abr-2026) ─────────────────
+# Si un símbolo tuvo emergency close, esperar 30 min antes de reabrir
+EMERGENCY_COOLDOWN_FILE = DATA_DIR / "symbol_cooldown.json"
+EMERGENCY_COOLDOWN_SEC = 30 * 60  # 30 minutos
+
+def _load_symbol_cooldown() -> dict:
+    """Retorna dict de {symbol: timestamp_utc} de cooldown activo."""
+    if not EMERGENCY_COOLDOWN_FILE.exists():
+        return {}
+    try:
+        return json.loads(EMERGENCY_COOLDOWN_FILE.read_text())
+    except Exception:
+        return {}
+
+def _is_in_emergency_cooldown(symbol: str) -> bool:
+    """True si el símbolo está en cooldown por emergency close reciente."""
+    cooldowns = _load_symbol_cooldown()
+    if symbol.upper() not in cooldowns:
+        return False
+    last_close = cooldowns[symbol.upper()]
+    elapsed = time.time() - last_close
+    if elapsed > EMERGENCY_COOLDOWN_SEC:
+        # Cooldown expirado, limpiar
+        del cooldowns[symbol.upper()]
+        EMERGENCY_COOLDOWN_FILE.write_text(json.dumps(cooldowns))
+        return False
+    remaining = int(EMERGENCY_COOLDOWN_SEC - elapsed)
+    log.info(f"⏱️  {symbol} en emergency cooldown — {remaining}s restantes")
+    return True
+
+def record_emergency_cooldown(symbol: str):
+    """Registra que este símbolo tuvo emergency close — inicia cooldown de 30 min."""
+    cooldowns = _load_symbol_cooldown()
+    cooldowns[symbol.upper()] = time.time()
+    EMERGENCY_COOLDOWN_FILE.write_text(json.dumps(cooldowns))
+    log.info(f"⏱️  Emergency cooldown registrado para {symbol.upper()} — 30 min")
+
+def clear_all_cooldowns():
+    """Limpia todos los cooldowns de emergencia."""
+    EMERGENCY_COOLDOWN_FILE.write_text("{}")
+    log.info("⏱️  Todos los cooldowns de emergencia limpiados")
+
+# ─── FIX 1: Anti-rebound — evitar shorts cuando FG<15 y el precio ya rebotó ──
+# Si FG está en pánico (<15) pero el precio ya subió >2% en 1h,
+# el rebote está en progreso y shorts son arriesgados.
+def _is_rebounding_from_fear(symbol: str, market: dict, price_history: dict) -> bool:
+    """
+    Detecta si el precio ya rebotó desde mínimos de Fear extremo.
+    Retorna True si: FG < 15 Y precio subió >2% en la última hora.
+    """
+    fg = market.get("fear_greed", 50)
+    if fg >= 15:
+        return False  # No hay miedo extremo
+
+    # Obtener precio actual
+    tokens = market.get("tokens", {})
+    token_info = tokens.get(symbol.upper()) or tokens.get(symbol.lower())
+    if not token_info:
+        return False
+    current_price = token_info.get("price")
+    if not current_price:
+        return False
+
+    # Buscar precio de hace ~1 hora en price_history
+    hist = price_history.get(symbol.upper(), [])
+    if not hist or len(hist) < 2:
+        return False
+
+    # El más antiguo (primero en la lista) debería ser el de hace ~1h
+    oldest = hist[0]  # más antiguo
+    old_price = oldest.get("price")
+    if not old_price or old_price <= 0:
+        return False
+
+    change_1h = (current_price - old_price) / old_price * 100
+    if change_1h > 2.0:
+        log.info(f"🔴 ANTI-REBOUND: {symbol} FG={fg} + precio +{change_1h:.1f}% 1h — SHORT bloqueado (rebote detectado)")
+        return True
+    return False
+
 # .env del proyecto para Telegram/wallet
 ENV_FILE = Path(__file__).parent.parent / ".env"
 
@@ -305,6 +385,25 @@ def paper_open_position(signal: dict, portfolio: dict, market: dict) -> Optional
             log.info(f"⏭️  LONG {symbol} bloqueado: Fear & Greed {fear_greed} < {BLOCK_LONGS_FG} (mercado bajista)")
             return None
     
+    # ─── FIX 1: Anti-rebound — bloquear SHORTs cuando FG<15 y precio ya rebotó ─
+    if direction == "short":
+        from pathlib import Path
+        price_hist_file = Path(__file__).parent / "data" / "price_history.json"
+        price_history = {}
+        if price_hist_file.exists():
+            try:
+                price_history = json.loads(price_hist_file.read_text())
+            except Exception:
+                pass
+        if _is_rebounding_from_fear(symbol, market, price_history):
+            log.info(f"⏭️  SHORT {symbol} bloqueado: rebound detectado (FG<15 + precio subiendo)")
+            return None
+
+    # ─── FIX 2: Cooldown después de emergency close ────────────────────────────
+    if _is_in_emergency_cooldown(symbol):
+        log.info(f"⏭️  {symbol} en cooldown — skip")
+        return None
+
     price = get_current_price(symbol, market)
 
     if price <= 0:
@@ -726,6 +825,8 @@ def run(safe: bool = True, debug: bool = False) -> dict:
         emergency_closed = close_positions_emergency(portfolio, symbols_to_close, market, history)
         if emergency_closed:
             log.error(f"🚨 {len(emergency_closed)} posiciones cerradas por emergencia")
+            for pos in emergency_closed:
+                record_emergency_cooldown(pos.get("symbol", ""))
 
     # Actualizar precios y cerrar posiciones que tocaron SL/TP
     open_before = len([p for p in portfolio["positions"] if p.get("status") == "open"])
@@ -748,6 +849,18 @@ def run(safe: bool = True, debug: bool = False) -> dict:
         }
 
     # ── Safety Nets ──────────────────────────────────────────────────────
+    # FIX 3: Auto-clear DAILY_TARGET_HIT si es de un día anterior (reset diario)
+    TARGET_HIT_FILE = DATA_DIR / "DAILY_TARGET_HIT"
+    if TARGET_HIT_FILE.exists():
+        try:
+            content = TARGET_HIT_FILE.read_text()
+            # Si es de hoy, mantener el bloqueo. Si es de ayer, limpiar.
+            if "2026-04-02" not in content and "2026-04-03" not in content:
+                TARGET_HIT_FILE.unlink()
+                log.info("🛡️ DAILY_TARGET_HIT limpiado (era de día anterior)")
+        except Exception:
+            pass
+
     # Kill switch: if STOP_TRADING file exists, don't open new positions
     STOP_FILE = DATA_DIR / "STOP_TRADING"
     if STOP_FILE.exists():
@@ -755,6 +868,18 @@ def run(safe: bool = True, debug: bool = False) -> dict:
         _save_portfolio(portfolio)
         return {
             "status": "kill_switch_active",
+            "capital": portfolio["capital_usd"],
+            "opened": 0,
+            "closed": len(closed_this_cycle),
+        }
+
+    # FIX 3: Daily Target Hit — si daily target fue alcanzado, no abrir nuevas posiciones
+    TARGET_HIT_FILE = DATA_DIR / "DAILY_TARGET_HIT"
+    if TARGET_HIT_FILE.exists():
+        log.warning("🛡️ DAILY_TARGET_HIT — daily target reached. No new positions.")
+        _save_portfolio(portfolio)
+        return {
+            "status": "daily_target_hit",
             "capital": portfolio["capital_usd"],
             "opened": 0,
             "closed": len(closed_this_cycle),
