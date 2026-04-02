@@ -57,3 +57,37 @@
 - Servicio premium: puntualidad, agua, cargadores, limpieza impecable
 - Follow-up post-viaje por texto
 - Descuento para viajes recurrentes (ej: ida+vuelta = $160 en vez de $180)
+
+---
+
+### 3. Bob Webster
+| Campo | Detalle |
+|-------|---------|
+| **Teléfono** | +1 (303) 818-3672 |
+| **Dirección** | [POR CONFIRMAR - Denver] |
+| **Grupo** | Uber/Lyft Riders |
+| **Precio acordado** | [POR CONFIRMAR] |
+| **Ruta** | Denver → DIA Aeropuerto |
+| **Frecuencia** | Ocasional |
+| **Cómo llegó** | Mensaje directo 1 abril 2026 |
+| **Estado** | 🟢 Confirmado — Viaje Viernes 4 abril 6:15 AM |
+| **Fecha registro** | 2026-04-01 |
+| **Notas** | 6:15 AM Friday pickup → DIA. Confirmar dirección exacta y número de pasajeros. |
+
+
+---
+
+### 3. Bob Webster (Susannah)
+| Campo | Detalle |
+|-------|---------|
+| **Teléfono** | +1 (303) 818-3672 |
+| **Dirección** | 7373 Old Mill Trail, Boulder CO 80301 |
+| **Grupo** | Uber/Lyft Riders |
+| **Precio acordado** | $130 (fijo) |
+| **Ruta** | DEN ↔ Boulder |
+| **Frecuencia** | Viajero frecuente |
+| **Cómo llegó** | Uber Black ride |
+| **Estado** | 🟢 Confirmado — Viaje Viernes 4 abril 6:10 AM → DIA (flight 8:25 AM, check bag) |
+| **Fecha registro** | 2026-04-01 |
+| **Notas** | Pickup Level 5 West Side DEN. Susannah también usa el servicio. |
+

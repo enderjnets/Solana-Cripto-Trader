@@ -48,8 +48,8 @@ curl -s http://localhost:11434/v1/chat/completions \
 
 ## Coding Agent — Configuración de Modelos
 
-### Orden de preferencia (orden de Ender, 2026-03-29):
-1. **Opus 4.6** (`claude/claude-opus-4-6`) — Primera opción
+### Orden de preferencia (orden de Ender, 2026-03-30):
+1. **Opus 4.6** (`claude/claude-opus-4-6`) — Primera opción (CEO + coding)
 2. **MiniMax M2.7** (`minimax/MiniMax-M2.7`) — Fallback
 
 ### Uso:
@@ -331,6 +331,11 @@ gog calendar calendars
 - **Characters/request**: hasta 10,000
 - **Script**: `~/.openclaw/workspace/skills/minimax-tts/tts.py`
 
+### Voz BitTrader — DEFAULT para TODOS los videos (orden Ender 2026-03-30)
+- **Voice ID**: `Spanish_ThoughtfulMan` — Spanish thoughtful male voice
+- Configurada en `producer.py` TTS_VOICE (primary)
+- Fallback: Edge-TTS `es-MX-JorgeNeural`
+
 ### Modelos
 | Modelo | Descripción |
 |--------|-------------|
@@ -339,13 +344,14 @@ gog calendar calendars
 | `speech-2.6-hd` | HD con prosodia |
 | `speech-02-hd` | Estabilidad superior |
 
-### Voces
+### Voces preset
 | ID | Descripción |
 |----|-------------|
-| `male_1` | ⭐ Masculino claro (default) |
+| `male_1` | Masculino claro (default) |
 | `male_2` | Masculino alternativo |
 | `female_1` | Femenino claro |
 | `female_2` | Femenino alternativo |
+| `Spanish_ThoughtfulMan` | ⭐ Voz default BitTrader (2026-03-30) |
 
 **40 idiomas**: Español, Inglés, Português, 中文, etc.
 

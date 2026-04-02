@@ -1578,3 +1578,44 @@ El @bittrader9259 va en la esquina superior derecha.
 - Logo BitTrader: x=30, y=25 (superior izquierda)
 - @bittrader9259: x=720, y=30 (superior derecha)
 - Badge temático: y=120 (debajo del logo, no encima)
+
+## Black Volt Mobility — REGLA PERMANENTE DE BÚSQUEDA
+
+### ⚠️ REGLA: Siempre buscar en blackvoltmobility@gmail.com PRIMERO
+
+Cuando hablemos de clientes de Uber/rideshare de Black Volt Mobility:
+1. Consultar Google Sheets (ID: 12rSZJu0r2bIhmTwPTP72oiW5WNRGxK3wTz9dDxNU5Nc) con:
+   `gog --account blackvoltmobility@gmail.com sheets get <SHEET_ID> "Sheet1!A1:Z50"`
+2. Luego consultar Drive para documentos:
+   `gog --account blackvoltmobility@gmail.com drive ls`
+3. Nunca asumir — siempre verificar en la cuenta de Black Volt antes de dar información
+
+### Datos de la cuenta Black Volt
+- **Email**: blackvoltmobility@gmail.com
+- **Drive Folder**: "Black Volt Mobility LLC"
+- **Client CRM Sheet**: 12rSZJu0r2bIhmTwPTP72oiW5WNRGxK3wTz9dDxNU5Nc
+- **Drive ls**: Uber_Annual_Summary_2025.pdf, Root_Insurance_Policy_2026.pdf
+
+
+### 🏎️ Black Volt — Sistema de Llamadas de Recordatorio (Implementado 2026-04-01)
+
+**REGLA:** Cada vez que se agenda un pickup con un cliente, hacer llamada de recordatorio:
+- **CUÁNDO:** Día anterior al pickup, entre 8 AM - 7 PM (horario Denver)
+- **IDIOMA:** Siempre en inglés
+- **HERRAMIENTA:** VAPI (número +1 720 824 9313)
+- **QUÉ DECIR:** Nombre del cliente, fecha/hora del pickup, dirección, confirmación
+
+**Script de llamada (inglés):**
+```
+"Hi [NAME], this is a courtesy call from Black Volt Mobility. 
+Just confirming your ride for tomorrow, [DAY] [DATE], at [TIME]. 
+We'll pick you up at [ADDRESS] and take you to [DESTINATION]. 
+Please reply to this message or call back if you need to make any changes. 
+We look forward to serving you. Thank you!"
+```
+
+**Proceso:**
+1. Agregar pickup al CRM → calcular fecha anterior
+2. Programar cron job para hacer la llamada VAPI al día anterior
+3. Usar VAPI outbound call API para ejecutar
+

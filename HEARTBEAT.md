@@ -209,7 +209,8 @@ Contexto breve
 Acción sugerida / requerida
 ```
 
-## Solana Bot Alerts
+## Solana Bot Alerts (SOLO SI HAY ALGO IMPORTANTE)
 - Revisar `/home/enderj/.openclaw/workspace/Solana-Cripto-Trader/agents/data/pending_alerts.json`
-- Si hay alertas nuevas → enviarlas al usuario y limpiar el archivo
-- Alertas importantes: trade cerrado con P&L, stop loss tocado, drawdown >5%
+- **Solo reportar** si hay alertas importantes (trade cerrado con P&L significativo, stop loss tocado, drawdown >5%)
+- Si no hay alertas nuevas → HEARTBEAT_OK, no enviar nada al usuario
+- **NO** enviar "sin mensajes" ni status rutinarios
