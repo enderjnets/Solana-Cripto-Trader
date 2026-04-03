@@ -338,5 +338,12 @@
     "worst_trade_usd": 0,
     "new_capital": 1000.0,
     "reason": "manual_reset"
+  },
+  {
+    "timestamp": "2026-04-03T19:14:22.243694+00:00",
+    "reset_date": "2026-04-03T19:14:22.243704+00:00",
+    "reason": "manual_reset",
+    "capital_before": 1000.0,
+    "capital_after": 1000.0
   }
 ]

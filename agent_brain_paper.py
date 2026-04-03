@@ -756,6 +756,7 @@ class PaperAgentBrain:
         self.running = False
         self.cycle_count = 0
         self.ml_generator = MLSignalGenerator()
+        self.ml_generator.paper = self.paper  # Fix: pass paper reference to ML generator
         self.auto_optimizer = AutoOptimizer()
         self.tracker = PerformanceTracker()
 

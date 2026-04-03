@@ -2,7 +2,7 @@
 #
 # 🐕 SOLANA WATCHDOG — Restart seguro del orchestrator
 #
-LOCKFILE="/tmp/solana_modular_orchestrator.lock"
+LOCKFILE="/tmp/solana_brain_paper.lock"
 LOGFILE="${SOLANA_LOG_DIR:-/home/enderj/.config/solana-jupiter-bot}/watchdog.log"
 AGENTS_DIR="/home/enderj/.openclaw/workspace/Solana-Cripto-Trader/agents"
 DATA_DIR="$AGENTS_DIR/data"
@@ -44,18 +44,18 @@ BASE_DELAY=5
 
 while true; do
     log "WATCHDOG: ============================================"
-    log "WATCHDOG: Iniciando orchestrator.py (intento #$((RESTART_COUNT+1)))"
+    log "WATCHDOG: Iniciando agent_brain_paper.py (intento #$((RESTART_COUNT+1)))"
     log "WATCHDOG: Memoria libre: $(free -m | awk '/^Mem:/{print $7"MB"}')"
 
     emergency_backup
 
     # EJECUTAR DESDE agents/ directory — crítico para imports
     cd "$AGENTS_DIR"
-    python3 -u orchestrator.py --live
+    python3 -u agent_brain_paper.py --live
     EXIT_CODE=$?
 
     DEAD_PID=$(cat "$LOCKFILE" 2>/dev/null)
-    log "WATCHDOG: Orchestrator murio — exit code=$EXIT_CODE (PID: $DEAD_PID)"
+    log "WATCHDOG: Brain Paper murio — exit code=$EXIT_CODE (PID: $DEAD_PID)"
 
     if [ "$EXIT_CODE" -eq 137 ]; then
         log "WATCHDOG: 🚨 Exit 137 (OOM)"
