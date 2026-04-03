@@ -807,6 +807,24 @@ class PaperAgentBrain:
         market_data = await self.get_market_data()
         logger.info(f"Market: {market_data['symbol']} @ ${market_data['price']:.2f}")
 
+        # Drawdown protection: stop if >= 15%
+        current_balance = self.paper.state.balance_usd
+        initial_balance = self.paper.state.initial_balance
+        if initial_balance > 0:
+            drawdown_pct = (initial_balance - current_balance) / initial_balance * 100
+            if drawdown_pct >= 15:
+                logger.warning(f"🚨 DRAWDDOWN {drawdown_pct:.1f}% >= 15% — AUTO-STOP ACTIVATED")
+                logger.warning(f"🚨 Stopping trading. Balance: ${current_balance:.2f} / ${initial_balance:.2f}")
+                # Close all open positions
+                open_trades = self.paper.get_open_trades()
+                if open_trades:
+                    logger.warning(f"🚨 Closing {len(open_trades)} open positions...")
+                    for trade in open_trades:
+                        self.paper.close_trade(trade.get('symbol'))
+                logger.warning(f"🚨 Bot PAUSED — manual reset required to resume")
+                self.running = False
+                return
+
         signal = self.generate_ml_signal(market_data)
         if signal and signal.get('confidence', 0) >= MIN_CONFIDENCE:
             logger.info(f"ML SIGNAL: {signal['direction'].upper()} | Confidence: {signal['confidence']:.0%}")

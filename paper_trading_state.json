@@ -1,44 +1,7 @@
 {
   "enabled": true,
   "start_time": null,
-  "balance_usd": 920.6078659409375,
+  "balance_usd": 1000.0,
   "initial_balance": 1000.0,
-  "trades": [
-    {
-      "id": "trade_20260403_161708_c79e",
-      "entry_time": "2026-04-03T16:17:08.806484",
-      "entry_price": 80.2988405414626,
-      "direction": "short",
-      "size": 79.39213405906249,
-      "symbol": "SOL",
-      "status": "open",
-      "exit_time": null,
-      "exit_price": null,
-      "pnl": 0.0,
-      "pnl_pct": 0.0,
-      "reason": "EMA-"
-    }
-  ],
-  "stats": {
-    "total_trades": 0,
-    "winning_trades": 0,
-    "losing_trades": 0,
-    "total_pnl": 0.0,
-    "win_rate": 0.0,
-    "max_drawdown": 0.0,
-    "current_streak": 0,
-    "best_streak": 0,
-    "worst_streak": 0
-  },
-  "signals": [
-    {
-      "time": "2026-04-03T16:17:08.806484",
-      "symbol": "SOL",
-      "direction": "short",
-      "price": 80.2988405414626,
-      "size": 79.39213405906249,
-      "reason": "EMA-",
-      "trade_id": "trade_20260403_161708_c79e"
-    }
-  ]
+  "trades": []
 }

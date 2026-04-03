@@ -1,5 +1,5 @@
 {
-  "capital_usd": 820.62,
+  "capital_usd": 1000.0,
   "initial_capital": 1000.0,
   "positions": [],
   "status": "ACTIVE",
@@ -9,5 +9,6 @@
   "total_trades": 0,
   "wins": 0,
   "losses": 0,
-  "drawdown_pct": 17.94
+  "drawdown_pct": 0.0,
+  "equity": 1000.0
 }
