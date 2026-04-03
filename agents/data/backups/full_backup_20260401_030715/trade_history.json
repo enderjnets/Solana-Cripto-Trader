@@ -1,0 +1,33 @@
+{
+  "trades": [
+    {
+      "id": "WIF_1775013711",
+      "symbol": "WIF",
+      "direction": "short",
+      "entry_price": 0.17944843,
+      "exit_price": 0.18349059,
+      "size_usd": 272.71,
+      "pnl_usd": -6.0884,
+      "pnl_pct": -2.2525,
+      "open_time": "2026-04-01T03:21:51.031746+00:00",
+      "close_time": "2026-04-01T06:19:21.983169+00:00",
+      "close_reason": "EMERGENCY_CLOSE",
+      "strategy": "momentum"
+    },
+    {
+      "id": "WIF_1775013711",
+      "symbol": "WIF",
+      "direction": "short",
+      "entry_price": 0.17944843,
+      "exit_price": 0.18349059,
+      "size_usd": 272.71,
+      "pnl_usd": -6.0884,
+      "pnl_pct": -2.2525,
+      "open_time": "2026-04-01T03:21:51.031746+00:00",
+      "close_time": "2026-04-01T06:19:34.018527+00:00",
+      "close_reason": "EMERGENCY_CLOSE",
+      "strategy": "momentum"
+    }
+  ],
+  "last_updated": "2026-04-01T06:19:34.018827+00:00"
+}

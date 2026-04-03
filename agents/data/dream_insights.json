@@ -1,0 +1,63 @@
+{
+  "timestamp": "2026-04-01T17:54:37.031713+00:00",
+  "insights": [
+    {
+      "type": "win_rate",
+      "confidence": 0.9,
+      "finding": "Win rate global: 87% (27W/4L)",
+      "detail": "Avg win: $1.10 | Avg loss: $-3.31 | Avg R:R: 0.3x"
+    },
+    {
+      "type": "direction_analysis",
+      "confidence": 0.8,
+      "finding": "Shorts: 87% WR (31 trades)"
+    },
+    {
+      "type": "risk_reward",
+      "confidence": 0.85,
+      "finding": "R:R promedio en winners: 1:1.0x (target: 1:2.0)",
+      "auto_apply": false
+    },
+    {
+      "type": "portfolio_status",
+      "confidence": 0.95,
+      "finding": "Portfolio en perdida $-2.12 con 2 posiciones | F&G=8"
+    },
+    {
+      "type": "sentiment",
+      "confidence": 0.95,
+      "finding": "F&G = 8 (Extreme Fear) \u2014 shorts tienen ventaja hist\u00f3rica"
+    }
+  ],
+  "recommendations": [
+    {
+      "type": "direction_bias",
+      "confidence": 0.8709677419354839,
+      "finding": "Shorts tienen 87% WR \u2014 el mercado favorece cortos",
+      "action": "Priorizar shorts en siguientes se\u00f1ales",
+      "auto_apply": true
+    }
+  ],
+  "anomalies": [
+    {
+      "type": "outlier",
+      "symbol": "WIF",
+      "pnl": -6.0884,
+      "finding": "PnL extremo: $-6.09 en WIF (avg $0.53)"
+    },
+    {
+      "type": "outlier",
+      "symbol": "WIF",
+      "pnl": -6.0884,
+      "finding": "PnL extremo: $-6.09 en WIF (avg $0.53)"
+    },
+    {
+      "type": "outlier",
+      "symbol": "RAY",
+      "pnl": 5.87,
+      "finding": "PnL extremo: $5.87 en RAY (avg $0.53)"
+    }
+  ],
+  "ai_insight": null,
+  "summary": "31 trades | 5 insights | 3 anomalias | 1 aplicados | sin IA"
+}

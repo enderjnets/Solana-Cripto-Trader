@@ -1,0 +1,24 @@
+{
+  "auto_backup": {
+    "enabled": true,
+    "daily_backup_time": "03:00",
+    "incremental_every_trades": 100,
+    "retention_days": 30,
+    "compress_after_days": 7
+  },
+  "protected_files": [
+    "auto_learner.db",
+    "trade_history.json",
+    "portfolio.json",
+    "auto_learner_state.json",
+    "parameter_optimization.json",
+    "ai_researcher_state.json",
+    "ai_strategy_state.json"
+  ],
+  "backup_triggers": {
+    "on_reset": true,
+    "on_major_update": true,
+    "on_parameter_change": true,
+    "on_error_recovery": true
+  }
+}

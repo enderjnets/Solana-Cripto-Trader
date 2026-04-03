@@ -1,0 +1,14 @@
+{
+  "params": {
+    "sl_pct": 0.025,
+    "tp_pct": 0.05,
+    "leverage_tier": 4,
+    "risk_per_trade": 0.01,
+    "max_positions": 2
+  },
+  "total_trades_learned": 444,
+  "last_adaptation": "2026-03-27T12:41:00.000000+00:00",
+  "adaptation_count": 3,
+  "last_updated": "2026-03-27T12:41:00.000000+00:00",
+  "notes": "Fix post-analysis: SL 1.5%\u21922.5%, TP 3%\u21925%, leverage restored to 7x (tier 4), LONGs blocked in Extreme Fear"
+}

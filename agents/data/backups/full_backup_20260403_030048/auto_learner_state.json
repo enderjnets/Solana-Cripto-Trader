@@ -1,0 +1,44 @@
+{
+  "params": {
+    "sl_pct": 0.049,
+    "tp_pct": 0.1,
+    "leverage_tier": 1,
+    "risk_per_trade": 0.021,
+    "max_positions": 3,
+    "trailing_stop_pct": 4.5,
+    "tokens_to_avoid": [],
+    "tokens_to_prefer": [
+      "WIF",
+      "BONK",
+      "RAY",
+      "JUP",
+      "POPCAT",
+      "FARTCOIN",
+      "MOODENG",
+      "GOAT",
+      "SOL"
+    ]
+  },
+  "total_trades_learned": 338,
+  "last_adaptation": "2026-04-02T20:00:36.702480+00:00",
+  "adaptation_count": 5,
+  "last_trade_count": 338,
+  "notes": "Reset capital $1000.0 - conocimiento preservado",
+  "tokens_to_avoid": [
+    "JUP",
+    "SOL",
+    "BONK",
+    "MOODENG"
+  ],
+  "tokens_to_prefer": [
+    "FARTCOIN",
+    "WIF",
+    "RAY",
+    "POPCAT",
+    "PENGU"
+  ],
+  "last_updated": "2026-04-03T07:41:38.445466+00:00",
+  "last_analysis": "Reset avoid list - previous sample was too small to determine toxic tokens",
+  "last_insight": "FARTCOIN transformed from an avoid token ($0.97 loss in April 2 cycle) to the top PnL contributor ($4.56 across 8 trades) - the strategy is adapting but knowledge base updates are lagging actual performance changes.",
+  "confidence": 0.74
+}

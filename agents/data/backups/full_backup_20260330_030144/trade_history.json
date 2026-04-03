@@ -1,0 +1,30 @@
+[
+  {
+    "id": "ETH_1774861170",
+    "symbol": "ETH",
+    "direction": "short",
+    "entry_price": 2059.50043558,
+    "exit_price": 2058.14127736,
+    "size_usd": 300,
+    "pnl_usd": 0.198,
+    "pnl_pct": 0.066,
+    "open_time": "2026-03-30T08:59:30.230145+00:00",
+    "close_time": "2026-03-30T09:01:38.340155+00:00",
+    "close_reason": "EMERGENCY_CLOSE",
+    "strategy": "trend_momentum"
+  },
+  {
+    "id": "GOAT_1774861237",
+    "symbol": "GOAT",
+    "direction": "short",
+    "entry_price": 0.0188107,
+    "exit_price": 0.01909749,
+    "size_usd": 300,
+    "pnl_usd": -4.5738,
+    "pnl_pct": -1.5246,
+    "open_time": "2026-03-30T09:00:37.216911+00:00",
+    "close_time": "2026-03-30T09:01:38.340155+00:00",
+    "close_reason": "EMERGENCY_CLOSE",
+    "strategy": "trend_momentum"
+  }
+]

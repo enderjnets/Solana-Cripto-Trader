@@ -1,0 +1,26 @@
+{
+  "params": {
+    "sl_pct": 0.03,
+    "tp_pct": 0.06,
+    "leverage_tier": 1,
+    "risk_per_trade": 0.015,
+    "max_positions": 3,
+    "trailing_stop_pct": 8.0
+  },
+  "total_trades_learned": 0,
+  "last_adaptation": null,
+  "adaptation_count": 0,
+  "last_trade_count": 0,
+  "notes": "Reset capital $1000.0 - conocimiento preservado",
+  "tokens_to_avoid": [
+    "ADA",
+    "SOL",
+    "ETH"
+  ],
+  "tokens_to_prefer": [
+    "DOT",
+    "XRP",
+    "JUP"
+  ],
+  "last_updated": "2026-04-01T03:20:33.006199+00:00"
+}

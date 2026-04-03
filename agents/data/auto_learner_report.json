@@ -1,0 +1,63 @@
+{
+  "timestamp": "2026-04-02T20:00:36.706823+00:00",
+  "version": "2.0-ai",
+  "adaptation_count": 5,
+  "total_trades_analyzed": 338,
+  "new_trades_since_last": 37,
+  "performance": {
+    "total": 50,
+    "wins": 24,
+    "losses": 24,
+    "flat": 2,
+    "win_rate": 50.0,
+    "total_pnl": 6.6927,
+    "total_fees": 0,
+    "avg_win": 0.6297,
+    "avg_loss": 0.3508,
+    "rr_ratio": 1.79,
+    "best": 3.6802,
+    "worst": -1.6857
+  },
+  "analysis": "The recent 50 trades show a concerning divergence: WR dropped to 50% from 62.9% overall, yet R:R improved to 1.79, indicating wins are larger but less frequent. FARTCOIN has emerged as a top performer (+$4.56) despite being on the avoid list previously, while JUP (-$2.34, 25% WR) and SOL (-$0.39, 43% WR) remain consistent losers. The EMERGENCY_CLOSE rate of 96% (48/50 trades) suggests the trailing stop at 3.75% is still too tight relative to market volatility.",
+  "key_insight": "FARTCOIN transformed from an avoid token ($0.97 loss in April 2 cycle) to the top PnL contributor ($4.56 across 8 trades) - the strategy is adapting but knowledge base updates are lagging actual performance changes.",
+  "confidence": 0.74,
+  "params_before": {
+    "sl_pct": 0.049218750000000006,
+    "tp_pct": 0.1,
+    "leverage_tier": 1,
+    "risk_per_trade": 0.0234375,
+    "max_positions": 3,
+    "trailing_stop_pct": 3.75
+  },
+  "params_after": {
+    "sl_pct": 0.049,
+    "tp_pct": 0.1,
+    "leverage_tier": 1,
+    "risk_per_trade": 0.021,
+    "max_positions": 3,
+    "trailing_stop_pct": 4.5
+  },
+  "changes": [
+    "sl_pct: 0.0492 \u2192 0.0490",
+    "risk_per_trade: 0.0234 \u2192 0.0210",
+    "trailing_stop_pct: 3.7500 \u2192 4.5000"
+  ],
+  "new_lessons": [
+    "FARTCOIN reversed its fortunes completely - from -$0.97 loss to +$4.56 profit across 8 trades, with consistent $0.57 avg win. The previous avoid recommendation was premature; FARTCOIN now belongs on the prefer list.",
+    "JUP is the worst performer by far (-$2.34, 25% WR) and should be permanently added to the avoid list - it's destroying capital on short positions.",
+    "EMERGENCY_CLOSE at 96% confirms that even 3.75% trailing stop is too tight for Solana meme tokens which regularly exhibit 3-5% intraday swings - the 4.5% adjustment addresses this."
+  ],
+  "tokens_to_avoid": [
+    "JUP",
+    "SOL",
+    "BONK",
+    "MOODENG"
+  ],
+  "tokens_to_prefer": [
+    "FARTCOIN",
+    "WIF",
+    "RAY",
+    "POPCAT",
+    "PENGU"
+  ]
+}

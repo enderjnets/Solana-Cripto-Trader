@@ -1,0 +1,107 @@
+{
+  "project": "Solana-Cripto-Trader",
+  "owner": "Programmer Agent",
+  "assigned_at": "2026-03-18T21:37:00-06:00",
+  "assigned_by": "Eko + Ender",
+  "tasks": [
+    {
+      "id": "SOL-001",
+      "description": "Diario: Revisar m\u00e9tricas del bot (win rate, profit factor, drawdown)",
+      "frequency": "daily",
+      "priority": "high",
+      "status": "pending",
+      "check_command": "python3 ~/workspace/Solana-Cripto-Trader/agents/data/portfolio.json | jq '{capital, total_trades, wins, losses, win_rate: (.wins/.total_trades*100)}'",
+      "last_run": "2026-03-25T17:24:01.512650",
+      "next_run": "2026-03-19T09:00:00-06:00"
+    },
+    {
+      "id": "SOL-002",
+      "description": "Diario: Verificar que el watchdog est\u00e9 corriendo (PID check)",
+      "frequency": "daily",
+      "priority": "critical",
+      "status": "pending",
+      "check_command": "ps aux | grep run_watchdog_modular | grep -v grep",
+      "last_run": "2026-03-25T17:24:01.512660",
+      "next_run": "2026-03-19T09:00:00-06:00"
+    },
+    {
+      "id": "SOL-003",
+      "description": "Diario: Revisar alerts_state.json por errores cr\u00edticos",
+      "frequency": "daily",
+      "priority": "high",
+      "status": "pending",
+      "check_command": "cat ~/workspace/Solana-Cripto-Trader/agents/data/alerts_state.json",
+      "last_run": "2026-03-25T17:24:01.512661",
+      "next_run": "2026-03-19T09:00:00-06:00"
+    },
+    {
+      "id": "SOL-004",
+      "description": "Semanal: Analizar performance y ajustar par\u00e1metros (leverage, TP/SL)",
+      "frequency": "weekly",
+      "priority": "medium",
+      "status": "pending",
+      "last_run": null,
+      "next_run": "2026-03-23T09:00:00-06:00"
+    },
+    {
+      "id": "SOL-005",
+      "description": "Semanal: Revisar estrategias activas y win rate por estrategia",
+      "frequency": "weekly",
+      "priority": "medium",
+      "status": "pending",
+      "check_command": "python3 ~/workspace/Solana-Cripto-Trader/agents/strategy_analyzer.py",
+      "last_run": null,
+      "next_run": "2026-03-23T09:00:00-06:00"
+    },
+    {
+      "id": "SOL-006",
+      "description": "Bug: Investigar win rate 0.3% (2W/581L) - \u00bfpor qu\u00e9 tan bajo?",
+      "frequency": "once",
+      "priority": "high",
+      "status": "pending",
+      "created_at": "2026-03-18T15:37:00-06:00"
+    },
+    {
+      "id": "SOL-007",
+      "description": "Mejora: Implementar trailing stops (ya existe en master_orchestrator)",
+      "frequency": "once",
+      "priority": "medium",
+      "status": "pending",
+      "created_at": "2026-03-18T15:37:00-06:00"
+    },
+    {
+      "id": "SOL-008",
+      "description": "Mejora: Agregar m\u00e1s tokens con alta volatilidad",
+      "frequency": "once",
+      "priority": "low",
+      "status": "pending",
+      "created_at": "2026-03-18T15:37:00-06:00"
+    },
+    {
+      "id": "SOL-009",
+      "description": "Bug CR\u00cdTICO: daily_profit_state.json desactualizado (fecha 2026-03-14). El archivo de estado diario no se actualiza correctamente. Investigar qu\u00e9 script actualiza este archivo, por qu\u00e9 dej\u00f3 de funcionar, y corregirlo.",
+      "frequency": "once",
+      "priority": "high",
+      "status": "pending",
+      "created_at": "2026-03-24T06:24:00-06:00",
+      "details": "El sistema opera correctamente (timestamp actual 2026-03-24), pero daily_profit_state.json tiene fecha 2026-03-14 (10 d\u00edas sin actualizar). Revisar el script que genera/actualiza este archivo y repararlo."
+    }
+  ],
+  "metrics_to_track": [
+    "capital_usd",
+    "total_trades",
+    "wins",
+    "losses",
+    "win_rate",
+    "profit_factor",
+    "max_drawdown",
+    "daily_pnl_pct",
+    "open_positions_count"
+  ],
+  "alert_thresholds": {
+    "win_rate_below": 0.2,
+    "drawdown_above": 0.1,
+    "daily_loss_above": 0.05,
+    "consecutive_losses": 10
+  }
+}

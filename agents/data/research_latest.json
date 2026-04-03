@@ -1,0 +1,49 @@
+{
+  "trend": "BULLISH",
+  "confidence": 0.7,
+  "key_levels": {
+    "SOL": {
+      "support": 145,
+      "resistance": 175
+    },
+    "BTC": {
+      "support": 68000,
+      "resistance": 75000
+    },
+    "ETH": {
+      "support": 3200,
+      "resistance": 3600
+    }
+  },
+  "factors": [
+    "SOL supera a BTC y ETH con +3.55% mostrando fuerza relativa",
+    "Bitcoin rompe $71,000 con momentum positivo",
+    "Fear & Greed Index en 8 (Extreme Fear) - se\u00f1al contrarian de posible oportunidad de compra",
+    "Compras institucionales contin\u00faan (Strategy $76.6M, Bitmine $138M ETH)",
+    "Tensiones geopol\u00edticas (Trump pospone strikes a Iran) reducen incertidumbre a corto plazo",
+    "JUP +3.64% indica fortaleza en el ecosistema Solana",
+    "Merado en correcci\u00f3n desde m\u00e1ximos podr\u00eda estar cerca de suelo"
+  ],
+  "recommendation": "CAUTIOUS",
+  "reasoning": "El mercado muestra se\u00f1ales mixtas: sentimiento de miedo extremo (contrarian positivo) pero con momentum positivo en precios. SOL lidera con +3.55% superando a BTC y ETH. BTC rompiendo $71,000 indica fuerza. Aunque las condiciones t\u00e9cnicas son favorables, la volatilidad geopol\u00edtica y el miedo extremo sugieren proceder con cautela. Las compras institucionales son se\u00f1al constructiva a largo plazo.",
+  "fng_index": {
+    "value": "8",
+    "classification": "Extreme Fear",
+    "timestamp": "1774224000"
+  },
+  "price_changes": {
+    "SOL": 3.55,
+    "BTC": 2.87,
+    "ETH": 2.83,
+    "JUP": 3.64
+  },
+  "tokens_analyzed": [
+    "SOL",
+    "BTC",
+    "ETH",
+    "JUP"
+  ],
+  "llm_used": "claude_sonnet_or_minimax",
+  "generated_at": "2026-03-23T12:58:34.675471+00:00",
+  "updated_at": "2026-03-23T12:58:34.675671+00:00"
+}

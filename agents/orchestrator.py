@@ -1,5 +1,12 @@
 
 #!/usr/bin/env python3
+# Fix: ensure agents dir is in sys.path for imports
+import sys
+from pathlib import Path
+_agent_dir = Path(__file__).parent.resolve()
+if str(_agent_dir) not in sys.path:
+    sys.path.insert(0, str(_agent_dir))
+
 """
 🎯 Solana Trading Bot - Orchestrator Modular
 Ejecuta el ciclo completo con Smart Rotation + Daily Target

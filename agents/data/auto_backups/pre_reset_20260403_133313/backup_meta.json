@@ -1,0 +1,11 @@
+{
+  "timestamp": "2026-04-03T13:33:13.309326+00:00",
+  "capital_before_reset": 838.24,
+  "files_backed_up": [
+    "portfolio.json",
+    "trade_history.json",
+    "daily_target_state.json",
+    "auto_learner_state.json",
+    "compound_state.json"
+  ]
+}

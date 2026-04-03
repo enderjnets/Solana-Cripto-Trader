@@ -1,0 +1,28 @@
+{
+  "timestamp": "2026-04-03T15:11:49.322209+00:00",
+  "decisions": [
+    {
+      "symbol": "RAY",
+      "direction": "long",
+      "action": "HOLD",
+      "confidence": 0.9,
+      "alignment": "ALIGNED",
+      "quant_score": -15,
+      "quant_action": "HOLD",
+      "quant_reasons": [
+        "RR_BUENO (2.20x)"
+      ],
+      "llm_action": "HOLD",
+      "llm_confidence": 0.75,
+      "llm_reasoning": "Posici\u00f3n en punto de entrada, R/R favorable de 2.20x, tendencia bullish con Fear extremo (compra oportunidad). Sin se\u00f1al de cierre inmediata ni p\u00e9rdida, mantener para ver evoluci\u00f3n.",
+      "llm_source": "llm_claude_sonnet",
+      "pnl_usd": 0.0,
+      "pnl_pct": 0.0,
+      "dist_tp_pct": 5.682,
+      "dist_sl_pct": 2.579,
+      "rr_remaining": 2.203,
+      "hours_open": 0,
+      "evaluated_at": "2026-04-03T15:11:49.322093+00:00"
+    }
+  ]
+}

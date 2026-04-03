@@ -1,0 +1,38 @@
+{
+  "timestamp": "2026-04-03T15:36:44.631793+00:00",
+  "results": {
+    "market_data": {
+      "ok": true,
+      "prices": 15
+    },
+    "risk_manager": {
+      "ok": true
+    },
+    "strategy": {
+      "ok": true,
+      "signals": 0
+    },
+    "position_updater": {
+      "ok": true
+    },
+    "executor": {
+      "ok": true
+    },
+    "smart_rotation": {
+      "ok": true,
+      "closed": 0
+    },
+    "daily_target": {
+      "ok": true,
+      "should_close": false
+    },
+    "position_decisions": {
+      "ok": true,
+      "evaluated": 0
+    },
+    "reporter": {
+      "ok": true
+    }
+  },
+  "health_score": 10
+}

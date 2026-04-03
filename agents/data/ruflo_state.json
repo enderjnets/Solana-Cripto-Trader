@@ -1,0 +1,42 @@
+{
+  "timestamp": "2026-03-18T23:31:49.823833+00:00",
+  "cycle": 1,
+  "agent_status": {
+    "market": {
+      "name": "MarketAgent",
+      "role": "market_data",
+      "runs": 1,
+      "errors": 0,
+      "last_run": "2026-03-18T23:31:42.606642+00:00"
+    },
+    "strategy": {
+      "name": "StrategyAgent",
+      "role": "strategy",
+      "runs": 1,
+      "errors": 0,
+      "last_run": "2026-03-18T23:31:42.636350+00:00"
+    },
+    "risk": {
+      "name": "RiskAgent",
+      "role": "risk_manager",
+      "runs": 1,
+      "errors": 0,
+      "last_run": "2026-03-18T23:31:42.613503+00:00"
+    },
+    "executor": {
+      "name": "ExecutorAgent",
+      "role": "executor",
+      "runs": 1,
+      "errors": 0,
+      "last_run": "2026-03-18T23:31:42.660383+00:00"
+    },
+    "reporter": {
+      "name": "ReporterAgent",
+      "role": "reporter",
+      "runs": 1,
+      "errors": 0,
+      "last_run": "2026-03-18T23:31:49.821966+00:00"
+    }
+  },
+  "mode": "paper"
+}

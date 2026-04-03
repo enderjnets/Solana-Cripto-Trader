@@ -1,0 +1,14 @@
+{
+  "params": {
+    "sl_pct": 0.025,
+    "tp_pct": 0.05,
+    "leverage_tier": 2,
+    "risk_per_trade": 0.02,
+    "max_positions": 5
+  },
+  "total_trades_learned": 0,
+  "last_adaptation": null,
+  "adaptation_count": 0,
+  "last_updated": "2026-03-28T14:09:41.731304+00:00",
+  "notes": "Reset capital $500.0 - conocimiento preservado"
+}
