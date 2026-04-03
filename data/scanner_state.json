@@ -2,64 +2,64 @@
   "opportunities": [
     {
       "symbol": "SOL",
-      "price": 80,
+      "price": 80.24,
       "score": 70,
-      "timestamp": "2026-04-03T13:10:16.144541"
+      "timestamp": "2026-04-03T17:41:00.593725"
     },
     {
       "symbol": "BTC",
-      "price": 66780.08,
+      "price": 66859.7,
       "score": 70,
-      "timestamp": "2026-04-03T13:10:16.431843"
+      "timestamp": "2026-04-03T17:41:00.799671"
     },
     {
       "symbol": "ETH",
-      "price": 2047.05,
+      "price": 2050.17,
       "score": 70,
-      "timestamp": "2026-04-03T13:10:16.661245"
+      "timestamp": "2026-04-03T17:41:01.005413"
     },
     {
       "symbol": "WIF",
-      "price": 0.1811,
+      "price": 0.1814,
       "score": 70,
-      "timestamp": "2026-04-03T13:10:16.893848"
+      "timestamp": "2026-04-03T17:41:01.229977"
     },
     {
       "symbol": "BONK",
-      "price": 5.74e-06,
+      "price": 5.7e-06,
       "score": 70,
-      "timestamp": "2026-04-03T13:10:17.140307"
+      "timestamp": "2026-04-03T17:41:01.453082"
     },
     {
       "symbol": "PUMP",
-      "price": 0.001644,
+      "price": 0.001645,
       "score": 70,
-      "timestamp": "2026-04-03T13:10:17.428300"
+      "timestamp": "2026-04-03T17:41:01.673586"
     },
     {
       "symbol": "JTO",
-      "price": 0.2544,
+      "price": 0.2561,
       "score": 70,
-      "timestamp": "2026-04-03T13:10:17.759321"
+      "timestamp": "2026-04-03T17:41:01.900472"
     },
     {
       "symbol": "JUP",
-      "price": 0.163,
+      "price": 0.1628,
       "score": 70,
-      "timestamp": "2026-04-03T13:10:17.966543"
+      "timestamp": "2026-04-03T17:41:02.121319"
     },
     {
       "symbol": "RAY",
-      "price": 0.6338,
+      "price": 0.6379,
       "score": 70,
-      "timestamp": "2026-04-03T13:10:18.185121"
+      "timestamp": "2026-04-03T17:41:02.336767"
     },
     {
       "symbol": "ORCA",
-      "price": 0.8242,
+      "price": 0.8238,
       "score": 70,
-      "timestamp": "2026-04-03T13:10:18.411586"
+      "timestamp": "2026-04-03T17:41:02.570523"
     }
   ],
-  "last_scan": "2026-04-03T13:10:21.384847"
+  "last_scan": "2026-04-03T17:41:03.948958"
 }

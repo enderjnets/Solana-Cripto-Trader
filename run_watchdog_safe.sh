@@ -44,14 +44,14 @@ BASE_DELAY=5
 
 while true; do
     log "WATCHDOG: ============================================"
-    log "WATCHDOG: Iniciando agent_brain_paper.py (intento #$((RESTART_COUNT+1)))"
+    log "WATCHDOG: Iniciando orchestrator.py (intento #$((RESTART_COUNT+1)))"
     log "WATCHDOG: Memoria libre: $(free -m | awk '/^Mem:/{print $7"MB"}')"
 
     emergency_backup
 
-    # EJECUTAR DESDE agents/ directory — crítico para imports
+    # EJECUTAR ORCHESTRATOR — sistema multi-token completo
     cd /home/enderj/.openclaw/workspace/Solana-Cripto-Trader
-    python3 -u agent_brain_paper.py --fast
+    python3 -u agents/orchestrator.py --live
     EXIT_CODE=$?
 
     DEAD_PID=$(cat "$LOCKFILE" 2>/dev/null)

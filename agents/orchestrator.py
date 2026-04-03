@@ -296,7 +296,7 @@ def run_cycle(safe=True, debug=False):
             # Log P&L actual de cada posición
             for p in portfolio_data.get("positions", []):
                 if p.get("status") == "open":
-                    log.info(f"      📊 {p.get('symbol')} {p.get('direction')} | Entry: \${p.get('entry_price',0):.6f} | Current: \${p.get('current_price',0):.6f} | P&L: \${p.get('pnl_usd',0):.2f} ({p.get('pnl_pct',0):.2f}%)")
+                    log.info(f"      📊 {p.get('symbol')} {p.get('direction')} | Entry: ${p.get('entry_price',0):.6f} | Current: ${p.get('current_price',0):.6f} | P&L: ${p.get('pnl_usd',0):.2f} ({p.get('pnl_pct',0):.2f}%)")
         results["position_updater"] = {"ok": True}
     except Exception as e:
         log.warning(f"   ⚠️ Position Updater error: {e}")

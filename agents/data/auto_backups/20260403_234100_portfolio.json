@@ -1,13 +1,14 @@
 {
-  "capital_usd": 820.62,
+  "capital_usd": 1000.0,
   "initial_capital": 1000.0,
   "positions": [],
   "status": "ACTIVE",
   "mode": "paper_drift",
   "created_at": "2026-04-03T13:33:13.309290+00:00",
-  "last_updated": "2026-04-03T15:36:44.629355+00:00",
+  "last_updated": "2026-04-03T23:40:36.334203+00:00",
   "total_trades": 0,
   "wins": 0,
   "losses": 0,
-  "drawdown_pct": 17.94
+  "drawdown_pct": 0.0,
+  "equity": 1000.0
 }

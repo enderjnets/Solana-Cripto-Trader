@@ -815,12 +815,12 @@ class PaperAgentBrain:
             if drawdown_pct >= 15:
                 logger.warning(f"🚨 DRAWDDOWN {drawdown_pct:.1f}% >= 15% — AUTO-STOP ACTIVATED")
                 logger.warning(f"🚨 Stopping trading. Balance: ${current_balance:.2f} / ${initial_balance:.2f}")
-                # Close all open positions
+                # Close all open positions using current market price
                 open_trades = self.paper.get_open_trades()
                 if open_trades:
-                    logger.warning(f"🚨 Closing {len(open_trades)} open positions...")
+                    logger.warning(f"🚨 Closing {len(open_trades)} open positions at market price ${market_data['price']:.2f}...")
                     for trade in open_trades:
-                        self.paper.close_trade(trade.get('symbol'))
+                        self.paper.close_trade(trade.get('id'), market_data['price'], "AUTO_STOP_15%_DD")
                 logger.warning(f"🚨 Bot PAUSED — manual reset required to resume")
                 self.running = False
                 return
