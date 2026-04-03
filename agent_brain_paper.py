@@ -63,6 +63,7 @@ logger = logging.getLogger("agent_brain_paper")
 # Constants
 CYCLE_INTERVAL = 60  # seconds
 INITIAL_BALANCE = 1000  # USD (paper trading capital)
+MIN_CONFIDENCE = 0.70  # Minimum confidence to execute a trade
 
 # Get dynamic settings from HARDBIT config
 def get_trade_params():
@@ -807,9 +808,15 @@ class PaperAgentBrain:
         logger.info(f"Market: {market_data['symbol']} @ ${market_data['price']:.2f}")
 
         signal = self.generate_ml_signal(market_data)
-        if signal:
+        if signal and signal.get('confidence', 0) >= MIN_CONFIDENCE:
             logger.info(f"ML SIGNAL: {signal['direction'].upper()} | Confidence: {signal['confidence']:.0%}")
-            self.execute_paper_trade(signal)
+            open_pos = len(self.paper.get_open_trades())
+            if open_pos >= 3:
+                logger.info(f"⚠️ Max open positions ({open_pos}/3) — skipping trade")
+            else:
+                self.execute_paper_trade(signal)
+        elif signal:
+            logger.info(f"ML SIGNAL: {signal['direction'].upper()} | Confidence: {signal['confidence']:.0%} — BELOW MIN_CONFIDENCE ({MIN_CONFIDENCE:.0%}), skipping")
         else:
             logger.info("No ML signal generated")
 

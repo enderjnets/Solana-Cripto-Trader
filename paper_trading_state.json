@@ -1,50 +1,22 @@
 {
   "enabled": true,
   "start_time": null,
-  "balance_usd": 882.3409153432317,
+  "balance_usd": 920.6078659409375,
   "initial_balance": 1000.0,
   "trades": [
     {
-      "id": "trade_20260403_153529_8412",
-      "entry_time": "2026-04-03T15:35:29.241904",
-      "entry_price": 80.37471908461856,
+      "id": "trade_20260403_161708_c79e",
+      "entry_time": "2026-04-03T16:17:08.806484",
+      "entry_price": 80.2988405414626,
       "direction": "short",
-      "size": 38.31441385491875,
+      "size": 79.39213405906249,
       "symbol": "SOL",
       "status": "open",
       "exit_time": null,
       "exit_price": null,
       "pnl": 0.0,
       "pnl_pct": 0.0,
-      "reason": "EMA+"
-    },
-    {
-      "id": "trade_20260403_153629_b356",
-      "entry_time": "2026-04-03T15:36:29.672702",
-      "entry_price": 80.38381444780951,
-      "direction": "short",
-      "size": 39.22527248008145,
-      "symbol": "SOL",
-      "status": "open",
-      "exit_time": null,
-      "exit_price": null,
-      "pnl": 0.0,
-      "pnl_pct": 0.0,
-      "reason": "EMA+"
-    },
-    {
-      "id": "trade_20260403_153730_a015",
-      "entry_time": "2026-04-03T15:37:30.204475",
-      "entry_price": 80.40591514592576,
-      "direction": "short",
-      "size": 40.11939832176814,
-      "symbol": "SOL",
-      "status": "open",
-      "exit_time": null,
-      "exit_price": null,
-      "pnl": 0.0,
-      "pnl_pct": 0.0,
-      "reason": "EMA+"
+      "reason": "EMA-"
     }
   ],
   "stats": {
@@ -60,31 +32,13 @@
   },
   "signals": [
     {
-      "time": "2026-04-03T15:35:29.241904",
+      "time": "2026-04-03T16:17:08.806484",
       "symbol": "SOL",
       "direction": "short",
-      "price": 80.37471908461856,
-      "size": 38.31441385491875,
-      "reason": "EMA+",
-      "trade_id": "trade_20260403_153529_8412"
-    },
-    {
-      "time": "2026-04-03T15:36:29.672702",
-      "symbol": "SOL",
-      "direction": "short",
-      "price": 80.38381444780951,
-      "size": 39.22527248008145,
-      "reason": "EMA+",
-      "trade_id": "trade_20260403_153629_b356"
-    },
-    {
-      "time": "2026-04-03T15:37:30.204475",
-      "symbol": "SOL",
-      "direction": "short",
-      "price": 80.40591514592576,
-      "size": 40.11939832176814,
-      "reason": "EMA+",
-      "trade_id": "trade_20260403_153730_a015"
+      "price": 80.2988405414626,
+      "size": 79.39213405906249,
+      "reason": "EMA-",
+      "trade_id": "trade_20260403_161708_c79e"
     }
   ]
 }
