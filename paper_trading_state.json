@@ -1,15 +1,15 @@
 {
   "enabled": true,
-  "start_time": "2026-02-21T07:02:58.066047",
-  "balance_usd": 813.8568108216742,
+  "start_time": null,
+  "balance_usd": 882.3409153432317,
   "initial_balance": 1000.0,
   "trades": [
     {
-      "id": "trade_20260403_151546_918a",
-      "entry_time": "2026-04-03T15:15:46.539604",
-      "entry_price": 80.34573055696676,
+      "id": "trade_20260403_153529_8412",
+      "entry_time": "2026-04-03T15:35:29.241904",
+      "entry_price": 80.37471908461856,
       "direction": "short",
-      "size": 38.360457720504805,
+      "size": 38.31441385491875,
       "symbol": "SOL",
       "status": "open",
       "exit_time": null,
@@ -19,11 +19,11 @@
       "reason": "EMA+"
     },
     {
-      "id": "trade_20260403_151647_cf91",
-      "entry_time": "2026-04-03T15:16:47.050676",
-      "entry_price": 80.34847367879223,
+      "id": "trade_20260403_153629_b356",
+      "entry_time": "2026-04-03T15:36:29.672702",
+      "entry_price": 80.38381444780951,
       "direction": "short",
-      "size": 39.2761278468348,
+      "size": 39.22527248008145,
       "symbol": "SOL",
       "status": "open",
       "exit_time": null,
@@ -33,39 +33,11 @@
       "reason": "EMA+"
     },
     {
-      "id": "trade_20260403_151728_7d06",
-      "entry_time": "2026-04-03T15:17:28.893796",
-      "entry_price": 80.41226175434441,
+      "id": "trade_20260403_153730_a015",
+      "entry_time": "2026-04-03T15:37:30.204475",
+      "entry_price": 80.40591514592576,
       "direction": "short",
-      "size": 35.284757918856585,
-      "symbol": "SOL",
-      "status": "open",
-      "exit_time": null,
-      "exit_price": null,
-      "pnl": 0.0,
-      "pnl_pct": 0.0,
-      "reason": "EMA+"
-    },
-    {
-      "id": "trade_20260403_151829_ae94",
-      "entry_time": "2026-04-03T15:18:29.266984",
-      "entry_price": 80.39284611446584,
-      "direction": "short",
-      "size": 36.16333948711171,
-      "symbol": "SOL",
-      "status": "open",
-      "exit_time": null,
-      "exit_price": null,
-      "pnl": 0.0,
-      "pnl_pct": 0.0,
-      "reason": "EMA+"
-    },
-    {
-      "id": "trade_20260403_151929_a324",
-      "entry_time": "2026-04-03T15:19:29.703438",
-      "entry_price": 80.35741048282604,
-      "direction": "short",
-      "size": 37.058506205017885,
+      "size": 40.11939832176814,
       "symbol": "SOL",
       "status": "open",
       "exit_time": null,
@@ -88,94 +60,31 @@
   },
   "signals": [
     {
-      "time": "2026-02-21T07:03:15.613606",
-      "symbol": "JTO",
-      "direction": "bullish",
-      "price": 0.3107,
-      "size": 39.244499999999995,
-      "reason": "High volume: 1.5x normal; RSI oversold: 21.6 < 35; ML Score: 40%",
-      "trade_id": "trade_20260221_070315_7092"
-    },
-    {
-      "time": "2026-02-21T07:03:15.667348",
-      "symbol": "ORCA",
-      "direction": "bearish",
-      "price": 1.085,
-      "size": 23.972647909499997,
-      "reason": "High volume: 1.5x normal; ML Score: 12%",
-      "trade_id": "trade_20260221_070315_2869"
-    },
-    {
-      "time": "2026-02-21T07:06:16.038587",
-      "symbol": "BONK",
-      "direction": "bullish",
-      "price": 6.43e-06,
-      "size": 24.1287583151834,
-      "reason": "High volume: 1.5x normal; RSI oversold: 29.8 < 35; ML Score: 16%",
-      "trade_id": "trade_20260221_070616_d177"
-    },
-    {
-      "time": "2026-02-21T07:06:16.081499",
-      "symbol": "PUMP",
-      "direction": "bearish",
-      "price": 0.002111,
-      "size": 22.4838709534419,
-      "reason": "High volume: 1.5x normal; ML Score: 15%",
-      "trade_id": "trade_20260221_070616_3659"
-    },
-    {
-      "time": "2026-02-21T07:06:16.126604",
-      "symbol": "JTO",
-      "direction": "bullish",
-      "price": 0.3107,
-      "size": 30.62407061906612,
-      "reason": "High volume: 1.5x normal; RSI oversold: 21.6 < 35; ML Score: 40%",
-      "trade_id": "trade_20260221_070616_d9f6"
-    },
-    {
-      "time": "2026-04-03T15:15:46.539604",
+      "time": "2026-04-03T15:35:29.241904",
       "symbol": "SOL",
       "direction": "short",
-      "price": 80.34573055696676,
-      "size": 38.360457720504805,
+      "price": 80.37471908461856,
+      "size": 38.31441385491875,
       "reason": "EMA+",
-      "trade_id": "trade_20260403_151546_918a"
+      "trade_id": "trade_20260403_153529_8412"
     },
     {
-      "time": "2026-04-03T15:16:47.050676",
+      "time": "2026-04-03T15:36:29.672702",
       "symbol": "SOL",
       "direction": "short",
-      "price": 80.34847367879223,
-      "size": 39.2761278468348,
+      "price": 80.38381444780951,
+      "size": 39.22527248008145,
       "reason": "EMA+",
-      "trade_id": "trade_20260403_151647_cf91"
+      "trade_id": "trade_20260403_153629_b356"
     },
     {
-      "time": "2026-04-03T15:17:28.893796",
+      "time": "2026-04-03T15:37:30.204475",
       "symbol": "SOL",
       "direction": "short",
-      "price": 80.41226175434441,
-      "size": 35.284757918856585,
+      "price": 80.40591514592576,
+      "size": 40.11939832176814,
       "reason": "EMA+",
-      "trade_id": "trade_20260403_151728_7d06"
-    },
-    {
-      "time": "2026-04-03T15:18:29.266984",
-      "symbol": "SOL",
-      "direction": "short",
-      "price": 80.39284611446584,
-      "size": 36.16333948711171,
-      "reason": "EMA+",
-      "trade_id": "trade_20260403_151829_ae94"
-    },
-    {
-      "time": "2026-04-03T15:19:29.703438",
-      "symbol": "SOL",
-      "direction": "short",
-      "price": 80.35741048282604,
-      "size": 37.058506205017885,
-      "reason": "EMA+",
-      "trade_id": "trade_20260403_151929_a324"
+      "trade_id": "trade_20260403_153730_a015"
     }
   ]
 }
