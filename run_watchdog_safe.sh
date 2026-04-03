@@ -50,8 +50,8 @@ while true; do
     emergency_backup
 
     # EJECUTAR DESDE agents/ directory — crítico para imports
-    cd "$AGENTS_DIR"
-    python3 -u agent_brain_paper.py --live
+    cd /home/enderj/.openclaw/workspace/Solana-Cripto-Trader
+    python3 -u agent_brain_paper.py --fast
     EXIT_CODE=$?
 
     DEAD_PID=$(cat "$LOCKFILE" 2>/dev/null)

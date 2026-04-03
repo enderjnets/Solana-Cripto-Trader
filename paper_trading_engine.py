@@ -52,8 +52,8 @@ class PaperTradingState:
     """Paper trading state."""
     enabled: bool = False
     start_time: Optional[datetime] = None
-    balance_usd: float = 500.0  # Start with $500
-    initial_balance: float = 500.0
+    balance_usd: float = 1000.0  # Start with $1000
+    initial_balance: float = 1000.0
     trades: List[Dict] = field(default_factory=list)
     stats: Dict = field(default_factory=lambda: {
         "total_trades": 0,

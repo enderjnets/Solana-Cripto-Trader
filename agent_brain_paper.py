@@ -62,7 +62,7 @@ logger = logging.getLogger("agent_brain_paper")
 
 # Constants
 CYCLE_INTERVAL = 60  # seconds
-INITIAL_BALANCE = 500  # USD (paper trading capital)
+INITIAL_BALANCE = 1000  # USD (paper trading capital)
 
 # Get dynamic settings from HARDBIT config
 def get_trade_params():
