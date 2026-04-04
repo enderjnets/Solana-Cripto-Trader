@@ -122,7 +122,7 @@ def _is_rebounding_from_fear(symbol: str, market: dict, price_history: dict) -> 
         return False
 
     # Parsear timestamps para encontrar el precio de ~1 hora atrás
-    from datetime import datetime, timezone
+    from datetime import datetime, timezone, timedelta
     now_ts = datetime.now(timezone.utc).timestamp()
 
     price_1h_ago = None
@@ -166,46 +166,16 @@ log = logging.getLogger("executor")
 INITIAL_CAPITAL = 1000.0   # Capital paper inicial
 PAPER_MODE      = True    # Cambia a False para trades reales
 
-# ─── Auto-Learner: Carga parámetros desde auto_learner_state.json ─────────────
-# Estos valores se sobreescriben con los aprendidos si el archivo existe
-_LEARNER_FILE = DATA_DIR / "auto_learner_state.json"
-
-def _load_learned_params() -> dict:
-    """Carga parámetros de trading desde auto_learner. Si no existe, usa defaults winners."""
-    defaults = {
-        "sl_pct": 0.03,        # 3% SL — configuración winner Abril 1
-        "tp_pct": 0.06,        # 6% TP — configuración winner Abril 1
-        "leverage_tier": 1,     # Moderate (2x-5x)
-        "risk_per_trade": 0.015, # 1.5% por trade
-        "max_positions": 3,       # Máximo 3 posiciones
-        "trailing_stop_pct": 8.0, # 8% trailing stop
-    }
-    try:
-        if _LEARNER_FILE.exists():
-            data = json.loads(_LEARNER_FILE.read_text())
-            params = data.get("params", {})
-            # Merge con defaults (preserva valores no aprendidos)
-            for k, v in defaults.items():
-                if k not in params:
-                    params[k] = v
-            return params
-    except Exception:
-        pass
-    return defaults
-
-# Cargar params al inicio del módulo
-_LEARNED_PARAMS = _load_learned_params()
-
 # ─── Risk Management (ajustado 31-Mar-2026 — orden de Ender) ─────────────────
-MIN_CONFIDENCE      = 0.85     # Conservador — señales de alta confianza (2026-04-03 restore)
+MIN_CONFIDENCE      = 0.70     # Bajado de 0.85 para aprovechar más señales en extremos (2026-03-31)
 BLOCK_LONGS_FG      = 35       # Bloquear LONGs si Fear & Greed < 35 (mercado bajista)
 MAX_TRADES_PER_DAY  = 0        # 0 = sin límite
 
 # ─── Regla de Ender (31-Mar-2026): $4 min profit, $2 max risk ────────────
-MAX_RISK_USD        = 10.00    # Restaurado a $10/posición — configuración winner (2026-04-03)
+MAX_RISK_USD        = 3.00     # Máximo $3 de riesgo por POSICIÓN individual (ajustado 2026-03-31 para mercado lento)
 
 # ─── Portfolio Take Profit (31-Mar-2026) — orden de Ender ─────────────────
-PORTFOLIO_TP_USD     = 5.00     # Restaurado a $5 — dejar correr más (2026-04-03)
+PORTFOLIO_TP_USD     = 2.00     # Cerrar todo si el P&L combinado llega a $2
 PORTFOLIO_MIN_USD    = 1.00     # Si está en $1+ pero AI duda, cerrar y asegurar $1
 
 # ─── Coordinated Portfolio Sizing (31-Mar-2026 v2) — orden de Ender ───────
@@ -213,15 +183,13 @@ PORTFOLIO_MIN_USD    = 1.00     # Si está en $1+ pero AI duda, cerrar y asegura
 # La IA decide cuántas posiciones abrir (N), y el sistema distribuye el
 # target de ganancias entre todas ellas, ajustando por volatilidad.
 # Cuando el P&L combinado llega al PORTFOLIO_TP → cerrar TODO.
-PORTFOLIO_MAX_RISK_USD = 30.00  # Restaurado a $30 total — configuración winner (2026-04-03)
+PORTFOLIO_MAX_RISK_USD = 10.00  # Riesgo total máximo del portafolio (todas las posiciones)
 MIN_PROFIT_PER_POS_USD = 0.50   # Profit mínimo por posición ($0.50, flexible según N)
 
 # ─── Drift Protocol Simulation ───────────────────────────────────────────────
 TAKER_FEE           = 0.001    # 0.1% taker fee (Drift Protocol)
 MAKER_FEE           = 0.001    # 0.1% maker fee (Drift Protocol)
-# Mapa de leverage tiers → valores reales (sincronizado con risk_manager.py)
-_LEVERAGE_MAP = {0: 2, 1: 5, 2: 10}
-DEFAULT_LEVERAGE    = _LEVERAGE_MAP.get(_LEARNED_PARAMS.get("leverage_tier", 1), 5)  # 5x por defecto
+DEFAULT_LEVERAGE    = 5        # 5x leverage por defecto (subido de 3x — orden Ender 2026-03-31)
 MAX_LEVERAGE        = 10       # Máximo 10x
 MAINTENANCE_MARGIN  = 0.05     # 5% margen de mantenimiento
 FUNDING_RATE        = 0.0001   # 0.01% por hora (funding rate simulado)
@@ -261,18 +229,8 @@ def load_history() -> list:
 
 
 def save_history(history: list):
-    """Atomic write with backup — prevents data loss on OOM/crash."""
-    import shutil, tempfile
-    try:
-        if HISTORY_FILE.exists():
-            shutil.copy2(HISTORY_FILE, HISTORY_FILE.with_suffix('.json.bak'))
-        # Write to temp file then rename (atomic on POSIX)
-        tmp = HISTORY_FILE.with_suffix('.json.tmp')
-        with open(tmp, 'w') as f:
-            json.dump(history, f, indent=2)
-        tmp.rename(HISTORY_FILE)
-    except Exception as e:
-        log.error(f"   💾 save_history failed: {e}")
+    with open(HISTORY_FILE, "w") as f:
+        json.dump(history, f, indent=2)
 
 
 def load_signals() -> dict:
@@ -410,10 +368,6 @@ def close_positions_emergency(portfolio: dict, symbols: list, market: dict, hist
             closed.append(pos)
             log.error(f"🚨 EMERGENCY CLOSE: {pos['symbol']} | P&L: ${pnl_usd:+.2f} ({pnl_pct*100:+.2f}%)")
 
-            # GUARDAR INMEDIATAMENTE después de cerrar (no esperar al final del ciclo)
-            save_history(history)
-            log.info(f"   💾 History guardado tras emergency close: {len(history)} trades")
-
     # Remove closed positions from portfolio
     portfolio["positions"] = [p for p in portfolio["positions"] if p.get("status") != "closed"]
 
@@ -452,8 +406,16 @@ def paper_open_position(signal: dict, portfolio: dict, market: dict) -> Optional
         log.info(f"⏭️  Señal {symbol} ignorada: confidence {confidence:.2f} < {MIN_CONFIDENCE}")
         return None
     
-    # 2. Anti-rebound — bloquear SHORTs cuando FG<15 y precio ya rebotó
-    # (el rebound ya ocurrió, el precio puede bajar más pero el riesgo es alto)
+    # 2. Bloquear LONGs en mercado bajista (Fear & Greed < threshold)
+    # EXCEPTION: permitir LONGs si RSI < 30 (sobreextendido a la baja = oportunidad de rebote)
+    if direction == "long":
+        fear_greed = get_fear_greed_index()
+        rsi = signal.get("rsi", 50)
+        if fear_greed < BLOCK_LONGS_FG and rsi >= 30:
+            log.info(f"⏭️  LONG {symbol} bloqueado: Fear & Greed {fear_greed} < {BLOCK_LONGS_FG} y RSI={rsi:.1f} no sobrevendido")
+            return None
+        elif fear_greed < BLOCK_LONGS_FG and rsi < 30:
+            log.info(f"   ✅ LONG {symbol} PERMITIDO: FG={fear_greed} bajo pero RSI={rsi:.1f} sobrevendido — esperando rebote")
     
     # ─── FIX 1: Anti-rebound — bloquear SHORTs cuando FG<15 y precio ya rebotó ─
     if direction == "short":
@@ -495,10 +457,8 @@ def paper_open_position(signal: dict, portfolio: dict, market: dict) -> Optional
     # De min_profit: notional ≥ MIN_NET_PROFIT_USD / (tp_pct - fee*2)
 
     # SL/TP: usar los del signal si existen, sino defaults
-    # Usar parámetros del auto-learner (recarga fresca de archivo en cada ciclo)
-    _lp = _load_learned_params()
-    sl_pct = _lp.get("sl_pct", 0.03)   # 3% SL — Config winner Abril 1
-    tp_pct = _lp.get("tp_pct", 0.06)   # 6% TP — Config winner Abril 1
+    sl_pct = 0.02   # 2% SL (ajustado para regla de Ender)
+    tp_pct = 0.05   # 5% TP (2.5:1 R:R → $1.09 profit, $0.50 risk)
 
     if signal.get("sl_price", 0) > 0 and signal.get("tp_price", 0) > 0:
         if signal["direction"] == "long":
@@ -768,9 +728,6 @@ def paper_update_positions(portfolio: dict, market: dict, history: list) -> list
 
             history.append({**pos})
             closed.append(pos)
-
-            # GUARDAR INMEDIATAMENTE después de cerrar
-            save_history(history)
             continue
 
         # ─── Trailing Stop Logic ─────────────────────────────────────────
@@ -789,20 +746,6 @@ def paper_update_positions(portfolio: dict, market: dict, history: list) -> list
                 if current_price < pos.get("peak_price", pos["entry_price"]):
                     pos["peak_price"] = round(current_price, 8)
                 pos["trailing_sl"] = round(pos["peak_price"] * (1 + trailing_pct), 8)
-
-        # ─── Mínimo hold time: proteger posiciones nuevas de closes inmediatos ─
-        MIN_HOLD_MINUTES = 5
-        from datetime import datetime as dt, timezone as tz
-        try:
-            open_dt = dt.fromisoformat(pos["open_time"].replace("Z", "+00:00"))
-            if open_dt.tzinfo is None:
-                open_dt = open_dt.replace(tzinfo=tz.utc)
-            minutes_open = (dt.now(tz.utc) - open_dt).total_seconds() / 60
-            if minutes_open < MIN_HOLD_MINUTES:
-                log.info(f"   🛡️ {symbol}: hold protection {minutes_open:.1f}/{MIN_HOLD_MINUTES}min — skip SL/TP check")
-                continue  # No cerrar por SL/TP/TS todavía
-        except Exception:
-            pass  # Si hay error en parsing, cerrar normalmente
 
         # ─── Verificar SL/TP ─────────────────────────────────────────────
         hit_sl = False
@@ -858,9 +801,6 @@ def paper_update_positions(portfolio: dict, market: dict, history: list) -> list
 
             history.append({**pos})
             closed.append(pos)
-
-            # GUARDAR INMEDIATAMENTE después de cerrar (no esperar al final del ciclo)
-            save_history(history)
 
             # 📈 Compound Engine: actualizar capital base tras cada cierre
             if _COMPOUND_ENABLED:
@@ -964,65 +904,16 @@ def run(safe: bool = True, debug: bool = False) -> dict:
         except Exception:
             pass
 
-    # ── Safe History Save ────────────────────────────────────────────────
-    # Bug fix: backup history BEFORE writing to prevent data loss on crash/OOM
-    def _safe_save_history(hist: list):
-        """Saves history with atomic write + backup to prevent data loss."""
-        import shutil
-        try:
-            if HISTORY_FILE.exists():
-                shutil.copy2(HISTORY_FILE, HISTORY_FILE.with_suffix('.json.bak'))
-            with open(HISTORY_FILE, 'w') as hf:
-                json.dump(hist, hf, indent=2)
-            log.debug(f"   💾 History saved ({len(hist)} trades)")
-        except Exception as e:
-            log.error(f"   💾 Error saving history: {e}")
-            # Try to restore from backup
-            bak = HISTORY_FILE.with_suffix('.json.bak')
-            if bak.exists():
-                try:
-                    shutil.copy2(bak, HISTORY_FILE)
-                    log.warning("   💾 History restored from backup")
-                except Exception:
-                    pass
-
-    # ── Kill Switch ─────────────────────────────────────────────────────
+    # Kill switch: if STOP_TRADING file exists, don't open new positions
     STOP_FILE = DATA_DIR / "STOP_TRADING"
     if STOP_FILE.exists():
         log.warning("🛑 KILL SWITCH ACTIVE — STOP_TRADING file detected. No new positions.")
-        save_portfolio(portfolio)
-        _safe_save_history(history)
+        _save_portfolio(portfolio)
         return {
             "status": "kill_switch_active",
             "capital": portfolio["capital_usd"],
-        }
-
-    # ── Auto Stop (drawdown > 10%) ───────────────────────────────────────
-    drawdown_limit = 15.0   # Subido de 10% — el mercado está volátil, necesitamos más margen (2026-04-03)
-    initial = portfolio.get("initial_capital", 1000.0)
-    current = portfolio.get("capital_usd", 1000.0)
-    dd_pct = max(0.0, (initial - current) / initial * 100)
-    portfolio["drawdown_pct"] = round(dd_pct, 2)
-    if dd_pct > drawdown_limit:
-        STOP_FILE.write_text("Auto-stop: drawdown exceeded " + str(drawdown_limit) + "%")
-        log.error(f"🛑 AUTO-STOP: Drawdown {dd_pct:.1f}% > {drawdown_limit}% — STOPPING TRADING")
-        # ── Bug fix: cerrar TODAS las posiciones abiertas antes de detener ──
-        symbols_to_close = [p["symbol"] for p in portfolio["positions"] if p.get("status") == "open"]
-        if symbols_to_close:
-            market_stub = {}  # prices will be fetched inline
-            emergency_closed = close_positions_emergency(
-                portfolio, symbols_to_close, market_stub, history,
-                reason=f"AUTO_STOP_DD_{dd_pct:.1f}%"
-            )
-            log.error(f"   🚨 Emergency closes: {len(emergency_closed)} posiciones cerradas por DD")
-        save_portfolio(portfolio)
-        _safe_save_history(history)
-        return {
-            "status": "auto_stop_drawdown",
-            "capital": portfolio["capital_usd"],
-            "drawdown_pct": dd_pct,
             "opened": 0,
-            "closed": len(closed_this_cycle) + len(symbols_to_close),
+            "closed": len(closed_this_cycle),
         }
 
     # FIX 3: Daily Target Hit con RE-EVALUACIÓN inteligente
@@ -1087,8 +978,7 @@ def run(safe: bool = True, debug: bool = False) -> dict:
                     TARGET_HIT_FILE.unlink()
                 else:
                     log.warning(f"   🛡️ DAILY_TARGET_HIT activo — FG={fear_greed}, RSI={rsi:.1f}, manteniendo lock")
-                    save_portfolio(portfolio)
-                    save_history(history)
+                    _save_portfolio(portfolio)
                     return {
                         "status": "daily_target_hit",
                         "capital": portfolio["capital_usd"],
@@ -1099,8 +989,7 @@ def run(safe: bool = True, debug: bool = False) -> dict:
                     }
             except Exception as e:
                 log.warning(f"   🛡️ DAILY_TARGET_HIT — error en re-eval: {e}, manteniendo lock")
-                save_portfolio(portfolio)
-                save_history(history)
+                _save_portfolio(portfolio)
                 return {
                     "status": "daily_target_hit",
                     "capital": portfolio["capital_usd"],
@@ -1127,8 +1016,7 @@ def run(safe: bool = True, debug: bool = False) -> dict:
 
     if today_pnl < -MAX_DAILY_LOSS:
         log.warning(f"🛑 MAX DAILY LOSS hit: ${today_pnl:.2f} < -${MAX_DAILY_LOSS}. Stopping new trades.")
-        save_portfolio(portfolio)
-        save_history(history)
+        _save_portfolio(portfolio)
         return {
             "status": "max_daily_loss",
             "daily_pnl": round(today_pnl, 2),
@@ -1156,7 +1044,24 @@ def run(safe: bool = True, debug: bool = False) -> dict:
     opened = []
     open_count = len([p for p in portfolio["positions"] if p.get("status") == "open"])
 
-    MAX_POSITIONS = _load_learned_params().get("max_positions", 3)  # Del auto-learner (default 3)
+    # Leer MAX_POSITIONS desde auto_learner si disponible
+    try:
+        import json as _json
+        from pathlib import Path as _Path
+        _af = _Path(__file__).parent / "data" / "auto_learner_state.json"
+        if _af.exists():
+            _adata = _json.loads(_af.read_text())
+            _params = _adata.get("params", {})
+            if _params and "max_positions" in _params:
+                MAX_POSITIONS = _params["max_positions"]
+                log.info(f"   🧠 Auto-Learner: MAX_POSITIONS={MAX_POSITIONS}")
+            else:
+                MAX_POSITIONS = 2
+        else:
+            MAX_POSITIONS = 2
+    except Exception:
+        MAX_POSITIONS = 2
+
     slots_available = MAX_POSITIONS - open_count
 
     if slots_available <= 0:
@@ -1195,9 +1100,7 @@ def run(safe: bool = True, debug: bool = False) -> dict:
             except Exception as e:
                 log.warning(f"   ⚠️ AI Strategy filter error: {e}")
 
-        # Paso 1c: Filtro Fear & Greed — estrategia contrarian
-        # En Fear extremo (FG < 20): solo LONG, no SHORT — comprar en pánico anticipando rebote
-        # En Greed extremo (FG > 70): solo SHORT, no LONG — vender en euforia anticipando corrección
+        # Paso 1c: FILTRO EXTREME FEAR — en FG < 20, solo LONG, no SHORT
         market_file = DATA_DIR / "market_latest.json"
         if market_file.exists():
             try:
@@ -1207,42 +1110,21 @@ def run(safe: bool = True, debug: bool = False) -> dict:
                     fg = fg_raw.get("value", 50)
                 else:
                     fg = int(fg_raw) if fg_raw else 50
-                
-                # FALLBACK: si AI Strategy filtra todas las señales, usar señales técnicas
-                if len(valid_signals) == 0 and signals_data.get("source") == "ai_strategy":
-                    log.info("   🤖 AI Strategy no tiene señales tras filtro — usando fallback técnico")
-                    if SIGNALS_FILE.exists():
-                        try:
-                            tech_data = json.loads(SIGNALS_FILE.read_text())
-                            fallback_sigs = [
-                                s for s in tech_data.get("signals", [])
-                                if s.get("confidence", 0) >= MIN_CONFIDENCE
-                                and s.get("symbol") not in open_symbols
-                            ]
-                            # Aplicar filtro FG también a fallback técnico
-                            if fg < 20:
-                                fallback_sigs = [s for s in fallback_sigs if s.get("direction", "").upper() != "SHORT"]
-                            elif fg > 70:
-                                fallback_sigs = [s for s in fallback_sigs if s.get("direction", "").upper() != "LONG"]
-                            if fallback_sigs:
-                                valid_signals = fallback_sigs[:slots_available]
-                                log.info(f"   📊 Fallback técnico: {len(valid_signals)} señales válidas")
-                        except Exception as e:
-                            log.warning(f"   ⚠️ Fallback técnico error: {e}")
-
                 if fg < 20:
                     before = len(valid_signals)
-                    valid_signals = [s for s in valid_signals if s.get("direction", "").upper() != "SHORT"]
+                    # Filtrar shorts: en extreme fear, el mercado suele rebotar
+                    # EXCEPTION: permitir SHORTs si RSI < 25 (sobrevendido extremo = tendencia puede continuar)
+                    def _rsi_ok(sig):
+                        rsi = sig.get("rsi", 50)
+                        return rsi < 25
+                    valid_signals = [s for s in valid_signals 
+                        if s.get("direction", "").upper() != "SHORT" or _rsi_ok(s)]
                     skipped = before - len(valid_signals)
                     if skipped > 0:
-                        log.warning(f"   ⚠️ EXTREME FEAR ({fg}): removidos {skipped} SHORT — esperando rebote")
-                elif fg > 70:
-                    before = len(valid_signals)
-                    valid_signals = [s for s in valid_signals if s.get("direction", "").upper() != "LONG"]
-                    skipped = before - len(valid_signals)
-                    if skipped > 0:
-                        log.warning(f"   ⚠️ EXTREME GREED ({fg}): removidos {skipped} LONG — esperando corrección")
-            except Exception:
+                        kept = before - skipped
+                        rsi_kept = sum(1 for s in valid_signals if s.get("direction","").upper()=="SHORT")
+                        log.warning(f"   ⚠️ EXTREME FEAR ({fg}): removidos {skipped} SHORTs, mantenidos {rsi_kept} (RSI<25 sobrevendido)")
+            except:
                 pass
 
         # Paso 2: Calcular sizing coordinado para N posiciones
