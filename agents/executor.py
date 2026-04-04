@@ -407,14 +407,14 @@ def paper_open_position(signal: dict, portfolio: dict, market: dict) -> Optional
         return None
     
     # 2. Bloquear LONGs en mercado bajista (Fear & Greed < threshold)
-    # EXCEPTION: permitir LONGs si RSI < 30 (sobreextendido a la baja = oportunidad de rebote)
+    # EXCEPTION: permitir LONGs si RSI < 40 (sobreextendido a la baja = oportunidad de rebote)
     if direction == "long":
         fear_greed = get_fear_greed_index()
         rsi = signal.get("rsi", 50)
-        if fear_greed < BLOCK_LONGS_FG and rsi >= 30:
+        if fear_greed < BLOCK_LONGS_FG and rsi >= 40:
             log.info(f"⏭️  LONG {symbol} bloqueado: Fear & Greed {fear_greed} < {BLOCK_LONGS_FG} y RSI={rsi:.1f} no sobrevendido")
             return None
-        elif fear_greed < BLOCK_LONGS_FG and rsi < 30:
+        elif fear_greed < BLOCK_LONGS_FG and rsi < 40:
             log.info(f"   ✅ LONG {symbol} PERMITIDO: FG={fear_greed} bajo pero RSI={rsi:.1f} sobrevendido — esperando rebote")
     
     # ─── FIX 1: Anti-rebound — bloquear SHORTs cuando FG<15 y precio ya rebotó ─
@@ -1113,17 +1113,17 @@ def run(safe: bool = True, debug: bool = False) -> dict:
                 if fg < 20:
                     before = len(valid_signals)
                     # Filtrar shorts: en extreme fear, el mercado suele rebotar
-                    # EXCEPTION: permitir SHORTs si RSI < 25 (sobrevendido extremo = tendencia puede continuar)
+                    # EXCEPTION: permitir SHORTs si RSI < 35 (momentum bajista claro, no solo sobrevendido)
                     def _rsi_ok(sig):
                         rsi = sig.get("rsi", 50)
-                        return rsi < 25
+                        return rsi < 35
                     valid_signals = [s for s in valid_signals 
                         if s.get("direction", "").upper() != "SHORT" or _rsi_ok(s)]
                     skipped = before - len(valid_signals)
                     if skipped > 0:
                         kept = before - skipped
                         rsi_kept = sum(1 for s in valid_signals if s.get("direction","").upper()=="SHORT")
-                        log.warning(f"   ⚠️ EXTREME FEAR ({fg}): removidos {skipped} SHORTs, mantenidos {rsi_kept} (RSI<25 sobrevendido)")
+                        log.warning(f"   ⚠️ EXTREME FEAR ({fg}): removidos {skipped} SHORTs, mantenidos {rsi_kept} (RSI<35 momentum bajista)")
             except:
                 pass
 
