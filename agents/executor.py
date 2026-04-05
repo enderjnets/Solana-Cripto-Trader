@@ -1112,18 +1112,17 @@ def run(safe: bool = True, debug: bool = False) -> dict:
                     fg = int(fg_raw) if fg_raw else 50
                 if fg < 20:
                     before = len(valid_signals)
-                    # Filtrar shorts: en extreme fear, el mercado suele rebotar
-                    # EXCEPTION: permitir SHORTs si RSI < 35 (momentum bajista claro, no solo sobrevendido)
-                    def _rsi_ok(sig):
+                    # En extreme fear, SHORTs son válidos si RSI > 15 (no es rebote roto)
+                    # RSI < 15 = rebote activo, NO short. RSI > 50 = momentum DOWN válido.
+                    def _rsi_ok_short(sig):
                         rsi = sig.get("rsi", 50)
-                        return rsi < 35
+                        return rsi >= 15  # Allow shorts when RSI > 15 (not a live bounce)
                     valid_signals = [s for s in valid_signals 
-                        if s.get("direction", "").upper() != "SHORT" or _rsi_ok(s)]
+                        if s.get("direction", "").upper() != "SHORT" or _rsi_ok_short(s)]
                     skipped = before - len(valid_signals)
                     if skipped > 0:
-                        kept = before - skipped
                         rsi_kept = sum(1 for s in valid_signals if s.get("direction","").upper()=="SHORT")
-                        log.warning(f"   ⚠️ EXTREME FEAR ({fg}): removidos {skipped} SHORTs, mantenidos {rsi_kept} (RSI<35 momentum bajista)")
+                        log.warning(f"   ⚠️ EXTREME FEAR ({fg}): removidos {skipped} SHORTs (RSI<15=bounce activo), mantenidos {rsi_kept}")
             except:
                 pass
 
