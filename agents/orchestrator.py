@@ -1,12 +1,4 @@
-
 #!/usr/bin/env python3
-# Fix: ensure agents dir is in sys.path for imports
-import sys
-from pathlib import Path
-_agent_dir = Path(__file__).parent.resolve()
-if str(_agent_dir) not in sys.path:
-    sys.path.insert(0, str(_agent_dir))
-
 """
 🎯 Solana Trading Bot - Orchestrator Modular
 Ejecuta el ciclo completo con Smart Rotation + Daily Target
@@ -36,16 +28,8 @@ def _load_trade_history() -> list:
 
 def _save_trade_history(trades: list):
     """Guarda trade_history.json en formato dict con timestamp."""
-    # Deduplicate by (symbol, open_time) to prevent duplicate entries
-    seen = {}
-    unique = []
-    for t in trades:
-        key = (t.get("symbol"), t.get("open_time"))
-        if key not in seen:
-            seen[key] = t
-            unique.append(t)
     f = DATA_DIR / "trade_history.json"
-    data = {"trades": unique, "last_updated": datetime.now(timezone.utc).isoformat()}
+    data = {"trades": trades, "last_updated": datetime.now(timezone.utc).isoformat()}
     f.write_text(json.dumps(data, indent=2))
 
 import logging
@@ -140,16 +124,16 @@ def import_agents():
     except ImportError:
         daily_target = None
         log.warning("⚠️  daily_target.py no encontrado")
-    try:
-        import auto_learner
-    except ImportError:
-        auto_learner = None
-        log.warning("⚠️  auto_learner.py no encontrado")
-    return market_data, rm, strategy, executor, reporter, daily_target, auto_learner
+    return market_data, rm, strategy, executor, reporter, daily_target
 
+
+_cycle_global_count = 0
 
 def run_cycle(safe=True, debug=False):
     """Ejecuta un ciclo completo del sistema."""
+    global _cycle_global_count
+    _cycle_global_count += 1
+    run_cycle._cycle_count = _cycle_global_count
     cycle_start = time.time()
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     
@@ -162,29 +146,16 @@ def run_cycle(safe=True, debug=False):
     results = {}
     _cycle_emergency_closes = 0  # Circuit breaker: contador de emergency closes este ciclo
     
-    # Escribir status para dashboard
-    def write_status(state, detail=""):
-        try:
-            import os
-            status_file = DATA_DIR / "orchestrator_status.json"
-            import json
-            with open(status_file, "w") as f:
-                json.dump({"state": state, "detail": detail, "time": now}, f)
-        except Exception:
-            pass
-    
-    write_status("CICLO_INICIADO", mode_label)
-    
     # Importar agentes
     try:
-        md, rm, st, ex, rp, dt, al = import_agents()
+        md, rm, st, ex, rp, dt = import_agents()
     except ImportError as e:
         log.error(f"❌ Error importando agentes: {e}")
         return {"status": "IMPORT_ERROR"}
     
     # Paso 1: Market Data
     log.info("━" * 40)
-    log.info("🌐 [1/5] Market Data")
+    log.info("🌐 [1/6] Market Data")
     try:
         result = md.run(debug=debug)
         results["market_data"] = {"ok": True, "prices": result.get("prices_ok", 0)}
@@ -196,7 +167,7 @@ def run_cycle(safe=True, debug=False):
     
     # Paso 2: Risk Manager
     log.info("━" * 40)
-    log.info("🛡️  [2/5] Risk Manager")
+    log.info("🛡️  [2/6] Risk Manager")
     try:
         result = rm.run(debug=debug)
         results["risk_manager"] = {"ok": True}
@@ -207,8 +178,7 @@ def run_cycle(safe=True, debug=False):
     
     # Paso 3: Strategy (Technical + AI)
     log.info("━" * 40)
-    log.info("🧠 [3/5] Strategy")
-    write_status("BUSCANDO_SEÑALES", "Analizando mercado...")
+    log.info("🧠 [3/6] Strategy")
     try:
         result = st.run(debug=debug)
         n_signals = result.get("total_signals", 0)
@@ -242,22 +212,7 @@ def run_cycle(safe=True, debug=False):
                     ai_signals = ai_result
                 else:
                     ai_signals = []
-
-                # POST-PROCESSING CONTRARIAN: forzar LONG en Fear extremo, SHORT en Greed extremo
-                # Esto es una override mecánica sobre el LLM para garantizar disciplina contrarian
-                if fg_val < 20:  # Fear extremo
-                    for s in ai_signals:
-                        if s.get("direction", "").upper() == "SHORT":
-                            s["direction"] = "long"
-                            s["reasoning"] = "[CONTRARIAN OVERRIDE] FG=" + str(fg_val) + " Fear extremo — SHORT convertido a LONG"
-                    log.info(f"   ⚠️ CONTRARIAN OVERRIDE: {sum(1 for s in ai_signals if 'CONTRARIAN' in s.get('reasoning',''))} SHORTs convertidos a LONGs")
-                elif fg_val > 70:  # Greed extremo
-                    for s in ai_signals:
-                        if s.get("direction", "").upper() == "LONG":
-                            s["direction"] = "short"
-                            s["reasoning"] = "[CONTRARIAN OVERRIDE] FG=" + str(fg_val) + " Greed extremo — LONG convertido a SHORT"
-                    log.info(f"   ⚠️ CONTRARIAN OVERRIDE: {sum(1 for s in ai_signals if 'CONTRARIAN' in s.get('reasoning',''))} LONGs convertidos a SHORTs")
-
+                
                 if ai_signals and len(ai_signals) > 0:
                     # Guardar en strategy_llm.json para que el executor las use
                     llm_out = DATA_DIR / "strategy_llm.json"
@@ -275,7 +230,7 @@ def run_cycle(safe=True, debug=False):
     
     # Paso 3c: UPDATE POSITIONS — actualizar precios y P&L ANTES de decisiones
     log.info("━" * 40)
-    log.info("🔄 [3c/5] Position Updater")
+    log.info("🔄 [3c/6] Position Updater")
     try:
         portfolio_file = DATA_DIR / "portfolio.json"
         market_file = DATA_DIR / "market_latest.json"
@@ -296,7 +251,7 @@ def run_cycle(safe=True, debug=False):
             # Log P&L actual de cada posición
             for p in portfolio_data.get("positions", []):
                 if p.get("status") == "open":
-                    log.info(f"      📊 {p.get('symbol')} {p.get('direction')} | Entry: ${p.get('entry_price',0):.6f} | Current: ${p.get('current_price',0):.6f} | P&L: ${p.get('pnl_usd',0):.2f} ({p.get('pnl_pct',0):.2f}%)")
+                    log.info(f"      📊 {p.get('symbol')} {p.get('direction')} | Entry: \${p.get('entry_price',0):.6f} | Current: \${p.get('current_price',0):.6f} | P&L: \${p.get('pnl_usd',0):.2f} ({p.get('pnl_pct',0):.2f}%)")
         results["position_updater"] = {"ok": True}
     except Exception as e:
         log.warning(f"   ⚠️ Position Updater error: {e}")
@@ -304,8 +259,7 @@ def run_cycle(safe=True, debug=False):
 
     # Paso 4: Executor
     log.info("━" * 40)
-    log.info("⚡ [4/5] Executor")
-    write_status("EJECUTANDO", "Ejecutando operaciones...")
+    log.info("⚡ [4/6] Executor")
 
     # Definir portfolio_file aquí para que esté disponible en todos los pasos siguientes
     portfolio_file = DATA_DIR / "portfolio.json"
@@ -338,7 +292,7 @@ def run_cycle(safe=True, debug=False):
 
     # Paso 4b: Smart Rotation
     log.info("━" * 40)
-    log.info("🔄 [4b/5] Smart Rotation")
+    log.info("🔄 [4b/6] Smart Rotation")
     
     portfolio_data = {}
     if portfolio_file.exists():
@@ -386,7 +340,7 @@ def run_cycle(safe=True, debug=False):
     
     # Paso 4c: Daily Target
     log.info("━" * 40)
-    log.info("🎯 [4c/5] Daily Target")
+    log.info("🎯 [4c/6] Daily Target")
     
     if not dt:
         log.warning("   ⚠️ Módulo daily_target no disponible")
@@ -424,14 +378,12 @@ def run_cycle(safe=True, debug=False):
                         for pos in closed:
                             ex.record_emergency_cooldown(pos.get("symbol", "")) if pos.get("symbol") else None
                         _cycle_emergency_closes += len(closed)
-                        # FIX 3: Escribir DAILY_TARGET_HIT — previene que executor abra nuevas posiciones
-                        target_hit_file = DATA_DIR / "DAILY_TARGET_HIT"
-                        target_hit_file.write_text(
-                            f"Daily target reached: {datetime.now(timezone.utc).isoformat()}\n"
-                            f"PnL: {target_result.get('daily_pnl_pct', 0):.2f}%\n"
-                            f"Closed: {len(closed)} position(s)\n"
-                        )
-                        log.info(f"   🛡️ DAILY_TARGET_HIT escrito — executor no abrirá nuevas posiciones")
+                        # REMOVED: lock file was blocking all trading for the rest of the day
+                        # The bot should keep operating as long as conditions are valid
+                        # Positions close when their individual TP/SL is hit
+                        # target_hit_file = DATA_DIR / "DAILY_TARGET_HIT"
+                        # target_hit_file.write_text(...)
+                        log.info(f"   ✅ Cerradas {len(closed)} posición(es) por Daily Target — continuando...")
                         ex.save_portfolio(portfolio_data)
                         _save_trade_history(history)
                         log.info(f"   ✅ Cerradas {len(closed)} posición(es) por Daily Target")
@@ -453,7 +405,7 @@ def run_cycle(safe=True, debug=False):
     
     # Paso 4d: Position Decisions (LLM + Quant)
     log.info("━" * 40)
-    log.info("🧠 [4d/5] Position Decisions — LLM + Quant")
+    log.info("🧠 [4d/6] Position Decisions — LLM + Quant")
     try:
         market_data_for_dec = {}
         market_file = DATA_DIR / "market_latest.json"
@@ -591,43 +543,40 @@ def run_cycle(safe=True, debug=False):
             results["circuit_breaker"] = {"triggered": True, "closes": _cycle_emergency_closes}
             return results
 
-    # Paso 5: Reporter
+    # Paso 5: Auto-Learner — analiza trades y adapta parámetros
     log.info("━" * 40)
-    log.info("📊 [5/5] Reporter")
+    log.info("🧠 [5/6] Auto-Learner")
+    try:
+        cycle_count_for_learner = getattr(run_cycle, '_cycle_count', 0)
+        learner_interval = 10  # Cada 10 ciclos (~10 min)
+        if cycle_count_for_learner % learner_interval == 0 or cycle_count_for_learner == 1:
+            import auto_learner
+            result_learner = auto_learner.run(debug=debug)
+            # Recargar params en risk_manager después de learner
+            try:
+                from risk_manager import reload_auto_learner_params
+                reload_auto_learner_params()
+                log.info(f"   🧠 Params recargados desde auto_learner")
+            except Exception as lr_e:
+                log.warning(f"   ⚠️ reload params error: {lr_e}")
+            results["auto_learner"] = {"ok": True}
+        else:
+            log.info(f"   ⏭️  Auto-Learner skip (ciclo {cycle_count_for_learner % learner_interval}/{learner_interval})")
+            results["auto_learner"] = {"ok": True, "skipped": True}
+    except Exception as e:
+        log.warning(f"   ⚠️ Auto-Learner error: {e}")
+        results["auto_learner"] = {"ok": False, "error": str(e)}
+
+    # Paso 6: Reporter
+    log.info("━" * 40)
+    log.info("📊 [6/6] Reporter")
     try:
         result = rp.run(daily=False)
         results["reporter"] = {"ok": True}
     except Exception as e:
         log.warning(f"   ⚠️ Error: {e}")
         results["reporter"] = {"ok": False}
-
-    # Paso 6: Auto-Learner (cada 6 horas — usa datos del DB para adaptarse)
-    # El watchdog reinicia el proceso, así que usamos un archivo de tracking
-    LEARN_TRACKER = DATA_DIR / "auto_learner_last_run.txt"
-    try:
-        last_run = 0
-        if LEARN_TRACKER.exists():
-            last_run = float(LEARN_TRACKER.read_text().strip())
-        now_ts = datetime.now().timestamp()
-        hours_since = (now_ts - last_run) / 3600
-        if al is not None and hours_since >= 6:
-            log.info("━" * 40)
-            log.info(f"🧠 [6/6] Auto-Learner (ultima vez: {hours_since:.1f}h atrás, analiza 524 trades)")
-            try:
-                al_result = al.run(debug=debug)
-                if al_result.get("adapted"):
-                    new_params = al_result.get("new_params", {})
-                    log.info(f"   → Params adaptados: SL={new_params.get('sl_pct',0)*100:.1f}% TP={new_params.get('tp_pct',0)*100:.1f}%")
-                else:
-                    log.info(f"   → Sin adaptación necesaria (win_rate={al_result.get('win_rate',0):.1f}%)")
-                results["auto_learner"] = {"ok": True, "adapted": al_result.get("adapted", False)}
-                LEARN_TRACKER.write_text(str(now_ts))
-            except Exception as e:
-                log.warning(f"   ⚠️ Auto-Learner error: {e}")
-                results["auto_learner"] = {"ok": False}
-    except Exception as e:
-        log.warning(f"   ⚠️ Auto-Learner tracker error: {e}")
-
+    
     # Calcular health score
     ok_count = sum(1 for r in results.values() if r.get("ok", False))
     health_score = min(10, ok_count * 2)
@@ -671,13 +620,7 @@ def run_cycle(safe=True, debug=False):
 
     # Rotar log al finalizar si supera 50MB (doble check desde Python)
     _rotate_log_if_needed()
-    
-    # Status final: depende de si hay posiciones abiertas
-    if n_positions > 0:
-        write_status("POSICIONES_ABIERTAS", f"{n_positions} posición(es) abierta(s)")
-    else:
-        write_status("IDLE", f"Equity: ${equity:.2f} — esperando señales")
-    
+
     return results
 
 
@@ -698,48 +641,13 @@ def run_token_scanner():
 
 
 if __name__ == "__main__":
-    # ─── PID FILE LOCK — previene múltiples instancias ─────────────────────────
-    PID_FILE = DATA_DIR / "orchestrator.pid"
-    import os as _os
-    if PID_FILE.exists():
-        try:
-            old_pid = int(PID_FILE.read_text().strip())
-            if _os.path.exists(f"/proc/{old_pid}"):
-                print(f"⚠️  Orchestrator ya corriendo (PID {old_pid}). Saliendo.")
-                import sys
-                sys.exit(0)
-        except Exception:
-            pass
-    PID_FILE.write_text(str(_os.getpid()))
-
-    # ─── Auto-backup antes de iniciar ─────────────────────────────────────────
-    try:
-        import shutil, json
-        from pathlib import Path
-        backup_dir = DATA_DIR / "auto_backups"
-        backup_dir.mkdir(exist_ok=True)
-        
-        for fname in ["trade_history.json", "portfolio.json", "daily_target_state.json"]:
-            src = DATA_DIR / fname
-            if src.exists():
-                ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-                dst = backup_dir / f"{ts}_{fname}"
-                shutil.copy2(src, dst)
-                # Mantener solo los últimos 10 backups
-                existing = sorted(backup_dir.glob(f"*_{fname}"))
-                for old in existing[:-10]:
-                    old.unlink()
-        log.info(f"💾 Auto-backup completado")
-    except Exception as e:
-        log.warning(f"⚠️ Auto-backup falló: {e}")
-    
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument("--once", action="store_true", help="Run once and exit")
     parser.add_argument("--live", action="store_true", help="Run in continuous loop (alias for default loop mode)")
     parser.add_argument("--interval", type=int, default=60, help="Seconds between cycles in loop mode (default: 60)")
     parser.add_argument("--debug", action="store_true", help="Debug mode")
-    parser.add_argument("--scan-interval", type=int, default=3, help="Run token scanner every N cycles (default: 3)")
+    parser.add_argument("--scan-interval", type=int, default=10, help="Run token scanner every N cycles (default: 10)")
     args = parser.parse_args()
 
     if args.once:
@@ -747,11 +655,11 @@ if __name__ == "__main__":
     else:
         # --live or bare invocation: run continuous loop
         interval = args.interval if args.interval else 60
-        scan_interval = args.scan_interval if args.scan_interval else 3
+        scan_interval = args.scan_interval if args.scan_interval else 10
         cycle_count = 0
         
         log.info(f"🔄 Modo continuo — intervalo: {interval}s")
-        log.info(f"🔍 Token Scanner cada {scan_interval} ciclos (~{scan_interval*2}min)")
+        log.info(f"🔍 Token Scanner cada {scan_interval} ciclos (~{scan_interval}min)")
         
         while True:
             try:

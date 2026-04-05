@@ -1,124 +1,228 @@
+#!/usr/bin/env python3
 """
-daily_target.py — Daily P&L Target Tracking
-Evaluates if daily profit target has been hit and closes positions.
+📊 Daily Profit Target Manager
+IA evalúa condiciones de mercado y cierra todas las posiciones cuando:
+1. P&L diario alcanza target (3-5%)
+2. Y condiciones de overbought detectadas (RSI > 70)
 """
 import json
-import logging
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
-from datetime import datetime, timezone
+from typing import Dict, List, Any
 
-log = logging.getLogger("daily_target")
+BASE_DIR = Path(__file__).parent
+DATA_DIR = BASE_DIR / "data"
+DATA_DIR.mkdir(exist_ok=True)
 
-DATA_DIR = Path(__file__).parent / "data"
+PORTFOLIO_FILE = DATA_DIR / "portfolio.json"
+SIGNALS_FILE = DATA_DIR / "signals_latest.json"
+DAILY_TARGET_FILE = DATA_DIR / "daily_target_state.json"
 
-# Daily target: 2% profit
-DAILY_TARGET_PCT = 2.0
+# Config
+TARGET_MIN_PCT = 0.05  # 5% mínimo (was 3%)
+TARGET_MAX_PCT = 0.10  # 10% máximo (was 5% — raised to avoid premature locking with leverage)
+RSI_OVERBOUGHT = 70    # RSI > 70 = overbought
 
 
-def run() -> dict:
-    """Called each cycle. Returns daily target status."""
-    try:
-        state_file = DATA_DIR / "daily_target_state.json"
-        state = {}
-        if state_file.exists():
-            state = json.loads(state_file.read_text())
-        
-        # Check if it's a new day
-        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-        last_date = state.get("date", "")
-        
-        if last_date != today:
-            # New day — reset
-            state = {
-                "date": today,
-                "start_capital": 0,
-                "target_hit": False,
-                "trades_closed": 0
-            }
-            state_file.write_text(json.dumps(state, indent=2))
-        
-        return {"ok": True, "state": state}
+def load_portfolio() -> dict:
+    """Carga portfolio actual"""
+    if PORTFOLIO_FILE.exists():
+        return json.loads(PORTFOLIO_FILE.read_text())
+    return {"capital_usd": 500.0, "initial_capital": 500.0, "positions": []}
+
+
+def load_signals() -> dict:
+    """Carga señales de mercado"""
+    if SIGNALS_FILE.exists():
+        return json.loads(SIGNALS_FILE.read_text())
+    return {}
+
+
+def load_daily_state() -> dict:
+    """Carga estado del target diario"""
+    if DAILY_TARGET_FILE.exists():
+        return json.loads(DAILY_TARGET_FILE.read_text())
+    return {
+        "date": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+        "starting_capital": None,
+        "target_reached": False,
+        "closed_at": None
+    }
+
+
+def save_daily_state(state: dict):
+    """Guarda estado del target diario"""
+    DAILY_TARGET_FILE.write_text(json.dumps(state, indent=2))
+
+
+def calculate_daily_pnl(portfolio: dict, state: dict) -> dict:
+    """Calcula P&L del día actual"""
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     
-    except Exception as e:
-        log.error(f"daily_target.run error: {e}")
-        return {"ok": False}
+    # Si es nuevo día, resetear
+    if state.get("date") != today:
+        state = {
+            "date": today,
+            "starting_capital": portfolio.get("capital_usd", 1000.0),
+            "target_reached": False,
+            "closed_at": None
+        }
+        save_daily_state(state)
+    
+    initial = portfolio.get("initial_capital", 500.0)
+    current_capital = portfolio.get("capital_usd", 1000.0)
+    
+    # P&L total (incluye posiciones abiertas)
+    open_positions = [p for p in portfolio.get("positions", []) if p.get("status") == "open"]
+    invested = sum(p.get("margin_usd", 0) for p in open_positions)
+    unrealized_pnl = sum(p.get("pnl_usd", 0) for p in open_positions)
+    equity = current_capital + invested + unrealized_pnl
+    
+    # P&L del día
+    daily_start = state.get("starting_capital", initial)
+    daily_pnl_usd = equity - daily_start
+    daily_pnl_pct = (daily_pnl_usd / daily_start) if daily_start > 0 else 0
+    
+    return {
+        "equity": equity,
+        "daily_start": daily_start,
+        "daily_pnl_usd": daily_pnl_usd,
+        "daily_pnl_pct": daily_pnl_pct,
+        "state": state
+    }
+
+
+def evaluate_market_conditions(signals: dict) -> dict:
+    """Evalúa condiciones de mercado para decidir target"""
+    if not signals or "signals" not in signals:
+        return {"overbought": False, "avg_rsi": 50, "trend": "neutral"}
+    
+    all_signals = signals.get("signals", [])
+    if not all_signals:
+        return {"overbought": False, "avg_rsi": 50, "trend": "neutral"}
+    
+    # Calcular RSI promedio
+    rsi_values = [s.get("rsi", 50) for s in all_signals if "rsi" in s]
+    avg_rsi = sum(rsi_values) / len(rsi_values) if rsi_values else 50
+    
+    # Detectar overbought
+    overbought = avg_rsi > RSI_OVERBOUGHT
+    
+    # Detectar trend general
+    trends = [s.get("trend", "neutral") for s in all_signals if "trend" in s]
+    up_count = trends.count("up")
+    down_count = trends.count("down")
+    
+    if up_count > down_count:
+        trend = "up"
+    elif down_count > up_count:
+        trend = "down"
+    else:
+        trend = "neutral"
+    
+    return {
+        "overbought": overbought,
+        "avg_rsi": round(avg_rsi, 2),
+        "trend": trend,
+        "signals_count": len(all_signals)
+    }
 
 
 def evaluate_daily_target(portfolio: dict, signals: dict) -> dict:
     """
-    Evaluate if daily target has been hit.
-    Returns: {
-        daily_pnl_pct: float,
-        target_pct: float,
-        should_close_all: bool,
-        close_reason: str,
-        market_conditions: dict
-    }
+    Evalúa si se debe cerrar todo por profit target diario.
+    Retorna decisión con posiciones a cerrar.
     """
-    try:
-        state_file = DATA_DIR / "daily_target_state.json"
-        state = {}
-        if state_file.exists():
-            state = json.loads(state_file.read_text())
-        
-        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-        last_date = state.get("date", "")
-        
-        # Initialize for new day
-        if last_date != today:
-            state = {
-                "date": today,
-                "start_capital": portfolio.get("capital_usd", 1000),
-                "target_hit": False,
-                "trades_closed": 0
-            }
-        
-        start_capital = state.get("start_capital", portfolio.get("initial_capital", 1000))
-        current_capital = portfolio.get("capital_usd", start_capital)
-        
-        daily_pnl_pct = ((current_capital - start_capital) / start_capital * 100) if start_capital > 0 else 0
-        
-        # Calculate market conditions
-        avg_rsi = 50
-        market_conditions = {
-            "avg_rsi": avg_rsi,
-            "target_hit": state.get("target_hit", False)
-        }
-        
-        # Should close all if target is hit
-        should_close = False
-        close_reason = ""
-        
-        if daily_pnl_pct >= DAILY_TARGET_PCT and not state.get("target_hit"):
-            should_close = True
-            close_reason = f"Daily target {DAILY_TARGET_PCT}% hit ({daily_pnl_pct:.2f}%)"
-            state["target_hit"] = True
-            log.info(f"🎯 Daily target HIT: {daily_pnl_pct:.2f}% >= {DAILY_TARGET_PCT}%")
-        elif daily_pnl_pct <= -3.0:
-            # Stop loss for the day
-            should_close = True
-            close_reason = f"Daily stop loss triggered ({daily_pnl_pct:.2f}%)"
-            log.info(f"🛡️ Daily stop loss: {daily_pnl_pct:.2f}%")
-        else:
-            log.info(f"🎯 Daily P&L: {daily_pnl_pct:.2f}% (target: {DAILY_TARGET_PCT}%)")
-        
-        # Save state
-        state_file.write_text(json.dumps(state, indent=2))
-        
-        return {
-            "daily_pnl_pct": round(daily_pnl_pct, 2),
-            "target_pct": DAILY_TARGET_PCT,
-            "should_close_all": should_close,
-            "close_reason": close_reason,
-            "market_conditions": market_conditions
-        }
+    state = load_daily_state()
+    daily = calculate_daily_pnl(portfolio, state)
+    market = evaluate_market_conditions(signals)
     
-    except Exception as e:
-        log.error(f"evaluate_daily_target error: {e}")
-        return {
-            "daily_pnl_pct": 0,
-            "target_pct": DAILY_TARGET_PCT,
-            "should_close_all": False,
-            "close_reason": "",
-            "market_conditions": {"avg_rsi": 50}
-        }
+    daily_pnl_pct = daily["daily_pnl_pct"]
+    
+    # Determinar target dinámico (3-5%)
+    # Si mercado está muy overbought, usar target más bajo (3%)
+    # Si está neutral, usar target más alto (5%)
+    if market["overbought"]:
+        target_pct = TARGET_MIN_PCT
+        reason_target = "OVERBOUGHT_DETECTED"
+    else:
+        target_pct = TARGET_MAX_PCT
+        reason_target = "STANDARD_TARGET"
+    
+    # Verificar si se alcanzó target
+    target_reached = daily_pnl_pct >= target_pct
+    
+    # Decisión de cierre
+    should_close_all = False
+    close_reason = ""
+    
+    if target_reached and market["overbought"]:
+        should_close_all = True
+        close_reason = f"DAILY_TARGET_REACHED: {daily_pnl_pct*100:.2f}% >= {target_pct*100:.1f}% + OVERBOUGHT (RSI {market['avg_rsi']:.1f})"
+    elif target_reached and daily_pnl_pct >= TARGET_MAX_PCT:
+        # Si llegó al 5% o más, cerrar sin importar overbought
+        should_close_all = True
+        close_reason = f"DAILY_TARGET_MAX_REACHED: {daily_pnl_pct*100:.2f}% >= {TARGET_MAX_PCT*100:.1f}%"
+    
+    # Actualizar estado
+    state["current_pnl_pct"] = daily_pnl_pct
+    state["target_pct"] = target_pct
+    state["target_reached"] = target_reached
+    
+    if should_close_all:
+        state["target_reached"] = True
+        state["closed_at"] = datetime.now(timezone.utc).isoformat()
+    
+    save_daily_state(state)
+    
+    # Lista de posiciones a cerrar
+    open_positions = [p for p in portfolio.get("positions", []) if p.get("status") == "open"]
+    positions_to_close = []
+    
+    if should_close_all:
+        for pos in open_positions:
+            positions_to_close.append({
+                "symbol": pos.get("symbol"),
+                "pnl_usd": pos.get("pnl_usd", 0),
+                "pnl_pct": pos.get("pnl_pct", 0),
+                "reason": close_reason
+            })
+    
+    return {
+        "should_close_all": should_close_all,
+        "close_reason": close_reason if should_close_all else None,
+        "positions_to_close": positions_to_close,
+        "daily_pnl_pct": round(daily_pnl_pct * 100, 2),
+        "daily_pnl_usd": round(daily["daily_pnl_usd"], 2),
+        "target_pct": round(target_pct * 100, 1),
+        "market_conditions": market,
+        "state": state
+    }
+
+
+if __name__ == "__main__":
+    print("=" * 80)
+    print("📊 DAILY TARGET MANAGER")
+    print("=" * 80)
+    
+    portfolio = load_portfolio()
+    signals = load_signals()
+    
+    result = evaluate_daily_target(portfolio, signals)
+    
+    print(f"📅 P&L Diario: {result['daily_pnl_pct']:.2f}% (${result['daily_pnl_usd']:.2f})")
+    print(f"🎯 Target: {result['target_pct']:.1f}%")
+    print(f"📊 Mercado: RSI {result['market_conditions']['avg_rsi']:.1f} | Overbought: {result['market_conditions']['overbought']}")
+    print()
+    
+    if result["should_close_all"]:
+        print(f"🚨 CERRAR TODO: {result['close_reason']}")
+        print(f"   Posiciones a cerrar: {len(result['positions_to_close'])}")
+        for pos in result["positions_to_close"]:
+            print(f"     • {pos['symbol']}: {pos['pnl_pct']:.2f}%")
+    else:
+        print("✅ Mantener posiciones abiertas")
+        print(f"   Faltan: {result['target_pct'] - result['daily_pnl_pct']:.2f}% para target")
+    
+    print()
+    print("=" * 80)
