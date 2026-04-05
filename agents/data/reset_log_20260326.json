@@ -1,1 +1,21 @@
-{"reset_date":"2026-04-03T12:20:00-06:00","capital_after":1000.0,"equity":[1000.0],"equity_dates":["2026-04-03T12:20:00"],"note":"Equity reset"}
+{
+  "reset_date": "2026-04-05T04:00:00",
+  "capital_after": 1000.0,
+  "equity": [
+    1000.0,
+    999.42,
+    1000.57,
+    1000.62,
+    1000.62,
+    1000.54
+  ],
+  "equity_dates": [
+    "2026-04-05T04:00:00",
+    "2026-04-05T04:18",
+    "2026-04-05T04:18",
+    "2026-04-05T04:18",
+    "2026-04-05T04:22",
+    "2026-04-05T04:24"
+  ],
+  "note": "Fresh reset - deduped duplicate trades from old sessions"
+}

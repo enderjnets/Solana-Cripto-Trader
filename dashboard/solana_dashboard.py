@@ -199,7 +199,7 @@ with tab1:
                             })
                     if holdings_data:
                         df = pd.DataFrame(holdings_data)
-                        st.dataframe(df, width="stretch")
+                        st.dataframe(df, use_container_width=True)
                     else:
                         st.info("No SPL tokens found. Deposit tokens to see them here.")
                 else:

@@ -60,3 +60,14 @@ No lessons learned yet.
 **Avoid**: JUP, SOL, BONK, MOODENG
 **Prefer**: FARTCOIN, WIF, RAY, POPCAT, PENGU
 **Confidence**: 74%
+
+## Cycle 2026-04-04 05:37
+**Insight**: The close reason 'unknown' for all 50 recent trades (versus 96% EMERGENCY_CLOSE previously) suggests the trailing stop adjustment from 3.75% to 2.0% may have improved close reasons, but we now lack visibility into WHY trades close - this tracking needs attention.
+**Analysis**: The strategy shows recovery with recent 50 trades posting +$6.69 and an improved 1.79 R:R ratio, though overall 524-trade stats remain negative at -$43.50 with a concerning 0.78 R:R. JUP is clearly the worst performer with 25% WR and -$2.34 losses across 4 short trades, while FARTCOIN emerged as the top profit contributor at +$4.56 despite previous avoid recommendations.
+**Lessons**:
+- JUP is catastrophic for this strategy with only 25% WR and -$2.34 total loss on shorts - permanently avoid despite low trade count, the pattern is clear
+- The knowledge base previously flagged FARTCOIN as 'avoid' but it has since become the top PnL contributor (+$4.56) - this demonstrates that token performance can reverse and avoid lists need periodic re-evaluation
+- Close reason tracking shows 'unknown' for all 50 recent trades after previously dominated by EMERGENCY_CLOSE - either the trailing stop is now more balanced or close reason logging is broken and needs investigation
+**Avoid**: JUP, SOL, BONK, MOODENG
+**Prefer**: FARTCOIN, WIF, RAY, POPCAT, PENGU
+**Confidence**: 72%

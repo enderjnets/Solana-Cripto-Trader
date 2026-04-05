@@ -84,70 +84,10 @@ def load_json(path: Path, default=None):
 
 
 def load_trades() -> List[dict]:
-    """
-    Carga trades desde trade_history.json (fuente primaria).
-    Si el JSON está vacío o tiene menos trades que el DB, complementa desde auto_learner.db.
-    Esto asegura que el auto-learner siempre tenga datos aunque el JSON se haya corrompido.
-    """
-    # Fuente primaria: trade_history.json
     data = load_json(TRADE_HISTORY, {})
     if isinstance(data, list):
-        json_trades = data
-    else:
-        json_trades = data.get("trades", []) if isinstance(data, dict) else []
-
-    # Fuente secundaria: auto_learner.db (nunca se pierde aunque el JSON se borre)
-    db_trades = []
-    try:
-        import sqlite3
-        if LEARNER_DB.exists():
-            conn = sqlite3.connect(str(LEARNER_DB))
-            conn.row_factory = sqlite3.Row
-            c = conn.cursor()
-            c.execute("""
-                SELECT trade_id, symbol, direction, sl_pct, tp_pct, leverage,
-                       pnl_usd, pnl_pct, win, confidence, holding_time, timestamp
-                FROM trade_results
-                ORDER BY id ASC
-            """)
-            for row in c.fetchall():
-                r = dict(row)
-                db_trades.append({
-                    "id": r["trade_id"],
-                    "symbol": r["symbol"],
-                    "direction": r["direction"],
-                    "sl_pct": r["sl_pct"],
-                    "tp_pct": r["tp_pct"],
-                    "leverage": r["leverage"],
-                    "pnl_usd": r["pnl_usd"],
-                    "pnl_pct": r["pnl_pct"],
-                    "win": bool(r["win"]),
-                    "confidence": r["confidence"],
-                    "holding_time": r["holding_time"],
-                    "close_time": r["timestamp"],
-                    "status": "closed",
-                    # Evitar duplicados: key por trade_id
-                    "_db_id": r["trade_id"],
-                })
-            conn.close()
-    except Exception:
-        pass  # DB fallback es optional
-
-    # Combinar: usar JSON + agregar del DB los que no estén en JSON
-    if not json_trades and db_trades:
-        # JSON vacío — usar DB completo
-        return db_trades
-    elif db_trades:
-        # Combinar sin duplicados por trade_id
-        json_ids = {t.get("id") or t.get("trade_id") for t in json_trades}
-        combined = list(json_trades)
-        for t in db_trades:
-            tid = t.get("_db_id")
-            if tid and tid not in json_ids:
-                combined.append(t)
-        return combined
-
-    return json_trades
+        return data
+    return data.get("trades", []) if isinstance(data, dict) else []
 
 
 def load_state() -> dict:

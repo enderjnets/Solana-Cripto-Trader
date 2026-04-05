@@ -129,7 +129,22 @@
       "sender": "agent",
       "text": "🤖 RESPONDIDO — Resumen de tu situación:\n\n✅ El bot SÍ está corriendo. Capital $1000, modo paper_drift.\n✅ Tiene 2 posiciones abiertas (según tu reporte).\n\n❌ No puedo ver el dashboard en tiempo real — solo leo los archivos de datos del bot.\n\n📊 LO QUE SÍ PUEDO VER:\n• Auto-learner activo: 5 adaptaciones, 338 trades aprendidos\n• Params actuales: SL 4.9%, TP 10%, Trailing Stop 4.5%, Leverage Tier 1\n• Tokens a evitar: JUP, SOL, BONK, MOODENG\n• Tokens preferidos: FARTCOIN, WIF, RAY, POPCAT, PENGU\n\n⚠️ PROBLEMA DETECTADO (del auto-learner):\nEl 96% de trades recientes cerraron por EMERGENCY_CLOSE — el trailing stop de 4.5% es muy agresivo para la volatilidad actual. Esto explica por qué las posiciones no duran.\n\n💡 RECOMENDACIÓN:\n1. El trailing stop de 4.5% está muy pegado — podría causar que cierres antes de tiempo\n2. ¿Puedes ver qué tokens son las 2 posiciones abiertas y su PnL actual?\n3. ¿Los logs muestran algún mensaje específico de por qué no abre más operaciones?\n\n¿Querés que ajuste el trailing stop a 6-7% para dar más espacio a las posiciones?",
       "ts": "2026-04-02T23:21:15.073829"
+    },
+    {
+      "sender": "user",
+      "text": "Estas activo esperando entradas ?",
+      "ts": "2026-04-04T00:31:15.898705"
+    },
+    {
+      "sender": "user",
+      "text": "Estas activo ?",
+      "ts": "2026-04-04T08:03:18.486405"
+    },
+    {
+      "sender": "agent",
+      "text": "✅ SÍ, activo y funcionando.\n\n📊 ESTADO ACTUAL:\n• Capital: $1,001 (+0.1% desde reset)\n• Modo: paper_drift\n• Trades: 2 total — 2 wins, 0 losses\n• Drawdown: 0%\n• Auto-learner: 524 trades analizados | 1 adaptación | confianza 72%\n\n⚡ El bot está corriendo y esperando entradas según su configuración de symbols y sizing.",
+      "ts": "2026-04-04T11:20:52.959545"
     }
   ],
-  "last_updated": "2026-04-02T23:21:15.073838"
+  "last_updated": "2026-04-04T11:20:52.959555"
 }

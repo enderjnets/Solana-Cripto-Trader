@@ -1,0 +1,100 @@
+#!/usr/bin/env python3
+"""
+Simple Solana Trading Bot
+Uses lite-api for prices and devnet for testing
+"""
+import asyncio
+import os
+import json
+import requests
+import time
+from pathlib import Path
+from datetime import datetime
+from solana.rpc.api import Client
+from solders.pubkey import Pubkey
+
+# Config
+WALLET_ADDRESS = "H9GF6t5hdypfH5PsDhS42sb9ybFWEh5zD5Nht9rQX19a"
+SOL_MINT = "So11111111111111111111111111111111111111112"
+USDC_MINT = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+RPC_URL = "https://api.devnet.solana.com"
+
+# Files
+STATE_FILE = Path("~/.config/solana-jupiter-bot/state.json").expanduser()
+STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
+
+class TradingBot:
+    def __init__(self):
+        self.client = Client(RPC_URL)
+        self.wallet = Pubkey.from_string(WALLET_ADDRESS)
+        self.load_state()
+    
+    def load_state(self):
+        if STATE_FILE.exists():
+            with open(STATE_FILE) as f:
+                self.state = json.load(f)
+        else:
+            self.state = {
+                "capital_usd": 500,
+                "position_sol": 0,
+                "trades": []
+            }
+    
+    def save_state(self):
+        with open(STATE_FILE, 'w') as f:
+            json.dump(self.state, f, indent=2)
+    
+    def get_sol_price(self):
+        url = "https://lite-api.jup.ag/price/v3"
+        params = {"ids": SOL_MINT}
+        resp = requests.get(url, params=params, timeout=10)
+        data = resp.json()
+        return float(data[SOL_MINT]["usdPrice"])
+    
+    def get_balance(self):
+        resp = self.client.get_balance(self.wallet)
+        return resp.value / 1e9  # Convert lamports to SOL
+    
+    def display_status(self, sol_price, sol_balance):
+        # Calculate portfolio
+        position_value = self.state["position_sol"] * sol_price
+        total_value = self.state["capital_usd"] + position_value
+        pnl = total_value - 500
+        pnl_pct = (pnl / 500) * 100
+        
+        # Display
+        print(f"\n{'='*60}")
+        print(f"⏰ {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        print(f"💵 SOL Price: ${sol_price:.2f}")
+        print(f"💰 Wallet: {sol_balance:.4f} SOL")
+        print(f"📊 Capital: ${self.state['capital_usd']:.2f}")
+        print(f"📈 Position: {self.state['position_sol']:.4f} SOL (${position_value:.2f})")
+        print(f"💎 Total: ${total_value:.2f}")
+        print(f"📉 P&L: ${pnl:+.2f} ({pnl_pct:+.2f}%)")
+        print(f"🔄 Trades: {len(self.state['trades'])}")
+        
+        self.save_state()
+    
+    async def run(self):
+        print("="*60)
+        print("🚀 SOLANA TRADING BOT - DEVNET MODE")
+        print("="*60)
+        print(f"Wallet: {WALLET_ADDRESS[:10]}...")
+        
+        while True:
+            try:
+                sol_price = self.get_sol_price()
+                sol_balance = self.get_balance()
+                self.display_status(sol_price, sol_balance)
+                
+            except Exception as e:
+                print(f"❌ Error: {e}")
+            
+            await asyncio.sleep(30)
+
+async def main():
+    bot = TradingBot()
+    await bot.run()
+
+if __name__ == "__main__":
+    asyncio.run(main())

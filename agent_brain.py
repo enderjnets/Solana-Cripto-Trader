@@ -63,12 +63,12 @@ KNOWLEDGE_DIR.mkdir(exist_ok=True)
 # PROFIT TARGETS - Brain optimizes strategies to hit these
 # ============================================================================
 PROFIT_TARGETS = {
-    "daily_target_pct": 5.0,     # 5% daily target (primary objective)
-    "weekly_target_pct": 40.0,    # ~40% weekly (compounded from daily)
-    "monthly_target_pct": 100.0,  # 100% monthly (DOUBLE - secondary objective)
-    "min_backtest_pnl": 0.05,     # 5% PnL in backtest to deploy
-    "min_trades_backtest": 5,     # Enough trades to be statistically meaningful
-    "min_win_rate": 0.55,        # 55% win rate (higher for aggressive targets)
+    "daily_min_pct": 5.0,        # 5% daily minimum
+    "weekly_target_pct": 100.0,  # Double every week (ideal)
+    "monthly_min_pct": 100.0,    # Double every month (minimum)
+    "min_backtest_pnl": 0.05,    # 5% PnL in backtest to deploy
+    "min_trades_backtest": 5,    # Enough trades to be statistically meaningful
+    "min_win_rate": 0.45,        # 45% win rate with good R:R
 }
 
 
@@ -671,7 +671,7 @@ class LearningAgent:
         Evaluates against PROFIT_TARGETS: 5%+ daily, 2x monthly.
         """
         lessons = []
-        target_daily = PROFIT_TARGETS["daily_target_pct"] / 100.0  # 0.05
+        target_daily = PROFIT_TARGETS["daily_min_pct"] / 100.0  # 0.05
 
         for name, stats in self.knowledge["strategies"].items():
             if stats["total_tests"] >= 3:
@@ -783,16 +783,6 @@ class DeploymentAgent:
         approved = approved[:3]
 
         if approved:
-            # Check for manual override flag
-            try:
-                with open(ACTIVE_STRATEGIES_FILE, "r") as f:
-                    existing = json.load(f)
-                if existing.get("manual_override", False):
-                    logger.info("[Deploy] Skipping - manual override active")
-                    return {"deployed": len(self.deployed), "strategies": self.deployed}
-            except:
-                pass
-            
             # Write for agent_runner.py to consume
             deploy_data = {
                 "deployed_at": datetime.now().isoformat(),
@@ -862,14 +852,12 @@ class AccumulationAgent:
     # cbBTC mint on Solana
     BTC_MINT = "cbbtcf3aa214zXHbiAZQwf4122FBYbraNdFqgw4iMij"
     SOL_MINT = "So11111111111111111111111111111111111111112"
-    USDT_MINT = "Es9vMFrzaCERmkhfr9WMq8i5icD4Qwpq6xS5VUUSbmE1"
 
     def __init__(self, jupiter: JupiterClient):
         self.jupiter = jupiter
         self.history: List[Dict] = []
         self.price_snapshots: List[Dict] = []  # Rolling price window
-        # Target allocation: SOL 50%, BTC 30%, USDT 20% (optimal for +5% daily)
-        self.current_target: Dict = {"SOL": 0.50, "BTC": 0.30, "USDT": 0.20}
+        self.current_target: Dict = {"SOL": 0.60, "BTC": 0.40}
 
     async def decide(self, watchlist: List[Dict], knowledge: Dict = None) -> Dict:
         """Analyze BTC vs SOL and decide accumulation allocation."""
@@ -1006,29 +994,9 @@ class AccumulationAgent:
             sol_pct = sol_score / total
             btc_pct = btc_score / total
 
-        # Enforce bounds: minimum 20% SOL/BTC, maximum 60% each
-        sol_pct = max(0.20, min(0.60, sol_pct))
-        btc_pct = max(0.20, min(0.60, btc_pct))
-        
-        # Calculate USDT allocation (reserve for market opportunities)
-        # USDT increases when market is volatile/down, decreases when clear trend up
-        market_change = (sol_change + btc_change) / 2
-        if market_change < -5:
-            # Flash crash - increase USDT reserve
-            usdt_pct = 0.30
-        elif market_change < -2:
-            usdt_pct = 0.25
-        elif market_change > 5:
-            # Strong rally - reduce USDT, more exposure
-            usdt_pct = 0.10
-        else:
-            # Normal - maintain 20% reserve
-            usdt_pct = 0.20
-        
-        # Normalize SOL + BTC to 100% of (1 - USDT)
-        total_crypto = sol_pct + btc_pct
-        sol_pct = (sol_pct / total_crypto) * (1.0 - usdt_pct)
-        btc_pct = (btc_pct / total_crypto) * (1.0 - usdt_pct)
+        # Enforce bounds: minimum 20% each, maximum 80%
+        sol_pct = max(0.20, min(0.80, sol_pct))
+        btc_pct = 1.0 - sol_pct
 
         recommendation = "SOL" if sol_pct > btc_pct else "BTC"
         confidence = abs(sol_pct - btc_pct) / 0.60  # 0-1 scale (0.60 max spread)
@@ -1036,7 +1004,6 @@ class AccumulationAgent:
         target = {
             "SOL": round(sol_pct, 2),
             "BTC": round(btc_pct, 2),
-            "USDT": round(usdt_pct, 2),
             "recommendation": recommendation,
             "confidence": round(min(confidence, 1.0), 2),
             "reasoning": {
@@ -1044,8 +1011,6 @@ class AccumulationAgent:
                 "btc_price": round(btc_price, 2),
                 "sol_24h_change": round(sol_change, 2),
                 "btc_24h_change": round(btc_change, 2),
-                "market_change": round(market_change, 2),
-                "usdt_reserve": round(usdt_pct, 2),
                 "sol_score": round(sol_score, 1),
                 "btc_score": round(btc_score, 1),
                 "factors": reasons,
@@ -1058,7 +1023,6 @@ class AccumulationAgent:
             "time": datetime.now().isoformat(),
             "sol_pct": sol_pct,
             "btc_pct": btc_pct,
-            "usdt_pct": usdt_pct,
             "rec": recommendation,
         })
         self.history = self.history[-100:]
@@ -1067,7 +1031,7 @@ class AccumulationAgent:
         with open(ACCUMULATION_FILE, "w") as f:
             json.dump(target, f, indent=2)
 
-        logger.info(f"[Accumulator] Target: SOL={sol_pct:.0%} BTC={btc_pct:.0%} USDT={usdt_pct:.0%} "
+        logger.info(f"[Accumulator] Target: SOL={sol_pct:.0%} BTC={btc_pct:.0%} "
                     f"| Recommend: {recommendation} "
                     f"| Conf: {confidence:.0%} "
                     f"| {'; '.join(reasons[:3])}")
@@ -1225,10 +1189,10 @@ class BrainCoordinator:
         print(f"  Started: {self.start_time.strftime('%Y-%m-%d %H:%M:%S')}")
         print()
         print(f"  PROFIT TARGETS:")
-        print(f"    Daily target:  {PROFIT_TARGETS['daily_target_pct']}%")
-        print(f"    Weekly goal:   2x (100%)")
-        print(f"    Monthly min:   2x (100%)")
-        print(f"    Deploy if:     PnL>{PROFIT_TARGETS['min_backtest_pnl']:.0%} "
+        print(f"    Daily min:    {PROFIT_TARGETS['daily_min_pct']}%")
+        print(f"    Weekly goal:  2x (100%)")
+        print(f"    Monthly min:  2x (100%)")
+        print(f"    Deploy if:    PnL>{PROFIT_TARGETS['min_backtest_pnl']:.0%} "
               f"WR>{PROFIT_TARGETS['min_win_rate']:.0%} "
               f"Trades>{PROFIT_TARGETS['min_trades_backtest']}")
         print()

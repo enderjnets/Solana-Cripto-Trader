@@ -1,9 +1,9 @@
 {
-  "timestamp": "2026-04-02T20:00:36.706823+00:00",
+  "timestamp": "2026-04-04T05:37:35.916401+00:00",
   "version": "2.0-ai",
-  "adaptation_count": 5,
-  "total_trades_analyzed": 338,
-  "new_trades_since_last": 37,
+  "adaptation_count": 1,
+  "total_trades_analyzed": 524,
+  "new_trades_since_last": 524,
   "performance": {
     "total": 50,
     "wins": 24,
@@ -18,34 +18,33 @@
     "best": 3.6802,
     "worst": -1.6857
   },
-  "analysis": "The recent 50 trades show a concerning divergence: WR dropped to 50% from 62.9% overall, yet R:R improved to 1.79, indicating wins are larger but less frequent. FARTCOIN has emerged as a top performer (+$4.56) despite being on the avoid list previously, while JUP (-$2.34, 25% WR) and SOL (-$0.39, 43% WR) remain consistent losers. The EMERGENCY_CLOSE rate of 96% (48/50 trades) suggests the trailing stop at 3.75% is still too tight relative to market volatility.",
-  "key_insight": "FARTCOIN transformed from an avoid token ($0.97 loss in April 2 cycle) to the top PnL contributor ($4.56 across 8 trades) - the strategy is adapting but knowledge base updates are lagging actual performance changes.",
-  "confidence": 0.74,
+  "analysis": "The strategy shows recovery with recent 50 trades posting +$6.69 and an improved 1.79 R:R ratio, though overall 524-trade stats remain negative at -$43.50 with a concerning 0.78 R:R. JUP is clearly the worst performer with 25% WR and -$2.34 losses across 4 short trades, while FARTCOIN emerged as the top profit contributor at +$4.56 despite previous avoid recommendations.",
+  "key_insight": "The close reason 'unknown' for all 50 recent trades (versus 96% EMERGENCY_CLOSE previously) suggests the trailing stop adjustment from 3.75% to 2.0% may have improved close reasons, but we now lack visibility into WHY trades close - this tracking needs attention.",
+  "confidence": 0.72,
   "params_before": {
-    "sl_pct": 0.049218750000000006,
-    "tp_pct": 0.1,
+    "sl_pct": 0.03,
+    "tp_pct": 0.06,
     "leverage_tier": 1,
-    "risk_per_trade": 0.0234375,
+    "risk_per_trade": 0.015,
     "max_positions": 3,
-    "trailing_stop_pct": 3.75
+    "trailing_stop_pct": 8.0
   },
   "params_after": {
-    "sl_pct": 0.049,
-    "tp_pct": 0.1,
+    "sl_pct": 0.025,
+    "tp_pct": 0.06,
     "leverage_tier": 1,
-    "risk_per_trade": 0.021,
+    "risk_per_trade": 0.015,
     "max_positions": 3,
-    "trailing_stop_pct": 4.5
+    "trailing_stop_pct": 5.0
   },
   "changes": [
-    "sl_pct: 0.0492 \u2192 0.0490",
-    "risk_per_trade: 0.0234 \u2192 0.0210",
-    "trailing_stop_pct: 3.7500 \u2192 4.5000"
+    "sl_pct: 0.0300 \u2192 0.0250",
+    "trailing_stop_pct: 8.0000 \u2192 5.0000"
   ],
   "new_lessons": [
-    "FARTCOIN reversed its fortunes completely - from -$0.97 loss to +$4.56 profit across 8 trades, with consistent $0.57 avg win. The previous avoid recommendation was premature; FARTCOIN now belongs on the prefer list.",
-    "JUP is the worst performer by far (-$2.34, 25% WR) and should be permanently added to the avoid list - it's destroying capital on short positions.",
-    "EMERGENCY_CLOSE at 96% confirms that even 3.75% trailing stop is too tight for Solana meme tokens which regularly exhibit 3-5% intraday swings - the 4.5% adjustment addresses this."
+    "JUP is catastrophic for this strategy with only 25% WR and -$2.34 total loss on shorts - permanently avoid despite low trade count, the pattern is clear",
+    "The knowledge base previously flagged FARTCOIN as 'avoid' but it has since become the top PnL contributor (+$4.56) - this demonstrates that token performance can reverse and avoid lists need periodic re-evaluation",
+    "Close reason tracking shows 'unknown' for all 50 recent trades after previously dominated by EMERGENCY_CLOSE - either the trailing stop is now more balanced or close reason logging is broken and needs investigation"
   ],
   "tokens_to_avoid": [
     "JUP",

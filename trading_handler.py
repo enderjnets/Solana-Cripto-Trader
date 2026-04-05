@@ -22,8 +22,39 @@ Usage:
 import os
 import sys
 import json
+
+import time
+from functools import wraps
+
+def retry_with_backoff(max_retries=3, initial_delay=1):
+    """Retry decorator with exponential backoff"""
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            delay = initial_delay
+            for attempt in range(max_retries):
+                try:
+                    return func(*args, **kwargs)
+                except Exception as e:
+                    if attempt == max_retries - 1:
+                        raise
+                    print(f"Retry {attempt+1}/{max_retries} after {delay}s: {e}")
+                    time.sleep(delay)
+                    delay *= 2  # Exponential backoff
+            return None
+        return wrapper
+    return decorator
+
+import logging
 from pathlib import Path
 from typing import Optional
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger("trading_handler")
 
 # Add project to path
 PROJECT_ROOT = Path(__file__).parent
@@ -42,6 +73,15 @@ from solana.rpc.api import Client
 import requests
 
 
+# ============================================================================
+# CONFIGURATION
+# ============================================================================
+
+# Default SOL price fallback (used when API is unavailable)
+# This can be overridden in .env file: SOL_PRICE_FALLBACK=100.0
+DEFAULT_SOL_PRICE_FALLBACK = float(os.getenv("SOL_PRICE_FALLBACK", "80.76"))
+
+
 class TradingHandler:
     """
     Handle trading commands for Solana via Jupiter DEX.
@@ -53,12 +93,15 @@ class TradingHandler:
     
     # Jupiter API
     JUPITER_PRICE_URL = "https://price.jup.ag/v6/price"
-    JUPITER_QUOTE_URL = "https://api.jup.ag/swap/v1/quote"
+    JUPITER_QUOTE_URL = "https://lite-api.jup.ag/ultra/v1/order"
     JUPITER_SWAP_URL = "https://api.jup.ag/swap/v1/swap"
     
     # Token mints
     SOL_MINT = "So11111111111111111111111111111111111111112"
     USDC_MINT = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+    
+    # Default SOL price fallback (configurable via .env)
+    SOL_PRICE_FALLBACK = DEFAULT_SOL_PRICE_FALLBACK
     
     def __init__(self, network: str = "devnet"):
         self.network = network
@@ -96,12 +139,12 @@ class TradingHandler:
                             import base58
                             key_bytes = base58.b58decode(private_key)
                             self.keypair = Keypair.from_bytes(key_bytes)
-                        print(f"✅ Wallet loaded", file=sys.stderr)
+                        logger.info("Wallet loaded successfully")
                         return
                     except Exception as e:
-                        print(f"⚠️ Wallet load error: {e}", file=sys.stderr)
+                        logger.error(f"Failed to load wallet: {e}")
         
-        print("⚠️ No wallet found", file=sys.stderr)
+        logger.warning("No wallet found in configuration")
     
     def get_address(self) -> str:
         """Get wallet address."""
@@ -131,6 +174,7 @@ class TradingHandler:
                    f"**Total:** ${total_usd:.2f} USD\n" \
                    f"**Price:** ${sol_price:.2f}/SOL"
         except Exception as e:
+            logger.error(f"Error getting balance: {e}")
             return f"❌ Error: {e}"
     
     def get_sol_price(self) -> str:
@@ -139,15 +183,37 @@ class TradingHandler:
         return f"📊 **Precio de SOL**\n\n**${price:.2f}** USD"
     
     def get_sol_price_value(self) -> float:
-        """Get SOL price value."""
+        """Get SOL price value.
+        
+        Falls back to configurable default if API is unavailable.
+        Fallback can be set via SOL_PRICE_FALLBACK in .env file.
+        """
         try:
             url = f"{self.JUPITER_PRICE_URL}?id={self.SOL_MINT}"
-            response = requests.get(url)
+            response = requests.get(url, timeout=10)
+            response.raise_for_status()
             data = response.json()
-            return float(data.get("data", {}).get("price", 0))
-        except Exception as e:
-            print(f"⚠️ Price error: {e}", file=sys.stderr)
-            return 80.76  # Default fallback
+            price = float(data.get("data", {}).get("price", 0))
+            
+            if price > 0:
+                return price
+            
+            # Fall through if price is 0 or invalid
+            logger.warning(f"Invalid price response from Jupiter: {data}")
+            
+        except requests.exceptions.Timeout:
+            logger.warning("SOL price request timed out")
+        except requests.exceptions.RequestException as e:
+            logger.warning(f"SOL price API request failed: {e}")
+        except ConnectionError as e:
+            logger.warning(f"SOL price connection error: {e}")
+        except (ValueError, KeyError) as e:
+            logger.warning(f"Failed to parse SOL price response: {e}")
+        
+        # Use configurable fallback
+        fallback = self.SOL_PRICE_FALLBACK
+        logger.info(f"Using SOL price fallback: ${fallback:.2f}")
+        return fallback
     
     def get_quote(self, amount: float, side: str = "buy") -> str:
         """
@@ -182,8 +248,8 @@ class TradingHandler:
             
             data = response.json()
             
-            in_amount = data.get("inAmount", 0) / 1e9
-            out_amount = data.get("outAmount", 0) / 1e6  # USDC has 6 decimals
+            in_amount = float(data.get("inAmount", "0")) / 1e9
+            out_amount = float(data.get("outAmount", "0")) / 1e6  # USDC has 6 decimals
             
             action = "comprando" if side == "buy" else "vendiendo"
             
@@ -334,3 +400,59 @@ Ejemplos:
 
 if __name__ == "__main__":
     main()
+
+
+# ============= INPUT VALIDATION =============
+def validate_amount(amount: float, min_val: float = 0.001, max_val: float = 100.0) -> bool:
+    """Validate trading amount"""
+    if not isinstance(amount, (int, float)):
+        return False
+    if amount < min_val or amount > max_val:
+        return False
+    return True
+
+def validate_token(token: str) -> bool:
+    """Validate token symbol"""
+    if not token or not isinstance(token, str):
+        return False
+    if not token.isalnum():
+        return False
+    if len(token) > 20:
+        return False
+    return True
+
+def sanitize_input(text: str) -> str:
+    """Sanitize user input"""
+    if not text:
+        return ""
+    # Remove potentially dangerous characters
+    text = text.replace('"', '').replace("'", '').replace(';', '')
+    text = text.replace('\n', '').replace('\r', '')
+    return text[:500]  # Limit length
+
+
+# ============= STRUCTURED LOGGING =============
+import logging
+import json
+from datetime import datetime
+
+class StructuredLogger:
+    def __init__(self, name: str):
+        self.logger = logging.getLogger(name)
+        self.logger.setLevel(logging.INFO)
+        
+        # Console handler
+        handler = logging.StreamHandler()
+        handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+        self.logger.addHandler(handler)
+    
+    def log(self, level: str, event: str, **kwargs):
+        log_data = {
+            'timestamp': datetime.now().isoformat(),
+            'event': event,
+            **kwargs
+        }
+        getattr(self.logger, level)(json.dumps(log_data))
+
+# Create logger instance
+trading_logger = StructuredLogger('trading')

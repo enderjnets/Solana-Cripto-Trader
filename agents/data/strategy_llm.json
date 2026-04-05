@@ -1,64 +1,63 @@
 {
   "signals": [
     {
-      "symbol": "FARTCOIN",
-      "direction": "long",
-      "entry_price": 0.168048,
-      "sl_price": 0.163433,
-      "tp_price": 0.178011,
+      "symbol": "GOAT",
+      "direction": "short",
+      "entry_price": 0.016001,
+      "sl_price": 0.016481,
+      "tp_price": 0.015201,
       "exit_mode": "fixed",
       "trailing_pct": 0.0,
       "size_usd": 10.0,
-      "confidence": 0.85,
-      "strategy": "momentum",
-      "reasoning": "Extreme Fear (F&G 9) indica p\u00e1nico generalizado \u2014 los precios subir\u00e1n al rebote. Token con mayor volatilidad 4.61% y cambio +4.61% muestra momentum fuerte. Mercado sobrevendido genera oportunidades de compra.",
+      "confidence": 0.92,
+      "strategy": "breakout",
+      "reasoning": "RSI 100 (sobrecompra extrema) + cambio -4.15% + volatilidad 4.15%. En mercado de p\u00e1nico, tokens sobrecomprados tienen alta probabilidad de correcci\u00f3n masiva.",
       "factors": [
-        "Fear & Greed 9 = Extreme Fear \u2192 rebote inminente",
-        "Cambio 4.61% = momentum bullish",
-        "Volatilidad 4.61% = alta bewegung",
-        "RSI 50 neutral pero precio subiendo"
+        "RSI extremo > 80",
+        "Ca\u00edda fuerte > 3%",
+        "Alta volatilidad 4.15%",
+        "Sentimiento extremo miedo"
       ]
     },
     {
-      "symbol": "JUP",
-      "direction": "long",
-      "entry_price": 0.162601,
-      "sl_price": 0.158229,
-      "tp_price": 0.172357,
-      "exit_mode": "trailing",
-      "trailing_pct": 0.02,
+      "symbol": "PENGU",
+      "direction": "short",
+      "entry_price": 0.006102,
+      "sl_price": 0.006285,
+      "tp_price": 0.005797,
+      "exit_mode": "fixed",
+      "trailing_pct": 0.0,
       "size_usd": 10.0,
-      "confidence": 0.82,
+      "confidence": 0.88,
       "strategy": "momentum",
-      "reasoning": "Extreme Fear crea oportunidad de compra en tokens con momentum positivo. JUP con volatilidad 3.67% y cambio +3.67% \u2014 volumen fuerte soporta tendencia.",
+      "reasoning": "RSI 80.7 (sobrecompra) + cambio -2.48% + volatilidad 2.48%. El momentum bajista es claro en token con sobrecompra.",
       "factors": [
-        "Fear & Greed 9 = EXTREME FEAR \u2192 bounce anticipado",
-        "Cambio +3.67% con volatilidad 3.67%",
-        "Solana ecosystem \u2014 adopci\u00f3n continua",
-        "Trailing stop captura extensi\u00f3n si momentum continua"
+        "RSI sobrecompra 80.7",
+        "Cambio negativo -2.48%",
+        "Volatilidad alta 2.48%",
+        "Momentum bajista"
       ]
     },
     {
-      "symbol": "POPCAT",
-      "direction": "long",
-      "entry_price": 0.048425,
-      "sl_price": 0.047094,
-      "tp_price": 0.051331,
-      "exit_mode": "trailing",
-      "trailing_pct": 0.025,
+      "symbol": "BONK",
+      "direction": "short",
+      "entry_price": 5e-06,
+      "sl_price": 5e-06,
+      "tp_price": 5e-06,
+      "exit_mode": "fixed",
+      "trailing_pct": 0.0,
       "size_usd": 10.0,
       "confidence": 0.8,
-      "strategy": "breakout",
-      "reasoning": "Extreme Fear del mercado se\u00f1ala fondo local \u2014 activos subiran al recovery. POPCAT con cambio +3.26% y volatilidad 3.26% indica escape alcista.",
+      "strategy": "momentum",
+      "reasoning": "Cambio -3.52% + volatilidad 3.52%. Ca\u00edda fuerte con volatilidad alta indica momentum bajista activo.",
       "factors": [
-        "Fear & Greed 9 = PANIC \u2192 compra en p\u00e1nico",
-        "Cambio +3.26% = breakout",
-        "Market cap $47M = meme coin con momentum",
-        "Trailing protege ganancias si continua tendencia"
+        "Ca\u00edda significativa -3.52%",
+        "Volatilidad alta 3.52%",
+        "Momentum fuertemente bajista"
       ]
     }
   ],
-  "generated_at": "2026-04-03T15:36:44.627787+00:00",
-  "fear_greed": 9,
+  "generated_at": "2026-04-05T15:05:23.846589+00:00",
+  "fear_greed": 12,
   "source": "ai_strategy_extreme"
 }

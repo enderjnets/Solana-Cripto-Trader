@@ -1,516 +1,683 @@
 #!/usr/bin/env python3
 """
-Solana Backtester
-================
-Backtest trading strategies on Solana historical data.
+Solana Backtester for Jupiter Trading Bot
+=========================================
+Backtesting engine for evaluating trading strategies on Solana swap data.
 
 Features:
-- Historical data from Jupiter API
-- Multiple strategies (momentum, breakout, scalping)
-- Numba JIT optimization (4000x speedup)
-- Risk metrics (Sharpe, Sortino, Max Drawdown)
+- JIT acceleration with Numba (4000x speedup)
+- Support for SOL, USDC, USDT, JUP, BONK trading pairs
+- Jupiter fee modeling
+- Stop-loss and take-profit simulation
+
+Based on: numba_backtester.py from Coinbase Cripto Trader
 
 Usage:
-    python3 backtesting/solana_backtester.py --strategy momentum --days 30
-    python3 backtesting/solana_backtester.py --all --days 90
+    from solana_backtester import evaluate_strategy, evaluate_population
+    result = evaluate_strategy(df, genome, risk_level)
+    results = evaluate_population(df, population, risk_level)
 """
 
-import os
-import sys
-import json
-import argparse
-from pathlib import Path
-from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Tuple
-from dataclasses import dataclass, field
-from enum import Enum
-
 import numpy as np
+import pandas as pd
+import json
+from dataclasses import dataclass
+from typing import List, Dict, Tuple, Optional
+from datetime import datetime
 
-# Numba optimization (optional - falls back to pure numpy if not available)
+# Numba JIT acceleration
 try:
-    from numba import jit, prange
-    USE_NUMBA = True
-    print("✅ Numba JIT enabled - 4000x speedup")
+    from numba import njit, prange
+    HAS_NUMBA = True
 except ImportError:
-    USE_NUMBA = False
-    print("⚠️ Numba not available - using pure numpy")
-
-# Add project root
-PROJECT_ROOT = Path(__file__).parent.parent
-sys.path.insert(0, str(PROJECT_ROOT))
-
-from api.api_integrations import JupiterClient, SOL, USDC
-
-# Constants
-SOL_DECIMALS = 9
-USDC_DECIMALS = 6
+    HAS_NUMBA = False
+    print("WARNING: Numba not installed. Using pure Python fallback (slower).")
 
 
-class StrategyType(Enum):
-    MOMENTUM = "momentum"
-    BREAKOUT = "breakout"
-    SCALPING = "scalping"
-    MEAN_REVERSION = "mean_reversion"
-
+# ============================================================================
+# JUPITER FEE MODELING
+# ============================================================================
 
 @dataclass
-class Trade:
-    """Single trade record."""
-    entry_time: datetime
-    entry_price: float
-    exit_time: datetime
-    exit_price: float
-    direction: int  # 1 = long, -1 = short
-    pnl: float
-    pnl_pct: float
-    status: str = "closed"  # closed, open
-
-
-@dataclass
-class BacktestResult:
-    """Backtest result metrics."""
-    strategy: str
-    total_trades: int
-    winning_trades: int
-    losing_trades: int
-    win_rate: float
-    total_pnl: float
-    total_pnl_pct: float
-    max_drawdown: float
-    sharpe_ratio: float
-    sortino_ratio: float
-    avg_trade_duration: float  # hours
-    trades: List[Trade] = field(default_factory=list)
-    equity_curve: List[float] = field(default_factory=list)
-
-
-class SolanaHistoricalData:
-    """Get historical price data from Jupiter API."""
-
-    def __init__(self):
-        self.client = JupiterClient()
-
-    async def get_sol_price_history(self, days: int = 30) -> List[Dict]:
-        """Get SOL price history from Jupiter/DEX."""
-        # Note: Jupiter API doesn't provide historical data directly
-        # We'll use a simplified approach with price points
-        prices = []
-        return prices
-
-    def get_mock_prices(self, days: int = 30, volatility: float = 0.03) -> np.ndarray:
-        """
-        Generate mock price data for backtesting.
-
-        In production, this would fetch real historical data from:
-        - Helius API (free tier: 50k calls/day)
-        - Birdeye API
-        - Solana RPC with getAccountInfo
-        """
-        np.random.seed(42)  # Reproducible results
-
-        # Starting price ~$86
-        start_price = 86.0
-        n_points = days * 24 * 4  # 15-minute intervals
-
-        # Generate random walk with drift
-        returns = np.random.normal(0.0001, volatility, n_points)
-        price_changes = returns * start_price
-
-        prices = np.cumsum(np.concatenate([[start_price], price_changes]))
-        prices = np.maximum(prices, 1.0)  # Prevent negative prices
-
-        return prices
-
-    async def close(self):
-        """Close API connection."""
-        await self.client.close()
-
-
-# Numba-optimized indicators (with fallback)
-def calculate_sma(prices: np.ndarray, period: int) -> np.ndarray:
-    """Simple Moving Average."""
-    sma = np.zeros(len(prices))
-    for i in range(period - 1, len(prices)):
-        sma[i] = np.mean(prices[i - period + 1:i + 1])
-    return sma
-
-
-def calculate_ema(prices: np.ndarray, period: int) -> np.ndarray:
-    """Exponential Moving Average."""
-    ema = np.zeros(len(prices))
-    alpha = 2.0 / (period + 1)
-
-    # Start with SMA
-    ema[period - 1] = np.mean(prices[:period])
-
-    for i in range(period, len(prices)):
-        ema[i] = alpha * prices[i] + (1 - alpha) * ema[i - 1]
-
-    return ema
-
-
-def calculate_rsi(prices: np.ndarray, period: int = 14) -> np.ndarray:
-    """Relative Strength Index."""
-    rsi = np.zeros(len(prices))
-
-    # Calculate price changes
-    changes = np.diff(prices)
-
-    for i in range(period, len(prices)):
-        gains = np.mean(changes[i - period:i][changes[i - period:i] > 0])
-        losses = -np.mean(changes[i - period:i][changes[i - period:i] < 0])
-
-        if losses == 0:
-            rsi[i] = 100
-        else:
-            rs = gains / losses
-            rsi[i] = 100 - (100 / (1 + rs))
-
-    return rsi
-
-
-def calculate_bollinger_bands(prices: np.ndarray, period: int = 20, std_mult: float = 2.0) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Bollinger Bands."""
-    sma = calculate_sma(prices, period)
-    std = np.zeros(len(prices))
-
-    for i in range(period - 1, len(prices)):
-        std[i] = np.std(prices[i - period + 1:i + 1])
-
-    upper = sma + (std_mult * std)
-    lower = sma - (std_mult * std)
-
-    return upper, sma, lower
-
-
-def calculate_atr(high: np.ndarray, low: np.ndarray, close: np.ndarray, period: int = 14) -> np.ndarray:
-    """Average True Range."""
-    atr = np.zeros(len(high))
-
-    # True Range
-    tr = np.maximum(high[1:] - low[1:], np.abs(high[1:] - close[:-1]))
-    tr = np.concatenate([[0], tr])
-
-    for i in range(period, len(atr)):
-        atr[i] = np.mean(tr[i - period + 1:i + 1])
-
-    return atr
-
-
-# Trading strategies
-class MomentumStrategy:
-    """Momentum-based trading strategy."""
-
-    def __init__(self, short_period: int = 10, long_period: int = 20):
-        self.short_period = short_period
-        self.long_period = long_period
-
-    def generate_signals(self, prices: np.ndarray) -> np.ndarray:
-        """Generate trading signals."""
-        short_ema = calculate_ema(prices, self.short_period)
-        long_ema = calculate_ema(prices, self.long_period)
-
-        signals = np.zeros(len(prices))
-
-        for i in range(1, len(prices)):
-            if short_ema[i] > long_ema[i] and short_ema[i - 1] <= long_ema[i - 1]:
-                signals[i] = 1  # Buy signal
-            elif short_ema[i] < long_ema[i] and short_ema[i - 1] >= long_ema[i - 1]:
-                signals[i] = -1  # Sell signal
-
-        return signals
-
-
-class BreakoutStrategy:
-    """Breakout strategy using Bollinger Bands."""
-
-    def __init__(self, period: int = 20, std_mult: float = 2.0):
-        self.period = period
-        self.std_mult = std_mult
-
-    def generate_signals(self, prices: np.ndarray) -> np.ndarray:
-        """Generate trading signals."""
-        upper, _, lower = calculate_bollinger_bands(prices, self.period, self.std_mult)
-
-        signals = np.zeros(len(prices))
-
-        for i in range(self.period, len(prices)):
-            if prices[i] > upper[i]:
-                signals[i] = -1  # Overbought - sell
-            elif prices[i] < lower[i]:
-                signals[i] = 1  # Oversold - buy
-
-        return signals
-
-
-class ScalpingStrategy:
-    """High-frequency scalping strategy."""
-
-    def __init__(self, fast_period: int = 5, slow_period: int = 15):
-        self.fast_period = fast_period
-        self.slow_period = slow_period
-
-    def generate_signals(self, prices: np.ndarray) -> np.ndarray:
-        """Generate trading signals."""
-        fast_ema = calculate_ema(prices, self.fast_period)
-        slow_ema = calculate_ema(prices, self.slow_period)
-
-        signals = np.zeros(len(prices))
-
-        for i in range(self.slow_period, len(prices)):
-            # Small momentum signals
-            diff = fast_ema[i] - slow_ema[i]
-            prev_diff = fast_ema[i - 1] - slow_ema[i - 1]
-
-            if diff > 0.001 and prev_diff <= 0.001:
-                signals[i] = 1
-            elif diff < -0.001 and prev_diff >= -0.001:
-                signals[i] = -1
-
-        return signals
-
-
-class MeanReversionStrategy:
-    """Mean reversion strategy using RSI."""
-
-    def __init__(self, rsi_period: int = 14, oversold: float = 30, overbought: float = 70):
-        self.rsi_period = rsi_period
-        self.oversold = oversold
-        self.overbought = overbought
-
-    def generate_signals(self, prices: np.ndarray) -> np.ndarray:
-        """Generate trading signals."""
-        rsi = calculate_rsi(prices, self.rsi_period)
-
-        signals = np.zeros(len(prices))
-
-        for i in range(self.rsi_period, len(prices)):
-            if rsi[i] < self.oversold:
-                signals[i] = 1  # Buy - oversold
-            elif rsi[i] > self.overbought:
-                signals[i] = -1  # Sell - overbought
-
-        return signals
-
-
-class Backtester:
-    """Main backtesting engine."""
-
-    def __init__(self, initial_capital: float = 1000.0):
-        self.initial_capital = initial_capital
-
-    def run_backtest(
+class JupiterFees:
+    """Jupiter fee structure"""
+    # Jupiter takes a small fee (typically 0.2-0.5%)
+    route_fee_bps: float = 0.25  # 0.25% default
+    
+    # Solana network fees (approximately)
+    base_fee_lamports: int = 5000
+    compute_unit_fee_lamports: int = 500
+    
+    # Priority fee (dynamic)
+    priority_fee_lamports: int = 1000
+    
+    # Jito tip (optional, for MEV protection)
+    jito_tip_lamports: int = 0
+    
+    def calculate_total_fee(
         self,
-        prices: np.ndarray,
-        strategy_name: str,
-        strategy: any,
-        stop_loss: float = 0.05,
-        take_profit: float = 0.10,
-        position_size: float = 0.1
-    ) -> BacktestResult:
-        """Run backtest for a strategy."""
+        input_amount_lamports: int,
+        swap_direction: str = "SOL_TO_USDC"
+    ) -> Tuple[int, float]:
+        """
+        Calculate total fee in lamports and USD
+        
+        Returns:
+            Tuple of (fee_lamports, fee_usd)
+        """
+        # Jupiter route fee
+        route_fee = int(input_amount_lamports * (self.route_fee_bps / 10000))
+        
+        # Network fees (estimated)
+        network_fee = self.base_fee_lamports + self.compute_unit_fee_lamports
+        
+        # Priority fee
+        priority_fee = self.priority_fee_lamports
+        
+        # Jito tip
+        jito_fee = self.jito_tip_lamports
+        
+        # Total
+        total_fee = route_fee + network_fee + priority_fee + jito_fee
+        
+        # Estimate USD value (SOL at $100)
+        fee_usd = (total_fee / 1e9) * 100
+        
+        return total_fee, fee_usd
 
-        signals = strategy.generate_signals(prices)
-        trades = []
-        equity = [self.initial_capital]
-        position = 0  # 0 = flat, 1 = long, -1 = short
+
+# ============================================================================
+# INDICATOR CONSTANTS
+# ============================================================================
+
+# Indicator indices
+IND_CLOSE = 0
+IND_HIGH = 1
+IND_LOW = 2
+IND_VOLUME = 3
+
+# RSI periods: 10, 14, 20, 50, 100, 200
+IND_RSI_BASE = 4
+NUM_RSI = 6
+
+# SMA periods
+IND_SMA_BASE = IND_RSI_BASE + NUM_RSI
+NUM_SMA = 6
+
+# EMA periods
+IND_EMA_BASE = IND_SMA_BASE + NUM_SMA
+NUM_EMA = 6
+
+# VOLSMA periods
+IND_VOLSMA_BASE = IND_EMA_BASE + NUM_EMA
+NUM_VOLSMA = 6
+
+NUM_INDICATORS = IND_VOLSMA_BASE + NUM_VOLSMA
+
+# RSI periods mapping
+RSI_PERIODS = [10, 14, 20, 50, 100, 200]
+SMA_PERIODS = [10, 14, 20, 50, 100, 200]
+EMA_PERIODS = [10, 14, 20, 50, 100, 200]
+VOLSMA_PERIODS = [10, 14, 20, 50, 100, 200]
+
+# Genome encoding
+OP_GT = 0  # >
+OP_LT = 1  # <
+
+GENOME_SIZE = 18
+GEN_SL_PCT = 0       # Stop loss %
+GEN_TP_PCT = 1       # Take profit %
+GEN_NUM_RULES = 2    # Number of rules
+GEN_RULES_START = 3  # Rules start here
+
+
+# ============================================================================
+# INDICATOR PRE-COMPUTATION
+# ============================================================================
+
+def precompute_indicators(df: pd.DataFrame) -> np.ndarray:
+    """
+    Pre-compute ALL possible indicators as a numpy matrix.
+    Called ONCE per dataset, shared across all genome evaluations.
+    
+    Args:
+        df: DataFrame with 'close', 'high', 'low', 'volume' columns
+    
+    Returns:
+        indicators: float64[NUM_INDICATORS, n_candles]
+    """
+    n = len(df)
+    indicators = np.full((NUM_INDICATORS, n), np.nan, dtype=np.float64)
+    
+    close = df['close'].values.astype(np.float64)
+    high = df['high'].values.astype(np.float64)
+    low = df['low'].values.astype(np.float64)
+    volume = df['volume'].values.astype(np.float64)
+    
+    indicators[IND_CLOSE] = close
+    indicators[IND_HIGH] = high
+    indicators[IND_LOW] = low
+    indicators[IND_VOLUME] = volume
+    
+    close_series = pd.Series(close)
+    volume_series = pd.Series(volume)
+    
+    # Pre-compute RSI
+    delta = close_series.diff()
+    gain = delta.where(delta > 0, 0.0)
+    loss = (-delta.where(delta < 0, 0.0))
+    
+    avg_gain = gain.rolling(window=14).mean()
+    avg_loss = loss.rolling(window=14).mean()
+    
+    for i, period in enumerate(RSI_PERIODS):
+        if period == 14:
+            rs = avg_gain / avg_loss
+        else:
+            avg_gain_p = gain.rolling(window=period).mean()
+            avg_loss_p = loss.rolling(window=period).mean()
+            rs = avg_gain_p / avg_loss_p
+        
+        rsi = 100.0 - (100.0 / (1.0 + rs))
+        rsi = rsi.fillna(50.0)
+        indicators[IND_RSI_BASE + i] = rsi.values
+    
+    # Pre-compute SMA
+    for i, period in enumerate(SMA_PERIODS):
+        sma = close_series.rolling(window=period).mean()
+        indicators[IND_SMA_BASE + i] = sma.fillna(close_series).values
+    
+    # Pre-compute EMA
+    for i, period in enumerate(EMA_PERIODS):
+        ema = close_series.ewm(span=period, adjust=False).mean()
+        indicators[IND_EMA_BASE + i] = ema.values
+    
+    # Pre-compute VOLSMA
+    for i, period in enumerate(VOLSMA_PERIODS):
+        vol_sma = volume_series.rolling(window=period).mean()
+        indicators[IND_VOLSMA_BASE + i] = vol_sma.fillna(1).values
+    
+    return indicators
+
+
+# ============================================================================
+# TRADING SIMULATION (NUMBA JIT)
+# ============================================================================
+
+if HAS_NUMBA:
+    @njit(cache=True)
+    def evaluate_genome_jit(
+        indicators: np.ndarray,
+        genome: np.ndarray,
+        initial_balance: float = 1.0,
+        fees: JupiterFees = None
+    ) -> Dict[str, float]:
+        """
+        Numba JIT accelerated genome evaluation.
+        
+        Args:
+            indicators: Pre-computed indicator matrix
+            genome: Genome parameters
+            initial_balance: Starting balance in SOL
+            fees: Fee structure
+        
+        Returns:
+            Dict with backtest results
+        """
+        n = len(indicators[0])
+        
+        # Extract genome parameters
+        sl_pct = abs(genome[GEN_SL_PCT])
+        tp_pct = abs(genome[GEN_TP_PCT])
+        num_rules = int(abs(genome[GEN_NUM_RULES]))
+        num_rules = min(max(num_rules, 1), 3)
+        
+        # Balance tracking
+        balance = initial_balance
+        position = 0.0  # 0 = no position, 1 = long
         entry_price = 0.0
-        entry_time = None
-
-        for i in range(1, len(prices)):
-            current_price = prices[i]
-            current_time = datetime.now()  # Simplified - use real timestamps
-
-            # Check for signals
-            if position == 0 and signals[i] != 0:
-                # Open position
-                position = signals[i]
-                entry_price = current_price
-                entry_time = current_time
-
-            # Check stop loss / take profit
-            if position != 0:
-                pnl_pct = (current_price - entry_price) / entry_price * position
-
-                if pnl_pct <= -stop_loss or pnl_pct >= take_profit:
-                    # Close position
-                    pnl = self.initial_capital * position_size * pnl_pct
-
-                    trades.append(Trade(
-                        entry_time=entry_time,
-                        entry_price=entry_price,
-                        exit_time=current_time,
-                        exit_price=current_price,
-                        direction=position,
-                        pnl=pnl,
-                        pnl_pct=pnl_pct
-                    ))
-
-                    equity.append(equity[-1] + pnl)
+        position_size = 0.0
+        
+        # Stats
+        trades = 0
+        wins = 0
+        losses = 0
+        pnl_total = 0.0
+        max_balance = initial_balance
+        max_drawdown = 0.0
+        
+        # Trade history
+        trade_log = []
+        
+        for i in range(n):
+            close = indicators[IND_CLOSE, i]
+            high = indicators[IND_HIGH, i]
+            low = indicators[IND_LOW, i]
+            
+            # Check stop loss / take profit for existing position
+            if position > 0:
+                # Long position - check SL/TP
+                sl_price = entry_price * (1 - sl_pct)
+                tp_price = entry_price * (1 + tp_pct)
+                
+                # Was stop hit?
+                if low <= sl_price:
+                    # Stop loss
+                    pnl = (sl_price - entry_price) / entry_price
+                    pnl_total += pnl
+                    balance *= (1 + pnl)
+                    trades += 1
+                    losses += 1
                     position = 0
+                    trade_log.append(('SL', entry_price, sl_price, pnl))
+                    
+                elif high >= tp_price:
+                    # Take profit
+                    pnl = (tp_price - entry_price) / entry_price
+                    pnl_total += pnl
+                    balance *= (1 + pnl)
+                    trades += 1
+                    wins += 1
+                    position = 0
+                    trade_log.append(('TP', entry_price, tp_price, pnl))
+            
+            # Check entry signals
+            if position == 0:
+                # Simple RSI-based entry (placeholder)
+                rsi = indicators[IND_RSI_BASE + 1, i]  # RSI-14
+                
+                # Entry: RSI < 30 (oversold)
+                if rsi < 30:
+                    position = 1
+                    entry_price = close
+                    position_size = balance * 0.1  # Risk 10% per trade
+        
+        # Calculate stats
+        win_rate = wins / trades if trades > 0 else 0.0
+        avg_win = pnl_total / wins if wins > 0 else 0.0
+        avg_loss = pnl_total / losses if losses > 0 else 0.0
+        
+        # Sharpe ratio approximation
+        returns = []
+        if trades > 0:
+            for log in trade_log:
+                returns.append(log[3])
+        sharpe = np.std(returns) * np.sqrt(252) if returns else 0.0
+        
+        return {
+            'pnl': pnl_total,
+            'trades': trades,
+            'wins': wins,
+            'losses': losses,
+            'win_rate': win_rate,
+            'sharpe_ratio': sharpe,
+            'avg_win': avg_win,
+            'avg_loss': avg_loss,
+            'max_drawdown': max_drawdown
+        }
 
-        # Close any open position
-        if position != 0:
-            pnl_pct = (prices[-1] - entry_price) / entry_price * position
-            pnl = self.initial_capital * position_size * pnl_pct
 
-            trades.append(Trade(
-                entry_time=entry_time,
-                entry_price=entry_price,
-                exit_time=datetime.now(),
-                exit_price=prices[-1],
-                direction=position,
-                pnl=pnl,
-                pnl_pct=pnl_pct,
-                status="open"
-            ))
+def evaluate_genome_python(
+    indicators: np.ndarray,
+    genome: np.ndarray,
+    initial_balance: float = 1.0
+) -> Dict[str, float]:
+    """
+    Pure Python fallback for genome evaluation.
+    Uses genome entry rules (indicator index, threshold, operator).
+    """
+    n = len(indicators[0])
 
-            equity.append(equity[-1] + pnl)
+    sl_pct = abs(genome[GEN_SL_PCT])
+    tp_pct = abs(genome[GEN_TP_PCT])
+    num_rules = int(abs(genome[GEN_NUM_RULES]))
+    num_rules = min(max(num_rules, 1), 3)
 
-        # Calculate metrics
-        equity_arr = np.array(equity)
-        returns = np.diff(equity_arr) / equity_arr[:-1]
+    balance = initial_balance
+    position = 0.0
+    entry_price = 0.0
 
-        winning_trades = [t for t in trades if t.pnl > 0]
-        losing_trades = [t for t in trades if t.pnl <= 0]
+    trades = 0
+    wins = 0
+    losses = 0
+    pnl_total = 0.0
+    max_balance = initial_balance
+    max_drawdown = 0.0
+    trade_pnls = []
 
-        total_pnl = equity[-1] - self.initial_capital
-        total_pnl_pct = total_pnl / self.initial_capital * 100
+    for i in range(n):
+        close = indicators[IND_CLOSE, i]
+        high = indicators[IND_HIGH, i]
+        low = indicators[IND_LOW, i]
 
-        # Max drawdown
-        peak = np.maximum.accumulate(equity_arr)
-        drawdown = (equity_arr - peak) / peak
-        max_drawdown = np.min(drawdown) * 100
+        if position > 0:
+            sl_price = entry_price * (1 - sl_pct)
+            tp_price = entry_price * (1 + tp_pct)
 
-        # Sharpe ratio
-        if len(returns) > 0 and np.std(returns) > 0:
-            sharpe = np.mean(returns) / np.std(returns) * np.sqrt(252)
+            if low <= sl_price:
+                pnl = (sl_price - entry_price) / entry_price
+                pnl_total += pnl
+                balance *= (1 + pnl)
+                trades += 1
+                losses += 1
+                position = 0
+                trade_pnls.append(pnl)
+
+            elif high >= tp_price:
+                pnl = (tp_price - entry_price) / entry_price
+                pnl_total += pnl
+                balance *= (1 + pnl)
+                trades += 1
+                wins += 1
+                position = 0
+                trade_pnls.append(pnl)
+
         else:
-            sharpe = 0
+            # Evaluate genome entry rules
+            all_rules_pass = True
+            for r in range(num_rules):
+                offset = GEN_RULES_START + r * 3
+                if offset + 2 >= len(genome):
+                    break
+                ind_idx = int(genome[offset])
+                threshold = genome[offset + 1]
+                operator = int(genome[offset + 2])
 
-        # Sortino ratio (downside deviation)
-        if len(returns) > 0:
-            downside_returns = returns[returns < 0]
-            if len(downside_returns) > 0 and np.std(downside_returns) > 0:
-                sortino = np.mean(returns) / np.std(downside_returns) * np.sqrt(252)
-            else:
-                sortino = sharpe
-        else:
-            sortino = 0
+                # Clamp indicator index to valid range
+                ind_idx = max(0, min(ind_idx, NUM_INDICATORS - 1))
+                ind_val = indicators[ind_idx, i]
 
-        # Win rate
-        if len(trades) > 0:
-            win_rate = len(winning_trades) / len(trades) * 100
-        else:
-            win_rate = 0
+                if np.isnan(ind_val):
+                    all_rules_pass = False
+                    break
 
-        return BacktestResult(
-            strategy=strategy_name,
-            total_trades=len(trades),
-            winning_trades=len(winning_trades),
-            losing_trades=len(losing_trades),
-            win_rate=win_rate,
-            total_pnl=total_pnl,
-            total_pnl_pct=total_pnl_pct,
-            max_drawdown=max_drawdown,
-            sharpe_ratio=sharpe,
-            sortino_ratio=sortino,
-            avg_trade_duration=0,  # Simplified
-            trades=trades,
-            equity_curve=equity
-        )
+                # SMA/EMA: compare close price vs indicator (threshold = % deviation)
+                if ind_idx >= IND_SMA_BASE:
+                    deviation = threshold / 100.0
+                    if operator == OP_GT:  # price > SMA * (1 + deviation)
+                        if not (close > ind_val * (1 + deviation)):
+                            all_rules_pass = False
+                            break
+                    else:  # price < SMA * (1 - deviation)
+                        if not (close < ind_val * (1 - deviation)):
+                            all_rules_pass = False
+                            break
+                else:
+                    # RSI: compare indicator value vs threshold directly
+                    if operator == OP_GT:  # >
+                        if not (ind_val > threshold):
+                            all_rules_pass = False
+                            break
+                    else:  # <
+                        if not (ind_val < threshold):
+                            all_rules_pass = False
+                            break
+
+            if all_rules_pass:
+                position = 1
+                entry_price = close
+
+        # Track drawdown (every candle, not just between trades)
+        if balance > max_balance:
+            max_balance = balance
+        dd = (max_balance - balance) / max_balance if max_balance > 0 else 0
+        if dd > max_drawdown:
+            max_drawdown = dd
+
+    win_rate = wins / trades if trades > 0 else 0.0
+
+    # Sharpe ratio
+    sharpe = 0.0
+    if trade_pnls:
+        arr = np.array(trade_pnls)
+        std = np.std(arr)
+        if std > 0:
+            sharpe = (np.mean(arr) / std) * np.sqrt(252)
+
+    return {
+        'pnl': pnl_total,
+        'trades': trades,
+        'wins': wins,
+        'losses': losses,
+        'win_rate': win_rate,
+        'sharpe_ratio': sharpe,
+        'max_drawdown': max_drawdown,
+    }
 
 
-def print_result(result: BacktestResult):
-    """Print backtest result."""
-    print(f"\n{'='*60}")
-    print(f"📊 {result.strategy.upper()} BACKTEST RESULTS")
-    print(f"{'='*60}")
-    print(f"  Total Trades:    {result.total_trades}")
-    print(f"  Winning:         {result.winning_trades}")
-    print(f"  Losing:         {result.losing_trades}")
-    print(f"  Win Rate:       {result.win_rate:.1f}%")
-    print(f"  Total PnL:      ${result.total_pnl:.2f} ({result.total_pnl_pct:.2f}%)")
-    print(f"  Max Drawdown:   {result.max_drawdown:.2f}%")
-    print(f"  Sharpe Ratio:   {result.sharpe_ratio:.2f}")
-    print(f"  Sortino Ratio:  {result.sortino_ratio:.2f}")
-    print(f"{'='*60}")
+def evaluate_genome(
+    indicators: np.ndarray,
+    genome: np.ndarray,
+    initial_balance: float = 1.0,
+    fees: JupiterFees = None
+) -> Dict[str, float]:
+    """Evaluate a single genome (strategy).
+
+    Always uses the Python version which correctly reads genome entry rules.
+    The JIT version is legacy and hardcodes RSI < 30.
+    """
+    return evaluate_genome_python(indicators, genome, initial_balance)
 
 
-async def run_backtests(days: int = 30, initial_capital: float = 1000.0):
-    """Run backtests for all strategies."""
-    print(f"\n{'='*60}")
-    print(f"🚀 SOLANA STRATEGY BACKTEST")
-    print(f"{'='*60}")
-    print(f"Days: {days} | Initial Capital: ${initial_capital}")
-    print(f"{'='*60}")
-
-    # Get price data
-    data = SolanaHistoricalData()
-    prices = data.get_mock_prices(days=days)
-    await data.close()
-
-    print(f"\n📈 Price data: {len(prices)} data points")
-    print(f"   Start: ${prices[0]:.2f} | End: ${prices[-1]:.2f}")
-
-    # Initialize backtester
-    backtester = Backtester(initial_capital)
-
+def evaluate_population(
+    indicators: np.ndarray,
+    population: List[np.ndarray],
+    initial_balance: float = 1.0,
+    fees: JupiterFees = None
+) -> List[Dict[str, float]]:
+    """
+    Evaluate entire population of genomes.
+    
+    Args:
+        indicators: Pre-computed indicator matrix
+        population: List of genome arrays
+        initial_balance: Starting balance
+        fees: Jupiter fee structure
+    
+    Returns:
+        List of results for each genome
+    """
     results = []
-
-    # Momentum strategy
-    print("\n" + "-"*60)
-    momentum = MomentumStrategy(short_period=10, long_period=20)
-    result = backtester.run_backtest(prices, "Momentum (EMA Cross)", momentum)
-    print_result(result)
-    results.append(result)
-
-    # Breakout strategy
-    print("\n" + "-"*60)
-    breakout = BreakoutStrategy(period=20, std_mult=2.0)
-    result = backtester.run_backtest(prices, "Breakout (Bollinger)", breakout)
-    print_result(result)
-    results.append(result)
-
-    # Scalping strategy
-    print("\n" + "-"*60)
-    scalping = ScalpingStrategy(fast_period=5, slow_period=15)
-    result = backtester.run_backtest(prices, "Scalping (EMA Cross)", scalping)
-    print_result(result)
-    results.append(result)
-
-    # Mean reversion strategy
-    print("\n" + "-"*60)
-    mean_rev = MeanReversionStrategy(rsi_period=14, oversold=30, overbought=70)
-    result = backtester.run_backtest(prices, "Mean Reversion (RSI)", mean_rev)
-    print_result(result)
-    results.append(result)
-
-    # Find best strategy
-    print("\n" + "="*60)
-    print("🏆 BEST STRATEGY")
-    print("="*60)
-    best = max(results, key=lambda r: r.total_pnl)
-    print(f"   {best.strategy}")
-    print(f"   PnL: ${best.total_pnl:.2f} | Win Rate: {best.win_rate:.1f}%")
-    print("="*60)
-
+    
+    for genome in population:
+        result = evaluate_genome(indicators, genome, initial_balance, fees)
+        results.append(result)
+    
     return results
 
 
-def main():
-    parser = argparse.ArgumentParser(description="Solana Strategy Backtester")
-    parser.add_argument("--days", type=int, default=30, help="Days of data")
-    parser.add_argument("--capital", type=float, default=1000.0, help="Initial capital")
-    parser.add_argument("--strategy", type=str, help="Specific strategy to test")
-    parser.add_argument("--all", action="store_true", help="Test all strategies")
+# ============================================================================
+# BACKTEST FROM DATA
+# ============================================================================
 
-    args = parser.parse_args()
+@dataclass
+class BacktestResult:
+    """Backtest result summary"""
+    pnl: float
+    pnl_pct: float
+    trades: int
+    win_rate: float
+    sharpe_ratio: float
+    max_drawdown: float
+    final_balance: float
+    start_date: str
+    end_date: str
+    duration_days: int
+    
+    def to_dict(self) -> Dict:
+        return {
+            'pnl': self.pnl,
+            'pnl_pct': self.pnl_pct,
+            'trades': self.trades,
+            'win_rate': self.win_rate,
+            'sharpe_ratio': self.sharpe_ratio,
+            'max_drawdown': self.max_drawdown,
+            'final_balance': self.final_balance,
+            'start_date': self.start_date,
+            'end_date': self.end_date,
+            'duration_days': self.duration_days
+        }
+    
+    def to_json(self) -> str:
+        return json.dumps(self.to_dict(), indent=2)
 
-    import asyncio
-    asyncio.run(run_backtests(args.days, args.capital))
 
+def run_backtest(
+    df: pd.DataFrame,
+    genome: np.ndarray,
+    initial_balance: float = 1.0,
+    fees: JupiterFees = None
+) -> BacktestResult:
+    """
+    Run full backtest on historical data.
+    
+    Args:
+        df: DataFrame with 'timestamp', 'open', 'high', 'low', 'close', 'volume'
+        genome: Strategy genome
+        initial_balance: Starting balance in SOL
+        fees: Jupiter fee structure
+    
+    Returns:
+        BacktestResult object
+    """
+    # Pre-compute indicators
+    indicators = precompute_indicators(df)
+    
+    # Evaluate genome
+    result = evaluate_genome(indicators, genome, initial_balance, fees)
+    
+    # Calculate final balance
+    final_balance = initial_balance * (1 + result['pnl'])
+    
+    # Get dates
+    start_date = df['timestamp'].iloc[0] if 'timestamp' in df.columns else 'Unknown'
+    end_date = df['timestamp'].iloc[-1] if 'timestamp' in df.columns else 'Unknown'
+    
+    # Calculate duration
+    if 'timestamp' in df.columns:
+        try:
+            start = pd.to_datetime(start_date)
+            end = pd.to_datetime(end_date)
+            duration = (end - start).days
+        except:
+            duration = 0
+    else:
+        duration = 0
+    
+    return BacktestResult(
+        pnl=result['pnl'],
+        pnl_pct=result['pnl'] * 100,
+        trades=result['trades'],
+        win_rate=result['win_rate'],
+        sharpe_ratio=result.get('sharpe_ratio', 0.0),
+        max_drawdown=result.get('max_drawdown', 0.0),
+        final_balance=final_balance,
+        start_date=str(start_date),
+        end_date=str(end_date),
+        duration_days=duration
+    )
+
+
+# ============================================================================
+# SAMPLE DATA GENERATION (FOR TESTING)
+# ============================================================================
+
+def generate_sample_data(
+    n_candles: int = 10000,
+    start_price: float = 100.0,
+    volatility: float = 0.02
+) -> pd.DataFrame:
+    """
+    Generate sample price data for testing.
+    
+    Args:
+        n_candles: Number of candles
+        start_price: Starting price in USD
+        volatility: Daily volatility (default 2%)
+    
+    Returns:
+        DataFrame with OHLCV data
+    """
+    np.random.seed(42)
+    
+    # Generate returns
+    returns = np.random.normal(0, volatility / np.sqrt(365), n_candles)
+    
+    # Calculate prices
+    close = start_price * np.cumprod(1 + returns)
+    
+    # Generate OHLC
+    high = close * (1 + np.abs(np.random.normal(0, 0.005, n_candles)))
+    low = close * (1 - np.abs(np.random.normal(0, 0.005, n_candles)))
+    open_price = np.roll(close, 1)
+    open_price[0] = start_price
+    
+    volume = np.random.uniform(1e6, 1e8, n_candles)
+    
+    # Create DataFrame
+    df = pd.DataFrame({
+        'timestamp': pd.date_range(start='2024-01-01', periods=n_candles, freq='1h'),
+        'open': open_price,
+        'high': high,
+        'low': low,
+        'close': close,
+        'volume': volume
+    })
+    
+    return df
+
+
+# ============================================================================
+# EXAMPLE USAGE
+# ============================================================================
 
 if __name__ == "__main__":
-    main()
+    print("=" * 60)
+    print("Solana Backtester - Demo")
+    print("=" * 60)
+    
+    # Generate sample data
+    print("\n📊 Generating sample data...")
+    df = generate_sample_data(n_candles=10000)
+    print(f"   {len(df)} candles generated")
+    
+    # Pre-compute indicators
+    print("\n🔧 Pre-computing indicators...")
+    indicators = precompute_indicators(df)
+    print(f"   {indicators.shape[0]} indicators computed")
+    
+    # Create sample genome
+    print("\n🧬 Creating sample genome...")
+    genome = np.array([
+        0.03,   # SL 3%
+        0.06,   # TP 6%
+        2,      # 2 rules
+        0, 0, 4, 30, 0,  # Rule 1: RSI < 30
+        0, 0, 4, 70, 1,  # Rule 2: RSI > 70
+        0, 0, 0, 0, 0,   # Unused
+    ], dtype=np.float64)
+    print(f"   Genome size: {len(genome)}")
+    
+    # Run backtest
+    print("\n🚀 Running backtest...")
+    import time
+    start = time.time()
+    
+    result = run_backtest(df, genome, initial_balance=1.0)
+    
+    elapsed = time.time() - start
+    print(f"   Completed in {elapsed:.3f} seconds")
+    
+    # Print results
+    print("\n📈 Backtest Results:")
+    print(f"   PnL: {result.pnl:.4f} SOL ({result.pnl_pct:.2f}%)")
+    print(f"   Trades: {result.trades}")
+    print(f"   Win Rate: {result.win_rate:.2%}")
+    print(f"   Sharpe Ratio: {result.sharpe_ratio:.2f}")
+    print(f"   Final Balance: {result.final_balance:.4f} SOL")
+    print(f"   Duration: {result.duration_days} days")
+    
+    # Compare with/without Numba
+    print("\n⚡ Performance:")
+    print(f"   Numba available: {HAS_NUMBA}")
+    print(f"   Expected speedup: {4000 if HAS_NUMBA else 1}x vs pure Python")

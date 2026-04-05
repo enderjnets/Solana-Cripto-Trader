@@ -1,98 +1,61 @@
 {
-  "timestamp": "2026-04-03T15:36:25.441891+00:00",
-  "opportunities_found": 5,
+  "timestamp": "2026-04-05T15:05:05.941523+00:00",
+  "opportunities_found": 3,
   "top_opportunities": [
-    {
-      "symbol": "AI",
-      "name": "DEFI GENSYN Lp",
-      "address": "9iEmANTj5XJD8dLophihG9jHCshcUFCWX8Yxk2Lx55Lc",
-      "price": 0.0001132,
-      "price_change_24h": 46.66,
-      "volume_24h": 26637567.27,
-      "liquidity": 71051.08,
-      "market_cap": 113270.0,
-      "verified": false,
-      "opportunity_score": 0.73,
-      "reasons": [
-        "Liquidez $0.07M \u26a0\ufe0f",
-        "Volumen muy alto $26.64M \u2705\u2705",
-        "\ud83d\udcc8 PUMP +46.7% \u2705\u2705",
-        "MC bajo $113K \u26a0\ufe0f",
-        "Alta actividad (vol/liq=374.9x) \u2705\u2705"
-      ]
-    },
     {
       "symbol": "TRUMP",
       "name": "OFFICIAL TRUMP",
       "address": "6p6xgHyF7AeE6TZkSmFsko444wqoP15icUSqi2jfGiPN",
-      "price": 2.84,
-      "price_change_24h": 1.04,
-      "volume_24h": 736376.04,
-      "liquidity": 952163.33,
-      "market_cap": 2846530526.0,
+      "price": 2.82,
+      "price_change_24h": -1.26,
+      "volume_24h": 1260695.11,
+      "liquidity": 1107250.32,
+      "market_cap": 2828416211.0,
       "verified": false,
       "opportunity_score": 0.6,
       "reasons": [
-        "Liquidez $0.95M \u2705",
-        "Volumen muy alto $0.74M \u2705\u2705",
-        "MC $2846.5M \u2014 establecido \u2705",
-        "Actividad normal (vol/liq=0.8x) \u2705"
-      ]
-    },
-    {
-      "symbol": "PUMP",
-      "name": "Pump",
-      "address": "pumpCmXqMfrsAkQ5r49WcJnRayYRqmXz6ae8H7H9Dfn",
-      "price": 0.001669,
-      "price_change_24h": 3.75,
-      "volume_24h": 660548.3,
-      "liquidity": 13103254.13,
-      "market_cap": 1669690605.0,
-      "verified": false,
-      "opportunity_score": 0.5,
-      "reasons": [
-        "Liquidez $13.10M \u2705",
-        "Volumen muy alto $0.66M \u2705\u2705",
-        "MC $1669.7M \u2014 establecido \u2705"
+        "Liquidez $1.11M \u2705",
+        "Volumen muy alto $1.26M \u2705\u2705",
+        "MC $2828.4M \u2014 establecido \u2705",
+        "Actividad normal (vol/liq=1.1x) \u2705"
       ]
     },
     {
       "symbol": "CAT",
       "name": "Cat Terminal",
       "address": "4HBQm2EhdpUWZkTYxttxNDnsoWi5beRAGWHpjVo8pump",
-      "price": 0.001476,
-      "price_change_24h": 11.61,
-      "volume_24h": 10803.69,
-      "liquidity": 135401.67,
-      "market_cap": 1476215.0,
+      "price": 0.00139,
+      "price_change_24h": -10.48,
+      "volume_24h": 21988.69,
+      "liquidity": 130631.44,
+      "market_cap": 1390039.0,
       "verified": false,
       "opportunity_score": 0.48,
       "reasons": [
-        "Liquidez $0.14M \u2705",
-        "Volumen bajo $11K \u26a0\ufe0f",
-        "Movimiento fuerte +11.6% \u2705",
-        "MC $1.5M \u2705"
+        "Liquidez $0.13M \u2705",
+        "Volumen bajo $22K \u26a0\ufe0f",
+        "Movimiento fuerte -10.5% \u2705",
+        "MC $1.4M \u2705"
       ]
     },
     {
-      "symbol": "DOG",
-      "name": "Dog (Bitcoin)",
-      "address": "dog1viwbb2vWDpER5FrJ4YFG6gq6XuyFohUe9TXN65u",
-      "price": 0.0007215,
-      "price_change_24h": 4.66,
-      "volume_24h": 72493.88,
-      "liquidity": 62586.56,
-      "market_cap": 72156566.0,
+      "symbol": "PUMP",
+      "name": "Pump",
+      "address": "pumpCmXqMfrsAkQ5r49WcJnRayYRqmXz6ae8H7H9Dfn",
+      "price": 0.001649,
+      "price_change_24h": -0.55,
+      "volume_24h": 354816.12,
+      "liquidity": 13026560.74,
+      "market_cap": 1649840853.0,
       "verified": false,
-      "opportunity_score": 0.45,
+      "opportunity_score": 0.42,
       "reasons": [
-        "Liquidez $0.06M \u26a0\ufe0f",
-        "Volumen $0.07M \u2705",
-        "MC $72.2M \u2014 establecido \u2705",
-        "Actividad normal (vol/liq=1.2x) \u2705"
+        "Liquidez $13.03M \u2705",
+        "Volumen $0.35M \u2705",
+        "MC $1649.8M \u2014 establecido \u2705"
       ]
     }
   ],
   "tokens_added": [],
-  "total_tracked": 15
+  "total_tracked": 16
 }

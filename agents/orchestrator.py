@@ -420,12 +420,13 @@ def run_cycle(safe=True, debug=False):
         if portfolio_data and portfolio_data.get("positions"):
             decisions = rm.evaluate_position_decision(portfolio_data, market_data_for_dec, research_data)
             # Fix 3: Excluir posiciones recién abiertas de recomendaciones de cierre
-            # OPTIMIZADO 2026-03-24: umbral 0.70→0.80 — reducir false CLOSE signals
-            # La tasa de cierre por POSITION_DECISION tenía WR=100% (solo 2 casos)
-            # pero la causa raíz del EC excesivo era confidence demasiado bajo
-            close_recs  = [d for d in decisions if d["action"] == "CLOSE"  and d["confidence"] >= 0.60
+            # FIX 2026-04-05: Umbrales MUY estrictos — solo cerrar si confidence >= 0.75 AND hours >= 20min
+            close_recs  = [d for d in decisions if d["action"] == "CLOSE"
+                           and d["confidence"] >= 0.75
+                           and d.get("hours_open", 0) >= 0.33  # 20 min minimum
+                           and d["quant_score"] >= 60
                            and d["symbol"] not in just_opened_symbols]
-            reduce_recs = [d for d in decisions if d["action"] == "REDUCE" and d["confidence"] >= 0.70]
+            reduce_recs = [d for d in decisions if d["action"] == "REDUCE" and d["confidence"] >= 0.80]
 
             if close_recs:
                 log.info(f"   🔴 CERRAR ({len(close_recs)}): {', '.join(d['symbol'] for d in close_recs)}")

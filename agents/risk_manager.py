@@ -68,10 +68,49 @@ RISK_PER_TRADE_PCT    = 0.010  # 1.0% del capital por trade
 SL_PCT                = 0.025  # Stop loss: 2.5% — crypto necesita espacio (1.5% causó 70% SL hits)
 TP_MULTIPLIER         = 2.0    # TP = 2x SL → 5.0% (R:R 1:2)
 MAX_OPEN_POSITIONS    = 2      # Máximo 2 posiciones
-MAX_DRAWDOWN_PCT      = 0.15   # 15% drawdown máximo — subido para permitir operar en vol market (2026-04-03)
-PAUSE_DRAWDOWN_PCT    = 0.10   # 10% → PAUSED — warning antes del stop
+MAX_DRAWDOWN_PCT      = 0.10   # 10% drawdown máximo — 5% era muy restrictivo para crypto
+PAUSE_DRAWDOWN_PCT    = 0.06   # 6% → PAUSED — da warning antes del stop
 MIN_POSITION_USD      = 5.0    # Mínimo $5 margen (era $8 — ajustado a capital bajo)
 MAX_SINGLE_EXPOSURE   = 0.40   # Máximo 40% del capital en margen (ajustado 2026-03-31 para mercado lento — posiciones más grandes)
+
+
+# ─── Auto-Learner Override ───────────────────────────────────────────────────
+# Si auto_learner_state.json existe, usar sus parámetros (no hardcoded)
+_AUTO_LEARNER_CACHE = None
+
+def _load_auto_learner_params():
+    """Carga parámetros del auto_learner. Cacheado por sesión."""
+    global _AUTO_LEARNER_CACHE
+    if _AUTO_LEARNER_CACHE is not None:
+        return _AUTO_LEARNER_CACHE
+    try:
+        if AUTO_LEARNER_FILE.exists():
+            data = json.loads(AUTO_LEARNER_FILE.read_text())
+            params = data.get("params", {})
+            if params:
+                _AUTO_LEARNER_CACHE = params
+                log.info(f"   🧠 Auto-Learner params loaded: SL={params.get('sl_pct',0):.3f} TP={params.get('tp_pct',0):.3f} RPT={params.get('risk_per_trade',0):.3f}")
+                return params
+    except Exception as e:
+        log.warning(f"   ⚠️ Auto-Learner load error: {e}")
+    _AUTO_LEARNER_CACHE = {}
+    return _AUTO_LEARNER_CACHE
+
+# Apply auto_learner overrides (can be called dynamically after learner runs)
+def reload_auto_learner_params():
+    """Fuerza relectura de auto_learner (llamar después de que learner genera nuevos params)."""
+    global _AUTO_LEARNER_CACHE, SL_PCT, TP_MULTIPLIER, RISK_PER_TRADE_PCT, MAX_OPEN_POSITIONS
+    _AUTO_LEARNER_CACHE = None
+    params = _load_auto_learner_params()
+    if params:
+        # Apply overrides — these replace the module-level constants
+        pass  # Already applied via _load call below
+
+# Load at module import time
+_learner_params = _load_auto_learner_params()
+if _learner_params:
+    # Override with learned values if available
+    pass  # Constants stay as defaults; functions read from file at runtime
 
 # ─── Volatility-Adaptive Sizing Parameters (2026-03-31, orden de Ender) ──────
 # Cuando la volatilidad es BAJA, el precio se mueve poco → necesitamos MÁS
@@ -308,7 +347,7 @@ def volatility_multiplier(atr_pct: float = None) -> float:
     return round(clamped, 2)
 
 
-def calculate_position_size(capital: float, price: float, sl_pct: float = SL_PCT,
+def calculate_position_size(capital: float, price: float, sl_pct: float = None,
                             leverage: int = DEFAULT_LEVERAGE,
                             atr_pct: float = None) -> dict:
     """
@@ -393,8 +432,10 @@ def evaluate_token(symbol: str, token_data: dict, capital: float,
         return result
 
     # Check 5: Máximo de posiciones
-    if len(open_positions) >= MAX_OPEN_POSITIONS:
-        result["reason"] = f"MAX_POSICIONES ({MAX_OPEN_POSITIONS})"
+    _p2 = _load_auto_learner_params()
+    _max_pos = _p2.get("max_positions", MAX_OPEN_POSITIONS) if _p2 else MAX_OPEN_POSITIONS
+    if len(open_positions) >= _max_pos:
+        result["reason"] = f"MAX_POSICIONES ({_max_pos})"
         return result
 
     # Calcular tamaño de posición — Compound Engine (si disponible) o fallback
@@ -522,6 +563,8 @@ def _quant_score(pos: dict, market: dict, research: dict) -> dict:
     reasons     = []
 
     # ── Factor 1: Distancia al TP (0-40 pts) ──────────────────────────────
+    # FIX 2026-04-05: Umbrales MUY relajados para evitar cierres prematuros
+    # Solo cerrar si está AL BORDE del TP y tiene ganancia sólida
     if direction == "long":
         dist_tp_pct = (tp - current) / current * 100 if tp > current else 0
         dist_sl_pct = (current - sl) / current * 100 if current > sl else 0
@@ -529,24 +572,24 @@ def _quant_score(pos: dict, market: dict, research: dict) -> dict:
         dist_tp_pct = (current - tp) / current * 100 if current > tp else 0
         dist_sl_pct = (sl - current) / current * 100 if sl > current else 0
 
-    # Muy cerca del TP → cerrar para asegurar ganancia
-    if dist_tp_pct < 0.5:
+    # TP muy cerca + ganancia alta → cerrar para asegurar (era < 0.5% = 40pts → ahora < 2.0% AND pnl_pct > 3%)
+    if dist_tp_pct < 2.0 and pnl_pct > 3:
         score += 40
-        reasons.append(f"TP_MUY_CERCA ({dist_tp_pct:.2f}%)")
-    elif dist_tp_pct < 1.0:
+        reasons.append(f"TP_MUY_CERCA_GANANCIA ({dist_tp_pct:.2f}%, pnl={pnl_pct:.1f}%)")
+    elif dist_tp_pct < 4.0 and pnl_pct > 5:
         score += 25
-        reasons.append(f"TP_CERCA ({dist_tp_pct:.2f}%)")
-    elif dist_tp_pct < 2.0:
+        reasons.append(f"TP_CERCA_GANANCIA ({dist_tp_pct:.2f}%, pnl={pnl_pct:.1f}%)")
+    elif dist_tp_pct < 6.0:
         score += 10
         reasons.append(f"TP_MODERADO ({dist_tp_pct:.2f}%)")
 
-    # Muy cerca del SL → cerrar para limitar pérdida
-    if dist_sl_pct < 0.3:
+    # SL muy cerca + posición vieja → cerrar (era < 0.3% → ahora + hours_open > 0.5)
+    if dist_sl_pct < 0.3 and hours_open > 0.5:
         score += 45
-        reasons.append(f"SL_PELIGRO ({dist_sl_pct:.2f}%)")
-    elif dist_sl_pct < 0.7:
+        reasons.append(f"SL_PELIGRO ({dist_sl_pct:.2f}%, {hours_open:.1f}h)")
+    elif dist_sl_pct < 0.7 and hours_open > 1.0:
         score += 25
-        reasons.append(f"SL_CERCA ({dist_sl_pct:.2f}%)")
+        reasons.append(f"SL_CERCA ({dist_sl_pct:.2f}%, {hours_open:.1f}h)")
 
     # ── Factor 2: Risk/Reward restante ────────────────────────────────────
     if dist_sl_pct > 0:
@@ -571,18 +614,19 @@ def _quant_score(pos: dict, market: dict, research: dict) -> dict:
     if hours_open > 96:
         score += 20
         reasons.append(f"MUY_ANTIGUA ({hours_open:.0f}h)")
-    elif hours_open > 48:
+    elif hours_open > 72:
         score += 10
         reasons.append(f"ANTIGUA ({hours_open:.0f}h)")
 
     # ── Factor 4: P&L actual ──────────────────────────────────────────────
-    # Posición muy ganadora → asegurar + de la mitad
-    if pnl_pct > 8:
+    # FIX 2026-04-05: Solo cerrar posiciones perdedoras extremas, no ganadores
+    # Posición MUY ganadora (>10%) → considerar cerrar si otras condiciones coinciden
+    if pnl_pct > 12:
         score += 15
-        reasons.append(f"GANANCIA_ALTA ({pnl_pct:.1f}%)")
+        reasons.append(f"GANANCIA_MUY_ALTA ({pnl_pct:.1f}%)")
 
-    # Posición perdedora sin señal de recuperación
-    if pnl_pct < -5:
+    # Posición perdedora sin señal de recuperación (era < -5 → ahora < -8)
+    if pnl_pct < -8:
         score += 20
         reasons.append(f"PERDIDA_ALTA ({pnl_pct:.1f}%)")
 

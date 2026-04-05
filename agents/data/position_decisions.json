@@ -1,28 +1,29 @@
 {
-  "timestamp": "2026-04-03T15:11:49.322209+00:00",
+  "timestamp": "2026-04-05T15:03:37.067270+00:00",
   "decisions": [
     {
-      "symbol": "RAY",
-      "direction": "long",
-      "action": "HOLD",
-      "confidence": 0.9,
-      "alignment": "ALIGNED",
-      "quant_score": -15,
+      "symbol": "MOODENG",
+      "direction": "short",
+      "action": "CLOSE",
+      "confidence": 0.68,
+      "alignment": "SPLIT (quant=HOLD, llm=CLOSE)",
+      "quant_score": -5,
       "quant_action": "HOLD",
       "quant_reasons": [
-        "RR_BUENO (2.20x)"
+        "RR_BUENO (2.50x)",
+        "PANICO_EXTREMO (F&G=12)"
       ],
-      "llm_action": "HOLD",
-      "llm_confidence": 0.75,
-      "llm_reasoning": "Posici\u00f3n en punto de entrada, R/R favorable de 2.20x, tendencia bullish con Fear extremo (compra oportunidad). Sin se\u00f1al de cierre inmediata ni p\u00e9rdida, mantener para ver evoluci\u00f3n.",
+      "llm_action": "CLOSE",
+      "llm_confidence": 0.85,
+      "llm_reasoning": "Contradicci\u00f3n cr\u00edtica: posici\u00f3n SHORT en tendencia BULLISH (70%) con Fear&Greed en miedo extremo (12) - entorno hist\u00f3ricamente favorable para LONG. Con apenas 0h abierta, mejor cerrar antes de que se vuelva peso muerto.",
       "llm_source": "llm_claude_sonnet",
       "pnl_usd": 0.0,
       "pnl_pct": 0.0,
-      "dist_tp_pct": 5.682,
-      "dist_sl_pct": 2.579,
-      "rr_remaining": 2.203,
+      "dist_tp_pct": 7.495,
+      "dist_sl_pct": 2.998,
+      "rr_remaining": 2.5,
       "hours_open": 0,
-      "evaluated_at": "2026-04-03T15:11:49.322093+00:00"
+      "evaluated_at": "2026-04-05T15:03:37.067181+00:00"
     }
   ]
 }

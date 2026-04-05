@@ -1,7 +1,5 @@
 {
-  "last_daily_report": "2026-04-03",
-  "alerted_trades": [
-    "dd_17"
-  ],
-  "reset_at": "2026-04-03T13:33:13.309290+00:00"
+  "last_daily_report": "",
+  "alerted_trades": [],
+  "reset_at": "2026-04-05T02:04:36.679210+00:00"
 }

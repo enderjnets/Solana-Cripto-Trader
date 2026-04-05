@@ -1,6 +1,4 @@
 {
-  "enabled": true,
-  "last_compound": null,
-  "compound_count": 0,
-  "total_compounded": 0.0
+  "status": "active",
+  "capital": 1000.0
 }

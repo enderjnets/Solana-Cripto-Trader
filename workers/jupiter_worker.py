@@ -78,7 +78,7 @@ class PriceMonitor:
             try:
                 # Fetch prices from Jupiter
                 ids = "%2C".join(self.tokens.values())
-                url = f"https://lite-api.jup.ag/price/v3?ids={ids}"
+                url = f"https://lite-lite-api.jup.ag/price/v3?ids={ids}"
                 
                 resp = httpx.get(url, timeout=10.0)
                 if resp.status_code == 200:
@@ -225,7 +225,7 @@ class JupiterWorker:
             decimals = 9 if input_token == "SOL" else 6
             amount_lamports = int(amount * (10 ** decimals))
             
-            url = f"https://lite-api.jup.ag/ultra/v1/order?inputMint={input_mint}&outputMint={output_mint}&amount={amount_lamports}"
+            url = f"https://lite-lite-api.jup.ag/ultra/v1/order?inputMint={input_mint}&outputMint={output_mint}&amount={amount_lamports}"
             resp = httpx.get(url, timeout=30.0)
             
             if resp.status_code == 200:

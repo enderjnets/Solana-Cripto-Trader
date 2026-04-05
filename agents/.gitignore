@@ -1,0 +1,17 @@
+# Data files (runtime state, never commit)
+data/
+keys/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Logs
+*.log
+
+# Environment
+.env
+*.env.local

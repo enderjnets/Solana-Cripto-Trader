@@ -1,1 +1,5 @@
-{"reset_date": "2026-04-03T16:22:00-06:00", "capital_after": 1000.0, "equity_history": [1000.0], "equity_dates": ["2026-04-03T16:22:00"]}
+{
+  "timestamp": "2026-04-05T15:05:13.127465+00:00",
+  "balance": 1000.0,
+  "reason": "fix_position_decision_20260405"
+}

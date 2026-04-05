@@ -146,7 +146,6 @@ DASHBOARD_HTML = r"""
   .dot-green { background: var(--green); box-shadow: 0 0 6px var(--green); animation: pulse 2s infinite; }
   .dot-red { background: var(--red); }
   .dot-yellow { background: var(--yellow); }
-  .dot-blue { background: var(--blue); animation: pulse 2s infinite; }
   @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }
 
   .header-right { display: flex; align-items: center; gap: 12px; }
@@ -454,16 +453,6 @@ DASHBOARD_HTML = r"""
         <div class="kpi-value" id="kpiPos">—</div>
         <div class="kpi-sub" id="kpiPosSub">abiertas</div>
       </div>
-      <div class="kpi-card" id="kpiTargetCard" style="border-left:3px solid var(--green);">
-        <div class="kpi-label">Daily Target</div>
-        <div class="kpi-value" id="kpiTarget" style="color:#00ff88">—</div>
-        <div class="kpi-sub" id="kpiTargetSub">FG: — | RSI: —</div>
-      </div>
-      <div class="kpi-card" id="kpiLockCard" style="display:none;border-left:3px solid var(--orange);">
-        <div class="kpi-label">Status</div>
-        <div class="kpi-value" id="kpiLock" style="color:#ff6b35;font-size:18px">🔒 LOCKED</div>
-        <div class="kpi-sub" id="kpiLockReason" style="font-size:10px;color:#ff4444">—</div>
-      </div>
     </div>
   </section>
 
@@ -701,16 +690,10 @@ let equityAllData = { labels: [], datasets: [] };
 document.addEventListener('DOMContentLoaded', () => {
   initCharts();
   refreshAll();
-  loadDailyTargetInfo();
-  loadOrchestratorStatus();
   // Refresh completo cada 30 segundos
   setInterval(refreshAll, 30000);
   // Refresh de posiciones cada 3 segundos (tiempo real)
   setInterval(loadPositionsRealtime, 3000);
-  // Dynamic target cada 15 segundos
-  setInterval(loadDailyTargetInfo, 15000);
-  // Orchestrator status cada 5 segundos
-  setInterval(loadOrchestratorStatus, 5000);
 });
 
 async function refreshAll() {
@@ -731,21 +714,19 @@ async function refreshAll() {
 }
 
 async function resetBot() {
-  // Get current capital from the page for default value
-  const currentCap = parseFloat(document.getElementById('headerCapital')?.textContent?.replace(/[$,]/g, '') || '1000');
-  const capital = prompt('¿Capital inicial para resetear? (USD)', currentCap.toFixed(2));
+  const capital = prompt('¿Capital inicial para resetear? (USD)', '500');
   if (!capital) return;
-
+  
   const capitalNum = parseFloat(capital);
   if (isNaN(capitalNum) || capitalNum < 100) {
     alert('Capital inválido (mínimo $100)');
     return;
   }
-
-  if (!confirm(`⚠️ ¿Resetear el bot a $${capitalNum}?\n\nEsto borrará el historial de trades.\nEl auto-aprendizaje se preservará.`)) {
+  
+  if (!confirm(`⚠️ ¿Resetear el bot a $${capitalNum}?\n\nEsto borrará TODO el historial de trades.`)) {
     return;
   }
-
+  
   try {
     const r = await fetch('/api/reset', {
       method: 'POST',
@@ -753,10 +734,10 @@ async function resetBot() {
       body: JSON.stringify({ capital: capitalNum })
     });
     const d = await r.json();
-
+    
     if (d.success) {
-      alert(`✅ Bot reseteado a $${capitalNum}\n\nAuto-aprendizaje preservado.\nLa página se recargará.`);
-      setTimeout(() => location.reload(), 1000);
+      alert(`✅ Bot reseteado a $${capitalNum}\n\nLa página se recargará.`);
+      location.reload();
     } else {
       alert('❌ Error: ' + (d.error || 'Unknown'));
     }
@@ -1080,74 +1061,6 @@ async function loadResetHistory() {
   }
   
   el.innerHTML = html;
-}
-
-async function loadDailyTargetInfo() {
-  try {
-    const r = await fetch('/api/daily_target_info');
-    const d = await r.json();
-    const tgt = ((d.dynamic_target_pct || 0.05) * 100).toFixed(0);
-    document.getElementById('kpiTarget').textContent = tgt + '%';
-    const fg = d.fear_greed ?? '?';
-    const rsi = d.rsi_avg ? d.rsi_avg.toFixed(0) : '?';
-    const temp = d.market_temperature || '—';
-    document.getElementById('kpiTargetSub').textContent =
-      'FG: ' + fg + ' ' + (d.fear_greed_label || '') + ' | RSI: ' + rsi;
-    // Show market temperature badge if available
-    let tempBadge = document.getElementById('marketTempBadge');
-    if (!tempBadge) {
-      tempBadge = document.createElement('div');
-      tempBadge.id = 'marketTempBadge';
-      tempBadge.style.cssText = 'font-size:11px;padding:2px 6px;border-radius:4px;margin-top:4px;display:inline-block;';
-      document.getElementById('kpiTargetSub').parentElement.appendChild(tempBadge);
-    }
-    tempBadge.textContent = temp;
-    tempBadge.style.background = fg <= 20 ? '#1e3a5f' : fg <= 40 ? '#2d4a6f' : fg <= 60 ? '#3d5a7f' : fg <= 80 ? '#7f3d1a' : '#7f1a1a';
-    if (d.daily_target_locked) {
-      document.getElementById('kpiTargetCard').style.display = 'none';
-      document.getElementById('kpiLockCard').style.display = 'block';
-      document.getElementById('kpiLockReason').textContent = d.lock_reason || 'Target reached';
-    } else {
-      document.getElementById('kpiTargetCard').style.display = 'block';
-      document.getElementById('kpiLockCard').style.display = 'none';
-    }
-  } catch(e) {
-    console.error('Daily target info error:', e);
-  }
-}
-
-async function loadOrchestratorStatus() {
-  try {
-    const r = await fetch('/api/orchestrator_status');
-    const d = await r.json();
-    const state = d.state || 'UNKNOWN';
-    const detail = d.detail || '';
-    const dot = document.getElementById('statusDot');
-    const text = document.getElementById('statusText');
-    if (!text || !dot) return;
-    
-    // Map states to display
-    const stateMap = {
-      'CICLO_INICIADO':    { label: 'INICIANDO...',   dot: 'dot-yellow', pulse: true },
-      'BUSCANDO_SEÑALES':  { label: '🔍 BUSCANDO...', dot: 'dot-yellow', pulse: true },
-      'EJECUTANDO':        { label: '⚡ EJECUTANDO...', dot: 'dot-yellow', pulse: true },
-      'IDLE':              { label: '✅ ACTIVE',       dot: 'dot-green',  pulse: true },
-      'POSICIONES_ABIERTAS':{ label: '📊 POSICIONES',  dot: 'dot-blue',   pulse: true },
-      'ERROR':             { label: '❌ ERROR',        dot: 'dot-red',    pulse: false },
-      'STOPPED':           { label: '⛔ STOPPED',      dot: 'dot-red',    pulse: false },
-      'UNKNOWN':           { label: '❓ DESCONOCIDO',  dot: 'dot-yellow', pulse: false },
-    };
-    const info = stateMap[state] || stateMap['UNKNOWN'];
-    text.textContent = info.label + (detail ? ' ' + detail : '');
-    dot.className = 'status-dot ' + info.dot;
-    if (info.pulse) {
-      dot.style.animation = 'pulse 2s infinite';
-    } else {
-      dot.style.animation = 'none';
-    }
-  } catch(e) {
-    // Silently fail — status is not critical
-  }
 }
 
 // ── Filtering / Pagination ─────────────────────────────────────────────────
@@ -1687,106 +1600,6 @@ def api_stats():
         "real_capital_change":round(real_capital_change, 2),
     })
 
-@app.route('/api/orchestrator_status')
-def api_orchestrator_status():
-    """Returns real-time orchestrator cycle status for the dashboard header."""
-    import json as _json
-    data_dir = Path(__file__).parent.parent / "agents" / "data"
-    status_file = data_dir / "orchestrator_status.json"
-    if status_file.exists():
-        try:
-            with open(status_file) as f:
-                return jsonify(_json.load(f))
-        except Exception:
-            pass
-    return jsonify({"state": "UNKNOWN", "detail": "Sin datos", "time": None})
-
-@app.route('/api/daily_target_info')
-def api_daily_target_info():
-    """Returns dynamic daily target info computed from market conditions."""
-    import os
-    data_dir = Path(__file__).parent.parent / "agents" / "data"
-    market_file = data_dir / "market_latest.json"
-    signals_file = data_dir / "signals_latest.json"
-    target_hit_file = data_dir / "DAILY_TARGET_HIT"
-
-    fg_val = None
-    rsi_avg = None
-    dynamic_target = 0.05
-    locked = False
-    reason = None
-
-    if market_file.exists():
-        try:
-            mkt = json.loads(market_file.read_text())
-            fg = mkt.get("fear_greed", {})
-            fg_val = fg.get("value", 50) if isinstance(fg, dict) else 50
-            rsi_data = mkt.get("rsi", {})
-            if isinstance(rsi_data, dict):
-                rsi_avg = rsi_data.get("avg", rsi_data.get("btc", 50))
-            elif isinstance(rsi_data, (int, float)):
-                rsi_avg = rsi_data
-
-            # Dynamic target logic
-            if fg_val < 20:
-                dynamic_target = 0.20
-            elif fg_val < 30 or (rsi_avg and rsi_avg < 40):
-                dynamic_target = 0.10
-            elif fg_val < 40:
-                dynamic_target = 0.08
-            elif fg_val > 70 and rsi_avg and rsi_avg > 70:
-                dynamic_target = 0.15
-            elif fg_val > 60:
-                dynamic_target = 0.10
-            else:
-                dynamic_target = 0.05
-
-            # Lock reason
-            if target_hit_file.exists():
-                locked = True
-                reason = f"FG={fg_val} < 20 — se reactiva cuando FG > 25"
-                if fg_val < 20:
-                    reason = f"FG={fg_val} < 20 — mercado sobrevendido, esperando rebound"
-        except Exception:
-            pass
-
-    # Get RSI from signals (average of top signals' RSI)
-    rsi_from_signals = None
-    if signals_file.exists():
-        try:
-            sig_data = json.loads(signals_file.read_text())
-            rsi_vals = [s.get("rsi") for s in sig_data.get("signals", []) if s.get("rsi") is not None]
-            if rsi_vals:
-                rsi_from_signals = round(sum(rsi_vals) / len(rsi_vals), 1)
-                rsi_avg = rsi_from_signals  # override default with actual RSI
-        except Exception:
-            pass
-
-    # Market temperature
-    if fg_val is not None:
-        if fg_val <= 20:
-            temp = "🥶 COLD"
-        elif fg_val <= 40:
-            temp = "❄️ COOL"
-        elif fg_val <= 60:
-            temp = "🌡️ NEUTRAL"
-        elif fg_val <= 80:
-            temp = "🔥 WARM"
-        else:
-            temp = "🔥 HOT"
-    else:
-        temp = "—"
-
-    return jsonify({
-        "dynamic_target_pct": dynamic_target,
-        "fear_greed": fg_val,
-        "fear_greed_label": fg.get("label", "—") if fg_val is not None else "—",
-        "rsi_avg": rsi_avg,
-        "market_temperature": temp,
-        "daily_target_locked": locked,
-        "lock_reason": reason
-    })
-
 
 @app.route('/api/stats_post_reset')
 def api_stats_post_reset():
@@ -1880,21 +1693,7 @@ def api_equity():
     closed_all = [t for t in trades_raw if t.get("status") in ("closed", None, "")]
 
     # Filter to post-reset trades if reset exists
-    # FIX: Use most recent reset from reset_history.json, not hardcoded file
-    reset_log = None
-    reset_history_file = DATA / "reset_history.json"
-    if reset_history_file.exists():
-        try:
-            rh = json.loads(reset_history_file.read_text())
-            if rh:
-                latest = rh[-1]  # most recent reset
-                reset_log = {
-                    "reset_date": latest.get("reset_date"),
-                    "capital_after": latest.get("new_capital", latest.get("final_capital", 1000.0))
-                }
-        except Exception:
-            pass
-
+    reset_log = load_json(DATA / "reset_log_20260326.json")
     has_reset = bool(reset_log and reset_log.get("reset_date"))
     reset_dt = None
     if has_reset:
@@ -1921,11 +1720,8 @@ def api_equity():
     closed.sort(key=lambda t: t.get("close_time", ""))
 
     # Build equity curve from reset baseline
-    # FIX: Use current capital_usd as base, not hardcoded 500 or old initial_capital
-    init_cap = safe_float(reset_log.get("capital_after", 0)) if has_reset else 0
-    if init_cap == 0:
-        # No reset log or capital_after=0 — use portfolio capital_usd
-        init_cap = safe_float(port.get("capital_usd", port.get("initial_capital", 1000)))
+    init_cap = safe_float(reset_log.get("capital_after", 500.0)) if has_reset else \
+               safe_float(port.get("initial_capital", 1000))
     capital = init_cap
     equity_full = [init_cap]
     labels_full = ["Start"]
@@ -1973,11 +1769,6 @@ def api_equity():
     else:
         equity = equity_full
         labels = labels_full
-
-    # FIX: Update last equity point to reflect current portfolio value (includes unrealized P&L)
-    current_equity = safe_float(port.get("capital_usd", init_cap))
-    if len(equity) > 0:
-        equity[-1] = round(current_equity, 2)
 
     return jsonify({
         "equity": equity,
@@ -2250,21 +2041,7 @@ def api_reset():
         }
         with open(DATA / "portfolio.json", "w") as f:
             json.dump(portfolio, f, indent=2)
-
-        # FIX: Pre-reset backup (same as reset_bot.py)
-        try:
-            import shutil
-            from pathlib import Path
-            backup_dir = DATA / "auto_backups" / f"pre_reset_{now[:10].replace('-','')}_{now[11:13]}{now[14:16]}{now[17:19]}"
-            backup_dir.mkdir(exist_ok=True, parents=True)
-            for fname in ["portfolio.json", "trade_history.json", "daily_target_state.json",
-                          "auto_learner_state.json", "compound_state.json"]:
-                src = DATA / fname
-                if src.exists():
-                    shutil.copy2(src, backup_dir / fname)
-        except Exception as e:
-            pass  # backup failure shouldn't block reset
-
+        
         # 2. Trade History
         with open(DATA / "trade_history.json", "w") as f:
             json.dump([], f)
@@ -2345,12 +2122,7 @@ def api_reset():
         }
         with open(DATA / "alerts_state.json", "w") as f:
             json.dump(alerts, f, indent=2)
-
-        # 8. Remove STOP_TRADING so bot can operate immediately
-        stop_file = DATA / "STOP_TRADING"
-        if stop_file.exists():
-            stop_file.unlink()
-
+        
         return jsonify({
             "success": True,
             "capital": capital,

@@ -124,6 +124,36 @@ def create_dashboard():
     with st.sidebar:
         st.header("🤖 System Status")
 
+        # === RESET BOT BUTTON ===
+        st.markdown("---")
+        st.subheader("🔄 Reset Bot")
+        reset_capital = st.number_input("Capital ($)", value=500.0, min_value=100.0, step=100.0, key="reset_capital")
+        
+        if st.button("🔄 RESET BOT", type="primary", use_container_width=True):
+            try:
+                from pathlib import Path
+                import sys
+                reset_script = Path(__file__).parent.parent / "agents" / "reset_bot.py"
+                if reset_script.exists():
+                    # Import and run reset
+                    sys.path.insert(0, str(reset_script.parent))
+                    from reset_bot import reset_all
+                    result = reset_all(reset_capital)
+                    if result["success"]:
+                        st.success(f"✅ Bot reseteado a ${reset_capital}")
+                        st.balloons()
+                        time.sleep(1)
+                        st.rerun()
+                    else:
+                        st.error("Error al resetear")
+                else:
+                    st.error("reset_bot.py no encontrado")
+            except Exception as e:
+                st.error(f"Error: {e}")
+        
+        st.caption("⚠️ Esto borra todo el historial")
+        st.markdown("---")
+
         # Runner status
         r_color = "#00ff88" if runner_running else "#ff6b6b"
         r_status = "RUNNING" if runner_running else "STOPPED"
@@ -191,13 +221,12 @@ def create_dashboard():
                 pass
 
     # ======================== MAIN TABS ========================
-    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+    tab1, tab2, tab3, tab4, tab5 = st.tabs([
         "📡 Activity Feed",
         "🧬 Brain & Optimizer",
         "📈 Trading & Strategies",
         "🧠 Knowledge Base",
         "🔍 Token Scout",
-        "💰 Portfolio",
     ])
 
     # ======================== TAB 1: ACTIVITY FEED ========================
@@ -284,7 +313,7 @@ def create_dashboard():
                     "SL%": f"{s.get('params', {}).get('sl_pct', 0)*100:.1f}%",
                     "TP%": f"{s.get('params', {}).get('tp_pct', 0)*100:.1f}%",
                 })
-            st.dataframe(pd.DataFrame(rows), width="stretch")
+            st.dataframe(pd.DataFrame(rows), use_container_width=True)
         else:
             st.info("Optimizer hasn't produced strategies yet...")
 
@@ -369,7 +398,7 @@ def create_dashboard():
                     "Wins": s.get("wins", 0),
                     "Win Rate": f"{s['wins']/s['trades']:.0%}" if s.get("trades", 0) > 0 else "N/A",
                 })
-            st.dataframe(pd.DataFrame(rows), width="stretch")
+            st.dataframe(pd.DataFrame(rows), use_container_width=True)
 
         # Price history chart
         st.subheader("📉 SOL Price History")
@@ -420,7 +449,7 @@ def create_dashboard():
                     "Avg Win Rate": f"{stats.get('avg_win_rate', 0):.0%}",
                 })
             df = pd.DataFrame(rows)
-            st.dataframe(df, width="stretch")
+            st.dataframe(df, use_container_width=True)
 
             # Bar chart of avg PnL
             chart_data = pd.DataFrame({
@@ -465,7 +494,7 @@ def create_dashboard():
                     "Price": f"${t.get('price', 0):.4f}" if t.get("price") else "N/A",
                     "Source": t.get("source", "?"),
                 })
-            st.dataframe(pd.DataFrame(rows), width="stretch")
+            st.dataframe(pd.DataFrame(rows), use_container_width=True)
         else:
             st.info("Token Scout hasn't run yet...")
 
@@ -475,163 +504,6 @@ def create_dashboard():
             st.subheader("🎯 Active Watchlist")
             for sym in scout["watchlist"]:
                 st.write(f"- {sym}")
-
-    # ======================== TAB 6: PORTFOLIO ========================
-    with tab6:
-        st.header("💰 Portfolio Analytics")
-        
-        # Load portfolio data
-        data_dir = PROJECT_ROOT / "data"
-        trades_file = data_dir / "trade_history.json"
-        portfolio_file = data_dir / "portfolio_history.json"
-        
-        def load_json_file(path):
-            if path.exists():
-                try:
-                    return json.loads(path.read_text())
-                except:
-                    return []
-            return []
-        
-        trades = load_json_file(trades_file)
-        portfolio_history = load_json_file(portfolio_file)
-        
-        # Calculate metrics
-        closed_trades = [t for t in trades if t.get("status") == "closed"]
-        open_trades = [t for t in trades if t.get("status") == "open"]
-        total_pnl = sum(t.get("pnl", 0) for t in closed_trades)
-        wins = [t for t in closed_trades if t.get("pnl", 0) > 0]
-        losses = [t for t in closed_trades if t.get("pnl", 0) <= 0]
-        win_rate = len(wins) / len(closed_trades) * 100 if closed_trades else 0
-        
-        # PnL by token
-        pnl_by_token = {}
-        for t in closed_trades:
-            token = t.get("token", "UNKNOWN")
-            pnl_by_token[token] = pnl_by_token.get(token, 0) + t.get("pnl", 0)
-        
-        # Current portfolio
-        if portfolio_history:
-            current = portfolio_history[-1]
-            initial = portfolio_history[0] if portfolio_history else {"TOTAL": 500}
-            portfolio_return = ((current.get("TOTAL", 500) - initial.get("TOTAL", 500)) / initial.get("TOTAL", 500)) * 100 if initial.get("TOTAL", 0) > 0 else 0
-        else:
-            current = {"SOL": 0, "BTC": 0, "USDT": 0, "TOTAL": 500}
-            portfolio_return = 0
-        
-        # Top metrics
-        m1, m2, m3, m4, m5 = st.columns(5)
-        m1.metric("💵 Total Portfolio", f"${current.get('TOTAL', 500):.2f}", f"{portfolio_return:.2f}%")
-        m2.metric("📈 Total PnL", f"${total_pnl:.2f}", delta_color="normal" if total_pnl > 0 else "inverse")
-        m3.metric("🎯 Win Rate", f"{win_rate:.1f}%", f"{len(wins)}W / {len(losses)}L")
-        m4.metric("📊 Total Trades", f"{len(closed_trades)}", f"{len(open_trades)} open")
-        
-        # Profit Factor (handle division by zero)
-        if losses and sum(l.get('pnl', 0) for l in losses) != 0:
-            pf = abs(sum(w.get('pnl', 0) for w in wins) / len(wins) / abs(sum(l.get('pnl', 0) for l in losses) / len(losses)))
-        elif wins:
-            pf = sum(w.get('pnl', 0) for w in wins) / 0.01  # Avoid div by zero
-        else:
-            pf = 0
-        m5.metric("⚖️ Profit Factor", f"{pf:.2f}")
-        
-        # Charts
-        col_chart, col_alloc = st.columns([2, 1])
-        
-        with col_chart:
-            if portfolio_history:
-                df = pd.DataFrame(portfolio_history[-100:])
-                df['timestamp'] = pd.to_datetime(df['timestamp'])
-                st.subheader("📈 Portfolio Growth")
-                st.line_chart(df.set_index('timestamp')['TOTAL'], height=200)
-                st.subheader("💼 Asset Distribution")
-                st.area_chart(df.set_index('timestamp')[['SOL', 'BTC', 'USDT']], height=200)
-            else:
-                st.info("Portfolio history will appear after trading begins...")
-        
-        with col_alloc:
-            st.subheader("🎯 Current Allocation")
-            total = current.get("TOTAL", 1)
-            sol_pct = current.get("SOL", 0) / total * 100 if total > 0 else 0
-            btc_pct = current.get("BTC", 0) / total * 100 if total > 0 else 0
-            usdt_pct = current.get("USDT", 0) / total * 100 if total > 0 else 0
-            st.write(f"**SOL:** ${current.get('SOL', 0):.2f} ({sol_pct:.1f}%)")
-            st.progress(sol_pct / 100)
-            st.write(f"**BTC:** ${current.get('BTC', 0):.2f} ({btc_pct:.1f}%)")
-            st.progress(btc_pct / 100)
-            st.write(f"**USDT:** ${current.get('USDT', 0):.2f} ({usdt_pct:.1f}%)")
-            st.progress(usdt_pct / 100)
-            st.markdown("---")
-            st.write("**Target:** 50% SOL / 30% BTC / 20% USDT")
-        
-        # PnL by Token
-        st.subheader("📊 PnL by Token")
-        if pnl_by_token:
-            pnl_df = pd.DataFrame([{"Token": k, "PnL": v} for k, v in pnl_by_token.items()])
-            c1, c2 = st.columns([1, 1])
-            with c1:
-                st.dataframe(pnl_df.style.format({"PnL": "${:.2f}"}).apply(
-                    lambda x: ['background-color: #1b4332' if v > 0 else '#7f1d1d' for v in x], subset=['PnL']
-                ), width="stretch")
-            with c2:
-                st.bar_chart(pnl_df.set_index("Token")["PnL"], height=150)
-        
-        # Trade History
-        st.subheader("📋 Trade History")
-        if trades:
-            df_trades = pd.DataFrame(sorted(trades, key=lambda x: x.get("timestamp", ""), reverse=True))
-            df_trades['timestamp'] = pd.to_datetime(df_trades['timestamp']).dt.strftime('%Y-%m-%d %H:%M')
-            display_df = df_trades[['timestamp', 'token', 'side', 'amount', 'price', 'pnl', 'status']].copy()
-            display_df['price'] = display_df['price'].apply(lambda x: f"${x:,.2f}" if isinstance(x, (int, float)) else x)
-            display_df['pnl'] = display_df['pnl'].apply(lambda x: f"${x:.2f}" if isinstance(x, (int, float)) else x)
-            st.dataframe(display_df, width="stretch")
-        else:
-            st.info("No trades executed yet.")
-        
-        # Operational Analysis
-        st.subheader("🔍 Operational Analysis")
-        a1, a2, a3 = st.columns(3)
-        with a1:
-            st.markdown(f"""
-            **📊 Performance**
-            - Win Rate: {win_rate:.1f}% ({'🟢' if win_rate >= 60 else '🟡' if win_rate >= 50 else '🔴'})
-            - Total Trades: {len(closed_trades)}
-            - Open Positions: {len(open_trades)}
-            """)
-        with a2:
-            st.markdown(f"""
-            **💰 Risk Management**
-            - Daily Limit: 10% ✅
-            - Max Position: 10% ✅
-            - Risk/Trade: 5% ✅
-            - Stop Loss: -8% ✅
-            """)
-        with a3:
-            st.markdown(f"""
-            **🎯 Objectives**
-            - Daily Target: +5%
-            - Monthly Target: +100%
-            - Current: {portfolio_return:.2f}%
-            - Progress: {min(portfolio_return/5*100, 100):.0f}%
-            """)
-        
-        # AI Recommendations
-        st.subheader("💡 AI Recommendations")
-        recs = []
-        if win_rate >= 60:
-            recs.append("✅ Win rate healthy")
-        elif win_rate >= 50:
-            recs.append("⚠️ Win rate acceptable")
-        else:
-            recs.append("🔴 Win rate needs improvement")
-        
-        if sol_pct > 65:
-            recs.append("⚠️ SOL overweight - consider rebalancing")
-        if len(open_trades) > 3:
-            recs.append("⚠️ Many open trades - consider closing some")
-        
-        for r in recs:
-            st.write(r)
 
     # ======================== FOOTER & AUTO-REFRESH ========================
     st.markdown("---")
