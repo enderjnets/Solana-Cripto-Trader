@@ -363,5 +363,23 @@
     "worst_trade_usd": 0,
     "new_capital": 1000.0,
     "reason": "Manual reset"
+  },
+  {
+    "reset_date": "2026-04-05T15:35:29.641049+00:00",
+    "period_start": "unknown",
+    "period_end": "2026-04-05T15:35:29.641049+00:00",
+    "initial_capital": 1000.0,
+    "final_capital": 999.849891307864,
+    "return_pct": -0.02,
+    "total_pnl_usd": 0,
+    "total_trades": 0,
+    "wins": 0,
+    "losses": 0,
+    "flat": 0,
+    "win_rate": 0,
+    "best_trade_usd": 0,
+    "worst_trade_usd": 0,
+    "new_capital": 1000.0,
+    "reason": "Manual reset"
   }
 ]

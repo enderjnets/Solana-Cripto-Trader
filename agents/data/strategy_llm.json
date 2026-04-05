@@ -1,63 +1,64 @@
 {
   "signals": [
     {
-      "symbol": "GOAT",
+      "symbol": "RAY",
       "direction": "short",
-      "entry_price": 0.016001,
-      "sl_price": 0.016481,
-      "tp_price": 0.015201,
-      "exit_mode": "fixed",
-      "trailing_pct": 0.0,
-      "size_usd": 10.0,
-      "confidence": 0.92,
-      "strategy": "breakout",
-      "reasoning": "RSI 100 (sobrecompra extrema) + cambio -4.15% + volatilidad 4.15%. En mercado de p\u00e1nico, tokens sobrecomprados tienen alta probabilidad de correcci\u00f3n masiva.",
-      "factors": [
-        "RSI extremo > 80",
-        "Ca\u00edda fuerte > 3%",
-        "Alta volatilidad 4.15%",
-        "Sentimiento extremo miedo"
-      ]
-    },
-    {
-      "symbol": "PENGU",
-      "direction": "short",
-      "entry_price": 0.006102,
-      "sl_price": 0.006285,
-      "tp_price": 0.005797,
-      "exit_mode": "fixed",
-      "trailing_pct": 0.0,
+      "entry_price": 0.604106,
+      "sl_price": 0.62223,
+      "tp_price": 0.573901,
+      "exit_mode": "trailing",
+      "trailing_pct": 0.025,
       "size_usd": 10.0,
       "confidence": 0.88,
       "strategy": "momentum",
-      "reasoning": "RSI 80.7 (sobrecompra) + cambio -2.48% + volatilidad 2.48%. El momentum bajista es claro en token con sobrecompra.",
+      "reasoning": "Extreme Fear + caida 3.53% + volatilidad alta 3.53% + RSI 40 no sobrevendido. El p\u00e1nico tiende a continuar.",
       "factors": [
-        "RSI sobrecompra 80.7",
-        "Cambio negativo -2.48%",
-        "Volatilidad alta 2.48%",
-        "Momentum bajista"
+        "Extreme Fear F&G 12",
+        "caida 3.53%",
+        "volatilidad 3.53%",
+        "RSI 40 neutral"
       ]
     },
     {
-      "symbol": "BONK",
+      "symbol": "JUP",
       "direction": "short",
-      "entry_price": 5e-06,
-      "sl_price": 5e-06,
-      "tp_price": 5e-06,
+      "entry_price": 0.15942,
+      "sl_price": 0.164203,
+      "tp_price": 0.151449,
       "exit_mode": "fixed",
       "trailing_pct": 0.0,
       "size_usd": 10.0,
+      "confidence": 0.82,
+      "strategy": "breakout",
+      "reasoning": "Extreme Fear + RSI 58.9 sobrecompra moderada + caida 2.03%. Momentum bearish claro.",
+      "factors": [
+        "Extreme Fear F&G 12",
+        "RSI 58.9",
+        "caida 2.03%",
+        "volatilidad 2.03%"
+      ]
+    },
+    {
+      "symbol": "FARTCOIN",
+      "direction": "short",
+      "entry_price": 0.164616,
+      "sl_price": 0.169555,
+      "tp_price": 0.156385,
+      "exit_mode": "trailing",
+      "trailing_pct": 0.02,
+      "size_usd": 10.0,
       "confidence": 0.8,
       "strategy": "momentum",
-      "reasoning": "Cambio -3.52% + volatilidad 3.52%. Ca\u00edda fuerte con volatilidad alta indica momentum bajista activo.",
+      "reasoning": "Extreme Fear + ca\u00edda diaria 0.66% + volatilidad baja sugiere continuaci\u00f3n lateral. Opportunity short por sentimiento.",
       "factors": [
-        "Ca\u00edda significativa -3.52%",
-        "Volatilidad alta 3.52%",
-        "Momentum fuertemente bajista"
+        "Extreme Fear F&G 12",
+        "volatilidad baja 0.66%",
+        "tendencia negativa",
+        "RSI 44 neutral"
       ]
     }
   ],
-  "generated_at": "2026-04-05T15:05:23.846589+00:00",
+  "generated_at": "2026-04-05T16:19:09.683957+00:00",
   "fear_greed": 12,
   "source": "ai_strategy_extreme"
 }

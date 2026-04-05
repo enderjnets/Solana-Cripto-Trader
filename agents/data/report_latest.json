@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-04-05T15:04:50.379073+00:00",
+  "timestamp": "2026-04-05T16:19:31.415206+00:00",
   "results": {
     "market_data": {
       "ok": true,
@@ -10,7 +10,7 @@
     },
     "strategy": {
       "ok": true,
-      "signals": 6
+      "signals": 0
     },
     "position_updater": {
       "ok": true
@@ -28,14 +28,16 @@
     },
     "position_decisions": {
       "ok": true,
-      "evaluated": 0
+      "evaluated": 3,
+      "close_signals": 0,
+      "reduce_signals": 0
     },
     "auto_learner": {
       "ok": true,
       "skipped": true
     },
     "reporter": {
-      "ok": false
+      "ok": true
     }
   },
   "health_score": 10

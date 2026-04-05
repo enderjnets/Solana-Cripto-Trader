@@ -1,8 +1,8 @@
 {
-  "timestamp": "2026-04-05T15:03:37.067270+00:00",
+  "timestamp": "2026-04-05T16:19:31.414043+00:00",
   "decisions": [
     {
-      "symbol": "MOODENG",
+      "symbol": "GOAT",
       "direction": "short",
       "action": "CLOSE",
       "confidence": 0.68,
@@ -10,20 +10,68 @@
       "quant_score": -5,
       "quant_action": "HOLD",
       "quant_reasons": [
-        "RR_BUENO (2.50x)",
+        "RR_BUENO (3.13x)",
         "PANICO_EXTREMO (F&G=12)"
       ],
       "llm_action": "CLOSE",
       "llm_confidence": 0.85,
-      "llm_reasoning": "Contradicci\u00f3n cr\u00edtica: posici\u00f3n SHORT en tendencia BULLISH (70%) con Fear&Greed en miedo extremo (12) - entorno hist\u00f3ricamente favorable para LONG. Con apenas 0h abierta, mejor cerrar antes de que se vuelva peso muerto.",
+      "llm_reasoning": "Posici\u00f3n SHORT perdedora (-2.88%) mientras las otras posiciones (BONK y BTC) van en ganancia. Es peso muerto con tendencia bullish en curso y Fear&Greed en p\u00e1nico extremo (12).",
       "llm_source": "llm_claude_sonnet",
-      "pnl_usd": 0.0,
-      "pnl_pct": 0.0,
-      "dist_tp_pct": 7.495,
-      "dist_sl_pct": 2.998,
-      "rr_remaining": 2.5,
+      "pnl_usd": -0.4855,
+      "pnl_pct": -2.876,
+      "dist_tp_pct": 9.893,
+      "dist_sl_pct": 3.157,
+      "rr_remaining": 3.134,
       "hours_open": 0,
-      "evaluated_at": "2026-04-05T15:03:37.067181+00:00"
+      "evaluated_at": "2026-04-05T16:19:13.893793+00:00"
+    },
+    {
+      "symbol": "BONK",
+      "direction": "short",
+      "action": "HOLD",
+      "confidence": 1.0,
+      "alignment": "ALIGNED",
+      "quant_score": -5,
+      "quant_action": "HOLD",
+      "quant_reasons": [
+        "RR_BUENO (2.46x)",
+        "PANICO_EXTREMO (F&G=12)"
+      ],
+      "llm_action": "HOLD",
+      "llm_confidence": 0.85,
+      "llm_reasoning": "Posici\u00f3n ganando +0.91% con R/R 2.46x favorable. Fear & Greed en 12 (p\u00e1nico extremo) favorece SHORT. Score negativo -5 indica se\u00f1al de mantener. La posici\u00f3n es rentable y tiene runway.",
+      "llm_source": "llm_claude_sonnet",
+      "pnl_usd": 0.0786,
+      "pnl_pct": 0.9089,
+      "dist_tp_pct": 28.233,
+      "dist_sl_pct": 11.475,
+      "rr_remaining": 2.46,
+      "hours_open": 0,
+      "evaluated_at": "2026-04-05T16:19:20.346892+00:00"
+    },
+    {
+      "symbol": "BTC",
+      "direction": "short",
+      "action": "HOLD",
+      "confidence": 1.0,
+      "alignment": "ALIGNED",
+      "quant_score": 20,
+      "quant_action": "HOLD",
+      "quant_reasons": [
+        "TP_MODERADO (4.82%)",
+        "PANICO_EXTREMO (F&G=12)"
+      ],
+      "llm_action": "HOLD",
+      "llm_confidence": 0.85,
+      "llm_reasoning": "Posici\u00f3n ganadora con R/R favorable de 1.84x en mercado SHORT. F&G en extremo miedo (12) podr\u00eda se\u00f1alar reversi\u00f3n pero la tendencia sigue siendo BTC neutral. Portafolio mixto con GOAT perdedora, pero esta posici\u00f3n no es peso muerto.",
+      "llm_source": "llm_claude_sonnet",
+      "pnl_usd": 0.3115,
+      "pnl_pct": 0.9561,
+      "dist_tp_pct": 4.818,
+      "dist_sl_pct": 2.622,
+      "rr_remaining": 1.837,
+      "hours_open": 0,
+      "evaluated_at": "2026-04-05T16:19:31.413952+00:00"
     }
   ]
 }

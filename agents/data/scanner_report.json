@@ -1,22 +1,22 @@
 {
-  "timestamp": "2026-04-05T15:05:05.941523+00:00",
-  "opportunities_found": 3,
+  "timestamp": "2026-04-05T16:08:24.404895+00:00",
+  "opportunities_found": 4,
   "top_opportunities": [
     {
       "symbol": "TRUMP",
       "name": "OFFICIAL TRUMP",
       "address": "6p6xgHyF7AeE6TZkSmFsko444wqoP15icUSqi2jfGiPN",
-      "price": 2.82,
-      "price_change_24h": -1.26,
-      "volume_24h": 1260695.11,
-      "liquidity": 1107250.32,
-      "market_cap": 2828416211.0,
+      "price": 2.83,
+      "price_change_24h": -0.72,
+      "volume_24h": 1238799.66,
+      "liquidity": 1111975.48,
+      "market_cap": 2839577476.0,
       "verified": false,
       "opportunity_score": 0.6,
       "reasons": [
         "Liquidez $1.11M \u2705",
-        "Volumen muy alto $1.26M \u2705\u2705",
-        "MC $2828.4M \u2014 establecido \u2705",
+        "Volumen muy alto $1.24M \u2705\u2705",
+        "MC $2839.6M \u2014 establecido \u2705",
         "Actividad normal (vol/liq=1.1x) \u2705"
       ]
     },
@@ -24,18 +24,36 @@
       "symbol": "CAT",
       "name": "Cat Terminal",
       "address": "4HBQm2EhdpUWZkTYxttxNDnsoWi5beRAGWHpjVo8pump",
-      "price": 0.00139,
-      "price_change_24h": -10.48,
-      "volume_24h": 21988.69,
-      "liquidity": 130631.44,
-      "market_cap": 1390039.0,
+      "price": 0.001388,
+      "price_change_24h": -9.87,
+      "volume_24h": 20284.85,
+      "liquidity": 130899.46,
+      "market_cap": 1388199.0,
       "verified": false,
       "opportunity_score": 0.48,
       "reasons": [
         "Liquidez $0.13M \u2705",
-        "Volumen bajo $22K \u26a0\ufe0f",
-        "Movimiento fuerte -10.5% \u2705",
+        "Volumen bajo $20K \u26a0\ufe0f",
+        "Movimiento fuerte -9.9% \u2705",
         "MC $1.4M \u2705"
+      ]
+    },
+    {
+      "symbol": "AI",
+      "name": "GENSYN Gamefi BRIDge",
+      "address": "8DbnhRdDaoqPhF7wssPeEgQf3edZuxyqDxRrz8D3wLVn",
+      "price": 7.598e-05,
+      "price_change_24h": 175.0,
+      "volume_24h": 23462.61,
+      "liquidity": 60358.0,
+      "market_cap": 75981.0,
+      "verified": false,
+      "opportunity_score": 0.43,
+      "reasons": [
+        "Liquidez $0.06M \u26a0\ufe0f",
+        "Volumen bajo $23K \u26a0\ufe0f",
+        "\ud83d\udcc8 PUMP +175.0% \u2705\u2705",
+        "MC bajo $76K \u26a0\ufe0f"
       ]
     },
     {
@@ -43,16 +61,16 @@
       "name": "Pump",
       "address": "pumpCmXqMfrsAkQ5r49WcJnRayYRqmXz6ae8H7H9Dfn",
       "price": 0.001649,
-      "price_change_24h": -0.55,
-      "volume_24h": 354816.12,
-      "liquidity": 13026560.74,
-      "market_cap": 1649840853.0,
+      "price_change_24h": -1.28,
+      "volume_24h": 385918.14,
+      "liquidity": 13024459.24,
+      "market_cap": 1649259110.0,
       "verified": false,
       "opportunity_score": 0.42,
       "reasons": [
-        "Liquidez $13.03M \u2705",
-        "Volumen $0.35M \u2705",
-        "MC $1649.8M \u2014 establecido \u2705"
+        "Liquidez $13.02M \u2705",
+        "Volumen $0.39M \u2705",
+        "MC $1649.3M \u2014 establecido \u2705"
       ]
     }
   ],
