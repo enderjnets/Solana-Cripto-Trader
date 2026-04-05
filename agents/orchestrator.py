@@ -423,7 +423,7 @@ def run_cycle(safe=True, debug=False):
             # OPTIMIZADO 2026-03-24: umbral 0.70→0.80 — reducir false CLOSE signals
             # La tasa de cierre por POSITION_DECISION tenía WR=100% (solo 2 casos)
             # pero la causa raíz del EC excesivo era confidence demasiado bajo
-            close_recs  = [d for d in decisions if d["action"] == "CLOSE"  and d["confidence"] >= 0.80
+            close_recs  = [d for d in decisions if d["action"] == "CLOSE"  and d["confidence"] >= 0.60
                            and d["symbol"] not in just_opened_symbols]
             reduce_recs = [d for d in decisions if d["action"] == "REDUCE" and d["confidence"] >= 0.70]
 
