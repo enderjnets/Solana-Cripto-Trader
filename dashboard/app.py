@@ -1,3 +1,5 @@
+import logging
+log = logging.getLogger("dashboard")
 #!/usr/bin/env python3
 """
 Solana Cripto Trader - Professional Trading Dashboard
@@ -25,7 +27,13 @@ def load_json(path):
     try:
         with open(path) as f:
             return json.load(f)
-    except Exception:
+    except FileNotFoundError:
+        return {}
+    except json.JSONDecodeError as e:
+        log.error(f'JSON decode error in {path}: {e}')
+        return {}
+    except Exception as e:
+        log.error(f'Error reading {path}: {e}')
         return {}
 
 def load_portfolio():

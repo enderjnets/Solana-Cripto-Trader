@@ -34,6 +34,27 @@ logging.basicConfig(
 )
 log = logging.getLogger("market_data")
 
+# FIX 3.2: Rate limiting para APIs
+import threading as _threading
+
+class _RateLimiter:
+    def __init__(self, calls_per_minute=30):
+        self.min_interval = 60.0 / calls_per_minute
+        self.last_call = 0
+        self._lock = _threading.Lock()
+    def wait(self):
+        import time as _t
+        with self._lock:
+            now = _t.time()
+            elapsed = now - self.last_call
+            if elapsed < self.min_interval:
+                _t.sleep(self.min_interval - elapsed)
+            self.last_call = _t.time()
+
+_jupiter_limiter = _RateLimiter(calls_per_minute=30)
+_coingecko_limiter = _RateLimiter(calls_per_minute=10)
+
+
 # Tokens a monitorear — mint addresses en Solana
 TOKEN_MINTS = {
     "SOL":      "So11111111111111111111111111111111111111112",
@@ -81,6 +102,7 @@ def fetch_jupiter_prices(mints: dict) -> dict:
 def fetch_coingecko_fear_greed() -> dict:
     """Obtiene Fear & Greed Index de CoinGecko/alternative.me (gratis)."""
     try:
+        _coingecko_limiter.wait()  # FIX 3.2
         resp = requests.get(COINGECKO_FEAR_GREED, timeout=REQUEST_TIMEOUT)
         resp.raise_for_status()
         data = resp.json()
@@ -245,6 +267,7 @@ def fetch_coingecko_24h() -> dict:
     ids_str = ",".join(CG_IDS.values())
     try:
         url = "https://api.coingecko.com/api/v3/coins/markets"
+        _coingecko_limiter.wait()  # FIX 3.2
         resp = requests.get(url, params={
             "vs_currency": "usd",
             "ids": ids_str,
@@ -284,6 +307,7 @@ def fetch_hourly_trends() -> dict:
     for symbol, cg_id in HOURLY_TOKENS.items():
         try:
             url = f"https://api.coingecko.com/api/v3/coins/{cg_id}/market_chart"
+            _coingecko_limiter.wait()  # FIX 3.2
             resp = requests.get(url, params={"vs_currency": "usd", "days": "1"}, timeout=10)
             resp.raise_for_status()
             data = resp.json()

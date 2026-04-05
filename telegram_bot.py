@@ -229,7 +229,7 @@ async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 🏆 **Best Strategy**
 • PnL: `{best.get('pnl', 0)*100:+.2f}%`
 • Win Rate: `{best.get('win_rate', 0)*100:.1f}%`
-• Generations: {best.get('generations', 'N/A'}
+• Generations: {best.get('generations', 'N/A')}
 
 🕐 Updated: {datetime.now().strftime('%H:%M:%S')}
 """

@@ -175,8 +175,27 @@ MAX_TRADES_PER_DAY  = 0        # 0 = sin límite
 MAX_RISK_USD        = 3.00     # Máximo $3 de riesgo por POSICIÓN individual (ajustado 2026-03-31 para mercado lento)
 
 # ─── Portfolio Take Profit (31-Mar-2026) — orden de Ender ─────────────────
-PORTFOLIO_TP_USD     = 2.00     # Cerrar todo si el P&L combinado llega a $2
-PORTFOLIO_MIN_USD    = 1.00     # Si está en $1+ pero AI duda, cerrar y asegurar $1
+# FIX 1.4+1.5: Portfolio TP y MIN dinamicos basados en capital
+_PORTFOLIO_TP_USD     = 2.00     # Fallback estatico
+_PORTFOLIO_MIN_USD    = 1.00     # Fallback estatico
+
+def get_portfolio_tp(portfolio: dict = None) -> float:
+    """Dynamic portfolio TP: 1% del capital, min $5, max $50."""
+    if portfolio is None:
+        return _PORTFOLIO_TP_USD
+    capital = portfolio.get("capital_usd", 1000)
+    return max(5.0, min(capital * 0.01, 50.0))
+
+def get_portfolio_min(portfolio: dict = None) -> float:
+    """Dynamic portfolio MIN: 0.5% del capital, min $3, max $25."""
+    if portfolio is None:
+        return _PORTFOLIO_MIN_USD
+    capital = portfolio.get("capital_usd", 1000)
+    return max(3.0, min(capital * 0.005, 25.0))
+
+# Backward-compatible aliases
+PORTFOLIO_TP_USD = _PORTFOLIO_TP_USD
+PORTFOLIO_MIN_USD = _PORTFOLIO_MIN_USD
 
 # ─── Coordinated Portfolio Sizing (31-Mar-2026 v2) — orden de Ender ───────
 # El sizing se calcula a nivel de PORTAFOLIO, no por posición aislada.
@@ -193,6 +212,21 @@ DEFAULT_LEVERAGE    = 5        # 5x leverage por defecto (subido de 3x — orden
 MAX_LEVERAGE        = 10       # Máximo 10x
 MAINTENANCE_MARGIN  = 0.05     # 5% margen de mantenimiento
 FUNDING_RATE        = 0.0001   # 0.01% por hora (funding rate simulado)
+
+# FIX 2.4: Modelo de slippage por tier de liquidez
+SLIPPAGE_TIERS = {
+    "BTC": 0.001, "ETH": 0.001, "SOL": 0.001,   # 0.1% high liquidity
+    "JUP": 0.002, "RAY": 0.002,                   # 0.2% medium liquidity
+}
+SLIPPAGE_MEME = 0.005   # 0.5% for meme tokens
+SLIPPAGE_DEFAULT = 0.003  # 0.3% default
+MEME_TOKENS = {"BONK", "FARTCOIN", "MOODENG", "GOAT", "WIF", "POPCAT", "PENGU", "TRUMP", "MELANIA"}
+
+def get_slippage(symbol: str) -> float:
+    """Returns estimated slippage for a token."""
+    if symbol in MEME_TOKENS:
+        return SLIPPAGE_MEME
+    return SLIPPAGE_TIERS.get(symbol, SLIPPAGE_DEFAULT)
 
 # ─── Carga / Guardado de Estado ──────────────────────────────────────────────
 
@@ -288,7 +322,21 @@ def load_market() -> dict:
     if not MARKET_FILE.exists():
         return {"tokens": {}}
     with open(MARKET_FILE) as f:
-        return json.load(f)
+        data = json.load(f)
+    # FIX 3.3: Staleness detection
+    ts = data.get("timestamp", "")
+    if ts:
+        try:
+            from datetime import datetime, timezone
+            age = (datetime.now(timezone.utc) - datetime.fromisoformat(ts.replace("Z", "+00:00"))).total_seconds()
+            if age > 600:
+                log.warning(f"\u26a0\ufe0f Market data is {age:.0f}s old - REFUSING stale data")
+                data["_stale"] = True
+            elif age > 300:
+                log.warning(f"\u26a0\ufe0f Market data is {age:.0f}s old")
+        except Exception:
+            pass
+    return data
 
 
 def get_current_price(symbol: str, market: dict) -> float:
@@ -333,7 +381,10 @@ def close_positions_emergency(portfolio: dict, symbols: list, market: dict, hist
             pnl_pct = (pos["current_price"] - pos["entry_price"]) / pos["entry_price"]
             if pos["direction"] == "short":
                 pnl_pct = -pnl_pct
-            pnl_usd = notional * pnl_pct + pos.get("funding_accumulated", 0)
+            # FIX 1.2: Incluir exit fee en emergency close
+            fee_exit = notional * TAKER_FEE
+            pnl_usd = notional * pnl_pct + pos.get("funding_accumulated", 0) - fee_exit
+            pos["fee_exit"] = round(fee_exit, 4)
 
             pos["pnl_pct"] = round(pnl_pct * 100, 4)
             pos["pnl_usd"] = round(pnl_usd, 4)
@@ -546,7 +597,7 @@ def paper_open_position(signal: dict, portfolio: dict, market: dict) -> Optional
         return None
 
     # Fees sobre el notional
-    fee_entry = notional_value * TAKER_FEE
+    fee_entry = notional_value * (TAKER_FEE + get_slippage(symbol))  # FIX 2.4: includes slippage
     tokens = (notional_value - fee_entry) / price
 
     # Margen de mantenimiento
@@ -734,7 +785,21 @@ def paper_update_positions(portfolio: dict, market: dict, history: list) -> list
         exit_mode = pos.get("exit_mode", "fixed")
         trailing_pct = pos.get("trailing_pct", 0.0)
 
+        # FIX 2.3: ATR-based dynamic trailing distance
         if exit_mode == "trailing" and trailing_pct > 0:
+            try:
+                import json as _json
+                sig_path = DATA_DIR / "signals_latest.json"
+                if sig_path.exists():
+                    _sig = _json.loads(sig_path.read_text())
+                    _atr = _sig.get("indicator_summary", {}).get(symbol, {}).get("atr_pct")
+                    if _atr and _atr > 0:
+                        dynamic_trail = (_atr / 100.0) * 1.5  # 1.5x ATR
+                        dynamic_trail = max(0.01, min(dynamic_trail, 0.08))  # Clamp 1%-8%
+                        pos["trailing_pct"] = dynamic_trail
+                        trailing_pct = dynamic_trail
+            except Exception:
+                pass
             if pos["direction"] == "long":
                 # Update peak if price made new high
                 if current_price > pos.get("peak_price", pos["entry_price"]):
@@ -747,6 +812,38 @@ def paper_update_positions(portfolio: dict, market: dict, history: list) -> list
                     pos["peak_price"] = round(current_price, 8)
                 pos["trailing_sl"] = round(pos["peak_price"] * (1 + trailing_pct), 8)
 
+        # ─── FIX 2.2: Partial Profit Taking (50% at halfway to TP) ────────
+        partial_taken = pos.get("partial_taken", False)
+        if not partial_taken and exit_mode == "trailing" and notional > 0 and margin > 0:
+            tp_price = pos.get("tp_price", 0)
+            entry = pos["entry_price"]
+            if tp_price > 0 and entry > 0:
+                if pos["direction"] == "long":
+                    halfway = entry + (tp_price - entry) * 0.5
+                    reached_half = current_price >= halfway
+                else:
+                    halfway = entry - (entry - tp_price) * 0.5
+                    reached_half = current_price <= halfway
+                if reached_half:
+                    reduce_frac = 0.5
+                    reduced_notional = notional * reduce_frac
+                    reduced_margin = margin * reduce_frac
+                    fee_partial = reduced_notional * TAKER_FEE
+                    partial_pnl = pnl_usd * reduce_frac - fee_partial
+                    returned = max(0, reduced_margin + partial_pnl)
+                    portfolio["capital_usd"] = round(portfolio["capital_usd"] + returned, 2)
+                    pos["notional_value"] = round(notional - reduced_notional, 2)
+                    pos["margin_usd"] = round(margin - reduced_margin, 2)
+                    pos["size_usd"] = pos["notional_value"]
+                    if pos.get("tokens", 0) > 0:
+                        pos["tokens"] = round(pos["tokens"] * (1 - reduce_frac), 8)
+                    pos["sl_price"] = pos["entry_price"]  # Move SL to breakeven
+                    pos["partial_taken"] = True
+                    # Update local vars for remaining checks
+                    notional = pos["notional_value"]
+                    margin = pos["margin_usd"]
+                    log.info(f"  \u2702\ufe0f PARTIAL TAKE: {symbol} 50% at halfway to TP, SL->breakeven, returned ${returned:.2f}")
+
         # ─── Verificar SL/TP ─────────────────────────────────────────────
         hit_sl = False
         hit_tp = False
@@ -754,13 +851,14 @@ def paper_update_positions(portfolio: dict, market: dict, history: list) -> list
 
         if pos["direction"] == "long":
             hit_sl = current_price <= pos["sl_price"]
-            hit_tp = current_price >= pos["tp_price"]
+            # FIX 1.1: En modo trailing, NO evaluar hard TP — dejar que trailing capture mas profit
+            hit_tp = (current_price >= pos["tp_price"]) if exit_mode != "trailing" else False
             # Trailing SL only activates after price has moved past entry (in profit)
             if exit_mode == "trailing" and pos.get("trailing_sl", 0) > pos["entry_price"]:
                 hit_trailing = current_price <= pos["trailing_sl"]
         else:
             hit_sl = current_price >= pos["sl_price"]
-            hit_tp = current_price <= pos["tp_price"]
+            hit_tp = (current_price <= pos["tp_price"]) if exit_mode != "trailing" else False
             if exit_mode == "trailing" and pos.get("trailing_sl", 0) < pos["entry_price"]:
                 hit_trailing = current_price >= pos["trailing_sl"]
 
@@ -777,7 +875,7 @@ def paper_update_positions(portfolio: dict, market: dict, history: list) -> list
             pos["close_price"] = current_price
 
             # Fee de salida sobre el notional
-            fee_exit = notional * TAKER_FEE
+            fee_exit = notional * (TAKER_FEE + get_slippage(symbol))  # FIX 2.4: includes slippage
             pos["fee_exit"] = round(fee_exit, 4)
 
             # Devolver margen + P&L - fees
@@ -786,7 +884,9 @@ def paper_update_positions(portfolio: dict, market: dict, history: list) -> list
             portfolio["capital_usd"] = round(portfolio["capital_usd"] + returned, 2)
 
             # Estadísticas
-            net_pnl = pnl_usd - fee_exit
+            # FIX 1.3: Incluir entry fee en PnL registrado
+            fee_entry = pos.get("fee_entry", 0)
+            net_pnl = pnl_usd - fee_exit - fee_entry
             is_win = net_pnl > 0
             portfolio["total_trades"] = portfolio.get("total_trades", 0) + 1
             if is_win:
@@ -1087,7 +1187,11 @@ def run(safe: bool = True, debug: bool = False) -> dict:
         if avoid_file.exists():
             try:
                 al_data = json.loads(avoid_file.read_text())
-                avoid_tokens = set(al_data.get("params", {}).get("tokens_to_avoid", []))
+                # FIX 1.6: Leer tokens_to_avoid de ambos niveles del JSON
+                avoid_tokens = set(
+                    al_data.get("params", {}).get("tokens_to_avoid", []) or
+                    al_data.get("tokens_to_avoid", [])
+                )
                 prefer_tokens = al_data.get("params", {}).get("tokens_to_prefer", [])
                 if avoid_tokens:
                     before = len(valid_signals)

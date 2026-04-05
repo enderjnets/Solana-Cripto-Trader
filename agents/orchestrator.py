@@ -1,3 +1,4 @@
+import os
 #!/usr/bin/env python3
 """
 🎯 Solana Trading Bot - Orchestrator Modular
@@ -446,6 +447,37 @@ def run_cycle(safe=True, debug=False):
                     log.warning(f"   ⚠️ Error cerrando posiciones: {e}")
             if reduce_recs:
                 log.info(f"   🟡 REDUCIR ({len(reduce_recs)}): {', '.join(d['symbol'] for d in reduce_recs)}")
+                # FIX 1.7: Ejecutar REDUCE — cerrar 50% de la posicion y mover SL a breakeven
+                try:
+                    for rec in reduce_recs:
+                        symbol = rec["symbol"]
+                        for pos in portfolio_data.get("positions", []):
+                            if pos.get("symbol") == symbol and pos.get("status") == "open":
+                                original_notional = pos.get("notional_value", 0)
+                                original_margin = pos.get("margin_usd", 0)
+                                if original_notional <= 0 or original_margin <= 0:
+                                    continue
+                                # Reducir 50%
+                                reduce_frac = 0.5
+                                reduced_notional = original_notional * reduce_frac
+                                reduced_margin = original_margin * reduce_frac
+                                fee_exit = reduced_notional * ex.TAKER_FEE
+                                partial_pnl = pos.get("pnl_usd", 0) * reduce_frac - fee_exit
+                                returned = max(0, reduced_margin + partial_pnl)
+                                portfolio_data["capital_usd"] = round(portfolio_data["capital_usd"] + returned, 2)
+                                # Actualizar posicion restante
+                                pos["notional_value"] = round(original_notional - reduced_notional, 2)
+                                pos["margin_usd"] = round(original_margin - reduced_margin, 2)
+                                pos["size_usd"] = pos["notional_value"]
+                                if pos.get("tokens", 0) > 0:
+                                    pos["tokens"] = round(pos["tokens"] * (1 - reduce_frac), 8)
+                                # Mover SL a breakeven
+                                pos["sl_price"] = pos["entry_price"]
+                                pos["partial_taken"] = True
+                                log.info(f"   ✂️ REDUCED {symbol} 50%: returned ${returned:.2f}, SL->breakeven")
+                    ex.save_portfolio(portfolio_data)
+                except Exception as e:
+                    log.warning(f"   ⚠️ Error ejecutando REDUCE: {e}")
             if not close_recs and not reduce_recs:
                 log.info(f"   🟢 MANTENER todas las posiciones")
 
@@ -474,8 +506,10 @@ def run_cycle(safe=True, debug=False):
                 total_pnl = sum(p.get("pnl_usd", 0) for p in open_positions)
                 symbols = [p["symbol"] for p in open_positions]
 
-                if total_pnl >= ex.PORTFOLIO_TP_USD:
-                    log.info(f"   🎯 PORTFOLIO TP HIT: P&L ${total_pnl:.2f} >= ${ex.PORTFOLIO_TP_USD}")
+                portfolio_tp = ex.get_portfolio_tp(portfolio_data)
+                portfolio_min = ex.get_portfolio_min(portfolio_data)
+                if total_pnl >= portfolio_tp:
+                    log.info(f"   🎯 PORTFOLIO TP HIT: P&L ${total_pnl:.2f} >= ${portfolio_tp:.2f}")
                     log.info(f"   → Cerrando todas las posiciones para asegurar ganancias")
                     try:
                         market_data = json.loads((DATA_DIR / "market_latest.json").read_text()) if (DATA_DIR / "market_latest.json").exists() else {}
@@ -490,7 +524,7 @@ def run_cycle(safe=True, debug=False):
                     except Exception as e:
                         log.warning(f"   ⚠️ Error en Portfolio TP: {e}")
 
-                elif total_pnl >= ex.PORTFOLIO_MIN_USD:
+                elif total_pnl >= portfolio_min:
                     # AI evalúa si las posiciones tienen chance de llegar a $2
                     # Usamos la misma lógica de _quant_score para decidir
                     try:
@@ -514,8 +548,8 @@ def run_cycle(safe=True, debug=False):
                         will_reach = reachable_count >= len(open_positions) // 2 + 1  # mayoría dice "cerrar"
 
                         if not will_reach and avg_score >= 0:
-                            log.info(f"   🎯 PORTFOLIO MIN: P&L ${total_pnl:.2f} >= ${ex.PORTFOLIO_MIN_USD} pero AI duda que llegue a ${ex.PORTFOLIO_TP_USD}")
-                            log.info(f"   → AI score promedio: {avg_score:.0f} → Cerrando para asegurar ${total_pnl:.2f}")
+                            log.info(f"   🎯 PORTFOLIO MIN: P&L ${total_pnl:.2f} >= ${portfolio_min:.2f} pero AI duda que llegue a ${portfolio_tp:.2f}")
+                            log.info(f"   → AI score: {avg_score:.0f} → Cerrando para asegurar ${total_pnl:.2f}")
                             try:
                                 market_data = json.loads((DATA_DIR / "market_latest.json").read_text()) if (DATA_DIR / "market_latest.json").exists() else {}
                                 history = _load_trade_history()
@@ -529,7 +563,7 @@ def run_cycle(safe=True, debug=False):
                             except Exception as e:
                                 log.warning(f"   ⚠️ Error en Portfolio Min: {e}")
                         else:
-                            log.info(f"   💪 PORTFOLIO: P&L ${total_pnl:.2f} >= ${ex.PORTFOLIO_MIN_USD}, AI ve potencial para llegar a ${ex.PORTFOLIO_TP_USD} → Dejando correr")
+                            log.info(f"   💪 PORTFOLIO: P&L ${total_pnl:.2f} >= ${portfolio_min:.2f}, AI ve potencial para llegar a ${portfolio_tp:.2f} → Dejando correr")
                     except ImportError:
                         log.warning(f"   ⚠️  No se pudo importar _quant_score para Portfolio Min")
                     except Exception as e:
@@ -641,6 +675,25 @@ def run_token_scanner():
         return {}
 
 
+# FIX 3.4: PID lock to prevent dual instances
+LOCK_FILE = DATA_DIR / "orchestrator.lock"
+
+def _acquire_lock():
+    """Acquire PID lock. Exit if another instance is running."""
+    if LOCK_FILE.exists():
+        try:
+            old_pid = int(LOCK_FILE.read_text().strip())
+            os.kill(old_pid, 0)  # Check if process alive
+            log.error(f"Another orchestrator is running (PID {old_pid}). Exiting.")
+            sys.exit(1)
+        except (ProcessLookupError, ValueError, PermissionError):
+            pass  # Stale lock
+    LOCK_FILE.write_text(str(os.getpid()))
+    import atexit
+    atexit.register(lambda: LOCK_FILE.unlink(missing_ok=True))
+    log.info(f"PID lock acquired: {os.getpid()}")
+
+
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser()
@@ -671,7 +724,18 @@ if __name__ == "__main__":
                     run_token_scanner()
                 
                 run_cycle(debug=args.debug)
-                time.sleep(interval)
+                # FIX 2.1: Polling rapido (15s) con posiciones abiertas, normal (60s) sin
+                try:
+                    pf_path = DATA_DIR / "portfolio.json"
+                    has_open = False
+                    if pf_path.exists():
+                        import json as _json
+                        _pf = _json.loads(pf_path.read_text())
+                        has_open = any(p.get("status") == "open" for p in _pf.get("positions", []))
+                    actual_interval = 15 if has_open else interval
+                    time.sleep(actual_interval)
+                except Exception:
+                    time.sleep(interval)
             except KeyboardInterrupt:
                 log.info("🛑 Detenido por usuario")
                 break
