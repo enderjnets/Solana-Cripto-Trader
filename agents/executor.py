@@ -300,8 +300,26 @@ def load_signals() -> dict:
                             if s.get("direction", "none") not in ("none", "")
                         ]
                         if valid_llm_signals:
-                            log.info(f"🤖 Usando señales AI Strategy ({len(valid_llm_signals)} señales, {age_sec:.0f}s de antigüedad)")
-                            return {"signals": valid_llm_signals, "source": "ai_strategy"}
+                            # FIX 1.6b: Filtrar tokens_to_avoid TAMBIEN en senales LLM
+                            try:
+                                _al_path = DATA_DIR / "auto_learner_state.json"
+                                if _al_path.exists():
+                                    _al = json.loads(_al_path.read_text())
+                                    _avoid = set(
+                                        _al.get("params", {}).get("tokens_to_avoid", []) or
+                                        _al.get("tokens_to_avoid", [])
+                                    )
+                                    if _avoid:
+                                        _before = len(valid_llm_signals)
+                                        valid_llm_signals = [s for s in valid_llm_signals if s.get("symbol") not in _avoid]
+                                        _skipped = _before - len(valid_llm_signals)
+                                        if _skipped > 0:
+                                            log.info(f"   🧠 LLM filter: excluyendo {_skipped} tokens (avoid: {_avoid})")
+                            except Exception:
+                                pass
+                            if valid_llm_signals:
+                                log.info(f"🤖 Usando señales AI Strategy ({len(valid_llm_signals)} señales, {age_sec:.0f}s de antigüedad)")
+                                return {"signals": valid_llm_signals, "source": "ai_strategy"}
                 except (ValueError, TypeError):
                     pass
         except Exception as e:
