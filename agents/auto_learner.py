@@ -553,6 +553,17 @@ def run(debug: bool = False) -> dict:
     # Check if enough NEW trades since last run
     last_count = state.get("last_trade_count", 0)
     new_trades = len(trades) - last_count
+
+    # FIX: Detect reset — if new_trades is negative, history was reset
+    if new_trades < 0:
+        log.warning(f"⚠️ Trade history reset detected: had {last_count}, now {len(trades)}")
+        log.warning(f"   Reconciling index: last_trade_count = {len(trades)}")
+        state["last_trade_count"] = len(trades)
+        state["total_trades_learned"] = len(trades)
+        state["notes"] = f"Auto-reconciled after reset: {last_count} -> {len(trades)}"
+        save_state(state)
+        new_trades = 0  # No new trades to process yet
+
     log.info(f"📊 Total trades: {len(trades)} | New since last run: {new_trades}")
     
     # Sync to DB
