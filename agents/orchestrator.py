@@ -494,9 +494,12 @@ def run_cycle(safe=True, debug=False):
         log.warning(f"   ⚠️ Error en position decisions: {e}")
         results["position_decisions"] = {"ok": False}
 
-    # ── Portfolio Take Profit (31-Mar-2026) — Orden de Ender ─────────────────
-    # Si el P&L combinado de todas las posiciones abiertas >= $2 → cerrar todo
-    # Si >= $1 pero AI duda que llegue a $2 → cerrar y asegurar $1
+    # ── Portfolio Take Profit — DESHABILITADO (2026-04-05) ─────────────────
+    # RAZÓN: El Portfolio TP cerraba TODAS las posiciones cuando el PnL combinado
+    # llegaba a $2-5, cortando wins al 0.4-0.8% mientras losses comian el SL completo
+    # (12%). Esto resultaba en R:R real de 1:0.12 en vez del 1:2.5 configurado.
+    # Ahora cada posición corre hasta su propio SL/TP individual.
+    # El trailing stop + partial profit taking protegen las ganancias.
     try:
         portfolio_file = DATA_DIR / "portfolio.json"
         if portfolio_file.exists():
@@ -504,11 +507,10 @@ def run_cycle(safe=True, debug=False):
             open_positions = [p for p in portfolio_data.get("positions", []) if p.get("status") == "open"]
             if open_positions:
                 total_pnl = sum(p.get("pnl_usd", 0) for p in open_positions)
-                symbols = [p["symbol"] for p in open_positions]
+                # Solo loguear el PnL combinado para visibilidad
+                log.info(f"   📊 Portfolio PnL combinado: ${total_pnl:.2f} ({len(open_positions)} posiciones)")
 
-                portfolio_tp = ex.get_portfolio_tp(portfolio_data)
-                portfolio_min = ex.get_portfolio_min(portfolio_data)
-                if total_pnl >= portfolio_tp:
+                if False:  # DESHABILITADO — cada posicion maneja su propio SL/TP
                     log.info(f"   🎯 PORTFOLIO TP HIT: P&L ${total_pnl:.2f} >= ${portfolio_tp:.2f}")
                     log.info(f"   → Cerrando todas las posiciones para asegurar ganancias")
                     try:
