@@ -67,7 +67,7 @@ log = logging.getLogger("risk_manager")
 RISK_PER_TRADE_PCT    = 0.010  # 1.0% del capital por trade
 SL_PCT                = 0.025  # Stop loss: 2.5% — crypto necesita espacio (1.5% causó 70% SL hits)
 TP_MULTIPLIER         = 2.0    # TP = 2x SL → 5.0% (R:R 1:2)
-MAX_OPEN_POSITIONS    = 2      # Máximo 2 posiciones
+MAX_OPEN_POSITIONS    = 4      # Subido de 2 a 4 para mayor throughput (target 5% daily)
 MAX_DRAWDOWN_PCT      = 0.15   # FIX 2.5: 15% drawdown (ampliado de 10% para 5x leverage)
 PAUSE_DRAWDOWN_PCT    = 0.10   # FIX 2.5: 10% pause (ampliado de 6% para 5x leverage)
 MIN_POSITION_USD      = 5.0    # Mínimo $5 margen (era $8 — ajustado a capital bajo)
