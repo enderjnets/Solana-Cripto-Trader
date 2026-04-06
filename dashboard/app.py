@@ -2095,13 +2095,16 @@ def api_reset():
         with open(DATA / "compound_state.json", "w") as f:
             json.dump(compound, f, indent=2)
         
-        # 6. Auto Learner State — PRESERVAR conocimiento aprendido
+        # 6. Auto Learner State — PRESERVAR conocimiento pero RECONCILIAR indices
         learner_file = DATA / "auto_learner_state.json"
         if learner_file.exists():
             with open(learner_file) as f:
                 existing_learner = json.load(f)
             existing_learner["last_updated"] = now
             existing_learner["notes"] = f"Reset capital ${capital} - conocimiento preservado"
+            # FIX: Reconciliar indices de trades para evitar new_trades negativo
+            existing_learner["last_trade_count"] = 0
+            existing_learner["total_trades_learned"] = 0
             with open(learner_file, "w") as f:
                 json.dump(existing_learner, f, indent=2)
         else:

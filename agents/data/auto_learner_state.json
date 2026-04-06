@@ -9,11 +9,11 @@
         "tokens_to_avoid": [],
         "trailing_pct": 5.0
     },
-    "total_trades_learned": 4,
+    "total_trades_learned": 0,
     "last_adaptation": "2026-04-04T05:37:35.911493+00:00",
     "adaptation_count": 1,
-    "last_trade_count": 4,
-    "notes": "Index reconciled: 524 -> 4 after reset (2026-04-05)",
+    "last_trade_count": 0,
+    "notes": "Reset capital $1000.0 - conocimiento preservado",
     "tokens_to_avoid": [
         "BONK"
     ],
@@ -24,7 +24,7 @@
         "POPCAT",
         "PENGU"
     ],
-    "last_updated": "2026-04-05T16:27:56.578323+00:00",
+    "last_updated": "2026-04-06T04:40:30.542756+00:00",
     "last_analysis": "The strategy shows recovery with recent 50 trades posting +$6.69 and an improved 1.79 R:R ratio, though overall 524-trade stats remain negative at -$43.50 with a concerning 0.78 R:R. JUP is clearly the worst performer with 25% WR and -$2.34 losses across 4 short trades, while FARTCOIN emerged as the top profit contributor at +$4.56 despite previous avoid recommendations.",
     "last_insight": "The close reason 'unknown' for all 50 recent trades (versus 96% EMERGENCY_CLOSE previously) suggests the trailing stop adjustment from 3.75% to 2.0% may have improved close reasons, but we now lack visibility into WHY trades close - this tracking needs attention.",
     "confidence": 0.72
