@@ -537,10 +537,25 @@ def paper_open_position(signal: dict, portfolio: dict, market: dict) -> Optional
             sl_pct = abs(signal["sl_price"] - price) / price
             tp_pct = abs(price - signal["tp_price"]) / price
 
-    # Asegurar R:R mínimo de 2:1 para cumplir la regla
-    if tp_pct < sl_pct * 2:
-        tp_pct = sl_pct * 2.5  # Forzar 2.5:1 si el signal no lo da
-        log.info(f"📐 TP ajustado a {tp_pct*100:.1f}% para mantener R:R ≥ 2.5:1")
+    # MEJORA C: Adaptive TP - en mercado lateral (FG extremo), TP mas corto
+    try:
+        _mkt_file = DATA_DIR / "market_latest.json"
+        if _mkt_file.exists():
+            _mkt = json.loads(_mkt_file.read_text())
+            _fg_raw = _mkt.get("fear_greed", 50)
+            _fg = _fg_raw.get("value", 50) if isinstance(_fg_raw, dict) else int(_fg_raw or 50)
+            if _fg <= 20 or _fg >= 80:
+                max_tp = 0.03  # 3% max TP en extremos
+                if tp_pct > max_tp:
+                    log.info(f"🌡 Adaptive TP: F&G={_fg} extreme -> TP {tp_pct*100:.1f}% -> {max_tp*100:.1f}%")
+                    tp_pct = max_tp
+    except Exception:
+        pass
+
+    # Asegurar R:R minimo de 1.2:1
+    if tp_pct < sl_pct * 1.2:
+        tp_pct = sl_pct * 1.5
+        log.info(f"📐 TP ajustado a {tp_pct*100:.1f}% para mantener R:R >= 1.5:1")
 
     fee_round_trip = TAKER_FEE * 2  # Entry + exit fees
 
@@ -878,6 +893,62 @@ def paper_update_positions(portfolio: dict, market: dict, history: list) -> list
                     margin = pos["margin_usd"]
                     log.info(f"  \u2702\ufe0f PARTIAL TAKE: {symbol} 50% at halfway to TP, SL->breakeven, returned ${returned:.2f}")
 
+        # ─── MEJORA A: Breakeven Stop ────────────────────────────────────
+        # Si la posicion estuvo en profit > 1% de margen por 30+ min, mover SL a entry
+        if not pos.get("breakeven_activated", False) and margin > 0:
+            # Track max profit seen
+            if pnl_pct_on_margin > pos.get("max_pnl_pct", 0):
+                pos["max_pnl_pct"] = round(pnl_pct_on_margin, 4)
+                pos["max_pnl_time"] = datetime.now(timezone.utc).isoformat()
+
+            if pos.get("max_pnl_pct", 0) >= 1.0:  # Fue >= +1% en margen
+                max_time_str = pos.get("max_pnl_time", "")
+                if max_time_str:
+                    try:
+                        max_time = datetime.fromisoformat(max_time_str)
+                        if max_time.tzinfo is None:
+                            max_time = max_time.replace(tzinfo=timezone.utc)
+                        mins_since_peak = (datetime.now(timezone.utc) - max_time).total_seconds() / 60
+                        if mins_since_peak >= 30:
+                            pos["sl_price"] = pos["entry_price"]
+                            pos["breakeven_activated"] = True
+                            log.info(f"  \U0001f6e1 BREAKEVEN: {symbol} SL moved to entry (was +{pos['max_pnl_pct']:.1f}% margin, 30min+ ago)")
+                    except Exception:
+                        pass
+
+        # ─── MEJORA B: Aggressive trailing activation ────────────────────
+        # En modo fixed, activar trailing automatico si profit > 0.3% en precio
+        if exit_mode == "fixed" and not pos.get("auto_trailing_activated", False):
+            if price_pnl_pct > 0.003:  # +0.3% en precio (= +1.5% en margen con 5x)
+                pos["exit_mode"] = "trailing"
+                pos["trailing_pct"] = 0.005  # 0.5% trailing (tight, for lateral markets)
+                pos["peak_price"] = current_price
+                pos["auto_trailing_activated"] = True
+                exit_mode = "trailing"
+                trailing_pct = 0.005
+                # Update trailing_sl immediately
+                if pos["direction"] == "long":
+                    pos["trailing_sl"] = round(current_price * (1 - trailing_pct), 8)
+                else:
+                    pos["trailing_sl"] = round(current_price * (1 + trailing_pct), 8)
+                log.info(f"  \U0001f3af AUTO-TRAIL: {symbol} activated at +{price_pnl_pct*100:.2f}% price, trail=0.5%")
+
+        # ─── MEJORA D: Time-based exit if profit reversed ────────────────
+        # Si posicion tiene 4h+, fue profitable, y ahora pierde, cerrar
+        hit_time_exit = False
+        try:
+            open_time = datetime.fromisoformat(pos.get("open_time", ""))
+            if open_time.tzinfo is None:
+                open_time = open_time.replace(tzinfo=timezone.utc)
+            hours_open = (datetime.now(timezone.utc) - open_time).total_seconds() / 3600
+            was_profitable = pos.get("max_pnl_pct", 0) >= 0.5  # Fue +0.5%+ en margen
+            now_losing = pnl_pct_on_margin < -0.5  # Ahora -0.5%+ en margen
+            if hours_open >= 4 and was_profitable and now_losing:
+                hit_time_exit = True
+                log.info(f"  \u23f0 TIME EXIT: {symbol} {hours_open:.1f}h open, was +{pos.get('max_pnl_pct',0):.1f}% now {pnl_pct_on_margin:.1f}%")
+        except Exception:
+            pass
+
         # ─── Verificar SL/TP ─────────────────────────────────────────────
         hit_sl = False
         hit_tp = False
@@ -896,8 +967,10 @@ def paper_update_positions(portfolio: dict, market: dict, history: list) -> list
             if exit_mode == "trailing" and pos.get("trailing_sl", 0) < pos["entry_price"]:
                 hit_trailing = current_price >= pos["trailing_sl"]
 
-        if hit_sl or hit_tp or hit_trailing:
-            if hit_trailing:
+        if hit_sl or hit_tp or hit_trailing or hit_time_exit:
+            if hit_time_exit:
+                close_reason = "TIME_EXIT"
+            elif hit_trailing:
                 close_reason = "TRAILING_SL"
             elif hit_tp:
                 close_reason = "TP"
