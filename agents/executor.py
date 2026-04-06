@@ -631,6 +631,22 @@ def paper_open_position(signal: dict, portfolio: dict, market: dict) -> Optional
     sl_price = price * (1 - sl_pct) if signal["direction"] == "long" else price * (1 + sl_pct)
     tp_price = price * (1 + tp_pct) if signal["direction"] == "long" else price * (1 - tp_pct)
 
+    # FIX: Validate sizing - reject if margin or notional is zero/negative
+    if notional_value <= 0 or margin_usd <= 0:
+        log.warning(f"\u26a0\ufe0f Position rejected: {symbol} has zero sizing (notional=${notional_value:.2f}, margin=${margin_usd:.2f})")
+        return None
+
+    # FIX: Validate TP price is sane (positive, and on correct side of entry)
+    if tp_price <= 0:
+        log.warning(f"\u26a0\ufe0f Position rejected: {symbol} has invalid tp_price={tp_price:.8f}")
+        return None
+    if signal["direction"] == "long" and tp_price <= price:
+        log.warning(f"\u26a0\ufe0f Position rejected: LONG {symbol} tp_price={tp_price:.8f} <= entry={price:.8f}")
+        return None
+    if signal["direction"] == "short" and tp_price >= price:
+        log.warning(f"\u26a0\ufe0f Position rejected: SHORT {symbol} tp_price={tp_price:.8f} >= entry={price:.8f}")
+        return None
+
     position = {
         "id": f"{symbol}_{int(time.time())}",
         "symbol": symbol,
