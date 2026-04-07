@@ -188,7 +188,7 @@ def main():
             # Buscar último mensaje del usuario
             user_msgs = [m for m in msgs if m.get("sender") == "user"]
             if not user_msgs:
-                time.sleep(5)
+                time.sleep(1)
                 continue
 
             last_user_msg = user_msgs[-1]
@@ -196,13 +196,13 @@ def main():
 
             # ¿Es mensaje nuevo (no procesado)?
             if last_ts == state.get("last_user_ts"):
-                time.sleep(5)
+                time.sleep(1)
                 continue
 
             # Nuevo mensaje detected
             user_text = last_user_msg.get("text", "").strip()
             if not user_text:
-                time.sleep(5)
+                time.sleep(1)
                 continue
 
             log(f"NUEVO MENSAJE: {user_text[:80]}")
@@ -228,7 +228,7 @@ def main():
         except Exception as e:
             log(f"ERROR: {e}")
             set_thinking(False)
-            time.sleep(5)
+            time.sleep(2)
 
 if __name__ == "__main__":
     main()

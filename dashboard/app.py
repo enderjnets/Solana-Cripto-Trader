@@ -1338,7 +1338,10 @@ function renderChat(notes){
   // New agent message arrived → hide typing
   if(count > chatLastCount && chatLastCount > 0){
     const latest = msgs[msgs.length-1];
-    if(latest && latest.sender==='agent') showChatTyping(false);
+    if(latest && latest.sender==='agent'){
+      showChatTyping(false);
+      if(window._chatTimeout){clearTimeout(window._chatTimeout);window._chatTimeout=null;}
+    }
   }
   chatLastCount = count;
 }
@@ -1371,8 +1374,10 @@ async function sendChatNote(){
   inp.disabled = true;
   document.getElementById('chatSendBtn').disabled = true;
   showChatTyping(true);
-  // Iniciar polling del estado del agente
-  pollChatStatus();
+  // Typing se oculta cuando llega mensaje del agente via SSE (no polling)
+  // Safety timeout: ocultar despues de 60s si no llega respuesta
+  if(window._chatTimeout) clearTimeout(window._chatTimeout);
+  window._chatTimeout = setTimeout(() => { showChatTyping(false); }, 60000);
   try{
     await fetch('/api/agent-notes',{
       method:'POST',
