@@ -59,11 +59,16 @@ def calculate_daily_pnl(portfolio: dict, state: dict) -> dict:
     """Calcula P&L del día actual"""
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     
-    # Si es nuevo día, resetear
+    # Si es nuevo día, resetear con EQUITY (no solo capital_usd)
     if state.get("date") != today:
+        # Calcular equity actual para usarla como starting point
+        _positions = [p for p in portfolio.get("positions", []) if p.get("status") == "open"]
+        _invested = sum(p.get("margin_usd", 0) for p in _positions)
+        _unrealized = sum(p.get("pnl_usd", 0) for p in _positions)
+        _equity_now = portfolio.get("capital_usd", 1000.0) + _invested + _unrealized
         state = {
             "date": today,
-            "starting_capital": portfolio.get("capital_usd", 1000.0),
+            "starting_capital": _equity_now,  # FIX: usar equity, no capital_usd
             "target_reached": False,
             "closed_at": None
         }
@@ -81,7 +86,9 @@ def calculate_daily_pnl(portfolio: dict, state: dict) -> dict:
     # P&L del día
     daily_start = state.get("starting_capital", initial)
     daily_pnl_usd = equity - daily_start
-    daily_pnl_pct = (daily_pnl_usd / daily_start) if daily_start > 0 else 0
+    # Usar initial_capital como denominador para % consistente
+    base_capital = portfolio.get("initial_capital", daily_start)
+    daily_pnl_pct = (daily_pnl_usd / base_capital) if base_capital > 0 else 0
     
     return {
         "equity": equity,
