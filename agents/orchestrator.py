@@ -7,6 +7,11 @@ Ejecuta el ciclo completo con Smart Rotation + Daily Target
 import sys
 import json
 import time
+try:
+    import paperclip_client as pc
+    _PAPERCLIP = True
+except ImportError:
+    _PAPERCLIP = False
 from datetime import datetime, timezone
 from pathlib import Path
 

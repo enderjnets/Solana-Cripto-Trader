@@ -22,6 +22,11 @@ import argparse
 import time
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
+try:
+    from paperclip_client import on_trade_opened, on_trade_closed
+    _PAPERCLIP = True
+except ImportError:
+    _PAPERCLIP = False
 from typing import Optional
 
 try:
@@ -241,6 +246,7 @@ def load_portfolio() -> dict:
         "positions": [],
         "status": "ACTIVE",
         "mode": "paper",
+        "paperclip_issue_id": None,  # Set by Paperclip integration
         "created_at": datetime.now(timezone.utc).isoformat(),
         "last_updated": datetime.now(timezone.utc).isoformat(),
         "total_trades": 0,
@@ -697,6 +703,15 @@ def paper_open_position(signal: dict, portfolio: dict, market: dict) -> Optional
 
     # Descontar solo el MARGEN del capital (no el notional completo)
     portfolio["capital_usd"] = round(portfolio["capital_usd"] - margin_usd, 2)
+    # Paperclip: track trade open
+    if _PAPERCLIP:
+        try:
+            _pc_id = on_trade_opened(position)
+            if _pc_id:
+                position['paperclip_issue_id'] = _pc_id
+        except Exception:
+            pass
+
     portfolio["positions"].append(position)
 
     log.info(f"    📐 Leverage: {leverage}x | Margen: ${margin_usd:.2f} | Notional: ${notional_value:.2f} | Liq: ${liq_price:.6f}")
@@ -1009,6 +1024,13 @@ def paper_update_positions(portfolio: dict, market: dict, history: list) -> list
             history.append({**pos})
             closed.append(pos)
 
+            # Paperclip: track trade close
+            if _PAPERCLIP:
+                try:
+                    on_trade_closed(pos)
+                except Exception:
+                    pass
+
             # 📈 Compound Engine: actualizar capital base tras cada cierre
             if _COMPOUND_ENABLED:
                 try:
@@ -1254,7 +1276,7 @@ def run(safe: bool = True, debug: bool = False) -> dict:
     # Leer MAX_POSITIONS desde auto_learner si disponible
     try:
         import json as _json
-        from pathlib import Path as _Path
+        from pathlib import Path
         _af = _Path(__file__).parent / "data" / "auto_learner_state.json"
         if _af.exists():
             _adata = _json.loads(_af.read_text())
