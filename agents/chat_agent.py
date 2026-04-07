@@ -131,7 +131,19 @@ def get_response(user_msg):
     ctx = get_trading_context()
     prompt = build_prompt(user_msg, ctx)
 
-    # MiniMax API (primary - Gemma 4 reverted due to ROG 8GB VRAM limitation)
+    # Try Gemma 4 e2b local first (free, 0.3s, 100% GPU on ROG)
+    try:
+        from ollama_client import query_gemma4
+        ctx = get_trading_context()
+        system = f"Eres el agente de trading de Solana. Capital: ${ctx.get('capital',0):.0f}, Retorno: {ctx.get('return_pct',0):+.1f}%, WR: {ctx.get('win_rate',0):.0f}%, Pos: {ctx.get('positions',0)}. Responde en espanol, directo, max 3 oraciones."
+        gemma_result = query_gemma4(prompt[:3000], system=system, max_tokens=200)
+        if gemma_result:
+            log(f"Respuesta via Gemma 4 local (gratis, 100% GPU)")
+            return gemma_result[:500]
+    except Exception as e:
+        log(f"Gemma 4 fallback: {e}")
+
+    # Fallback: MiniMax API
     try:
         headers = {
             "Authorization": f"Bearer {MINIMAX_KEY}",

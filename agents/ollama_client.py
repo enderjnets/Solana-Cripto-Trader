@@ -15,7 +15,7 @@ from pathlib import Path
 log = logging.getLogger("ollama")
 
 OLLAMA_URL = "http://localhost:11434"
-MODEL = "gemma4:e4b"
+MODEL = "gemma4:e2b"
 TIMEOUT = 60
 MAX_RETRIES = 5
 
@@ -44,6 +44,7 @@ def _chat(messages: list, max_tokens: int = 500) -> str | None:
         "messages": messages,
         "stream": False,
         "keep_alive": "1h",
+        "think": False,
         "options": {"num_predict": max_tokens, "temperature": 0.7},
     }
     for attempt in range(MAX_RETRIES):
