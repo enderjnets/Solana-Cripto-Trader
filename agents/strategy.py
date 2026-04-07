@@ -1150,15 +1150,6 @@ def run(debug: bool = False) -> dict:
                 strategy_counts[strat_fn.__name__] += 1
                 break  # Una señal por token
 
-    # SPOT/PAPER MODE: Filter out short signals — can't short on Jupiter/Raydium
-    portfolio = load_json(Path(__file__).parent / "data" / "portfolio.json")
-    mode = (portfolio.get("mode", "") if portfolio else "").lower()
-    if "paper" in mode or "spot" in mode or "drift" not in mode or mode == "paper_drift":
-        long_only = [s for s in signals if s["direction"] == "long"]
-        if len(long_only) < len(signals):
-            log.info(f"🚫 Filtrados {len(signals) - len(long_only)} shorts (modo spot/paper — solo longs)")
-        signals = long_only
-
     signals.sort(key=lambda x: x["confidence"], reverse=True)
 
     result = {

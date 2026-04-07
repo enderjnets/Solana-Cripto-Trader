@@ -250,7 +250,6 @@ Responde ÚNICAMENTE en formato JSON válido con esta estructura:
 }
 
 REGLAS DE TRADING:
-0. MODO SPOT/PAPER: Solo operamos LONGs. NO generar SHORTs — es imposible shortear en Jupiter/Raydium spot. Ignorar cualquier señal short.
 1. RIESGO POR TRADE: 2% del capital ($10 USD)
 2. STOP LOSS: 2.5-3% del entry
 3. TAKE PROFIT: 5-6% del entry (2x SL) — o trailing stop si las condiciones lo ameritan
@@ -258,8 +257,8 @@ REGLAS DE TRADING:
 5. NO generar señal si el token YA tiene posición abierta
 
 REGLA DE SENTIMIENTO EXTREMO (OBLIGATORIA):
-- Fear & Greed ≤ 20 (Extreme Fear): mercado en PÁNICO → SOLO genera LONGs en tokens con RSI < 30 (oversold bounce). NO generes SHORTs (operamos en spot, no se puede shortear). Busca oportunidades de rebote.
-- Fear & Greed ≤ 35 (Fear): mercado con miedo → genera LONGs selectivos en tokens sobrevendidos (RSI < 35). NO generes SHORTs (operamos en spot). Sé conservador con el sizing.
+- Fear & Greed ≤ 20 (Extreme Fear): mercado en PÁNICO → genera SHORTs selectivos (2-3) en tokens con tendencia bajista confirmada, Y busca LONGs en tokens con RSI < 25 (oversold bounce). Equilibra ambas direcciones.
+- Fear & Greed ≤ 35 (Fear): mercado con miedo → genera SHORTs moderados (1-2) en tokens débiles, Y LONGs en tokens con RSI < 30 (sobreventa). Equilibra riesgo.
 - Fear & Greed ≥ 75 (Greed): mercado eufórico → genera la MAYOR cantidad de LONGs posibles (3-5). La euforia tiende a continuar. SHORTs solo en tokens con RSI > 80.
 - Fear & Greed ≥ 85 (Extreme Greed): → genera 4-5 LONGs agresivos. La tendencia es tu amiga.
 - Fear & Greed 35-75 (Neutral): genera señales normales basadas en técnico (2-3).
@@ -300,9 +299,9 @@ EVITAR SEÑALES EN:
     
     # Determine how many signals to request based on sentiment
     if fg_value <= 20:
-        target_signals = "2-3 LONGs selectivos (Extreme Fear — busca rebotes oversold)"
+        target_signals = "2-3 señales mixtas (Extreme Fear — shorts en tendencia bajista + longs en oversold bounce)"
     elif fg_value <= 35:
-        target_signals = "2-3 LONGs conservadores (Fear — tokens sobrevendidos)"
+        target_signals = "2-3 señales mixtas (Fear — equilibrar shorts y longs oversold)"
     elif fg_value >= 85:
         target_signals = "4-5 LONGs (Extreme Greed — APROVECHA la euforia)"
     elif fg_value >= 75:
@@ -404,8 +403,6 @@ def run(debug: bool = False) -> dict:
     signals_data = generate_signals_with_llm(market, research, portfolio)
     
     signals = signals_data.get("signals", [])
-    # SPOT MODE: Filter out any short signals the LLM might still generate
-    signals = [s for s in signals if s.get("direction", "").lower() != "short"]
 
     summary = signals_data.get("summary", {})
     
