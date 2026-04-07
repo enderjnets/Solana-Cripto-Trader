@@ -11,9 +11,11 @@ from datetime import datetime, timezone
 log = logging.getLogger("paperclip")
 
 # ── Config ──────────────────────────────────────────────────────────
-PAPERCLIP_API = "http://127.0.0.1:3102"
+PAPERCLIP_API = "http://100.88.47.99:3102"
 COMPANY_ID = "782b926b-4fb7-424a-a881-f368b0f79e3c"
+BOARD_TOKEN = "pcp_board_68ed2bc4520167360cb1ae178b2b3285692f536e08aa7300"
 TIMEOUT = 5  # seconds — don't block trading
+HEADERS = {"Authorization": f"Bearer {BOARD_TOKEN}", "Content-Type": "application/json"}
 
 
 # ── Low-level API ───────────────────────────────────────────────────
@@ -24,6 +26,7 @@ def _create_issue(title: str, description: str, priority: str = "medium", status
         r = requests.post(
             f"{PAPERCLIP_API}/api/companies/{COMPANY_ID}/issues",
             json={"title": title, "description": description, "priority": priority, "status": status},
+            headers=HEADERS,
             timeout=TIMEOUT,
         )
         if r.ok:
@@ -47,12 +50,14 @@ def _update_issue(issue_id: str, status: str = None, comment: str = None):
             requests.patch(
                 f"{PAPERCLIP_API}/api/issues/{issue_id}",
                 json={"status": status},
+                headers=HEADERS,
                 timeout=TIMEOUT,
             )
         if comment:
             requests.post(
                 f"{PAPERCLIP_API}/api/issues/{issue_id}/comments",
                 json={"body": comment},
+                headers=HEADERS,
                 timeout=TIMEOUT,
             )
     except Exception:
