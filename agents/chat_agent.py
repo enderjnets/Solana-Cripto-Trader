@@ -206,20 +206,21 @@ def main():
                 continue
 
             log(f"NUEVO MENSAJE: {user_text[:80]}")
-            set_thinking(True)
 
-            # Marcar como procesado ANTES de responder (para no duplicar)
+            # Marcar como procesado y pensando ATOMICAMENTE
             state["last_user_ts"] = last_ts
             state["processing"] = True
+            state["thinking"] = True
+            state["thinking_since"] = datetime.now(timezone.utc).isoformat()
             save_state(state)
 
-            # Obtener respuesta
+            # Obtener respuesta (esto puede tardar 10-30s)
             response = get_response(user_text)
 
-            # Guardar respuesta
+            # Guardar respuesta PRIMERO, luego limpiar thinking
             add_agent_response(response)
 
-            # Limpiar estado pensando
+            # AHORA limpiar estado pensando (despues de que la respuesta esta guardada)
             state["processing"] = False
             state["thinking"] = False
             save_state(state)

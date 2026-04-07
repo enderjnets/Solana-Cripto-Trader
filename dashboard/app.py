@@ -1393,9 +1393,15 @@ async function pollChatStatus(){
       const r = await fetch('/api/chat-status');
       const d = await r.json();
       if (!d.thinking) {
+        // Don't hide typing here - wait for actual agent message via SSE
+        // Only stop polling
         clearInterval(chatPollInterval);
         chatPollInterval = null;
-        showChatTyping(false);
+        // Give SSE 2 seconds to deliver the message before hiding
+        setTimeout(() => {
+          const el = document.getElementById('chatTyping');
+          if(el.className.includes('active')) showChatTyping(false);
+        }, 2000);
       }
     } catch(e) {
       clearInterval(chatPollInterval);
