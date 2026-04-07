@@ -1060,9 +1060,9 @@ async function loadResetHistory() {
   
   // Agregar resumen de tendencia
   if (history.length >= 2) {
-    const avgReturn = history.reduce((sum, h) => sum + h.return_pct, 0) / history.length;
-    const avgWinRate = history.reduce((sum, h) => sum + h.win_rate, 0) / history.length;
-    const improving = history[0].return_pct > history[1].return_pct;
+    const avgReturn = history.reduce((sum, h) => sum + (h.return_pct || 0), 0) / history.length;
+    const avgWinRate = history.reduce((sum, h) => sum + (h.win_rate || 0), 0) / history.length;
+    const improving = (history[0].return_pct || 0) > (history[1].return_pct || 0);
     const trend = improving ? '📈 Mejorando' : '📉 Empeorando';
     const trendCls = improving ? 'positive' : 'negative';
     
