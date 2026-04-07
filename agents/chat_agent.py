@@ -114,55 +114,60 @@ def build_prompt(user_msg, context):
                         for m in msgs if m.get('text'))
     return f"{system}\n\nHISTORIAL:\n{history}\n\nUSER: {user_msg}\n\nAGENT:"
 
-MINIMAX_KEY = "sk-cp-8tBIgoE2Vs8QE0AIoMjq4MTh8kiHtem3KWlOnNlAJZgKwAlYh_nt6oCq382Y0cmBi2buvch3nJJbMg7uqr_hIV6Z0ZqY3Q_qZ6AStHCUpKKT_IT-e0vEl4A"
-MINIMAX_URL = "https://api.minimax.io/anthropic/v1/messages"
+# FIX: Use native MiniMax endpoint (same as trading LLM - faster, no timeout)
+try:
+    import json as _json
+    _keys = _json.loads(open("/home/enderj/.openclaw/workspace/bittrader/keys/minimax.json").read_text())
+    MINIMAX_KEY = _keys["minimax_api_key"]
+except Exception:
+    MINIMAX_KEY = "sk-cp-8tBIgoE2Vs8QE0AIoMjq4MTh8kiHtem3KWlOnNlAJZgKwAlYh_nt6oCq382Y0cmBi2buvch3nJJbMg7uqr_hIV6Z0ZqY3Q_qZ6AStHCUpKKT_IT-e0vEl4A"
+MINIMAX_URL = "https://api.minimax.io/v1/text/chatcompletion_v2"
 MINIMAX_MODEL = "MiniMax-M2.5"
 
 def get_response(user_msg):
-    """Obtiene respuesta de MiniMax-M2.7."""
+    """Obtiene respuesta de MiniMax M2.5 (native endpoint)."""
     import requests as _req
+    import re
     ctx = get_trading_context()
     prompt = build_prompt(user_msg, ctx)
 
     try:
         headers = {
-            "x-api-key": MINIMAX_KEY,
+            "Authorization": f"Bearer {MINIMAX_KEY}",
             "Content-Type": "application/json"
         }
         payload = {
             "model": MINIMAX_MODEL,
-            "max_tokens": 300,
-            "messages": [{"role": "user", "content": prompt[:4000]}]
+            "max_tokens": 500,
+            "messages": [
+                {"role": "system", "content": "Eres el agente de trading de Solana. Responde en espanol, claro y directo. Maximo 3-4 oraciones."},
+                {"role": "user", "content": prompt[:4000]}
+            ],
+            "temperature": 0.7
         }
-        resp = _req.post(MINIMAX_URL, headers=headers, json=payload, timeout=45)
+        resp = _req.post(MINIMAX_URL, headers=headers, json=payload, timeout=60)
         if resp.status_code == 200:
             data = resp.json()
+            # Native API: choices[0].message.content
+            choices = data.get("choices", [])
+            if choices:
+                text = choices[0].get("message", {}).get("content", "").strip()
+                text = re.sub(r'<think>.*?</think>', '', text, flags=re.DOTALL).strip()
+                if text:
+                    return text[:500]
+            # Fallback: Anthropic format
             content = data.get("content", [])
             if isinstance(content, list) and content:
-                # Buscar el primer entry tipo "text"
                 for item in content:
                     if isinstance(item, dict) and item.get("type") == "text":
-                        text = item.get("text", "").strip()
-                        if text:
-                            return text[:500]
-                # Si no hay text, devolver el thinking
-                for item in content:
-                    if isinstance(item, dict) and item.get("type") == "thinking":
-                        return f"[Pensando...] {item.get('thinking', '')[:200]}"
-            elif isinstance(data.get("error"), dict):
-                return f"⚠️ MiniMax error: {data['error'].get('message', 'Unknown')}"
+                        return item.get("text", "").strip()[:500]
+            return "Sin respuesta del modelo"
         else:
-            return f"⚠️ MiniMax response: {resp.status_code} — {resp.text[:100]}"
+            return f"MiniMax {resp.status_code}: {resp.text[:100]}"
     except Exception as e:
-        return f"⚠️ Error: {str(e)[:100]}"
+        return f"Error: {str(e)[:100]}"
 
-    # Fallback: respuesta básica
-    ctx = get_trading_context()
-    return (f"🤖 Bot activo | Capital: ${ctx.get('capital', 0):.2f} | "
-            f"Retorno: {ctx.get('return_pct', 0):+.2f}% | "
-            f"Win Rate: {ctx.get('win_rate', 0):.1f}%")
 
-# ── Typing indicator ──────────────────────────────────────────────
 def set_thinking(thinking):
     """Escribe estado pensando para el dashboard."""
     state = load_state()
