@@ -15,7 +15,14 @@ fi
 echo $$ > "$LOCKFILE"
 trap "rm -f $LOCKFILE" EXIT
 
-cd ~/.openclaw/workspace/Solana-Cripto-Trader/agents
+cd ~/.openclaw/workspace/Solana-Cripto-Trader
+
+# Load .env for Paperclip API key
+if [ -f ".env" ]; then
+    set -a
+    source .env
+    set +a
+fi
 
 # Asegurar que chat_agent corre como background
 if ! pgrep -f "chat_agent.py" > /dev/null 2>&1; then
@@ -30,7 +37,7 @@ while true; do
         nohup python3 -u chat_agent.py >> /home/enderj/.config/solana-jupiter-bot/chat_agent.log 2>&1 &
     fi
     echo "[WATCHDOG] Starting agents/orchestrator.py..."
-    python3 -u orchestrator.py
+    python3 -u agents/orchestrator.py
     echo "[WATCHDOG] Bot died (exit $?), restarting in 5s..."
     sleep 5
 done
