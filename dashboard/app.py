@@ -1034,20 +1034,25 @@ async function loadResetHistory() {
   history.forEach((h, i) => {
     const num = history.length - i;
     const date = new Date(h.reset_date).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: '2-digit', hour: '2-digit', minute: '2-digit' });
-    const returnCls = h.return_pct >= 0 ? 'positive' : 'negative';
-    const returnSign = h.return_pct >= 0 ? '+' : '';
-    
+    const ret = h.return_pct || 0;
+    const returnCls = ret >= 0 ? 'positive' : 'negative';
+    const returnSign = ret >= 0 ? '+' : '';
+    const wr = h.win_rate || 0;
+    const best = h.best_trade_usd || 0;
+    const worst = h.worst_trade_usd || 0;
+    const flat = h.flat || 0;
+
     html += `<tr>
       <td><strong>${num}</strong></td>
       <td>${date}</td>
-      <td>$${h.initial_capital.toFixed(2)}</td>
-      <td>$${h.final_capital.toFixed(2)}</td>
-      <td class="${returnCls}">${returnSign}${h.return_pct.toFixed(2)}%</td>
-      <td>${h.total_trades}</td>
-      <td><span class="positive">${h.wins}</span>/<span class="negative">${h.losses}</span>/${h.flat}</td>
-      <td>${h.win_rate.toFixed(1)}%</td>
-      <td class="positive">$${h.best_trade_usd.toFixed(2)}</td>
-      <td class="negative">$${h.worst_trade_usd.toFixed(2)}</td>
+      <td>$${(h.initial_capital||0).toFixed(2)}</td>
+      <td>$${(h.final_capital||0).toFixed(2)}</td>
+      <td class="${returnCls}">${returnSign}${ret.toFixed(2)}%</td>
+      <td>${h.total_trades||0}</td>
+      <td><span class="positive">${h.wins||0}</span>/<span class="negative">${h.losses||0}</span>/${flat}</td>
+      <td>${wr.toFixed(1)}%</td>
+      <td class="positive">$${best.toFixed(2)}</td>
+      <td class="negative">$${worst.toFixed(2)}</td>
     </tr>`;
   });
   
