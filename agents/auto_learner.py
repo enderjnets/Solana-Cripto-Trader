@@ -25,6 +25,13 @@ Cost: ~$0.01-0.02 per run (MiniMax M2.7, every 6h = ~$0.12/day)
 
 import json
 import logging
+
+# Gemma 4 for pre-analysis (reduce MiniMax tokens/cost)
+try:
+    from ollama_client import query_gemma4 as _gemma4_query
+    _HAS_GEMMA4 = True
+except ImportError:
+    _HAS_GEMMA4 = False
 import sqlite3
 import statistics
 import subprocess
@@ -583,6 +590,18 @@ def run(debug: bool = False) -> dict:
     log.info("🤖 Calling LLM for analysis...")
     prompt = build_analysis_prompt(trades, state, knowledge)
     
+    # Gemma 4 pre-analysis: summarize trades locally before sending to MiniMax
+    gemma4_pre = ""
+    if _HAS_GEMMA4:
+        try:
+            pre_prompt = f"Summarize these trading stats in 3 bullet points: {len(trades)} trades, WR:{compute_stats(trades[-50:]).get('win_rate',0):.0f}%, PnL:${compute_stats(trades[-50:]).get('total_pnl',0):.2f}. What patterns do you see? Be brief."
+            gemma4_pre = _gemma4_query(pre_prompt, max_tokens=150) or ""
+            if gemma4_pre:
+                prompt += f"\n\nLocal AI pre-analysis:\n{gemma4_pre}"
+                log.info(f"🧠 Gemma4 pre-analysis added ({len(gemma4_pre)} chars)")
+        except Exception:
+            pass
+
     llm_response = call_llm(prompt)
     
     if not llm_response:

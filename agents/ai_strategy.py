@@ -22,6 +22,13 @@ import os
 import sys
 import json
 import logging
+
+# Gemma 4 local second opinion (non-blocking, optional)
+try:
+    from ollama_client import validate_trading_signal as _gemma4_validate
+    _HAS_GEMMA4 = True
+except ImportError:
+    _HAS_GEMMA4 = False
 import requests
 from datetime import datetime, timezone
 from pathlib import Path
@@ -437,6 +444,21 @@ def run(debug: bool = False) -> dict:
     
     log.info("=" * 50)
     
+    # Gemma 4 second opinion: adjust confidence
+    if _HAS_GEMMA4 and signals_data.get("signals"):
+        try:
+            fg = market.get("fear_greed", {})
+            fg_val = fg.get("value", 50) if isinstance(fg, dict) else int(fg or 50)
+            for sig in signals_data["signals"]:
+                v = _gemma4_validate(sig, f"FG:{fg_val}")
+                if v and isinstance(v, dict):
+                    adj = v.get("confidence_adj", 0)
+                    old_c = sig.get("confidence", 0.5)
+                    sig["confidence"] = round(max(0.1, min(0.99, old_c + adj)), 2)
+                    sig["gemma4_agree"] = v.get("agree", True)
+        except Exception:
+            pass
+
     return signals_data
 
 if __name__ == "__main__":
