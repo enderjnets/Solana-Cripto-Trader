@@ -15,7 +15,7 @@
     "best_trade_usd": 14.5696,
     "worst_trade_usd": -6.7118,
     "new_capital": 500.0,
-    "reason": "Bot pausado — bugs detectados, 959 EMERGENCY_CLOSEs"
+    "reason": "Bot pausado \u2014 bugs detectados, 959 EMERGENCY_CLOSEs"
   },
   {
     "reset_date": "2026-03-26T18:07:00-06:00",
@@ -33,7 +33,7 @@
     "best_trade_usd": 1.0138,
     "worst_trade_usd": -23.5873,
     "new_capital": 500.0,
-    "reason": "Run actual — bot continuo desde Mar 13, datos limpios desde reset Mar 26",
+    "reason": "Run actual \u2014 bot continuo desde Mar 13, datos limpios desde reset Mar 26",
     "note": "El bot no fue reiniciado en el reset Mar 26; solo se limpiaron archivos agents/data"
   },
   {
@@ -415,6 +415,60 @@
     "win_rate": 0.0,
     "best_trade_usd": -0.46,
     "worst_trade_usd": -5.94,
+    "new_capital": 1000.0,
+    "reason": "Manual reset"
+  },
+  {
+    "reset_date": "2026-04-07T22:37:20.020126+00:00",
+    "period_start": "2026-04-07T22:26:06.100780+00:00",
+    "period_end": "2026-04-07T22:37:20.020126+00:00",
+    "initial_capital": 1000.0,
+    "final_capital": 1000.0,
+    "return_pct": 0.0,
+    "total_pnl_usd": 0,
+    "total_trades": 0,
+    "wins": 0,
+    "losses": 0,
+    "flat": 0,
+    "win_rate": 0,
+    "best_trade_usd": 0,
+    "worst_trade_usd": 0,
+    "new_capital": 1000.0,
+    "reason": "Manual reset"
+  },
+  {
+    "reset_date": "2026-04-07T22:45:48.466783+00:00",
+    "period_start": "2026-04-07T22:37:20.020126+00:00",
+    "period_end": "2026-04-07T22:45:48.466783+00:00",
+    "initial_capital": 1000.0,
+    "final_capital": 1000.0,
+    "return_pct": 0.0,
+    "total_pnl_usd": 0,
+    "total_trades": 0,
+    "wins": 0,
+    "losses": 0,
+    "flat": 0,
+    "win_rate": 0,
+    "best_trade_usd": 0,
+    "worst_trade_usd": 0,
+    "new_capital": 1000.0,
+    "reason": "Manual reset"
+  },
+  {
+    "reset_date": "2026-04-07T22:59:28.412736+00:00",
+    "period_start": "2026-04-07T22:45:48.466783+00:00",
+    "period_end": "2026-04-07T22:59:28.412736+00:00",
+    "initial_capital": 1000.0,
+    "final_capital": 910.08,
+    "return_pct": -8.99,
+    "total_pnl_usd": 0,
+    "total_trades": 0,
+    "wins": 0,
+    "losses": 0,
+    "flat": 0,
+    "win_rate": 0,
+    "best_trade_usd": 0,
+    "worst_trade_usd": 0,
     "new_capital": 1000.0,
     "reason": "Manual reset"
   }

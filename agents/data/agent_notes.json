@@ -144,7 +144,17 @@
       "sender": "agent",
       "text": "✅ SÍ, activo y funcionando.\n\n📊 ESTADO ACTUAL:\n• Capital: $1,001 (+0.1% desde reset)\n• Modo: paper_drift\n• Trades: 2 total — 2 wins, 0 losses\n• Drawdown: 0%\n• Auto-learner: 524 trades analizados | 1 adaptación | confianza 72%\n\n⚡ El bot está corriendo y esperando entradas según su configuración de symbols y sizing.",
       "ts": "2026-04-04T11:20:52.959545"
+    },
+    {
+      "sender": "agent",
+      "text": "[AGENT] ✅ Sí, el bot está activo y esperando entradas según su configuración actual. Actualmente tiene un capital de $1,001 y 2 posiciones abiertas.",
+      "ts": "2026-04-07T22:19:33.590701+00:00"
+    },
+    {
+      "sender": "user",
+      "text": "como ves que va la operativa esta ves depues del ultimo reset ?",
+      "ts": "2026-04-07T18:10:05.811001"
     }
   ],
-  "last_updated": "2026-04-04T11:20:52.959555"
+  "last_updated": "2026-04-07T18:10:05.811010"
 }

@@ -1,63 +1,64 @@
 {
   "signals": [
     {
-      "symbol": "GOAT",
-      "direction": "short",
-      "entry_price": 0.016001,
-      "sl_price": 0.016481,
-      "tp_price": 0.015201,
-      "exit_mode": "fixed",
-      "trailing_pct": 0.0,
-      "size_usd": 10.0,
-      "confidence": 0.92,
-      "strategy": "breakout",
-      "reasoning": "RSI 100 (sobrecompra extrema) + cambio -4.15% + volatilidad 4.15%. En mercado de p\u00e1nico, tokens sobrecomprados tienen alta probabilidad de correcci\u00f3n masiva.",
-      "factors": [
-        "RSI extremo > 80",
-        "Ca\u00edda fuerte > 3%",
-        "Alta volatilidad 4.15%",
-        "Sentimiento extremo miedo"
-      ]
-    },
-    {
-      "symbol": "PENGU",
-      "direction": "short",
-      "entry_price": 0.006102,
-      "sl_price": 0.006285,
-      "tp_price": 0.005797,
-      "exit_mode": "fixed",
-      "trailing_pct": 0.0,
-      "size_usd": 10.0,
-      "confidence": 0.88,
-      "strategy": "momentum",
-      "reasoning": "RSI 80.7 (sobrecompra) + cambio -2.48% + volatilidad 2.48%. El momentum bajista es claro en token con sobrecompra.",
-      "factors": [
-        "RSI sobrecompra 80.7",
-        "Cambio negativo -2.48%",
-        "Volatilidad alta 2.48%",
-        "Momentum bajista"
-      ]
-    },
-    {
-      "symbol": "BONK",
-      "direction": "short",
-      "entry_price": 5e-06,
-      "sl_price": 5e-06,
-      "tp_price": 5e-06,
+      "symbol": "RAY",
+      "direction": "long",
+      "entry_price": 0.639819,
+      "sl_price": 0.624828,
+      "tp_price": 0.67281,
       "exit_mode": "fixed",
       "trailing_pct": 0.0,
       "size_usd": 10.0,
       "confidence": 0.8,
-      "strategy": "momentum",
-      "reasoning": "Cambio -3.52% + volatilidad 3.52%. Ca\u00edda fuerte con volatilidad alta indica momentum bajista activo.",
+      "strategy": "oversold",
+      "reasoning": "RSI 33.8 en zona de sobreventa extrema (cerca de 30), cambio +5.15% con volatilidad 5.15%. Mercado en extreme fear pero tendencia bullish sugiere rebote desde m\u00ednimos.",
       "factors": [
-        "Ca\u00edda significativa -3.52%",
-        "Volatilidad alta 3.52%",
-        "Momentum fuertemente bajista"
+        "RSI < 35 (sobreventa)",
+        "cambio positivo > 5%",
+        "volatilidad adecuada > 5%",
+        "Fear & Greed extremo crea oportunidad contrarian"
+      ]
+    },
+    {
+      "symbol": "JUP",
+      "direction": "long",
+      "entry_price": 0.167919,
+      "sl_price": 0.163733,
+      "tp_price": 0.176305,
+      "exit_mode": "fixed",
+      "trailing_pct": 0.0,
+      "size_usd": 10.0,
+      "confidence": 0.78,
+      "strategy": "oversold",
+      "reasoning": "RSI 36.3 en zona de sobreventa, cambio +5.82% estable. JUP muestra momentum positivo desde niveles sobrevendidos en mercado con sentiment extremo.",
+      "factors": [
+        "RSI < 37 (cerca de sobreventa)",
+        "cambio 24h > 5%",
+        "volatilidad 5.82%",
+        "Market cap > $500M (liquidez adecuada)"
+      ]
+    },
+    {
+      "symbol": "BONK",
+      "direction": "long",
+      "entry_price": 6e-06,
+      "sl_price": 5.85e-06,
+      "tp_price": 6.3e-06,
+      "exit_mode": "fixed",
+      "trailing_pct": 0.0,
+      "size_usd": 10.0,
+      "confidence": 0.75,
+      "strategy": "oversold",
+      "reasoning": "RSI 34.3 en territorio de sobreventa con cambio +6.90% notable. El Fear & Greed extremo (17/100) indica potencial rebote desde m\u00ednimos en token sobrevendido.",
+      "factors": [
+        "RSI 34.3 (cerca de sobreventa)",
+        "mejor cambio 24h +6.90%",
+        "volatilidad alta 6.90%",
+        "Tendencia general bullish del mercado"
       ]
     }
   ],
-  "generated_at": "2026-04-05T15:05:23.846589+00:00",
-  "fear_greed": 12,
+  "generated_at": "2026-04-08T02:51:30.645962+00:00",
+  "fear_greed": 17,
   "source": "ai_strategy_extreme"
 }

@@ -23,7 +23,7 @@ import time
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 try:
-    from paperclip_client import on_trade_opened, on_trade_closed
+    from agents.paperclip_client import on_trade_opened, on_trade_closed, on_daily_report
     _PAPERCLIP = True
 except ImportError:
     _PAPERCLIP = False

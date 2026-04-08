@@ -1,58 +1,60 @@
 {
-  "timestamp": "2026-04-05T15:05:05.941523+00:00",
+  "timestamp": "2026-04-08T02:36:04.018747+00:00",
   "opportunities_found": 3,
   "top_opportunities": [
-    {
-      "symbol": "TRUMP",
-      "name": "OFFICIAL TRUMP",
-      "address": "6p6xgHyF7AeE6TZkSmFsko444wqoP15icUSqi2jfGiPN",
-      "price": 2.82,
-      "price_change_24h": -1.26,
-      "volume_24h": 1260695.11,
-      "liquidity": 1107250.32,
-      "market_cap": 2828416211.0,
-      "verified": false,
-      "opportunity_score": 0.6,
-      "reasons": [
-        "Liquidez $1.11M \u2705",
-        "Volumen muy alto $1.26M \u2705\u2705",
-        "MC $2828.4M \u2014 establecido \u2705",
-        "Actividad normal (vol/liq=1.1x) \u2705"
-      ]
-    },
-    {
-      "symbol": "CAT",
-      "name": "Cat Terminal",
-      "address": "4HBQm2EhdpUWZkTYxttxNDnsoWi5beRAGWHpjVo8pump",
-      "price": 0.00139,
-      "price_change_24h": -10.48,
-      "volume_24h": 21988.69,
-      "liquidity": 130631.44,
-      "market_cap": 1390039.0,
-      "verified": false,
-      "opportunity_score": 0.48,
-      "reasons": [
-        "Liquidez $0.13M \u2705",
-        "Volumen bajo $22K \u26a0\ufe0f",
-        "Movimiento fuerte -10.5% \u2705",
-        "MC $1.4M \u2705"
-      ]
-    },
     {
       "symbol": "PUMP",
       "name": "Pump",
       "address": "pumpCmXqMfrsAkQ5r49WcJnRayYRqmXz6ae8H7H9Dfn",
-      "price": 0.001649,
-      "price_change_24h": -0.55,
-      "volume_24h": 354816.12,
-      "liquidity": 13026560.74,
-      "market_cap": 1649840853.0,
+      "price": 0.001805,
+      "price_change_24h": 7.34,
+      "volume_24h": 1400735.63,
+      "liquidity": 13634203.69,
+      "market_cap": 1805705401.0,
       "verified": false,
-      "opportunity_score": 0.42,
+      "opportunity_score": 0.6,
       "reasons": [
-        "Liquidez $13.03M \u2705",
-        "Volumen $0.35M \u2705",
-        "MC $1649.8M \u2014 establecido \u2705"
+        "Liquidez $13.63M \u2705",
+        "Volumen muy alto $1.40M \u2705\u2705",
+        "Movimiento moderado +7.3%",
+        "MC $1805.7M \u2014 establecido \u2705"
+      ]
+    },
+    {
+      "symbol": "TRUMP",
+      "name": "OFFICIAL TRUMP",
+      "address": "6p6xgHyF7AeE6TZkSmFsko444wqoP15icUSqi2jfGiPN",
+      "price": 2.95,
+      "price_change_24h": 4.82,
+      "volume_24h": 1733254.04,
+      "liquidity": 1375777.61,
+      "market_cap": 2958337982.0,
+      "verified": false,
+      "opportunity_score": 0.6,
+      "reasons": [
+        "Liquidez $1.38M \u2705",
+        "Volumen muy alto $1.73M \u2705\u2705",
+        "MC $2958.3M \u2014 establecido \u2705",
+        "Actividad normal (vol/liq=1.3x) \u2705"
+      ]
+    },
+    {
+      "symbol": "DOG",
+      "name": "Dog (Bitcoin)",
+      "address": "dog1viwbb2vWDpER5FrJ4YFG6gq6XuyFohUe9TXN65u",
+      "price": 0.0007109,
+      "price_change_24h": 6.07,
+      "volume_24h": 79597.61,
+      "liquidity": 50680.79,
+      "market_cap": 71099963.0,
+      "verified": false,
+      "opportunity_score": 0.55,
+      "reasons": [
+        "Liquidez $0.05M \u26a0\ufe0f",
+        "Volumen $0.08M \u2705",
+        "Movimiento moderado +6.1%",
+        "MC $71.1M \u2014 establecido \u2705",
+        "Actividad normal (vol/liq=1.6x) \u2705"
       ]
     }
   ],

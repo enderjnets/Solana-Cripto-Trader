@@ -5,6 +5,7 @@ All calls are non-blocking (try/except) — bot continues if Paperclip is down.
 """
 import json
 import logging
+import os
 import requests
 from datetime import datetime, timezone
 
@@ -13,9 +14,9 @@ log = logging.getLogger("paperclip")
 # ── Config ──────────────────────────────────────────────────────────
 PAPERCLIP_API = "http://100.88.47.99:3102"
 COMPANY_ID = "782b926b-4fb7-424a-a881-f368b0f79e3c"
-BOARD_TOKEN = "pcp_board_68ed2bc4520167360cb1ae178b2b3285692f536e08aa7300"
+PAPERCLIP_API_KEY = os.environ.get("PAPERCLIP_API_KEY", "")
 TIMEOUT = 5  # seconds — don't block trading
-HEADERS = {"Authorization": f"Bearer {BOARD_TOKEN}", "Content-Type": "application/json"}
+HEADERS = {"Authorization": f"Bearer {PAPERCLIP_API_KEY}", "Content-Type": "application/json"}
 
 
 # ── Low-level API ───────────────────────────────────────────────────

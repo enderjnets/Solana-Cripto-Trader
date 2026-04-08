@@ -44,3 +44,4 @@ logs/
 # Keys wallets (NUNCA en git)
 config/mainnet_wallet.json
 config/*wallet*.json
+.env.backup_*

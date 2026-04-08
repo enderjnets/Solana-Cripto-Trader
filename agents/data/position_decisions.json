@@ -1,29 +1,54 @@
 {
-  "timestamp": "2026-04-05T15:03:37.067270+00:00",
+  "timestamp": "2026-04-08T02:52:24.043338+00:00",
   "decisions": [
     {
-      "symbol": "MOODENG",
+      "symbol": "GOAT",
+      "direction": "short",
+      "action": "HOLD",
+      "confidence": 0.9,
+      "alignment": "ALIGNED",
+      "quant_score": 20,
+      "quant_action": "HOLD",
+      "quant_reasons": [
+        "TP_CERCA_GANANCIA (2.65%, pnl=5.9%)",
+        "RR_BUENO (2.29x)",
+        "PANICO_EXTREMO (F&G=17)"
+      ],
+      "llm_action": "HOLD",
+      "llm_confidence": 0.75,
+      "llm_reasoning": "Posici\u00f3n ganadores con 5.88% y R/R 2.29x, suficiente runway. Mercado en miedo extremo (F&G=17) favorece shorts. Portafolio ya super\u00f3 target 190%, no hay presi\u00f3n de cerrar.",
+      "llm_source": "llm_claude_sonnet",
+      "pnl_usd": 3.1993,
+      "pnl_pct": 5.8822,
+      "dist_tp_pct": 2.654,
+      "dist_sl_pct": 1.16,
+      "rr_remaining": 2.289,
+      "hours_open": 0,
+      "evaluated_at": "2026-04-08T02:52:10.366352+00:00"
+    },
+    {
+      "symbol": "FARTCOIN",
       "direction": "short",
       "action": "CLOSE",
       "confidence": 0.68,
       "alignment": "SPLIT (quant=HOLD, llm=CLOSE)",
-      "quant_score": -5,
+      "quant_score": 20,
       "quant_action": "HOLD",
       "quant_reasons": [
-        "RR_BUENO (2.50x)",
-        "PANICO_EXTREMO (F&G=12)"
+        "TP_MODERADO (4.39%)",
+        "PANICO_EXTREMO (F&G=17)"
       ],
       "llm_action": "CLOSE",
       "llm_confidence": 0.85,
-      "llm_reasoning": "Contradicci\u00f3n cr\u00edtica: posici\u00f3n SHORT en tendencia BULLISH (70%) con Fear&Greed en miedo extremo (12) - entorno hist\u00f3ricamente favorable para LONG. Con apenas 0h abierta, mejor cerrar antes de que se vuelva peso muerto.",
+      "llm_reasoning": "Target de $2.00 ya alcanzado (190%), tendencia BULLISH desfavorable para SHORT y miedo extremo puede revertirse pronto",
       "llm_source": "llm_claude_sonnet",
-      "pnl_usd": 0.0,
-      "pnl_pct": 0.0,
-      "dist_tp_pct": 7.495,
-      "dist_sl_pct": 2.998,
-      "rr_remaining": 2.5,
+      "pnl_usd": 0.6028,
+      "pnl_pct": 1.3156,
+      "dist_tp_pct": 4.389,
+      "dist_sl_pct": 3.366,
+      "rr_remaining": 1.304,
       "hours_open": 0,
-      "evaluated_at": "2026-04-05T15:03:37.067181+00:00"
+      "evaluated_at": "2026-04-08T02:52:24.043247+00:00"
     }
   ]
 }

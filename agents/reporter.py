@@ -22,6 +22,13 @@ from zoneinfo import ZoneInfo
 from pathlib import Path
 from typing import Optional
 
+# Paperclip integration
+try:
+    from agents.paperclip_client import on_daily_report
+    _PAPERCLIP = True
+except ImportError:
+    _PAPERCLIP = False
+
 # ─── Configuración ───────────────────────────────────────────────────────────
 
 BASE_DIR = Path(__file__).parent
@@ -479,6 +486,13 @@ def run(daily: bool = False, alert_only: bool = False) -> dict:
                     log.warning("⚠️  TTS falló, solo texto enviado")
             alerts_state["last_daily_report"] = datetime.now(ZoneInfo("America/Denver")).strftime("%Y-%m-%d")
             save_alerts_state(alerts_state)
+
+            # Paperclip: crear issue de reporte diario
+            if _PAPERCLIP:
+                try:
+                    on_daily_report(metrics)
+                except Exception:
+                    pass
 
     # Alertas inmediatas
     alerts_sent = check_and_send_alerts(portfolio, history, metrics, alerts_state)
