@@ -24,6 +24,33 @@ sudo journalctl -u solana-jupiter-bot.service -f
 
 ## Recovery Commands
 
+### chat_agent Path Error / Restart Spam Loop (SOLAA-25)
+
+**Symptom:** watchdog log shows continuous `chat_agent died, restarting...` messages and `can't open file '.../chat_agent.py': No such file or directory` errors.
+
+**Cause:** watchdog was launching bare `chat_agent.py` (relative path, wrong location) instead of `agents/chat_agent.py`. The file exists at `agents/chat_agent.py`.
+
+**Fix (SOLAA-25):**
+- `run_watchdog.sh` now uses canonical path `agents/chat_agent.py`
+- File existence is checked before starting; if missing, watchdog backsoff exponentially (10s → 20s → ... → 300s cap) instead of tight-looping
+- `pgrep` now matches `agents/chat_agent\.py` instead of broad `chat_agent.py`
+
+**Validation:**
+```bash
+# Run the chat_agent validation script
+bash /home/enderj/.openclaw/workspace/Solana-Cripto-Trader/validate_chat_agent.sh
+
+# Check watchdog log for file-not-found spam (should be absent after fix)
+grep "can't open file" /home/enderj/.config/solana-jupiter-bot/chat_agent.log
+
+# Confirm service is stable
+sudo systemctl status solana-jupiter-bot.service
+```
+
+Exit 0 from `validate_chat_agent.sh` = all checks pass. Exit 1 = failure.
+
+---
+
 ### Watchdog Ownership Conflict (restart loop)
 
 **Symptom:** `systemctl status` shows restart counter growing rapidly (9212+).

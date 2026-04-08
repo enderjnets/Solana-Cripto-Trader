@@ -62,17 +62,57 @@ if [ -f ".env" ]; then
     set +a
 fi
 
-# Asegurar que chat_agent corre como background
-if ! pgrep -f "chat_agent.py" > /dev/null 2>&1; then
-    echo "[WATCHDOG] Starting chat_agent.py..."
-    nohup python3 -u chat_agent.py >> /home/enderj/.config/solana-jupiter-bot/chat_agent.log 2>&1 &
+# Canonical path for chat_agent (SOLAA-25: was launching bare chat_agent.py from wrong location)
+CHAT_AGENT_PATH="agents/chat_agent.py"
+CHAT_AGENT_Canonical="agents/chat_agent.py"
+
+# Backoff state: if file missing, we back off instead of tight-looping
+chat_agent_backoff=0
+chat_agent_missing_logged=false
+
+# Ensure chat_agent runs as background process
+# SOLAA-25 fix: use canonical path, check existence, and apply backoff on repeated failure
+if ! pgrep -f "agents/chat_agent\.py" > /dev/null 2>&1; then
+    if [ ! -f "$CHAT_AGENT_PATH" ]; then
+        if [ "$chat_agent_missing_logged" = false ]; then
+            echo "[WATCHDOG] chat_agent path missing ($CHAT_AGENT_PATH), not starting. Will retry after backoff." | tee -a /home/enderj/.config/solana-jupiter-bot/chat_agent.log
+            chat_agent_missing_logged=true
+        fi
+        chat_agent_backoff=10
+    else
+        echo "[WATCHDOG] Starting agents/chat_agent.py..."
+        nohup python3 -u "$CHAT_AGENT_PATH" >> /home/enderj/.config/solana-jupiter-bot/chat_agent.log 2>&1 &
+        chat_agent_backoff=0
+        chat_agent_missing_logged=false
+    fi
 fi
 
 while true; do
-    # Re-check chat_agent cada ciclo
-    if ! pgrep -f "chat_agent.py" > /dev/null 2>&1; then
-        echo "[WATCHDOG] chat_agent died, restarting..."
-        nohup python3 -u chat_agent.py >> /home/enderj/.config/solana-jupiter-bot/chat_agent.log 2>&1 &
+    # Re-check chat_agent each cycle (SOLAA-25: use canonical path for pgrep match)
+    if ! pgrep -f "agents/chat_agent\.py" > /dev/null 2>&1; then
+        if [ ! -f "$CHAT_AGENT_PATH" ]; then
+            if [ "$chat_agent_missing_logged" = false ]; then
+                echo "[WATCHDOG] chat_agent path missing ($CHAT_AGENT_PATH), skipping restart. Backoff ${chat_agent_backoff}s." | tee -a /home/enderj/.config/solana-jupiter-bot/chat_agent.log
+                chat_agent_missing_logged=true
+            fi
+            # Don't tight-loop: exponential backoff capped at 5 minutes
+            if [ "$chat_agent_backoff" -eq 0 ]; then
+                chat_agent_backoff=10
+            elif [ "$chat_agent_backoff" -lt 300 ]; then
+                chat_agent_backoff=$((chat_agent_backoff * 2))
+            fi
+            echo "[WATCHDOG] chat_agent missing backoff: waiting ${chat_agent_backoff}s before retry"
+            sleep "$chat_agent_backoff"
+            continue
+        else
+            if [ "$chat_agent_missing_logged" = true ]; then
+                echo "[WATCHDOG] chat_agent path restored ($CHAT_AGENT_PATH), resuming normal restart." | tee -a /home/enderj/.config/solana-jupiter-bot/chat_agent.log
+                chat_agent_missing_logged=false
+                chat_agent_backoff=0
+            fi
+            echo "[WATCHDOG] chat_agent died, restarting..."
+            nohup python3 -u "$CHAT_AGENT_PATH" >> /home/enderj/.config/solana-jupiter-bot/chat_agent.log 2>&1 &
+        fi
     fi
 
     # Check for existing orchestrator before launching (fast-fail)
