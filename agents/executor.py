@@ -156,6 +156,86 @@ def _is_rebounding_from_fear(symbol: str, market: dict, price_history: dict) -> 
         return True
     return False
 
+
+def _get_token_trend(symbol: str, signal: dict, market: dict) -> str:
+    """
+    Returns the trend for a token: 'bullish', 'bearish', or 'neutral'.
+    Priority:
+    1. signal['trend'] if present and not None (from strategy/AI signals)
+    2. EMA7 > EMA21 → 'bullish', EMA7 < EMA21 → 'bearish' (from strategy indicators)
+    3. market-level 'price_1h_trend' from market_data (global fallback)
+    4. 'neutral' if no trend data available
+    """
+    # 1. Signal-level trend (from strategy/AI)
+    sig_trend = signal.get("trend")
+    if sig_trend in ("up", "bullish"):
+        return "bullish"
+    if sig_trend in ("down", "bearish"):
+        return "bearish"
+
+    # 2. EMA-based trend from strategy indicators (ema7, ema21)
+    ema7 = signal.get("ema7")
+    ema21 = signal.get("ema21")
+    if ema7 is not None and ema21 is not None:
+        return "bullish" if ema7 > ema21 else "bearish"
+
+    # 3. Market-level 1h trend from market_data
+    tokens = market.get("tokens", {})
+    token_info = tokens.get(symbol.upper(), {})
+    price_trend = token_info.get("price_1h_trend")
+    if price_trend in ("up", "down", "sideways"):
+        if price_trend == "up":
+            return "bullish"
+        elif price_trend == "down":
+            return "bearish"
+        else:
+            return "neutral"
+
+    return "neutral"
+
+
+def _should_block_short_rebound(signal: dict, market: dict) -> tuple[bool, str]:
+    """
+    Returns (should_block, reason) for blocking a SHORT due to rebound risk.
+
+    Blocks SHORT when ALL:
+      - RSI < 30 (oversold / rebound territory)
+      - Trend is bullish (token trend up, EMA bullish, or global research bullish)
+
+    In dry-run mode: logs the potential block but returns should_block=False.
+    Controlled by env vars (read each call to avoid stale module-level values):
+      - SHORT_REBOUND_FILTER_ENABLED (default true)
+      - SHORT_REBOUND_FILTER_DRY_RUN (default false)
+    """
+    enabled = os.environ.get("SHORT_REBOUND_FILTER_ENABLED", "true").lower() == "true"
+    if not enabled:
+        return False, ""
+
+    dry_run = os.environ.get("SHORT_REBOUND_FILTER_DRY_RUN", "false").lower() == "true"
+
+    direction = signal.get("direction", "").lower()
+    if direction != "short":
+        return False, ""
+
+    rsi = signal.get("rsi", 50)
+    if rsi >= 30:
+        return False, ""
+
+    symbol = signal.get("symbol", "UNKNOWN")
+    trend = _get_token_trend(symbol, signal, market)
+    if trend != "bullish":
+        return False, ""
+
+    fg = get_fear_greed_index()
+    reason = f"SHORT {symbol} bloqueado: RSI={rsi:.1f} < 30 + tendencia {trend} (FG={fg})"
+
+    if dry_run:
+        log.info(f"[DRY-RUN] {reason} — dry-run activo, no se bloquea")
+        return False, reason
+
+    log.info(f"🔴 ANTI-REBOUND: {reason}")
+    return True, reason
+
 # .env del proyecto para Telegram/wallet
 ENV_FILE = Path(__file__).parent.parent / ".env"
 
@@ -170,6 +250,10 @@ log = logging.getLogger("executor")
 
 INITIAL_CAPITAL = 1000.0   # Capital paper inicial
 PAPER_MODE      = True    # Cambia a False para trades reales
+
+# ─── Anti-Rebound SHORT Filter ───────────────────────────────────────────────
+SHORT_REBOUND_FILTER_ENABLED = os.environ.get("SHORT_REBOUND_FILTER_ENABLED", "true").lower() == "true"
+SHORT_REBOUND_FILTER_DRY_RUN = os.environ.get("SHORT_REBOUND_FILTER_DRY_RUN", "false").lower() == "true"
 
 # ─── Risk Management (ajustado 31-Mar-2026 — orden de Ender) ─────────────────
 MIN_CONFIDENCE      = 0.70     # Bajado de 0.85 para aprovechar más señales en extremos (2026-03-31)
@@ -492,18 +576,12 @@ def paper_open_position(signal: dict, portfolio: dict, market: dict) -> Optional
         elif fear_greed < BLOCK_LONGS_FG and rsi < 40:
             log.info(f"   ✅ LONG {symbol} PERMITIDO: FG={fear_greed} bajo pero RSI={rsi:.1f} sobrevendido — esperando rebote")
     
-    # ─── FIX 1: Anti-rebound — bloquear SHORTs cuando FG<15 y precio ya rebotó ─
+    # ─── ANTI-REBOUND SHORT FILTER (SOLAA-23) — safety net en paper_open_position ─
+    # Bloquear SHORT cuando RSI<30 + tendencia bullish (ver helper _should_block_short_rebound)
     if direction == "short":
-        from pathlib import Path
-        price_hist_file = Path(__file__).parent / "data" / "price_history.json"
-        price_history = {}
-        if price_hist_file.exists():
-            try:
-                price_history = json.loads(price_hist_file.read_text())
-            except Exception:
-                pass
-        if _is_rebounding_from_fear(symbol, market, price_history):
-            log.info(f"⏭️  SHORT {symbol} bloqueado: rebound detectado (FG<15 + precio subiendo)")
+        block, reason = _should_block_short_rebound(signal, market)
+        if block:
+            log.info(f"⏭️  SHORT {symbol} bloqueado: {reason}")
             return None
 
     # ─── FIX 2: Cooldown después de emergency close ────────────────────────────
@@ -1333,31 +1411,22 @@ def run(safe: bool = True, debug: bool = False) -> dict:
             except Exception as e:
                 log.warning(f"   ⚠️ AI Strategy filter error: {e}")
 
-        # Paso 1c: FILTRO EXTREME FEAR — en FG < 20, solo LONG, no SHORT
+        # Paso 1c: FILTRO ANTI-REBOUND — bloquear SHORTs cuando RSI<30 + tendencia bullish
+        # (SOLAA-23: reemplaza el filtro antiguo de Extreme Fear RSI<15)
         market_file = DATA_DIR / "market_latest.json"
+        market = {}
         if market_file.exists():
             try:
-                mkt = json.loads(market_file.read_text())
-                fg_raw = mkt.get("fear_greed", 50)
-                if isinstance(fg_raw, dict):
-                    fg = fg_raw.get("value", 50)
-                else:
-                    fg = int(fg_raw) if fg_raw else 50
-                if fg < 20:
-                    before = len(valid_signals)
-                    # En extreme fear, SHORTs son válidos si RSI > 15 (no es rebote roto)
-                    # RSI < 15 = rebote activo, NO short. RSI > 50 = momentum DOWN válido.
-                    def _rsi_ok_short(sig):
-                        rsi = sig.get("rsi", 50)
-                        return rsi >= 15  # Allow shorts when RSI > 15 (not a live bounce)
-                    valid_signals = [s for s in valid_signals 
-                        if s.get("direction", "").upper() != "SHORT" or _rsi_ok_short(s)]
-                    skipped = before - len(valid_signals)
-                    if skipped > 0:
-                        rsi_kept = sum(1 for s in valid_signals if s.get("direction","").upper()=="SHORT")
-                        log.warning(f"   ⚠️ EXTREME FEAR ({fg}): removidos {skipped} SHORTs (RSI<15=bounce activo), mantenidos {rsi_kept}")
+                market = json.loads(market_file.read_text())
             except:
                 pass
+        before = len(valid_signals)
+        valid_signals = [s for s in valid_signals
+            if s.get("direction", "").upper() != "SHORT" or not _should_block_short_rebound(s, market)[0]]
+        skipped = before - len(valid_signals)
+        if skipped > 0:
+            rsi_kept = sum(1 for s in valid_signals if s.get("direction", "").upper() == "SHORT")
+            log.warning(f"   ⚠️ ANTI-REBOUND SHORT FILTER: removidos {skipped} SHORTs (RSI<30+bullish), mantenidos {rsi_kept}")
 
         # Paso 2: Calcular sizing coordinado para N posiciones
         n_planned = len(valid_signals)

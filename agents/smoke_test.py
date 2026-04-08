@@ -20,18 +20,17 @@ import subprocess
 from pathlib import Path
 from datetime import datetime, timezone
 
-# Paths
+# Add workspace/ to path so we can import executor for unit tests
 AGENTS_DIR = Path(__file__).parent
 WORKSPACE_DIR = AGENTS_DIR.parent
-DATA_DIR = AGENTS_DIR / "data"
-LEGACY_ROOT = WORKSPACE_DIR
+sys.path.insert(0, str(WORKSPACE_DIR))
 
 LEGACY_STATE_FILES = [
-    LEGACY_ROOT / "paper_trading_state.json",
-    LEGACY_ROOT / "unified_brain_state.json",
+    WORKSPACE_DIR / "paper_trading_state.json",
+    WORKSPACE_DIR / "unified_brain_state.json",
 ]
 
-ORCHESTRATOR_LOCK_FILE = DATA_DIR / "orchestrator.lock"
+ORCHESTRATOR_LOCK_FILE = Path("/tmp/solana_jupiter_orchestrator.lock")
 ORCHESTRATOR_SCRIPT = AGENTS_DIR / "orchestrator.py"
 
 
@@ -39,18 +38,30 @@ def get_orchestrator_pids() -> list[int]:
     """Return PIDs of all running orchestrator.py processes."""
     try:
         result = subprocess.run(
-            ["pgrep", "-f", "python3.*agents/orchestrator.py"],
+            ["pgrep", "-f", "orchestrator\\.py"],
             capture_output=True, text=True
         )
         if result.returncode == 0:
-            return [int(pid) for pid in result.stdout.strip().split("\n") if pid]
+            pids = []
+            for pid in result.stdout.strip().split("\n"):
+                if not pid:
+                    continue
+                cmdline_path = f"/proc/{pid}/cmdline"
+                try:
+                    cmdline = Path(cmdline_path).read_text()
+                    if "smoke_test" in cmdline or "smoke-test" in cmdline:
+                        continue
+                except Exception:
+                    pass
+                pids.append(int(pid))
+            return pids
         return []
     except Exception:
         return []
 
 
 def check_duplicate_orchestrators() -> tuple[bool, str]:
-    """Check for multiple orchestrator instances. Returns (ok, message)."""
+    """Check for multiple orchestrator instances."""
     pids = get_orchestrator_pids()
     if len(pids) == 0:
         return False, "No orchestrator process running"
@@ -83,28 +94,25 @@ def check_lock_file() -> tuple[bool, str]:
 
 def check_canonical_state() -> tuple[bool, str]:
     """Verify that the canonical state directory exists and has required files."""
-    if not DATA_DIR.exists():
-        return False, f"CANONICAL STATE DIR MISSING: {DATA_DIR} does not exist"
+    data_dir = AGENTS_DIR / "data"
+    if not data_dir.exists():
+        return False, f"CANONICAL STATE DIR MISSING: {data_dir} does not exist"
 
     required = ["portfolio.json", "trade_history.json"]
-    missing = [f for f in required if not (DATA_DIR / f).exists()]
+    missing = [f for f in required if not (data_dir / f).exists()]
     if missing:
-        return False, f"CANONICAL STATE INCOMPLETE: missing {missing} in {DATA_DIR}"
+        return False, f"CANONICAL STATE INCOMPLETE: missing {missing} in {data_dir}"
 
-    return True, f"OK: canonical state dir {DATA_DIR} has required files"
+    return True, f"OK: canonical state dir {data_dir} has required files"
 
 
 def check_legacy_files_not_used_for_health() -> tuple[bool, str]:
-    """
-    Check that legacy root files are stale and small (not actively written).
-    These files should NOT be used for operational health checks.
-    """
-    # Check if legacy files are stale (>24h old) or very small
+    """Check that legacy root files are stale and small (not actively written)."""
     now = datetime.now(timezone.utc).timestamp()
     issues = []
     for lf in LEGACY_STATE_FILES:
         if not lf.exists():
-            continue  # Missing is fine, means not being written
+            continue
         age_hours = (now - lf.stat().st_mtime) / 3600
         size = lf.stat().st_size
         if age_hours < 24 and size > 100:
@@ -122,12 +130,9 @@ def check_lock_is_activated_in_code() -> tuple[bool, str]:
     except IOError as e:
         return False, f"Cannot read orchestrator.py: {e}"
 
-    # Check that _acquire_lock is defined
     if "_acquire_lock()" not in content:
         return False, "LOCK DEFINITION MISSING: _acquire_lock() not found in orchestrator.py"
 
-    # Check that it's called in __main__ before the loop
-    # Look for the pattern: else: block with _acquire_lock() before while True
     lines = content.split("\n")
     in_main = False
     in_else_block = False
@@ -143,12 +148,165 @@ def check_lock_is_activated_in_code() -> tuple[bool, str]:
             found_acquire_lock = True
         if in_else_block and "while True" in line:
             found_loop = True
-            break  # we've gone past the relevant section
+            break
 
     if not found_acquire_lock:
         return False, "LOCK NOT ACTIVATED: _acquire_lock() defined but not called in loop mode __main__"
 
     return True, "OK: _acquire_lock() is activated in orchestrator.py loop entry"
+
+
+def _run_test(test_fn) -> tuple[bool, str]:
+    """Wrapper that calls a test function and returns (ok, message)."""
+    try:
+        return test_fn()
+    except AssertionError as e:
+        return False, f"ASSERTION FAILED: {e}"
+    except Exception as e:
+        return False, f"ERROR: {e}"
+
+
+def _restore_env(key, value):
+    if value is None:
+        os.environ.pop(key, None)
+    else:
+        os.environ[key] = value
+
+
+# ─── Anti-Rebound SHORT Filter Tests (SOLAA-23) ────────────────────────────────
+
+def test_short_rebound_filter_blocked():
+    """SHORT + RSI 28 + trend bullish => bloqueado."""
+    from agents import executor as ex
+
+    orig_enabled = os.environ.get("SHORT_REBOUND_FILTER_ENABLED")
+    orig_dry_run = os.environ.get("SHORT_REBOUND_FILTER_DRY_RUN")
+
+    try:
+        os.environ["SHORT_REBOUND_FILTER_ENABLED"] = "true"
+        os.environ["SHORT_REBOUND_FILTER_DRY_RUN"] = "false"
+
+        signal = {
+            "symbol": "FARTCOIN",
+            "direction": "short",
+            "rsi": 28,
+            "trend": "up",
+        }
+        market = {"tokens": {"FARTCOIN": {}}}
+
+        blocked, reason = ex._should_block_short_rebound(signal, market)
+        assert blocked, f"Expected SHORT to be blocked but reason={reason}"
+        assert "RSI=" in reason and "bullish" in reason
+        return True, f"OK: SHORT+RSI28+bullish blocked ({reason})"
+    finally:
+        _restore_env("SHORT_REBOUND_FILTER_ENABLED", orig_enabled)
+        _restore_env("SHORT_REBOUND_FILTER_DRY_RUN", orig_dry_run)
+
+
+def test_short_rebound_filter_permitted_downtrend():
+    """SHORT + RSI 28 + trend down => PERMITIDO."""
+    from agents import executor as ex
+
+    orig_enabled = os.environ.get("SHORT_REBOUND_FILTER_ENABLED")
+    orig_dry_run = os.environ.get("SHORT_REBOUND_FILTER_DRY_RUN")
+
+    try:
+        os.environ["SHORT_REBOUND_FILTER_ENABLED"] = "true"
+        os.environ["SHORT_REBOUND_FILTER_DRY_RUN"] = "false"
+
+        signal = {
+            "symbol": "FARTCOIN",
+            "direction": "short",
+            "rsi": 28,
+            "trend": "down",
+        }
+        market = {"tokens": {"FARTCOIN": {}}}
+
+        blocked, reason = ex._should_block_short_rebound(signal, market)
+        assert not blocked, f"Expected SHORT to be permitted but blocked=True"
+        return True, "OK: SHORT+RSI28+downtrend permitted"
+    finally:
+        _restore_env("SHORT_REBOUND_FILTER_ENABLED", orig_enabled)
+        _restore_env("SHORT_REBOUND_FILTER_DRY_RUN", orig_dry_run)
+
+
+def test_short_rebound_filter_permitted_high_rsi():
+    """SHORT + RSI 35 + trend bullish => PERMITIDO."""
+    from agents import executor as ex
+
+    orig_enabled = os.environ.get("SHORT_REBOUND_FILTER_ENABLED")
+    orig_dry_run = os.environ.get("SHORT_REBOUND_FILTER_DRY_RUN")
+
+    try:
+        os.environ["SHORT_REBOUND_FILTER_ENABLED"] = "true"
+        os.environ["SHORT_REBOUND_FILTER_DRY_RUN"] = "false"
+
+        signal = {
+            "symbol": "FARTCOIN",
+            "direction": "short",
+            "rsi": 35,
+            "trend": "up",
+        }
+        market = {"tokens": {"FARTCOIN": {}}}
+
+        blocked, reason = ex._should_block_short_rebound(signal, market)
+        assert not blocked, f"Expected SHORT to be permitted (RSI>=30) but blocked=True"
+        return True, "OK: SHORT+RSI35+bullish permitted (RSI not in rebound zone)"
+    finally:
+        _restore_env("SHORT_REBOUND_FILTER_ENABLED", orig_enabled)
+        _restore_env("SHORT_REBOUND_FILTER_DRY_RUN", orig_dry_run)
+
+
+def test_short_rebound_filter_dry_run():
+    """Modo dry-run: no bloquea pero deja log/flag de decision."""
+    from agents import executor as ex
+
+    orig_enabled = os.environ.get("SHORT_REBOUND_FILTER_ENABLED")
+    orig_dry_run = os.environ.get("SHORT_REBOUND_FILTER_DRY_RUN")
+
+    try:
+        os.environ["SHORT_REBOUND_FILTER_ENABLED"] = "true"
+        os.environ["SHORT_REBOUND_FILTER_DRY_RUN"] = "true"
+
+        signal = {
+            "symbol": "FARTCOIN",
+            "direction": "short",
+            "rsi": 28,
+            "trend": "up",
+        }
+        market = {"tokens": {"FARTCOIN": {}}}
+
+        blocked, reason = ex._should_block_short_rebound(signal, market)
+        assert not blocked, "In dry-run mode, should_block should be False"
+        assert reason, "In dry-run mode, reason should be returned"
+        return True, f"OK: dry-run mode returns reason without blocking"
+    finally:
+        _restore_env("SHORT_REBOUND_FILTER_ENABLED", orig_enabled)
+        _restore_env("SHORT_REBOUND_FILTER_DRY_RUN", orig_dry_run)
+
+
+def test_long_not_affected():
+    """LONGs no deben ser afectados por el filtro anti-rebound."""
+    from agents import executor as ex
+
+    orig_enabled = os.environ.get("SHORT_REBOUND_FILTER_ENABLED")
+
+    try:
+        os.environ["SHORT_REBOUND_FILTER_ENABLED"] = "true"
+
+        signal = {
+            "symbol": "FARTCOIN",
+            "direction": "long",
+            "rsi": 20,
+            "trend": "up",
+        }
+        market = {"tokens": {"FARTCOIN": {}}}
+
+        blocked, reason = ex._should_block_short_rebound(signal, market)
+        assert not blocked, "LONGs should never be blocked by anti-rebound filter"
+        return True, "OK: LONGs unaffected by anti-rebound filter"
+    finally:
+        _restore_env("SHORT_REBOUND_FILTER_ENABLED", orig_enabled)
 
 
 def run_smoke_tests():
@@ -164,6 +322,12 @@ def run_smoke_tests():
         ("Canonical State Directory", check_canonical_state),
         ("Lock Activation in Code", check_lock_is_activated_in_code),
         ("Legacy Files Not Used for Health", check_legacy_files_not_used_for_health),
+        # Anti-Rebound SHORT Filter tests (SOLAA-23)
+        ("[SOLAA-23] SHORT+RSI28+bullish blocked", lambda: _run_test(test_short_rebound_filter_blocked)),
+        ("[SOLAA-23] SHORT+RSI28+downtrend permitted", lambda: _run_test(test_short_rebound_filter_permitted_downtrend)),
+        ("[SOLAA-23] SHORT+RSI35+bullish permitted", lambda: _run_test(test_short_rebound_filter_permitted_high_rsi)),
+        ("[SOLAA-23] dry-run mode", lambda: _run_test(test_short_rebound_filter_dry_run)),
+        ("[SOLAA-23] LONGs unaffected", lambda: _run_test(test_long_not_affected)),
     ]
 
     all_passed = True
