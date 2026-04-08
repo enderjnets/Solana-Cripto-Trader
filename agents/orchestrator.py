@@ -715,12 +715,14 @@ if __name__ == "__main__":
         run_cycle(debug=args.debug)
     else:
         # --live or bare invocation: run continuous loop
+        _acquire_lock()  # Prevent dual orchestrator instances
         interval = args.interval if args.interval else 60
         scan_interval = args.scan_interval if args.scan_interval else 10
         cycle_count = 0
-        
+
         log.info(f"🔄 Modo continuo — intervalo: {interval}s")
         log.info(f"🔍 Token Scanner cada {scan_interval} ciclos (~{scan_interval}min)")
+        log.info(f"📁 DATA_DIR={DATA_DIR} | PID={os.getpid()}")
         
         while True:
             try:

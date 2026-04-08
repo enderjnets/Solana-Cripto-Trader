@@ -36,8 +36,20 @@ while true; do
         echo "[WATCHDOG] chat_agent died, restarting..."
         nohup python3 -u chat_agent.py >> /home/enderj/.config/solana-jupiter-bot/chat_agent.log 2>&1 &
     fi
-    echo "[WATCHDOG] Starting agents/orchestrator.py..."
-    python3 -u agents/orchestrator.py
-    echo "[WATCHDOG] Bot died (exit $?), restarting in 5s..."
+
+    # Check for existing orchestrator before launching (fast-fail)
+    if pgrep -f "python3.*agents/orchestrator.py" > /dev/null 2>&1; then
+        echo "[WATCHDOG] orchestrator already running, skipping launch (lock will reject duplicate)"
+    else
+        echo "[WATCHDOG] Starting agents/orchestrator.py..."
+        python3 -u agents/orchestrator.py
+        EXIT_CODE=$?
+        if [ $EXIT_CODE -eq 1 ]; then
+            echo "[WATCHDOG] orchestrator rejected duplicate launch (exit $EXIT_CODE), waiting 30s before retry..."
+            sleep 30
+            continue
+        fi
+        echo "[WATCHDOG] Bot died (exit $EXIT_CODE), restarting in 5s..."
+    fi
     sleep 5
 done
