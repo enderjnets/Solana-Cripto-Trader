@@ -19,6 +19,7 @@ import json
 import subprocess
 from pathlib import Path
 from datetime import datetime, timezone
+from unittest.mock import patch
 
 # Add workspace/ to path so we can import executor for unit tests
 AGENTS_DIR = Path(__file__).parent
@@ -194,7 +195,9 @@ def test_short_rebound_filter_blocked():
         }
         market = {"tokens": {"FARTCOIN": {}}}
 
-        blocked, reason = ex._should_block_short_rebound(signal, market)
+        # Patch get_fear_greed_index to avoid E1 extreme-fear bypass reading live FG=14
+        with patch.object(ex, "get_fear_greed_index", return_value=50):
+            blocked, reason = ex._should_block_short_rebound(signal, market)
         assert blocked, f"Expected SHORT to be blocked but reason={reason}"
         assert "RSI=" in reason and "bullish" in reason
         return True, f"OK: SHORT+RSI28+bullish blocked ({reason})"
@@ -222,7 +225,8 @@ def test_short_rebound_filter_permitted_downtrend():
         }
         market = {"tokens": {"FARTCOIN": {}}}
 
-        blocked, reason = ex._should_block_short_rebound(signal, market)
+        with patch.object(ex, "get_fear_greed_index", return_value=50):
+            blocked, reason = ex._should_block_short_rebound(signal, market)
         assert not blocked, f"Expected SHORT to be permitted but blocked=True"
         return True, "OK: SHORT+RSI28+downtrend permitted"
     finally:
@@ -249,7 +253,8 @@ def test_short_rebound_filter_permitted_high_rsi():
         }
         market = {"tokens": {"FARTCOIN": {}}}
 
-        blocked, reason = ex._should_block_short_rebound(signal, market)
+        with patch.object(ex, "get_fear_greed_index", return_value=50):
+            blocked, reason = ex._should_block_short_rebound(signal, market)
         assert not blocked, f"Expected SHORT to be permitted (RSI>=30) but blocked=True"
         return True, "OK: SHORT+RSI35+bullish permitted (RSI not in rebound zone)"
     finally:
@@ -276,7 +281,8 @@ def test_short_rebound_filter_dry_run():
         }
         market = {"tokens": {"FARTCOIN": {}}}
 
-        blocked, reason = ex._should_block_short_rebound(signal, market)
+        with patch.object(ex, "get_fear_greed_index", return_value=50):
+            blocked, reason = ex._should_block_short_rebound(signal, market)
         assert not blocked, "In dry-run mode, should_block should be False"
         assert reason, "In dry-run mode, reason should be returned"
         return True, f"OK: dry-run mode returns reason without blocking"
@@ -302,7 +308,8 @@ def test_long_not_affected():
         }
         market = {"tokens": {"FARTCOIN": {}}}
 
-        blocked, reason = ex._should_block_short_rebound(signal, market)
+        with patch.object(ex, "get_fear_greed_index", return_value=50):
+            blocked, reason = ex._should_block_short_rebound(signal, market)
         assert not blocked, "LONGs should never be blocked by anti-rebound filter"
         return True, "OK: LONGs unaffected by anti-rebound filter"
     finally:
