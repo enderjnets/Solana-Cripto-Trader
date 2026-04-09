@@ -70,7 +70,7 @@ TP_MULTIPLIER         = 2.0    # TP = 2x SL → 5.0% (R:R 1:2)
 MAX_OPEN_POSITIONS    = 6      # E6: Raised from 4 for more throughput      # Subido de 2 a 4 para mayor throughput (target 5% daily)
 MAX_DRAWDOWN_PCT      = 0.15   # FIX 2.5: 15% drawdown (ampliado de 10% para 5x leverage)
 PAUSE_DRAWDOWN_PCT    = 0.10   # FIX 2.5: 10% pause (ampliado de 6% para 5x leverage)
-MIN_POSITION_USD      = 5.0    # Mínimo $5 margen (era $8 — ajustado a capital bajo)
+MIN_POSITION_USD      = 2.0    # Lowered from $5 for small capital ($100+)    # Mínimo $5 margen (era $8 — ajustado a capital bajo)
 MAX_SINGLE_EXPOSURE   = 0.40   # Máximo 40% del capital en margen (ajustado 2026-03-31 para mercado lento — posiciones más grandes)
 
 

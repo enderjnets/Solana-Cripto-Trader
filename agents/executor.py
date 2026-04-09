@@ -254,7 +254,7 @@ log = logging.getLogger("executor")
 
 # ─── Parámetros ──────────────────────────────────────────────────────────────
 
-INITIAL_CAPITAL = 1000.0   # Capital paper inicial
+INITIAL_CAPITAL = 1000.0   # Fallback - actual initial read from portfolio.json at runtime
 PAPER_MODE      = True    # Cambia a False para trades reales
 
 # ─── Anti-Rebound SHORT Filter ───────────────────────────────────────────────
@@ -267,7 +267,30 @@ BLOCK_LONGS_FG      = 20       # E1: Lowered from 35 - only block in extreme fea
 MAX_TRADES_PER_DAY  = 0        # 0 = sin límite
 
 # ─── Regla de Ender (31-Mar-2026): $4 min profit, $2 max risk ────────────
-MAX_RISK_USD        = 5.00     # E2: Raised from $3 for larger positions     # Máximo $3 de riesgo por POSICIÓN individual (ajustado 2026-03-31 para mercado lento)
+# Capital-proportional risk (works with $100-$10,000)
+MAX_RISK_PCT        = 0.025   # 2.5% of capital per trade (was fixed $5)
+PORTFOLIO_RISK_PCT  = 0.10    # 10% of capital total risk (was fixed $20)
+MIN_PROFIT_PCT      = 0.002   # 0.2% of capital min profit per pos (was fixed $0.50)
+
+def _get_risk_for_capital(capital: float, confidence: float = 0.7) -> tuple:
+    """Returns (max_risk_usd, leverage) based on capital and confidence."""
+    base_risk = capital * MAX_RISK_PCT
+    # Confidence-based scaling
+    if confidence >= 0.85:
+        risk = base_risk * 1.4   # 3.5% of capital
+        lev = min(7, 7)
+    elif confidence >= 0.70:
+        risk = base_risk          # 2.5% of capital
+        lev = min(5, 5)
+    else:
+        risk = base_risk * 0.6   # 1.5% of capital
+        lev = min(3, 3)
+    # Floor: minimum $0.50 risk to avoid dust trades
+    risk = max(0.50, risk)
+    return round(risk, 2), lev
+
+# Legacy compatibility
+MAX_RISK_USD        = 5.00     # Overridden by _get_risk_for_capital() at runtime     # Máximo $3 de riesgo por POSICIÓN individual (ajustado 2026-03-31 para mercado lento)
 
 # ─── Portfolio Take Profit (31-Mar-2026) — orden de Ender ─────────────────
 # FIX 1.4+1.5: Portfolio TP y MIN dinamicos basados en capital
@@ -279,14 +302,14 @@ def get_portfolio_tp(portfolio: dict = None) -> float:
     if portfolio is None:
         return _PORTFOLIO_TP_USD
     capital = portfolio.get("capital_usd", 1000)
-    return max(5.0, min(capital * 0.01, 50.0))
+    return max(1.0, min(capital * 0.01, 50.0))  # Min $1 for small capital
 
 def get_portfolio_min(portfolio: dict = None) -> float:
     """Dynamic portfolio MIN: 0.5% del capital, min $3, max $25."""
     if portfolio is None:
         return _PORTFOLIO_MIN_USD
     capital = portfolio.get("capital_usd", 1000)
-    return max(3.0, min(capital * 0.005, 25.0))
+    return max(0.50, min(capital * 0.005, 25.0))  # Min $0.50 for small capital
 
 # Backward-compatible aliases
 PORTFOLIO_TP_USD = _PORTFOLIO_TP_USD
@@ -297,8 +320,8 @@ PORTFOLIO_MIN_USD = _PORTFOLIO_MIN_USD
 # La IA decide cuántas posiciones abrir (N), y el sistema distribuye el
 # target de ganancias entre todas ellas, ajustando por volatilidad.
 # Cuando el P&L combinado llega al PORTFOLIO_TP → cerrar TODO.
-PORTFOLIO_MAX_RISK_USD = 20.00  # E2: Raised from $10 for 6 positions  # Riesgo total máximo del portafolio (todas las posiciones)
-MIN_PROFIT_PER_POS_USD = 0.50   # Profit mínimo por posición ($0.50, flexible según N)
+PORTFOLIO_MAX_RISK_USD = 20.00  # Legacy - overridden by PORTFOLIO_RISK_PCT at runtime  # Riesgo total máximo del portafolio (todas las posiciones)
+MIN_PROFIT_PER_POS_USD = 0.50   # Legacy - overridden by MIN_PROFIT_PCT at runtime   # Profit mínimo por posición ($0.50, flexible según N)
 
 # ─── E4: Scalping Mode ───────────────────────────────────────────────
 SCALP_TOKENS = {"SOL", "BTC", "ETH"}
@@ -623,18 +646,13 @@ def paper_open_position(signal: dict, portfolio: dict, market: dict) -> Optional
         return None
 
     # Determinar leverage (signal puede sugerirlo, si no, default)
-    # E2: Confidence-based dynamic leverage and risk
-    if confidence >= 0.85:
-        _dyn_risk = 7.00
-        leverage = min(7, signal.get("leverage", 7))
-    elif confidence >= 0.70:
-        _dyn_risk = 5.00
-        leverage = min(5, signal.get("leverage", DEFAULT_LEVERAGE))
-    else:
-        _dyn_risk = 3.00
-        leverage = min(3, signal.get("leverage", 3))
-    # Override coordinated_risk with confidence-based risk
+    # Capital-proportional confidence-based sizing
+    _capital = portfolio.get("capital_usd", 500) + sum(
+        p.get("margin_usd", 0) for p in portfolio.get("positions", []) if p.get("status") == "open"
+    )
+    _dyn_risk, leverage = _get_risk_for_capital(_capital, confidence)
     signal["_coordinated_risk"] = _dyn_risk
+    log.info(f"   \U0001f4b0 Sizing: capital=${_capital:.0f} conf={confidence:.2f} -> risk=${_dyn_risk:.2f} lev={leverage}x")
     leverage = max(1, min(leverage, MAX_LEVERAGE))
 
     # ─── Position Sizing basado en Regla de Ender ─────────────────────────
@@ -722,7 +740,8 @@ def paper_open_position(signal: dict, portfolio: dict, market: dict) -> Optional
     # Aplicar factor de volatilidad al riesgo coordinado
     adjusted_risk = coordinated_risk * vol_factor
     # Hard cap: adjusted_risk × N no puede exceder PORTFOLIO_MAX_RISK_USD
-    max_adj_per_pos = PORTFOLIO_MAX_RISK_USD / max(n_positions, 1)
+    _portfolio_max = max(_capital * PORTFOLIO_RISK_PCT, PORTFOLIO_MAX_RISK_USD) if '_capital' in dir() else PORTFOLIO_MAX_RISK_USD
+    max_adj_per_pos = _portfolio_max / max(n_positions, 1)
     adjusted_risk = min(adjusted_risk, max_adj_per_pos)
 
     log.info(f"📊 Coordinated sizing: {n_positions} pos | risk=${coordinated_risk:.2f}×vol{vol_factor:.1f}=${adjusted_risk:.2f} | target=${coordinated_profit:.2f}/pos"
@@ -1537,7 +1556,8 @@ def run(safe: bool = True, debug: bool = False) -> dict:
             else:
                 # El profit target por posición se distribuye entre todas (existentes + nuevas)
                 total_positions = open_count + n_planned
-                profit_per_pos = max(PORTFOLIO_TP_USD / total_positions, MIN_PROFIT_PER_POS_USD)
+                _min_profit = max(_capital * MIN_PROFIT_PCT, MIN_PROFIT_PER_POS_USD) if '_capital' in dir() else MIN_PROFIT_PER_POS_USD
+                profit_per_pos = max(PORTFOLIO_TP_USD / total_positions, _min_profit)
                 # El riesgo por posición = presupuesto RESTANTE / N nuevas posiciones
                 risk_per_pos = remaining_risk_budget / n_planned
                 # También respetar el límite individual
