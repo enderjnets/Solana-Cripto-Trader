@@ -760,6 +760,16 @@ def paper_open_position(signal: dict, portfolio: dict, market: dict) -> Optional
     notional_value = max_notional_by_risk  # Usar max permitido por riesgo
     margin_usd = notional_value / leverage
 
+    # Hard cap: max 25% of equity per position (safety for small accounts)
+    _eq = portfolio.get("capital_usd", 100) + sum(
+        p.get("margin_usd", 0) for p in portfolio.get("positions", []) if p.get("status") == "open"
+    )
+    _max_margin = _eq * 0.25
+    if margin_usd > _max_margin:
+        log.info(f"   \U0001f4cf Margin capped: ${margin_usd:.2f} -> ${_max_margin:.2f} (25% of ${_eq:.0f})")
+        margin_usd = round(_max_margin, 2)
+        notional_value = round(margin_usd * leverage, 2)
+
     # Verificar capital suficiente
     if portfolio["capital_usd"] < margin_usd:
         log.warning(f"⚠️  Capital insuficiente: ${portfolio['capital_usd']:.2f} < ${margin_usd:.2f}")
