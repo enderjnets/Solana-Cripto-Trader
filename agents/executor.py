@@ -744,6 +744,17 @@ def paper_open_position(signal: dict, portfolio: dict, market: dict) -> Optional
     max_adj_per_pos = _portfolio_max / max(n_positions, 1)
     adjusted_risk = min(adjusted_risk, max_adj_per_pos)
 
+    # Cap risk so margin stays under 20% of equity
+    _cap_eq = portfolio.get("capital_usd", 100) + sum(
+        p.get("margin_usd", 0) for p in portfolio.get("positions", []) if p.get("status") == "open"
+    )
+    _cap_max_margin = _cap_eq * 0.20
+    _cap_max_notional = _cap_max_margin * leverage
+    _cap_max_risk = _cap_max_notional * (sl_pct + fee_round_trip)
+    if adjusted_risk > _cap_max_risk:
+        log.info(f"   \U0001f4cf Risk capped for 20% margin: ${adjusted_risk:.2f} -> ${_cap_max_risk:.2f} (eq=${_cap_eq:.0f})")
+        adjusted_risk = _cap_max_risk
+
     log.info(f"📊 Coordinated sizing: {n_positions} pos | risk=${coordinated_risk:.2f}×vol{vol_factor:.1f}=${adjusted_risk:.2f} | target=${coordinated_profit:.2f}/pos"
              + (f" | ATR={token_atr_pct:.2f}%" if token_atr_pct else ""))
 
