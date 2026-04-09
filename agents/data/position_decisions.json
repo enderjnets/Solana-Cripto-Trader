@@ -1,54 +1,55 @@
 {
-  "timestamp": "2026-04-08T02:52:24.043338+00:00",
+  "timestamp": "2026-04-09T05:55:35.321042+00:00",
   "decisions": [
     {
-      "symbol": "GOAT",
+      "symbol": "BTC",
       "direction": "short",
-      "action": "HOLD",
-      "confidence": 0.9,
-      "alignment": "ALIGNED",
-      "quant_score": 20,
-      "quant_action": "HOLD",
+      "action": "REDUCE",
+      "confidence": 0.68,
+      "alignment": "SPLIT (quant=CLOSE, llm=REDUCE)",
+      "quant_score": 50,
+      "quant_action": "CLOSE",
       "quant_reasons": [
-        "TP_CERCA_GANANCIA (2.65%, pnl=5.9%)",
-        "RR_BUENO (2.29x)",
-        "PANICO_EXTREMO (F&G=17)"
+        "TP_MUY_CERCA_GANANCIA (1.35%, pnl=9.2%)",
+        "PANICO_EXTREMO (F&G=14)"
       ],
-      "llm_action": "HOLD",
-      "llm_confidence": 0.75,
-      "llm_reasoning": "Posici\u00f3n ganadores con 5.88% y R/R 2.29x, suficiente runway. Mercado en miedo extremo (F&G=17) favorece shorts. Portafolio ya super\u00f3 target 190%, no hay presi\u00f3n de cerrar.",
+      "llm_action": "REDUCE",
+      "llm_confidence": 0.85,
+      "llm_reasoning": "Ganancia de 9.16% supera el umbral de 8%, portafolio ya\u8d85\u6807 347% del target, y tendencia bullish con F&G en 14 sugiere presi\u00f3n al alza. Reducir 50% asegura ganancias y libera capital.",
       "llm_source": "llm_claude_sonnet",
-      "pnl_usd": 3.1993,
-      "pnl_pct": 5.8822,
-      "dist_tp_pct": 2.654,
-      "dist_sl_pct": 1.16,
-      "rr_remaining": 2.289,
+      "pnl_usd": 2.5607,
+      "pnl_pct": 9.1616,
+      "dist_tp_pct": 1.35,
+      "dist_sl_pct": 1.701,
+      "rr_remaining": 0.794,
       "hours_open": 0,
-      "evaluated_at": "2026-04-08T02:52:10.366352+00:00"
+      "evaluated_at": "2026-04-09T05:55:28.903753+00:00"
     },
     {
-      "symbol": "FARTCOIN",
+      "symbol": "ETH",
       "direction": "short",
-      "action": "CLOSE",
-      "confidence": 0.68,
-      "alignment": "SPLIT (quant=HOLD, llm=CLOSE)",
-      "quant_score": 20,
-      "quant_action": "HOLD",
+      "action": "REDUCE",
+      "confidence": 0.66,
+      "alignment": "SPLIT (quant=CLOSE, llm=REDUCE)",
+      "quant_score": 85,
+      "quant_action": "CLOSE",
       "quant_reasons": [
-        "TP_MODERADO (4.39%)",
-        "PANICO_EXTREMO (F&G=17)"
+        "TP_MUY_CERCA_GANANCIA (0.00%, pnl=19.1%)",
+        "RR_MALO (0.00x)",
+        "GANANCIA_MUY_ALTA (19.1%)",
+        "PANICO_EXTREMO (F&G=14)"
       ],
-      "llm_action": "CLOSE",
-      "llm_confidence": 0.85,
-      "llm_reasoning": "Target de $2.00 ya alcanzado (190%), tendencia BULLISH desfavorable para SHORT y miedo extremo puede revertirse pronto",
+      "llm_action": "REDUCE",
+      "llm_confidence": 0.82,
+      "llm_reasoning": "Ganancia del 19.1% enETHshort conscore85/100 yTPmuycerca(RR=0). Mercado bullishconfalta panico(F&G=14).Seguir\u00e9gla3:ganancia>8%cerrar50%yasegurarparte.Siextraccido$2.19(50%de$4.38),elportafoliosecalza$2.00targetyqueda$2.75libreparasietestacontinua.",
       "llm_source": "llm_claude_sonnet",
-      "pnl_usd": 0.6028,
-      "pnl_pct": 1.3156,
-      "dist_tp_pct": 4.389,
-      "dist_sl_pct": 3.366,
-      "rr_remaining": 1.304,
+      "pnl_usd": 4.3818,
+      "pnl_pct": 19.0514,
+      "dist_tp_pct": 0,
+      "dist_sl_pct": 3.789,
+      "rr_remaining": 0.0,
       "hours_open": 0,
-      "evaluated_at": "2026-04-08T02:52:24.043247+00:00"
+      "evaluated_at": "2026-04-09T05:55:35.320947+00:00"
     }
   ]
 }

@@ -20,7 +20,7 @@ DAILY_TARGET_FILE = DATA_DIR / "daily_target_state.json"
 
 # Config
 TARGET_MIN_PCT = 0.05  # 5% mínimo (was 3%)
-TARGET_MAX_PCT = 0.10  # 10% máximo (was 5% — raised to avoid premature locking with leverage)
+TARGET_MAX_PCT = 0.05  # E7: 5% realistic target (was 10%)  # 10% máximo (was 5% — raised to avoid premature locking with leverage)
 RSI_OVERBOUGHT = 70    # RSI > 70 = overbought
 
 

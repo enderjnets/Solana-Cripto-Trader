@@ -206,7 +206,7 @@ def run_cycle(safe=True, debug=False):
             fg_val = fg.get("value", 50) if isinstance(fg, dict) else 50
             
             # Solo invocar AI strategy si F&G es extremo o si hay pocas señales técnicas
-            if fg_val <= 25 or fg_val >= 75 or n_signals < 2:
+            if True:  # E6: Always invoke AI Strategy
                 import ai_strategy
                 port_3b = json.loads(portfolio_file_3b.read_text()) if portfolio_file_3b.exists() else {}
                 research_file = DATA_DIR / "research_latest.json"
@@ -751,7 +751,7 @@ if __name__ == "__main__":
                         import json as _json
                         _pf = _json.loads(pf_path.read_text())
                         has_open = any(p.get("status") == "open" for p in _pf.get("positions", []))
-                    actual_interval = 15 if has_open else interval
+                    actual_interval = 10 if has_open else interval  # E6: 10s polling (was 15s)
                     time.sleep(actual_interval)
                 except Exception:
                     time.sleep(interval)

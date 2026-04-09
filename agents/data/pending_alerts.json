@@ -1,9 +1,5 @@
 [
   {
-    "ts": "2026-04-02T22:12:12.150342-06:00",
-    "msg": "\u26a0\ufe0f <b>ALERTA DRAWDOWN</b>\nDrawdown actual: 83.1%\nCapital: $124.41\nM\u00e1ximo permitido: 10%"
-  },
-  {
     "ts": "2026-04-02T22:12:55.048504-06:00",
     "msg": "\u26a0\ufe0f <b>ALERTA DRAWDOWN</b>\nDrawdown actual: 87.6%\nCapital: $80.24\nM\u00e1ximo permitido: 10%"
   },
@@ -78,5 +74,9 @@
   {
     "ts": "2026-04-04T07:00:15.303227-06:00",
     "msg": "\ud83c\udf05 <b>Reporte Diario \u2014 Solana Bot</b>\n\ud83d\udcc5 Saturday 04 April 2026, 07:00 MT\n\n\ud83d\udcb0 <b>Capital:</b> $925.92\n\ud83d\udcca <b>Valor total:</b> $1000.46\n\ud83d\udcc8 <b>Retorno:</b> +0.05%\n\ud83d\udcc9 <b>Drawdown:</b> 0.00%\n\n\ud83c\udfc6 <b>Win Rate:</b> 0.0%\n\ud83d\udcca <b>Trades totales:</b> 0 (0W / 0L)\n\ud83d\udc9a <b>Avg win:</b> $0.00\n\u2764\ufe0f <b>Avg loss:</b> $0.00\n\u26a1 <b>Profit factor:</b> 0.00\n\ud83d\udcd0 <b>Sharpe ratio:</b> 0.00\n\n\ud83d\udcca <b>Posiciones abiertas:</b> 2"
+  },
+  {
+    "ts": "2026-04-08T07:02:11.354192-06:00",
+    "msg": "\ud83c\udf05 <b>Reporte Diario \u2014 Solana Bot</b>\n\ud83d\udcc5 Wednesday 08 April 2026, 07:02 MT\n\n\ud83d\udcb0 <b>Capital:</b> $944.10\n\ud83d\udcca <b>Valor total:</b> $1000.00\n\ud83d\udcc8 <b>Retorno:</b> +0.00%\n\ud83d\udcc9 <b>Drawdown:</b> 0.00%\n\n\ud83c\udfc6 <b>Win Rate:</b> 0.0%\n\ud83d\udcca <b>Trades totales:</b> 0 (0W / 0L)\n\ud83d\udc9a <b>Avg win:</b> $0.00\n\u2764\ufe0f <b>Avg loss:</b> $0.00\n\u26a1 <b>Profit factor:</b> 0.00\n\ud83d\udcd0 <b>Sharpe ratio:</b> 0.00\n\n\ud83d\udcca <b>Posiciones abiertas:</b> 1"
   }
 ]

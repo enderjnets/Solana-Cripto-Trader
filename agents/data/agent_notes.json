@@ -154,7 +154,12 @@
       "sender": "user",
       "text": "como ves que va la operativa esta ves depues del ultimo reset ?",
       "ts": "2026-04-07T18:10:05.811001"
+    },
+    {
+      "sender": "agent",
+      "text": "📊 OPERATIVA POST-RESET — Mi análisis:\n\n⚠️ SITUACIÓN ACTUAL:\n• Capital: $887 (-11.3% desde $1000 reset)\n• Trades: 3 cerrados → 0 wins, 3 losses\n• Posiciones abiertas: 2 (5x leverage)\n  - GOAT: +$2.03 (+3.7%) — va bien\n  - FARTCOIN: -$5.37 (-9.7%) 🚨 — bajo agua\n\n📉 QUÉ PASÓ:\nEl reset de ayer (7 abr ~11PM) borró el historial. Desde entonces:\n• FARTCOIN abrió en short pero el precio subió — ahora -9.7%\n• GOAT abrió en short y va bien (+3.7%)\n• Los 3 trades cerrados fueron pérdidas\n\n🔧 AUTO-LEARNER:\n• Trades analizados: 0 (todavía sin datos post-reset)\n• Params: SL 2.5%, TP 6%, Trailing Stop 8%, Leverage Tier 1\n• No ha hecho ninguna adaptación todavía\n\n💡 MI OPINIÓN:\n1. FARTCOIN es el problema — -9.7% en una sola posición es mucho\n2. El leverage 5x es agresivo para capital de $887\n3. Necesitamos 20-30 trades más para que el auto-learner analice\n4. Debería considerar reducir leverage a 3x\n\n⚡ RECOMENDACIÓN INMEDIATA:\nLa posición FARTCOIN está cerca del SL (0.203) — está en riesgo de ser cerrada por emergency. ¿Querés que cierre manualmente o esperamos al SL?",
+      "ts": "2026-04-07T23:20:55.220503"
     }
   ],
-  "last_updated": "2026-04-07T18:10:05.811010"
+  "last_updated": "2026-04-07T23:20:55.220516"
 }

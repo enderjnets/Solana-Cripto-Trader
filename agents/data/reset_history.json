@@ -471,5 +471,41 @@
     "worst_trade_usd": 0,
     "new_capital": 1000.0,
     "reason": "Manual reset"
+  },
+  {
+    "reset_date": "2026-04-08T10:20:02.773282+00:00",
+    "period_start": "2026-04-07T22:59:28.412736+00:00",
+    "period_end": "2026-04-08T10:20:02.773282+00:00",
+    "initial_capital": 1000.0,
+    "final_capital": 875.68,
+    "return_pct": -12.43,
+    "total_pnl_usd": -7.67,
+    "total_trades": 7,
+    "wins": 4,
+    "losses": 3,
+    "flat": 0,
+    "win_rate": 57.14,
+    "best_trade_usd": 0.86,
+    "worst_trade_usd": -7.55,
+    "new_capital": 1000.0,
+    "reason": "Manual reset"
+  },
+  {
+    "reset_date": "2026-04-08T12:51:50.144303+00:00",
+    "period_start": "2026-04-08T10:20:02.773282+00:00",
+    "period_end": "2026-04-08T12:51:50.144303+00:00",
+    "initial_capital": 1000.0,
+    "final_capital": 946.4,
+    "return_pct": -5.36,
+    "total_pnl_usd": -0.02,
+    "total_trades": 1,
+    "wins": 0,
+    "losses": 1,
+    "flat": 0,
+    "win_rate": 0.0,
+    "best_trade_usd": -0.02,
+    "worst_trade_usd": -0.02,
+    "new_capital": 1000.0,
+    "reason": "Manual reset"
   }
 ]

@@ -1185,3 +1185,20 @@ if __name__ == "__main__":
     parser.add_argument("--debug", action="store_true")
     args = parser.parse_args()
     run(debug=args.debug)
+
+
+# ── E5: Mean Reversion Detection ──────────────────────────────
+def detect_mean_reversion(symbol: str, rsi_val: float, tokens_to_prefer: list) -> dict:
+    """Detect extreme oversold for mean reversion long opportunity."""
+    if rsi_val is None or rsi_val > 20:
+        return None
+    if symbol not in tokens_to_prefer:
+        return None
+    return {
+        "symbol": symbol,
+        "direction": "long",
+        "strategy": "mean_reversion",
+        "confidence": 0.75,
+        "bypass_fg_block": True,
+        "exit_mode": "fixed",
+    }

@@ -55,7 +55,7 @@ LLM_SIGNALS_MAX_AGE_SEC = 600  # 10 minutos (5 ciclos de 2min)
 # ─── FIX 2: Cooldown después de emergency close (02-abr-2026) ─────────────────
 # Si un símbolo tuvo emergency close, esperar 30 min antes de reabrir
 EMERGENCY_COOLDOWN_FILE = DATA_DIR / "symbol_cooldown.json"
-EMERGENCY_COOLDOWN_SEC = 30 * 60  # 30 minutos
+EMERGENCY_COOLDOWN_SEC = 15 * 60  # E6: 15min cooldown (was 30min)  # 30 minutos
 
 def _load_symbol_cooldown() -> dict:
     """Retorna dict de {symbol: timestamp_utc} de cooldown activo."""
@@ -214,6 +214,11 @@ def _should_block_short_rebound(signal: dict, market: dict) -> tuple[bool, str]:
 
     dry_run = os.environ.get("SHORT_REBOUND_FILTER_DRY_RUN", "false").lower() == "true"
 
+    # E1: Don't block shorts in extreme fear - rebounds are shorting opportunities
+    fg = get_fear_greed_index()
+    if fg < 15:
+        return False, "extreme fear - rebounds are shorting opportunities"
+
     direction = signal.get("direction", "").lower()
     if direction != "short":
         return False, ""
@@ -257,12 +262,12 @@ SHORT_REBOUND_FILTER_ENABLED = os.environ.get("SHORT_REBOUND_FILTER_ENABLED", "t
 SHORT_REBOUND_FILTER_DRY_RUN = os.environ.get("SHORT_REBOUND_FILTER_DRY_RUN", "false").lower() == "true"
 
 # ─── Risk Management (ajustado 31-Mar-2026 — orden de Ender) ─────────────────
-MIN_CONFIDENCE      = 0.70     # Bajado de 0.85 para aprovechar más señales en extremos (2026-03-31)
-BLOCK_LONGS_FG      = 35       # Bloquear LONGs si Fear & Greed < 35 (mercado bajista)
+MIN_CONFIDENCE      = 0.55     # E1: Lowered from 0.70 for more trades     # Bajado de 0.85 para aprovechar más señales en extremos (2026-03-31)
+BLOCK_LONGS_FG      = 20       # E1: Lowered from 35 - only block in extreme fear       # Bloquear LONGs si Fear & Greed < 35 (mercado bajista)
 MAX_TRADES_PER_DAY  = 0        # 0 = sin límite
 
 # ─── Regla de Ender (31-Mar-2026): $4 min profit, $2 max risk ────────────
-MAX_RISK_USD        = 3.00     # Máximo $3 de riesgo por POSICIÓN individual (ajustado 2026-03-31 para mercado lento)
+MAX_RISK_USD        = 5.00     # E2: Raised from $3 for larger positions     # Máximo $3 de riesgo por POSICIÓN individual (ajustado 2026-03-31 para mercado lento)
 
 # ─── Portfolio Take Profit (31-Mar-2026) — orden de Ender ─────────────────
 # FIX 1.4+1.5: Portfolio TP y MIN dinamicos basados en capital
@@ -292,8 +297,15 @@ PORTFOLIO_MIN_USD = _PORTFOLIO_MIN_USD
 # La IA decide cuántas posiciones abrir (N), y el sistema distribuye el
 # target de ganancias entre todas ellas, ajustando por volatilidad.
 # Cuando el P&L combinado llega al PORTFOLIO_TP → cerrar TODO.
-PORTFOLIO_MAX_RISK_USD = 10.00  # Riesgo total máximo del portafolio (todas las posiciones)
+PORTFOLIO_MAX_RISK_USD = 20.00  # E2: Raised from $10 for 6 positions  # Riesgo total máximo del portafolio (todas las posiciones)
 MIN_PROFIT_PER_POS_USD = 0.50   # Profit mínimo por posición ($0.50, flexible según N)
+
+# ─── E4: Scalping Mode ───────────────────────────────────────────────
+SCALP_TOKENS = {"SOL", "BTC", "ETH"}
+SCALP_SL = 0.01       # 1% SL
+SCALP_TP = 0.015      # 1.5% TP (R:R 1:1.5)
+SCALP_MAX_HOLD = 1800  # 30 min max hold
+SCALP_MAX_SIMULTANEOUS = 1
 
 # ─── Drift Protocol Simulation ───────────────────────────────────────────────
 TAKER_FEE           = 0.001    # 0.1% taker fee (Drift Protocol)
@@ -567,6 +579,12 @@ def paper_open_position(signal: dict, portfolio: dict, market: dict) -> Optional
         log.warning(f"\u26a0\ufe0f Trade rejected: market data is stale")
         return None
 
+    # E1: Confidence boost for shorts in extreme fear
+    fear_greed = get_fear_greed_index()
+    if direction == "short" and fear_greed < 15:
+        confidence = min(0.99, confidence + 0.15)
+        log.info(f"   \U0001f525 EXTREME FEAR boost: {symbol} conf +15% -> {confidence:.2f}")
+
     if confidence < MIN_CONFIDENCE:
         log.info(f"⏭️  Señal {symbol} ignorada: confidence {confidence:.2f} < {MIN_CONFIDENCE}")
         return None
@@ -576,7 +594,10 @@ def paper_open_position(signal: dict, portfolio: dict, market: dict) -> Optional
     if direction == "long":
         fear_greed = get_fear_greed_index()
         rsi = signal.get("rsi", 50)
-        if fear_greed < BLOCK_LONGS_FG and rsi >= 40:
+        # E5: Bypass FG block for mean reversion longs
+        if signal.get("strategy") == "mean_reversion" and signal.get("bypass_fg_block"):
+            log.info(f"   \U0001f504 Mean reversion LONG {symbol} bypasses FG block (RSI={rsi:.0f})")
+        elif fear_greed < BLOCK_LONGS_FG and rsi >= 40:
             log.info(f"⏭️  LONG {symbol} bloqueado: Fear & Greed {fear_greed} < {BLOCK_LONGS_FG} y RSI={rsi:.1f} no sobrevendido")
             return None
         elif fear_greed < BLOCK_LONGS_FG and rsi < 40:
@@ -602,7 +623,18 @@ def paper_open_position(signal: dict, portfolio: dict, market: dict) -> Optional
         return None
 
     # Determinar leverage (signal puede sugerirlo, si no, default)
-    leverage = signal.get("leverage", DEFAULT_LEVERAGE)
+    # E2: Confidence-based dynamic leverage and risk
+    if confidence >= 0.85:
+        _dyn_risk = 7.00
+        leverage = min(7, signal.get("leverage", 7))
+    elif confidence >= 0.70:
+        _dyn_risk = 5.00
+        leverage = min(5, signal.get("leverage", DEFAULT_LEVERAGE))
+    else:
+        _dyn_risk = 3.00
+        leverage = min(3, signal.get("leverage", 3))
+    # Override coordinated_risk with confidence-based risk
+    signal["_coordinated_risk"] = _dyn_risk
     leverage = max(1, min(leverage, MAX_LEVERAGE))
 
     # ─── Position Sizing basado en Regla de Ender ─────────────────────────
@@ -635,7 +667,7 @@ def paper_open_position(signal: dict, portfolio: dict, market: dict) -> Optional
             _fg_raw = _mkt.get("fear_greed", 50)
             _fg = _fg_raw.get("value", 50) if isinstance(_fg_raw, dict) else int(_fg_raw or 50)
             if _fg <= 20 or _fg >= 80:
-                max_tp = 0.03  # 3% max TP en extremos
+                max_tp = 0.05  # E3: 5% max TP en extremos (was 3%)
                 if tp_pct > max_tp:
                     log.info(f"🌡 Adaptive TP: F&G={_fg} extreme -> TP {tp_pct*100:.1f}% -> {max_tp*100:.1f}%")
                     tp_pct = max_tp
@@ -1023,9 +1055,9 @@ def paper_update_positions(portfolio: dict, market: dict, history: list) -> list
         # ─── MEJORA B: Aggressive trailing activation ────────────────────
         # En modo fixed, activar trailing automatico si profit > 0.3% en precio
         if exit_mode == "fixed" and not pos.get("auto_trailing_activated", False):
-            if price_pnl_pct > 0.003:  # +0.3% en precio (= +1.5% en margen con 5x)
+            if price_pnl_pct > 0.005:  # E3: 0.5% activation (was 0.3%)  # +0.3% en precio (= +1.5% en margen con 5x)
                 pos["exit_mode"] = "trailing"
-                pos["trailing_pct"] = 0.005  # 0.5% trailing (tight, for lateral markets)
+                pos["trailing_pct"] = 0.008  # E3: 0.8% trail (was 0.5%)  # 0.5% trailing (tight, for lateral markets)
                 pos["peak_price"] = current_price
                 pos["auto_trailing_activated"] = True
                 exit_mode = "trailing"
