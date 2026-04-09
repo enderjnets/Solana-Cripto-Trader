@@ -1477,8 +1477,8 @@ def api_stats():
             has_reset = False
 
     reset_capital = safe_float(reset_log.get("capital_after", 500.0)) if has_reset else 500.0
-    initial_capital = reset_capital if has_reset else safe_float(
-        port.get("initial_capital", comp.get("initial_capital", 1000)))
+    # Read initial_capital directly from portfolio (set correctly by reset endpoint)
+    initial_capital = safe_float(port.get("initial_capital", 500.0))
 
     # --- Load trades, filter to post-reset if applicable ---
     trades_raw = load_trade_history()
