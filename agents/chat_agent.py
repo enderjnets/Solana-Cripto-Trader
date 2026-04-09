@@ -118,7 +118,7 @@ def build_prompt(user_msg, context):
 try:
     import json as _json
     _keys = _json.loads(open("/home/enderj/.openclaw/workspace/bittrader/keys/minimax.json").read_text())
-    MINIMAX_KEY = _keys["minimax_api_key"]
+    MINIMAX_KEY = os.environ.get("MINIMAX_API_KEY", _keys["minimax_api_key"])
 except Exception:
     MINIMAX_KEY = "sk-cp-8tBIgoE2Vs8QE0AIoMjq4MTh8kiHtem3KWlOnNlAJZgKwAlYh_nt6oCq382Y0cmBi2buvch3nJJbMg7uqr_hIV6Z0ZqY3Q_qZ6AStHCUpKKT_IT-e0vEl4A"
 MINIMAX_URL = "https://api.minimax.io/v1/text/chatcompletion_v2"

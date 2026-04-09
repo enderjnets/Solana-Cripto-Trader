@@ -328,7 +328,8 @@ def fetch_hourly_trends() -> dict:
                     "hourly_high": round(max(p[1] for p in prices), 4),
                     "hourly_low": round(min(p[1] for p in prices), 4),
                 }
-            time.sleep(1.5)  # Rate limit CoinGecko free tier
+            # m3: removed - rate limiter handles timing
+        # time.sleep(1.5)  # Rate limit CoinGecko free tier
         except Exception as e:
             log.warning(f"⚠️ Hourly trend failed for {symbol}: {e}")
             trends[symbol] = {"price_1h_trend": "unknown", "trend_change_pct": 0}

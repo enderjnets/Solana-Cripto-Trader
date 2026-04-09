@@ -77,7 +77,7 @@ def load_notes():
         return {"messages": [], "last_updated": None}
 
 def save_notes(data):
-    data["last_updated"] = datetime.now().isoformat()
+    data["last_updated"] = datetime.now(timezone.utc).isoformat()
     with open(AGENT_NOTES_FILE, "w") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
 

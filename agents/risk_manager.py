@@ -211,14 +211,14 @@ def evaluate_emergency_close(portfolio: dict, research: dict, market: dict) -> d
     1. 5 posiciones todas LONG y tendencia BEARISH (confianza > 70%)
     2. 5 posiciones todas SHORT y tendencia BULLISH (confianza > 70%)
     3. Fear & Greed en extremos (<10 o >90) con todas las posiciones en contra
-    4. Drawdown > 8% y todas las posiciones negativas
+    4. Drawdown > 10% y todas las posiciones negativas
 
     Retorna:
         {"emergency_close": bool, "reason": str, "symbols": List[str]}
     """
     open_positions = [p for p in portfolio.get("positions", []) if p.get("status") == "open"]
 
-    if not open_positions or len(open_positions) < MAX_OPEN_POSITIONS:
+    if not open_positions:  # M6: removed MAX_OPEN_POSITIONS guard
         return {"emergency_close": False, "reason": "", "symbols": []}
 
     # Obtener tendencia del research

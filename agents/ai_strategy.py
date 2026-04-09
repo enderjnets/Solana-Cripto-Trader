@@ -460,6 +460,15 @@ def run(debug: bool = False) -> dict:
         except Exception:
             pass
 
+    # M3: Re-save strategy with Gemma4 adjusted confidence
+    try:
+        from pathlib import Path as _P
+        _sf = _P(__file__).parent / "data" / "strategy_llm.json"
+        import json as _j
+        _sf.write_text(_j.dumps(signals_data, indent=2, default=str))
+    except Exception:
+        pass
+
     return signals_data
 
 if __name__ == "__main__":

@@ -22,6 +22,7 @@ import argparse
 import time
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
+from safe_io import atomic_write_json, safe_read_json
 try:
     from agents.paperclip_client import on_trade_opened, on_trade_closed, on_daily_report
     _PAPERCLIP = True
@@ -491,7 +492,7 @@ def close_positions_emergency(portfolio: dict, symbols: list, market: dict, hist
                 pnl_pct = -pnl_pct
             # FIX 1.2: Incluir exit fee en emergency close
             fee_exit = notional * TAKER_FEE
-            pnl_usd = notional * pnl_pct + pos.get("funding_accumulated", 0) - fee_exit
+            pnl_usd = notional * pnl_pct + pos.get("funding_accumulated", 0) - fee_exit - pos.get("fee_entry", 0)
             pos["fee_exit"] = round(fee_exit, 4)
 
             pos["pnl_pct"] = round(pnl_pct * 100, 4)
@@ -525,7 +526,7 @@ def close_positions_emergency(portfolio: dict, symbols: list, market: dict, hist
             })
 
             closed.append(pos)
-            log.error(f"🚨 EMERGENCY CLOSE: {pos['symbol']} | P&L: ${pnl_usd:+.2f} ({pnl_pct*100:+.2f}%)")
+            log.error(f"🚨 EMERGENCY CLOSE: {pos['symbol']} | P&L: ${pnl_usd:+.2f} ({pnl_pct:+.2f}%)")
 
     # Remove closed positions from portfolio
     portfolio["positions"] = [p for p in portfolio["positions"] if p.get("status") != "closed"]
@@ -561,6 +562,11 @@ def paper_open_position(signal: dict, portfolio: dict, market: dict) -> Optional
     
     # ─── Risk Filters (27-Mar-2026) ───────────────────────────────────────────
     # 1. Filtrar por confidence mínima
+    # M7: Reject trades on stale market data
+    if isinstance(market, dict) and market.get("_stale"):
+        log.warning(f"\u26a0\ufe0f Trade rejected: market data is stale")
+        return None
+
     if confidence < MIN_CONFIDENCE:
         log.info(f"⏭️  Señal {symbol} ignorada: confidence {confidence:.2f} < {MIN_CONFIDENCE}")
         return None
@@ -642,6 +648,11 @@ def paper_open_position(signal: dict, portfolio: dict, market: dict) -> Optional
         log.info(f"📐 TP ajustado a {tp_pct*100:.1f}% para mantener R:R >= 1.5:1")
 
     fee_round_trip = TAKER_FEE * 2  # Entry + exit fees
+
+    # m1: Division by zero protection
+    if tp_pct <= fee_round_trip:
+        log.warning(f"\u26a0\ufe0f Trade rejected: tp_pct {tp_pct:.4f} <= fees {fee_round_trip:.4f}")
+        return None
 
     # ─── Volatility-Adaptive + Coordinated Sizing (2026-03-31 v2) ────────
     # El sistema coordina el sizing de TODAS las posiciones del portafolio:
@@ -1215,7 +1226,7 @@ def run(safe: bool = True, debug: bool = False) -> dict:
     STOP_FILE = DATA_DIR / "STOP_TRADING"
     if STOP_FILE.exists():
         log.warning("🛑 KILL SWITCH ACTIVE — STOP_TRADING file detected. No new positions.")
-        _save_portfolio(portfolio)
+        save_portfolio(portfolio)
         return {
             "status": "kill_switch_active",
             "capital": portfolio["capital_usd"],
@@ -1285,7 +1296,7 @@ def run(safe: bool = True, debug: bool = False) -> dict:
                     TARGET_HIT_FILE.unlink()
                 else:
                     log.warning(f"   🛡️ DAILY_TARGET_HIT activo — FG={fear_greed}, RSI={rsi:.1f}, manteniendo lock")
-                    _save_portfolio(portfolio)
+                    save_portfolio(portfolio)
                     return {
                         "status": "daily_target_hit",
                         "capital": portfolio["capital_usd"],
@@ -1296,7 +1307,7 @@ def run(safe: bool = True, debug: bool = False) -> dict:
                     }
             except Exception as e:
                 log.warning(f"   🛡️ DAILY_TARGET_HIT — error en re-eval: {e}, manteniendo lock")
-                _save_portfolio(portfolio)
+                save_portfolio(portfolio)
                 return {
                     "status": "daily_target_hit",
                     "capital": portfolio["capital_usd"],
@@ -1316,14 +1327,14 @@ def run(safe: bool = True, debug: bool = False) -> dict:
             all_history = json.loads(HISTORY_FILE.read_text())
             today_pnl += sum(
                 t.get("pnl_usd", 0) for t in all_history
-                if isinstance(t, dict) and t.get("closed_at", "").startswith(today_str)
+                if isinstance(t, dict) and t.get("close_time", "").startswith(today_str)
             )
         except Exception:
             pass
 
     if today_pnl < -MAX_DAILY_LOSS:
         log.warning(f"🛑 MAX DAILY LOSS hit: ${today_pnl:.2f} < -${MAX_DAILY_LOSS}. Stopping new trades.")
-        _save_portfolio(portfolio)
+        save_portfolio(portfolio)
         return {
             "status": "max_daily_loss",
             "daily_pnl": round(today_pnl, 2),
@@ -1355,7 +1366,7 @@ def run(safe: bool = True, debug: bool = False) -> dict:
     try:
         import json as _json
         from pathlib import Path
-        _af = _Path(__file__).parent / "data" / "auto_learner_state.json"
+        _af = Path(__file__).parent / "data" / "auto_learner_state.json"
         if _af.exists():
             _adata = _json.loads(_af.read_text())
             _params = _adata.get("params", {})

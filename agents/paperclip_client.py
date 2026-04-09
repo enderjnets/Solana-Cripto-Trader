@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 log = logging.getLogger("paperclip")
 
 # ── Config ──────────────────────────────────────────────────────────
-PAPERCLIP_API = "http://100.88.47.99:3102"
+PAPERCLIP_API = "http://100.88.47.99:3100"
 COMPANY_ID = "782b926b-4fb7-424a-a881-f368b0f79e3c"
 PAPERCLIP_API_KEY = os.environ.get("PAPERCLIP_API_KEY", "")
 TIMEOUT = 5  # seconds — don't block trading
@@ -188,7 +188,7 @@ def on_daily_report(stats: dict) -> str | None:
     sign = "+" if pnl >= 0 else ""
     emoji = "📈" if pnl >= 0 else "📉"
 
-    title = f"[DAILY] {emoji} {sign}${pnl:.2f} ({sign}{pnl/10:.1f}%) {wins}W/{losses}L WR {wr:.0f}%"
+    title = f"[DAILY] {emoji} {sign}${pnl:.2f} ({sign}{pnl_pct:.1f}%) {wins}W/{losses}L WR {wr:.0f}%"
     desc = (
         f"## Daily Performance Report\n\n"
         f"| Metric | Value |\n|---|---|\n"

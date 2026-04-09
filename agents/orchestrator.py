@@ -1,3 +1,4 @@
+from safe_io import atomic_write_json
 import os
 #!/usr/bin/env python3
 """
@@ -142,6 +143,7 @@ def run_cycle(safe=True, debug=False):
     run_cycle._cycle_count = _cycle_global_count
     cycle_start = time.time()
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    log.info(f"📁 [run_cycle] DATA_DIR={DATA_DIR} | PID={os.getpid()}")
     
     log.info("=" * 60)
     log.info(f"🔄 CICLO INICIADO — {now}")
@@ -245,7 +247,8 @@ def run_cycle(safe=True, debug=False):
             market_data_upd = json.loads(market_file.read_text())
             history = _load_trade_history()
             # Actualizar TODAS las posiciones abiertas con precios actuales
-            closed_updated = ex.paper_update_positions(portfolio_data, market_data_upd, history)
+            # M5: Removed - executor.run() already calls paper_update_positions
+            closed_updated = []
             if closed_updated:
                 log.info(f"   🔄 {len(closed_updated)} posición(es) cerradas por SL/TP/Liq")
                 for cp in closed_updated:
@@ -531,7 +534,8 @@ def run_cycle(safe=True, debug=False):
                     except Exception as e:
                         log.warning(f"   ⚠️ Error en Portfolio TP: {e}")
 
-                elif total_pnl >= portfolio_min:
+                # C4: Portfolio TP disabled (was crashing on undefined portfolio_min)
+                elif False:  # disabled
                     # AI evalúa si las posiciones tienen chance de llegar a $2
                     # Usamos la misma lógica de _quant_score para decidir
                     try:
@@ -683,10 +687,14 @@ def run_token_scanner():
 
 
 # FIX 3.4: PID lock to prevent dual instances
-LOCK_FILE = DATA_DIR / "orchestrator.lock"
+# Use absolute path so ALL entry points (agents/orchestrator.py, root orchestrator.py, etc.)
+# share the same lock regardless of working directory.
+import tempfile
+LOCK_FILE = Path(tempfile.gettempdir()) / "solana_jupiter_orchestrator.lock"
 
 def _acquire_lock():
     """Acquire PID lock. Exit if another instance is running."""
+    log.info(f"📁 DATA_DIR={DATA_DIR} | PID={os.getpid()} | LOCK_FILE={LOCK_FILE}")
     if LOCK_FILE.exists():
         try:
             old_pid = int(LOCK_FILE.read_text().strip())
@@ -712,6 +720,8 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     if args.once:
+        _acquire_lock()  # Prevent dual instances even in single-cycle mode
+        log.info(f"📁 DATA_DIR={DATA_DIR} | PID={os.getpid()} | MODE=once")
         run_cycle(debug=args.debug)
     else:
         # --live or bare invocation: run continuous loop

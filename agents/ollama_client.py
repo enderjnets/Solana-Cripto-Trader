@@ -43,7 +43,7 @@ def _chat(messages: list, max_tokens: int = 500) -> str | None:
         "model": MODEL,
         "messages": messages,
         "stream": False,
-        "keep_alive": "1h",
+        "keep_alive": "24h",
         "think": False,
         "options": {"num_predict": max_tokens, "temperature": 0.7},
     }
