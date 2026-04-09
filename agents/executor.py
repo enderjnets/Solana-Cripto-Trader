@@ -985,6 +985,18 @@ def paper_update_positions(portfolio: dict, market: dict, history: list) -> list
                         trailing_pct = dynamic_trail
             except Exception:
                 pass
+            # PROGRESSIVE TRAILING: tighten based on profit level
+            if pnl_pct_on_margin > 0 and trailing_pct > 0:
+                if pnl_pct_on_margin >= 15:    # +15% margin = very profitable
+                    trailing_pct = min(trailing_pct, 0.004)  # 0.4% tight trail
+                    pos["trailing_pct"] = trailing_pct
+                elif pnl_pct_on_margin >= 10:  # +10% margin
+                    trailing_pct = min(trailing_pct, 0.006)  # 0.6% trail
+                    pos["trailing_pct"] = trailing_pct
+                elif pnl_pct_on_margin >= 5:   # +5% margin
+                    trailing_pct = min(trailing_pct, 0.008)  # 0.8% trail
+                    pos["trailing_pct"] = trailing_pct
+
             if pos["direction"] == "long":
                 # Update peak if price made new high
                 if current_price > pos.get("peak_price", pos["entry_price"]):

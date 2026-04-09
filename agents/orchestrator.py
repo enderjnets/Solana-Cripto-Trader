@@ -486,6 +486,24 @@ def run_cycle(safe=True, debug=False):
                     ex.save_portfolio(portfolio_data)
                 except Exception as e:
                     log.warning(f"   ⚠️ Error ejecutando REDUCE: {e}")
+            # Handle TIGHTEN recommendations
+            tighten_recs = [d for d in decisions if d.get("action") == "TIGHTEN"]
+            if tighten_recs:
+                try:
+                    for rec in tighten_recs:
+                        symbol = rec["symbol"]
+                        new_trail = rec.get("trailing_pct", 0.005)
+                        for pos in portfolio_data.get("positions", []):
+                            if pos.get("symbol") == symbol and pos.get("status") == "open":
+                                old_trail = pos.get("trailing_pct", 0.015)
+                                if new_trail < old_trail:
+                                    pos["trailing_pct"] = new_trail
+                                    pos["exit_mode"] = "trailing"
+                                    log.info(f"   \U0001f3af TIGHTEN {symbol}: trail {old_trail*100:.1f}% -> {new_trail*100:.1f}%")
+                    ex.save_portfolio(portfolio_data)
+                except Exception as e:
+                    log.warning(f"   \u26a0\ufe0f Error TIGHTEN: {e}")
+
             if not close_recs and not reduce_recs:
                 log.info(f"   🟢 MANTENER todas las posiciones")
 

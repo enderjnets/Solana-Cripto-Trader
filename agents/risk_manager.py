@@ -738,9 +738,10 @@ REGLAS DE DECISIÓN:
 2. CLOSE si: posición NEGATIVA por más de 2 horas Y otras posiciones van positivas (peso muerto)
 3. HOLD si: buena tendencia a favor, R/R > 1.5x, posición ganadora con runway
 4. REDUCE si: ganancia >8% pero aún tiene potencial — cerrar 50% y mover SL a entrada
+5. TIGHTEN si: ganancia >5% y el trailing stop es muy ancho — ajustar trailing para proteger más profit
 
 Responde SOLO en JSON válido:
-{{"action": "CLOSE|HOLD|REDUCE", "confidence": 0.0-1.0, "reasoning": "máx 2 oraciones"}}"""
+{{"action": "CLOSE|HOLD|REDUCE|TIGHTEN", "confidence": 0.0-1.0, "reasoning": "máx 2 oraciones", "trailing_pct": 0.005}}"""
 
     system = "Eres un risk manager de crypto. Responde siempre con JSON válido únicamente, sin markdown."
 
@@ -778,6 +779,8 @@ Responde SOLO en JSON válido:
         action = "HOLD"
         if "CLOSE" in response.upper():
             action = "CLOSE"
+        elif "TIGHTEN" in response.upper():
+            action = "TIGHTEN"
         elif "REDUCE" in response.upper():
             action = "REDUCE"
         return {
