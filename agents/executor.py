@@ -1036,6 +1036,14 @@ def paper_update_positions(portfolio: dict, market: dict, history: list) -> list
                         pos["tokens"] = round(pos["tokens"] * (1 - reduce_frac), 8)
                     pos["sl_price"] = pos["entry_price"]  # Move SL to breakeven
                     pos["partial_taken"] = True
+                    # FIX 3: Tighten trailing after partial take
+                    _old_trail = pos.get("trailing_pct", 0.015)
+                    pos["trailing_pct"] = max(0.004, _old_trail * 0.5)  # 50% tighter
+                    if pos["direction"] == "long":
+                        pos["trailing_sl"] = round(pos.get("peak_price", current_price) * (1 - pos["trailing_pct"]), 8)
+                    else:
+                        pos["trailing_sl"] = round(pos.get("peak_price", current_price) * (1 + pos["trailing_pct"]), 8)
+                    log.info(f"  \u2702\ufe0f Post-partial trailing tightened: {_old_trail*100:.1f}% -> {pos['trailing_pct']*100:.1f}%")
                     # Update local vars for remaining checks
                     notional = pos["notional_value"]
                     margin = pos["margin_usd"]
@@ -1089,10 +1097,31 @@ def paper_update_positions(portfolio: dict, market: dict, history: list) -> list
             if open_time.tzinfo is None:
                 open_time = open_time.replace(tzinfo=timezone.utc)
             hours_open = (datetime.now(timezone.utc) - open_time).total_seconds() / 3600
-            was_profitable = pos.get("max_pnl_pct", 0) >= 0.5  # Fue +0.5%+ en margen
-            now_losing = pnl_pct_on_margin < -0.5  # Ahora -0.5%+ en margen
+            was_profitable = pos.get("max_pnl_pct", 0) >= 0.5
+            now_losing = pnl_pct_on_margin < -0.5
             if hours_open >= 4 and was_profitable and now_losing:
                 hit_time_exit = True
+
+                # FIX 1: Respect breakeven SL - don't TIME_EXIT if near entry
+                if pos.get("breakeven_activated", False):
+                    dist = abs(current_price - pos["entry_price"]) / pos["entry_price"] if pos["entry_price"] > 0 else 0
+                    if dist < 0.035:  # <3.5% from entry - let breakeven SL handle
+                        hit_time_exit = False
+                        log.info(f"  \u23f0 TIME_EXIT deferred: breakeven active, {dist*100:.1f}% from entry")
+
+                # FIX 2: Don't TIME_EXIT if SL gives better exit
+                if hit_time_exit and not pos.get("breakeven_activated"):
+                    sl_price = pos.get("sl_price", 0)
+                    if sl_price > 0:
+                        if pos["direction"] == "short":
+                            cur_loss = (current_price - pos["entry_price"]) / pos["entry_price"]
+                            sl_loss = (sl_price - pos["entry_price"]) / pos["entry_price"]
+                        else:
+                            cur_loss = (pos["entry_price"] - current_price) / pos["entry_price"]
+                            sl_loss = (pos["entry_price"] - sl_price) / pos["entry_price"]
+                        if cur_loss > sl_loss and sl_loss > 0:
+                            hit_time_exit = False
+                            log.info(f"  \u23f0 TIME_EXIT deferred: loss {cur_loss*100:.1f}% > SL {sl_loss*100:.1f}%")
                 log.info(f"  \u23f0 TIME EXIT: {symbol} {hours_open:.1f}h open, was +{pos.get('max_pnl_pct',0):.1f}% now {pnl_pct_on_margin:.1f}%")
         except Exception:
             pass
