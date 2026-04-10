@@ -518,16 +518,44 @@ REGLAS ESTRICTAS DEL JSON:
     return prompt
 
 def _parse_llm_response(raw: str) -> dict | None:
-    """Parse JSON from LLM response. Returns None on failure."""
+    """Parse JSON from LLM response. Robust against Codex conversation wrappers.
+    Strategy:
+      1. Strip Codex conversation header (everything before last 'assistant\\n')
+      2. Scan ALL {…} candidates; prefer the one with a 'decisions' key (the root response)
+      3. Fallback: accept any dict and normalise it
+    """
     import re as _re
-    m = _re.search(r'\{.*\}', raw, _re.DOTALL)
-    if not m:
+
+    # Strip Codex/OpenAI conversation wrapper if present
+    clean = raw
+    if '\nassistant\n' in raw:
+        clean = raw.split('\nassistant\n')[-1].strip()
+
+    candidates = list(_re.finditer(r'\{', clean))
+    parsed_objects = []
+    for m in candidates:
+        try:
+            decoder = json.JSONDecoder()
+            data, _ = decoder.raw_decode(clean, m.start())
+            if isinstance(data, dict):
+                parsed_objects.append(data)
+        except (json.JSONDecodeError, ValueError):
+            continue
+
+    if not parsed_objects:
         return None
-    data = json.loads(m.group(0))
-    if 'decisions' not in data:
-        data['decisions'] = []
-    if 'global_action' not in data:
-        data['global_action'] = 'CONTINUE'
+
+    # Prefer the object that already has 'decisions' key (the root response)
+    for data in parsed_objects:
+        if 'decisions' in data:
+            if 'global_action' not in data:
+                data['global_action'] = 'CONTINUE'
+            return data
+
+    # Fallback: use the largest dict (most fields = most complete response)
+    data = max(parsed_objects, key=lambda d: len(d))
+    data.setdefault('decisions', [])
+    data.setdefault('global_action', 'CONTINUE')
     return data
 
 
