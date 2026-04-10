@@ -492,6 +492,28 @@ DASHBOARD_HTML = r"""
     </div>
   </div>
 
+  <!-- OPEN POSITIONS (moved up) -->
+  <section>
+    <div class="section-title" style="display:flex;align-items:center;justify-content:space-between;">
+      <span>⚡ Posiciones Abiertas</span>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span id="totalPnlBadge" style="font-size:16px;font-weight:700;padding:4px 12px;border-radius:8px;background:var(--bg3);"></span>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <label style="font-size:11px;color:var(--text2);">Target $:</label>
+          <input type="number" id="pnlTargetInput" placeholder="ej: 5" style="width:60px;font-size:12px;" step="0.5" min="0">
+          <button onclick="setPnlTarget()" style="font-size:11px;padding:3px 8px;background:var(--green);color:#000;border:none;border-radius:4px;cursor:pointer;">Set</button>
+          <span id="pnlTargetStatus" style="font-size:10px;color:var(--text2);"></span>
+        </div>
+        <button onclick="closeAllPositions()" style="font-size:11px;padding:4px 12px;background:var(--red);color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:600;">Cerrar Todas</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="table-wrap" id="positionsTable">
+        <div class="empty">Cargando posiciones...</div>
+      </div>
+    </div>
+  </section>
+
   <!-- EQUITY + DISTRIBUTIONS -->
   <section>
     <div class="grid-2">
@@ -539,15 +561,7 @@ DASHBOARD_HTML = r"""
     </div>
   </section>
 
-  <!-- OPEN POSITIONS -->
-  <section>
-    <div class="section-title">⚡ Posiciones Abiertas</div>
-    <div class="card">
-      <div class="table-wrap" id="positionsTable">
-        <div class="empty">Cargando posiciones...</div>
-      </div>
-    </div>
-  </section>
+<!-- POSITIONS MOVED UP -->
 
   <!-- TRADE HISTORY -->
   <section>
@@ -928,11 +942,52 @@ async function loadPositions() {
 }
 
 // Función de actualización en tiempo real (cada 3 seg)
+
+
+// Total PnL badge + auto-close target
+let _pnlTarget = 0;
+function updateTotalPnl(positions) {
+  const total = positions.reduce((s, p) => s + (p.pnl_usd || 0), 0);
+  const el = document.getElementById('totalPnlBadge');
+  const sign = total >= 0 ? '+' : '';
+  el.textContent = 'Total: ' + sign + '$' + total.toFixed(2);
+  el.style.color = total >= 0 ? 'var(--green)' : 'var(--red)';
+  // Check auto-close target
+  if (_pnlTarget > 0 && total >= _pnlTarget) {
+    closeAllPositions();
+    _pnlTarget = 0;
+    document.getElementById('pnlTargetStatus').textContent = '✅ Target hit!';
+    document.getElementById('pnlTargetInput').value = '';
+  }
+}
+function setPnlTarget() {
+  const val = parseFloat(document.getElementById('pnlTargetInput').value);
+  if (val > 0) {
+    _pnlTarget = val;
+    document.getElementById('pnlTargetStatus').textContent = 'Target: $' + val.toFixed(2);
+  }
+}
+async function closeAllPositions() {
+  if (!confirm('¿Cerrar TODAS las posiciones abiertas?')) return;
+  try {
+    await fetch('/api/close-all', { method: 'POST' });
+    refreshAll();
+  } catch(e) { alert('Error: ' + e); }
+}
+async function closePosition(symbol) {
+  if (!confirm('¿Cerrar posición de ' + symbol + '?')) return;
+  try {
+    await fetch('/api/close-position', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({symbol: symbol}) });
+    refreshAll();
+  } catch(e) { alert('Error: ' + e); }
+}
+
 async function loadPositionsRealtime() {
   try {
     const r = await fetch('/api/positions');
     const d = await r.json();
     renderPositions(d);
+    updateTotalPnl(d.positions || []);
     // Actualizar timestamp
     document.getElementById('lastUpdate').textContent =
       'Actualizado: ' + new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -951,6 +1006,7 @@ function renderPositions(d) {
     <th>Símbolo</th><th>Dirección</th><th>Entrada</th><th>Precio Act.</th>
     <th>P&L $</th><th>P&L %</th><th>Margin</th><th>Tamaño</th>
     <th>SL</th><th>TP</th><th>Tiempo</th><th>Estrategia</th>
+    <th>Acción</th>
   </tr></thead><tbody>`;
   for (const p of d.positions) {
     const pnlCls = p.pnl_usd >= 0 ? 'pos' : 'neg';
@@ -968,6 +1024,7 @@ function renderPositions(d) {
       <td class="neg">${fmtPrice(p.sl_price)}</td>
       <td class="pos">${fmtPrice(p.tp_price)}</td>
       <td>${p.time_open || '—'}</td>
+      <td><button onclick="closePosition('${p.symbol}')" style="font-size:10px;padding:2px 8px;background:var(--orange);color:#fff;border:none;border-radius:4px;cursor:pointer;">Cerrar</button></td>
       <td>${p.strategy || '—'}</td>
     </tr>`;
   }
@@ -1882,6 +1939,49 @@ def get_live_prices(symbols: list) -> dict:
     
     return {}
 
+
+
+
+@app.route('/api/close-all', methods=['POST'])
+def api_close_all():
+    """Close all open positions via emergency close."""
+    try:
+        import sys
+        sys.path.insert(0, str(DATA.parent))
+        import executor as ex
+        port = load_portfolio()
+        market = load_json(DATA / "market_latest.json") or {}
+        history = load_trade_history()
+        symbols = [p["symbol"] for p in port.get("positions", []) if p.get("status") == "open"]
+        if symbols:
+            closed = ex.close_positions_emergency(port, symbols, market, history, reason="MANUAL_CLOSE_ALL")
+            ex.save_portfolio(port)
+            ex.save_history(history)
+            return jsonify({"ok": True, "closed": len(closed)})
+        return jsonify({"ok": True, "closed": 0})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+@app.route('/api/close-position', methods=['POST'])
+def api_close_position():
+    """Close a specific position by symbol."""
+    try:
+        data = request.get_json(force=True)
+        symbol = data.get("symbol", "")
+        if not symbol:
+            return jsonify({"error": "symbol required"}), 400
+        import sys
+        sys.path.insert(0, str(DATA.parent))
+        import executor as ex
+        port = load_portfolio()
+        market = load_json(DATA / "market_latest.json") or {}
+        history = load_trade_history()
+        closed = ex.close_positions_emergency(port, [symbol], market, history, reason="MANUAL_CLOSE")
+        ex.save_portfolio(port)
+        ex.save_history(history)
+        return jsonify({"ok": True, "closed": len(closed)})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
 
 @app.route('/api/positions')
 def api_positions():
