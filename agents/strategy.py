@@ -80,10 +80,10 @@ FIB_SL_BUFFER       = 0.010   # 1.0% debajo de nivel 78.6% para SL
 FIB_TP_EXTENSION    = 1.272   # extensión 127.2% para TP
 
 # Filtros de entrada — OPTIMIZADO 2026-03-27 (post-drawdown crítico)
-MIN_CONFIDENCE          = 0.75   # Subido de 0.60 — solo señales fuertes
+MIN_CONFIDENCE          = 0.65   # Sim: 0.60 óptimo; 0.65 conservador para robustez
 MIN_INDICATORS_ALIGNED  = 3      # Subido de 2 — requiere más confirmación
-ATR_SL_MULTIPLIER       = 1.2    # Bajado de 2.0 — SL más ajustado, menos pérdida por trade
-ATR_TP_MULTIPLIER       = 2.4    # Bajado de 4.0 — TP más realista (RR 2:1)
+ATR_SL_MULTIPLIER       = 0.8    # Sim: 0.6x óptimo (41.7M sims 2026-04-10); 0.8x para robustez real
+ATR_TP_MULTIPLIER       = 4.0    # Sim: 4.0x óptimo en todas las estrategias (RR 5:1)
 MIN_ATR_PCT             = 0.010  # Subido de 0.008 — filtra más activos planos
 RSI_OVERBOUGHT          = 75     # Subido de 70 — más conservador para shorts
 RSI_OVERSOLD            = 25     # Bajado de 30 — más conservador para longs
@@ -1067,7 +1067,7 @@ def strategy_breakout(symbol, ind, risk_eval) -> Optional[dict]:
     if obv == "down":
         return None
 
-    # RSI no sobrecomprado extremo
+    # Sim: RSI <= 80 es el filtro óptimo (PF 2.55 en 7.2M sims)
     if rsi_val and rsi_val > 80:
         return None
 
@@ -1102,12 +1102,18 @@ def strategy_oversold_bounce(symbol, ind, risk_eval) -> Optional[dict]:
     bb      = ind.get("bb")
     c24     = ind.get("change_24h", 0)
 
-    # Necesita RSI o cambio 24h fuerte negativo
-    oversold_rsi    = rsi_val is not None and rsi_val < RSI_OVERSOLD
+    # Sim: RSI<30 + c24<-8% (condición AND más estricta que OR evita señales falsas)
+    # OR condition daba 44.7% señal rate — demasiado permisivo
+    oversold_rsi    = rsi_val is not None and rsi_val < RSI_OVERSOLD  # default 25
     oversold_price  = c24 < -8.0  # Caída fuerte como proxy
 
+    # Requiere AL MENOS una condición fuerte; si solo c24 aplica, también necesita RSI bajo 40
     if not oversold_rsi and not oversold_price:
         return None
+    if oversold_price and not oversold_rsi:
+        # Solo c24 trigger: exigir RSI < 40 como filtro adicional
+        if rsi_val is not None and rsi_val >= 40:
+            return None
 
     score_base = 0.45
     reasons    = []
@@ -1153,15 +1159,28 @@ def strategy_golden_cross(symbol, ind, risk_eval) -> Optional[dict]:
         return None
 
     rsi_val = ind.get("rsi")
-    score_base = 0.55
+    macd_d  = ind.get("macd")
+
+    # Sim: RSI 50-70 + MACD confirmado = PF 3.088 (mejor config en 11.5M sims)
+    # MACD histograma positivo es filtro obligatorio para calidad
+    if not macd_d or macd_d.get("histogram", 0) <= 0:
+        return None  # Golden Cross sin MACD positivo = señal débil
+
+    if rsi_val and (rsi_val < 50 or rsi_val > 75):
+        return None  # RSI fuera de zona óptima 50-75
+
+    score_base = 0.60
     reasons = ["Golden Cross EMA7/EMA21 ✅"]
 
-    if rsi_val and 45 <= rsi_val <= 68:
+    if rsi_val and 50 <= rsi_val <= 70:
         score_base += 0.12
-        reasons.append(f"RSI {rsi_val:.0f} zona saludable ✅")
-    if ind.get("macd", {}) and ind["macd"].get("histogram", 0) > 0:
+        reasons.append(f"RSI {rsi_val:.0f} zona óptima (50-70) ✅")
+    if macd_d.get("histogram", 0) > 0:
         score_base += 0.10
         reasons.append("MACD histograma positivo ✅")
+    if macd_d.get("bullish_cross"):
+        score_base += 0.08
+        reasons.append("MACD cruce alcista confirmado ✅")
     if ind.get("obv_trend") == "up":
         score_base += 0.10
         reasons.append("OBV acumulación ✅")
