@@ -1089,6 +1089,37 @@ def paper_update_positions(portfolio: dict, market: dict, history: list) -> list
                     margin = pos["margin_usd"]
                     log.info(f"  \u2702\ufe0f PARTIAL TAKE: {symbol} 50% at halfway to TP, SL->breakeven, returned ${returned:.2f}")
 
+                    # Record partial take as a trade in history (fix accounting gap)
+                    from datetime import datetime, timezone
+                    history.append({
+                        "id": f"{pos['id']}_partial",
+                        "symbol": symbol,
+                        "direction": pos["direction"],
+                        "strategy": pos.get("strategy", "unknown"),
+                        "entry_price": pos["entry_price"],
+                        "exit_price": current_price,
+                        "close_price": current_price,
+                        "margin_usd": round(reduced_margin, 2),
+                        "notional_value": round(reduced_notional, 2),
+                        "size_usd": round(reduced_notional, 2),
+                        "leverage": pos.get("leverage", 5),
+                        "pnl_usd": round(partial_pnl, 4),
+                        "pnl_pct": round((partial_pnl / reduced_margin * 100) if reduced_margin > 0 else 0, 4),
+                        "open_time": pos.get("open_time", ""),
+                        "close_time": datetime.now(timezone.utc).isoformat(),
+                        "close_reason": "PARTIAL_TAKE",
+                        "fee_entry": round(pos.get("fee_entry", 0) * reduce_frac, 4),
+                        "fee_exit": round(fee_partial, 4),
+                        "status": "closed",
+                        "partial_taken": True,
+                    })
+                    # Update portfolio stats
+                    portfolio["total_trades"] = portfolio.get("total_trades", 0) + 1
+                    if partial_pnl > 0:
+                        portfolio["wins"] = portfolio.get("wins", 0) + 1
+                    else:
+                        portfolio["losses"] = portfolio.get("losses", 0) + 1
+
         # ─── MEJORA A: Breakeven Stop ────────────────────────────────────
         # Si la posicion estuvo en profit > 1% de margen por 30+ min, mover SL a entry
         if not pos.get("breakeven_activated", False) and margin > 0:

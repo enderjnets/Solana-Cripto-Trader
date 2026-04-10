@@ -483,6 +483,29 @@ def run_cycle(safe=True, debug=False):
                                 pos["sl_price"] = pos["entry_price"]
                                 pos["partial_taken"] = True
                                 log.info(f"   ✂️ REDUCED {symbol} 50%: returned ${returned:.2f}, SL->breakeven")
+
+                                # Record REDUCE as trade in history (fix accounting gap)
+                                from datetime import datetime, timezone
+                                history.append({
+                                    "id": f"{pos.get('id','')}_reduce",
+                                    "symbol": symbol,
+                                    "direction": pos.get("direction", ""),
+                                    "strategy": pos.get("strategy", "unknown"),
+                                    "entry_price": pos.get("entry_price", 0),
+                                    "close_price": pos.get("current_price", 0),
+                                    "margin_usd": round(reduced_margin, 2),
+                                    "pnl_usd": round(partial_pnl, 4),
+                                    "pnl_pct": round((partial_pnl / reduced_margin * 100) if reduced_margin > 0 else 0, 4),
+                                    "open_time": pos.get("open_time", ""),
+                                    "close_time": datetime.now(timezone.utc).isoformat(),
+                                    "close_reason": "REDUCE",
+                                    "status": "closed",
+                                })
+                                portfolio_data["total_trades"] = portfolio_data.get("total_trades", 0) + 1
+                                if partial_pnl > 0:
+                                    portfolio_data["wins"] = portfolio_data.get("wins", 0) + 1
+                                else:
+                                    portfolio_data["losses"] = portfolio_data.get("losses", 0) + 1
                     ex.save_portfolio(portfolio_data)
                 except Exception as e:
                     log.warning(f"   ⚠️ Error ejecutando REDUCE: {e}")
