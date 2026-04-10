@@ -387,9 +387,17 @@ def save_portfolio(portfolio: dict):
 
 
 def load_history() -> list:
+    """Carga trade_history.json — maneja formato lista O dict {"trades": [...]}."""
     if HISTORY_FILE.exists():
-        with open(HISTORY_FILE) as f:
-            return json.load(f)
+        try:
+            with open(HISTORY_FILE) as f:
+                data = json.load(f)
+            if isinstance(data, list):
+                return data
+            if isinstance(data, dict):           # formato del orchestrator
+                return data.get("trades", [])
+        except Exception:
+            pass
     return []
 
 
