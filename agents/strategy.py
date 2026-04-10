@@ -1245,11 +1245,18 @@ def strategy_macd_cross(symbol, ind, risk_eval) -> Optional[dict]:
     return build_signal(symbol, direction, "macd_cross", ind, min(score_base, 0.90), reasons, risk_eval)
 
 
+# ── Strategy Lists by Mode (sim 108M — 2026-04-10) ───────────────────────────
+# PURE STRATEGY: top 3 performers sin Wild Mode (WR: bounce=42%, breakout=40%, momentum=38%)
+STRATEGIES_PURE  = [strategy_oversold_bounce, strategy_breakout, strategy_trend_momentum]
+# COMBO: 5 estrategias — Wild Mode recupera señales débiles con martingala/hedge
+STRATEGIES_COMBO = [strategy_trend_momentum, strategy_breakout, strategy_oversold_bounce,
+                    strategy_golden_cross, strategy_macd_cross]
+
 # ══════════════════════════════════════════════════════════════════════════════
 # MAIN
 # ══════════════════════════════════════════════════════════════════════════════
 
-def run(debug: bool = False) -> dict:
+def run(debug: bool = False, wild_mode: bool = False) -> dict:
     log.info("=" * 50)
     log.info("🧠 STRATEGY AGENT — stack completo de indicadores")
     log.info("=" * 50)
@@ -1273,13 +1280,9 @@ def run(debug: bool = False) -> dict:
     # Actualizar historial
     price_hist, vol_hist = update_price_history(tokens)
 
-    strategies = [
-        strategy_trend_momentum,
-        strategy_breakout,
-        strategy_oversold_bounce,
-        strategy_golden_cross,
-        strategy_macd_cross,
-    ]
+    strategies = STRATEGIES_COMBO if wild_mode else STRATEGIES_PURE
+    mode_label = "COMBO (5 strats)" if wild_mode else "PURE (oversold_bounce, breakout, trend_momentum)"
+    log.info(f"   📊 Strategy mode: {mode_label}")
 
     signals = []
     strategy_counts = {s.__name__: 0 for s in strategies}

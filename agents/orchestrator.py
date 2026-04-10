@@ -184,11 +184,19 @@ def run_cycle(safe=True, debug=False):
         log.warning(f"   ⚠️ Error: {e}")
         results["risk_manager"] = {"ok": False}
     
+    # Detectar modo ANTES de llamar strategy — determina qué estrategias activar
+    try:
+        import martingale_engine as _wild_me_early
+        _wild_active = _wild_me_early.is_active()
+    except Exception:
+        _wild_active = False
+    log.info(f"   🎯 Modo activo: {'COMBO + Wild Mode' if _wild_active else 'Pure Strategy'}")
+
     # Paso 3: Strategy (Technical + AI)
     log.info("━" * 40)
     log.info("🧠 [3/6] Strategy")
     try:
-        result = st.run(debug=debug)
+        result = st.run(debug=debug, wild_mode=_wild_active)
         n_signals = result.get("total_signals", 0)
         results["strategy"] = {"ok": True, "signals": n_signals}
         log.info(f"   → {n_signals} señal(es) técnicas")
