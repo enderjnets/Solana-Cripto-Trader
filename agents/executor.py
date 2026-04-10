@@ -497,10 +497,11 @@ def load_risk_report() -> dict:
     return {}
 
 
-def close_positions_emergency(portfolio: dict, symbols: list, market: dict, history: list, reason: str = "EMERGENCY_CLOSE") -> list:
+def close_positions_emergency(portfolio: dict, symbols: list, market: dict, history: list, reason: str = "EMERGENCY_CLOSE", ai_reasoning: str = "") -> list:
     """
     Cierra posiciones por emergencia (sin importar SL/TP).
     Usado cuando Risk Manager detecta condiciones extremas, Portfolio TP, Smart Rotation, etc.
+    ai_reasoning: texto opcional del LLM explicando por qué se cerró.
     """
     closed = []
     now = datetime.now(timezone.utc).isoformat()
@@ -545,7 +546,7 @@ def close_positions_emergency(portfolio: dict, symbols: list, market: dict, hist
             portfolio["capital_usd"] += returned
 
             # Agregar al historial
-            history.append({
+            record = {
                 "id": pos["id"],
                 "symbol": pos["symbol"],
                 "direction": pos["direction"],
@@ -558,7 +559,10 @@ def close_positions_emergency(portfolio: dict, symbols: list, market: dict, hist
                 "close_time": pos["close_time"],
                 "close_reason": reason,  # Usar la razón correcta, no hardcodear
                 "strategy": pos.get("strategy", "unknown"),
-            })
+            }
+            if ai_reasoning:
+                record["ai_reasoning"] = ai_reasoning
+            history.append(record)
 
             closed.append(pos)
             log.error(f"🚨 EMERGENCY CLOSE: {pos['symbol']} | P&L: ${pnl_usd:+.2f} ({pnl_pct:+.2f}%)")
@@ -1276,6 +1280,22 @@ def paper_update_positions(portfolio: dict, market: dict, history: list) -> list
             log.info(f"  {result_emoji} [{close_reason}] {symbol} {leverage}x {pos['direction']} | "
                      f"P&L: ${net_pnl:+.2f} ({pnl_pct_on_margin:+.1f}% on margin) | "
                      f"Funding: ${funding_total:+.4f}")
+
+            # Attach last known LLM reasoning for this symbol (from position_decisions.json)
+            try:
+                _pd_path = DATA_DIR / "position_decisions.json"
+                if _pd_path.exists():
+                    import json as _j2
+                    _pd = _j2.loads(_pd_path.read_text())
+                    _decisions = _pd.get("decisions", []) if isinstance(_pd, dict) else []
+                    _sym_dec = next((x for x in _decisions if x.get("symbol") == symbol), None)
+                    if _sym_dec and _sym_dec.get("llm_reasoning"):
+                        _r = _sym_dec["llm_reasoning"].strip()
+                        # Only store if it looks like real reasoning (>20 chars, not a header block)
+                        if len(_r) > 20 and "workdir:" not in _r:
+                            pos["ai_reasoning"] = _r
+            except Exception:
+                pass
 
             history.append({**pos})
             closed.append(pos)

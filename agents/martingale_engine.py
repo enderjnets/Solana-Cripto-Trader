@@ -792,7 +792,8 @@ def apply_decision(decision: dict, state: dict, portfolio: dict, market: dict, h
             _n_levels = len(chain.get('levels', []))
             _total_margin = float(chain.get('total_margin', 0))
             level_syms = [sym]  # close all positions of this symbol (covers all levels)
-            closed = executor.close_positions_emergency(portfolio, level_syms, market, history, reason='WILD_MODE_CLOSE_CHAIN')
+            _ai_reason = decision.get('reasoning', '')
+            closed = executor.close_positions_emergency(portfolio, level_syms, market, history, reason='WILD_MODE_CLOSE_CHAIN', ai_reasoning=_ai_reason)
             stats['closed'] = len(closed)
             chains.pop(sym, None)
             # Notify Paperclip

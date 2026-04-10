@@ -305,6 +305,19 @@ DASHBOARD_HTML = r"""
   .chain-sub-row:hover { background: rgba(188,140,255,0.1); }
   .chain-toggle { background: none; border: 1px solid var(--purple); color: var(--purple); border-radius: 4px; padding: 1px 5px; font-size: 10px; cursor: pointer; margin-right: 4px; transition: all .15s; }
   .chain-toggle:hover { background: var(--purple); color: var(--bg); }
+  /* ── Reason badge (clickable) ── */
+  .reason-btn { background: none; border: 1px solid var(--border); color: var(--text2); border-radius: 4px; padding: 2px 7px; font-size: 10px; cursor: pointer; transition: all .15s; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: inline-block; }
+  .reason-btn:hover { border-color: var(--blue); color: var(--blue); }
+  /* ── AI Reasoning Modal ── */
+  #reasonModal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 9999; align-items: center; justify-content: center; }
+  #reasonModal.open { display: flex; }
+  .reason-modal-box { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 24px; max-width: 580px; width: 90%; max-height: 80vh; overflow-y: auto; position: relative; }
+  .reason-modal-title { font-size: 13px; font-weight: 700; color: var(--blue); margin-bottom: 6px; }
+  .reason-modal-sym { font-size: 11px; color: var(--text2); margin-bottom: 14px; }
+  .reason-modal-type { display: inline-block; background: var(--bg3); border: 1px solid var(--border); border-radius: 6px; padding: 4px 10px; font-size: 11px; color: var(--yellow); margin-bottom: 14px; }
+  .reason-modal-body { font-size: 13px; line-height: 1.7; color: var(--text); white-space: pre-wrap; border-left: 3px solid var(--blue); padding-left: 12px; }
+  .reason-modal-close { position: absolute; top: 14px; right: 16px; background: none; border: none; color: var(--text2); font-size: 18px; cursor: pointer; }
+  .reason-modal-close:hover { color: var(--text); }
   .badge {
     display: inline-block; padding: 2px 7px; border-radius: 4px;
     font-size: 10px; font-weight: 600; text-transform: uppercase;
@@ -1207,6 +1220,56 @@ function toggleChainRows(symId) {
   if (btn) btn.textContent = btn.textContent.replace(isOpen ? '▼' : '▶', isOpen ? '▶' : '▼');
 }
 
+// ── AI Reasoning Modal ──────────────────────────────────────────────
+const _REASON_LABELS = {
+  'SL':                    { label: 'Stop Loss alcanzado', text: 'El precio tocó el nivel de Stop Loss predefinido. La posición se cerró automáticamente para limitar la pérdida máxima según los parámetros de riesgo configurados.' },
+  'TP':                    { label: 'Take Profit alcanzado', text: 'El precio llegó al objetivo de ganancia (Take Profit). La posición se cerró automáticamente al alcanzar el retorno objetivo.' },
+  'TRAILING_SL':           { label: 'Trailing Stop activado', text: 'El stop loss dinámico (trailing) se activó. El precio retrocedió desde su máximo y alcanzó el nivel de stop móvil, asegurando parte de las ganancias acumuladas.' },
+  'TIME_EXIT':             { label: 'Tiempo máximo alcanzado', text: 'La posición superó el tiempo máximo permitido de permanencia. El sistema la cerró automáticamente para liberar capital y evitar exposición prolongada.' },
+  'WILD_MODE_CLOSE_CHAIN': { label: 'Modo Salvaje — Cadena cerrada', text: 'El motor de modo salvaje cerró la cadena completa porque el PnL combinado de todos los niveles llegó a positivo (o condiciones de mercado óptimas). La IA evaluó el contexto (RSI, MACD, tendencia) y determinó el momento ideal para realizar la ganancia.' },
+  'MANUAL_CLOSE':          { label: 'Cierre manual', text: 'El usuario cerró esta posición manualmente desde el dashboard.' },
+  'MANUAL_CLOSE_ALL':      { label: 'Cierre manual de todas las posiciones', text: 'El usuario cerró todas las posiciones abiertas manualmente desde el dashboard.' },
+  'EMERGENCY_CLOSE':       { label: 'Cierre de emergencia', text: 'El Risk Manager detectó condiciones de riesgo extremo (drawdown excesivo, exposición peligrosa) y cerró la posición automáticamente como medida de protección del capital.' },
+  'ABANDON_ALL':           { label: 'Modo Salvaje — Abandono total', text: 'El modo salvaje alcanzó el límite máximo de pérdida (15% de drawdown desde el inicio de la sesión) y activó el protocolo de abandono. Todas las posiciones de la cadena se cerraron para preservar el capital restante.' },
+  'LIQUIDATED':            { label: 'Liquidación', text: 'La posición fue liquidada por el sistema al alcanzar el precio de liquidación (margen insuficiente para mantener la posición abierta con el leverage configurado).' },
+};
+
+function _reasonFallback(closeReason, pnl) {
+  if (!closeReason) return 'No hay información disponible sobre el motivo de cierre de esta posición.';
+  const r = closeReason.toUpperCase();
+  // PNL_TARGET pattern
+  if (r.startsWith('PNL_TARGET')) {
+    const amt = closeReason.replace(/[^0-9.]/g, '');
+    return amt
+      ? 'Se alcanzó el target de ganancia de $' + amt + ' configurado por el usuario. El sistema cerró automáticamente todas las posiciones para asegurar el objetivo diario.'
+      : 'Se alcanzó el target de ganancia configurado. El sistema cerró las posiciones automáticamente.';
+  }
+  const entry = _REASON_LABELS[r];
+  if (entry) return entry.text;
+  return 'Razón de cierre: ' + closeReason + '. No hay descripción detallada disponible para este tipo de cierre.';
+}
+
+function showReason(symbol, closeReason, aiReasoning, pnl, closeTime) {
+  const modal = document.getElementById('reasonModal');
+  const r = (closeReason || '').toUpperCase();
+  const entry = _REASON_LABELS[r] || {};
+  const typeLabel = entry.label || closeReason || '—';
+  const ts = closeTime ? new Date(closeTime).toLocaleString() : '';
+  document.getElementById('rmSym').textContent = symbol + (ts ? '  ·  ' + ts : '');
+  document.getElementById('rmType').textContent = typeLabel;
+  // Priority: real AI reasoning > fallback description
+  const body = (aiReasoning && aiReasoning.trim().length > 10)
+    ? aiReasoning.trim()
+    : _reasonFallback(closeReason, pnl);
+  document.getElementById('rmBody').textContent = body;
+  modal.classList.add('open');
+}
+
+function closeReasonModal() {
+  document.getElementById('reasonModal').classList.remove('open');
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeReasonModal(); });
+
 async function loadTrades() {
   const r = await fetch('/api/trades?limit=500');
   const d = await r.json();
@@ -1357,6 +1420,8 @@ function renderTradesPage() {
     const pnlCls = t.pnl_usd > 0 ? 'pos' : t.pnl_usd < 0 ? 'neg' : '';
     const resultBadge = t.pnl_usd > 0 ? 'badge-win' : t.pnl_usd < 0 ? 'badge-loss' : 'badge-hold';
     const resultTxt = t.pnl_usd > 0 ? 'WIN' : t.pnl_usd < 0 ? 'LOSS' : 'FLAT';
+    const reasonLabel = t.close_reason || '—';
+    const reasonCell = `<button class="reason-btn" onclick="showReason(${JSON.stringify(t.symbol)}, ${JSON.stringify(t.close_reason||'')}, ${JSON.stringify(t.ai_reasoning||'')}, ${JSON.stringify(t.pnl_usd)}, ${JSON.stringify(t.close_time||'')})" title="Ver razonamiento de la IA">${reasonLabel}</button>`;
     html += `<tr>
       <td class="text2">${start + i + 1}</td>
       <td>${t.open_time ? t.open_time.replace('T',' ').slice(0,16) : '—'}</td>
@@ -1368,7 +1433,7 @@ function renderTradesPage() {
       <td class="${pnlCls}">${t.pnl_usd >= 0 ? '+' : ''}${fmt$(t.pnl_usd)}</td>
       <td class="${pnlCls}">${fmtPct(t.pnl_pct, true)}</td>
       <td><span class="badge ${resultBadge}">${resultTxt}</span></td>
-      <td>${t.close_reason || '—'}</td>
+      <td>${reasonCell}</td>
     </tr>`;
   });
   html += '</tbody></table>';
@@ -1674,6 +1739,18 @@ function connectChatSSE(){
   connectChatSSE();
 })();
 </script>
+
+<!-- ── AI Reasoning Modal ── -->
+<div id="reasonModal" onclick="if(event.target===this)closeReasonModal()">
+  <div class="reason-modal-box">
+    <button class="reason-modal-close" onclick="closeReasonModal()">✕</button>
+    <div class="reason-modal-title">🤖 Razonamiento de la IA</div>
+    <div class="reason-modal-sym" id="rmSym"></div>
+    <div class="reason-modal-type" id="rmType"></div>
+    <div class="reason-modal-body" id="rmBody"></div>
+  </div>
+</div>
+
 </body>
 </html>
 """
@@ -2055,20 +2132,21 @@ def api_trades():
     result = []
     for t in closed[:limit]:
         result.append({
-            "id":          t.get("id", ""),
-            "symbol":      t.get("symbol", ""),
-            "direction":   t.get("direction", "long"),
-            "strategy":    t.get("strategy", ""),
-            "entry_price": safe_float(t.get("entry_price", 0)),
-            "close_price": safe_float(t.get("close_price", 0)),
-            "pnl_usd":     round(safe_float(t.get("pnl_usd", 0)), 4),
-            "pnl_pct":     round(safe_float(t.get("pnl_pct", 0)), 4),
-            "open_time":   t.get("open_time", ""),
-            "close_time":  t.get("close_time", ""),
-            "close_reason":t.get("close_reason", ""),
-            "margin_usd":  safe_float(t.get("margin_usd", 0)),
-            "leverage":    t.get("leverage", 1),
-            "confidence":  safe_float(t.get("confidence", 0)),
+            "id":           t.get("id", ""),
+            "symbol":       t.get("symbol", ""),
+            "direction":    t.get("direction", "long"),
+            "strategy":     t.get("strategy", ""),
+            "entry_price":  safe_float(t.get("entry_price", 0)),
+            "close_price":  safe_float(t.get("close_price", 0)),
+            "pnl_usd":      round(safe_float(t.get("pnl_usd", 0)), 4),
+            "pnl_pct":      round(safe_float(t.get("pnl_pct", 0)), 4),
+            "open_time":    t.get("open_time", ""),
+            "close_time":   t.get("close_time", ""),
+            "close_reason": t.get("close_reason", ""),
+            "ai_reasoning": t.get("ai_reasoning", ""),
+            "margin_usd":   safe_float(t.get("margin_usd", 0)),
+            "leverage":     t.get("leverage", 1),
+            "confidence":   safe_float(t.get("confidence", 0)),
         })
     return jsonify({"trades": result, "total": len(closed)})
 
