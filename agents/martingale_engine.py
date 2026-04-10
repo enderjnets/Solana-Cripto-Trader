@@ -65,14 +65,17 @@ def _log_llm_failure(context: str, raw_response: str, error: str) -> None:
 #   conservative policy + mult=1.8 + lvls=3 + ratio=3.0 + global=0.60 + dd=0.15
 #   → sharpe 1.22, win rate 92%, avg PnL +$2.35, max DD 6.7%, 0% abandons
 MIN_LEVEL_MULTIPLIER = 1.1
-MAX_LEVEL_MULTIPLIER = 1.8        # validated by sweep (was 2.0 — 1.8 wins)
+MAX_LEVEL_MULTIPLIER = 1.3        # sim 108M: 1.3x óptimo con edge real (era 1.8)
 MAX_CHAIN_TOTAL_RATIO = 3.0       # validated by sweep (was 4.0)
-MAX_LEVELS_PER_SYMBOL = 3         # validated by sweep (was 5)
+MAX_LEVELS_PER_SYMBOL = 2         # sim 108M: 2 niveles suficientes (era 3)
 MAX_TOTAL_MARGIN_PCT = 0.75       # raised from 0.60 — 3 chains at 0.60 left no room to escalate
 MAX_DRAWDOWN_FROM_START_PCT = 0.15  # confirmed by sweep
 MAX_SESSION_MINUTES = 360         # 6h max
 MIN_LIQUIDATION_DISTANCE_PCT = 0.05
-MIN_PNL_THRESHOLD_FOR_HEDGE = -0.3  # abrir cobertura si la posición pierde ≥ 0.3%
+MIN_PNL_THRESHOLD_FOR_HEDGE = -0.2  # sim 108M: abrir antes -0.2% (era -0.3%)
+CHAIN_PROFIT_TARGET_PCT = 20.0   # cerrar chain cuando PnL ≥ 20% del margen base (108M sims)
+DAILY_TARGET_PCT        = 0.05   # parar nuevas cadenas cuando sesión sube ≥ 5% del equity
+DAILY_SOFT_STOP_PCT     = 0.08   # parar nuevas cadenas cuando sesión baja ≥ 8% del equity
 
 # ── State persistence ────────────────────────────────────────────────────────
 def _empty_state() -> dict:
@@ -262,6 +265,11 @@ def check_safety_rails(state: dict, portfolio: dict) -> tuple[bool, str]:
     age = _session_age_minutes(state)
     if age > MAX_SESSION_MINUTES:
         return (True, f'session_expired_{age:.0f}min')
+
+    # Daily target: si la sesión ya subió ≥ 5% → misión cumplida, cerrar todo
+    session_gain = (equity - starting) / starting if starting > 0 else 0
+    if session_gain >= DAILY_TARGET_PCT:
+        return (True, f'daily_target_hit_{session_gain*100:.1f}pct')
 
     return (False, 'ok')
 
@@ -783,6 +791,13 @@ def validate_decision(decision: dict, state: dict, portfolio: dict) -> dict:
         new_margin = min(new_margin, room)
         hits.append(f'margin_reduced_to_fit_global_cap_{new_margin:.2f}')
 
+    # Daily soft stop: si la sesión ya perdió ≥ 8% → no abrir más niveles
+    session_gain_v = (equity - float(state.get('starting_equity', equity))) / float(state.get('starting_equity', equity)) if float(state.get('starting_equity', equity)) > 0 else 0
+    if session_gain_v <= -DAILY_SOFT_STOP_PCT:
+        hits.append(f'daily_soft_stop_{abs(session_gain_v)*100:.1f}pct_loss')
+        out['action'] = 'HOLD'
+        return out
+
     # Check pnl threshold (only hedge losing positions)
     p = next((x for x in portfolio.get('positions', []) if x['symbol'] == sym and x.get('status') == 'open'), None)
     if p:
@@ -1005,7 +1020,7 @@ def record_session_outcome(state: dict, portfolio: dict, history: list, outcome_
             'starting_equity': starting,
             'ending_equity': round(equity, 2),
             'realized_pnl': round(equity - starting, 4),
-            'target_usd': float(state.get('target_usd', 0)),
+            'target_usd': float(state.get('target_usd', 0)) or round(_equity(portfolio) * DAILY_TARGET_PCT, 2),
             'starting_fg': state.get('starting_fg'),
             'chains_created': len(chains),
             'total_levels_opened': sum(len(c.get('levels', [])) for c in chains.values()),
@@ -1067,6 +1082,30 @@ def run_cycle(portfolio: dict, market: dict, history: list, fear_greed: int = 50
                 return result
         else:
             log.info(f'WILD MODE: skipping free-mode AI close precheck ({skip_reason}) - prioritize hedge/decision cycle')
+
+    # 3b. Chain profit target: auto-close chains that hit ≥ 20% of base margin
+    chains_snap = dict(state.get('martingale_chains', {}))
+    for _sym, _chain in chains_snap.items():
+        _base_margin = float(_chain.get('base_margin', 0))
+        if _base_margin <= 0:
+            continue
+        _chain_pnl_now = sum(
+            float(p.get('unrealized_pnl_usd', 0))
+            for p in portfolio.get('positions', [])
+            if p.get('symbol') == _sym and p.get('status') == 'open'
+        )
+        _profit_pct = (_chain_pnl_now / _base_margin) * 100
+        if _profit_pct >= CHAIN_PROFIT_TARGET_PCT:
+            log.info(f'WILD MODE: chain {_sym} profit target hit ({_profit_pct:.1f}% >= {CHAIN_PROFIT_TARGET_PCT}%) — auto-closing')
+            _auto_close_decision = {
+                'symbol': _sym, 'action': 'CLOSE_CHAIN',
+                'direction': 'same', 'level_multiplier': 1.0,
+                'reasoning': f'chain_profit_target_hit_{_profit_pct:.1f}pct',
+                'confidence': 1.0,
+            }
+            _validated_auto = validate_decision(_auto_close_decision, state, portfolio)
+            _stats_auto = apply_decision(_validated_auto, state, portfolio, market, history)
+            result['closed'] += _stats_auto.get('closed', 0)
 
     # 4. Decision cycle
     prompt = build_decision_prompt(state, portfolio, market, fear_greed)
