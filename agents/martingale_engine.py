@@ -67,7 +67,7 @@ MAX_TOTAL_MARGIN_PCT = 0.60       # confirmed by sweep
 MAX_DRAWDOWN_FROM_START_PCT = 0.15  # confirmed by sweep
 MAX_SESSION_MINUTES = 360         # 6h max
 MIN_LIQUIDATION_DISTANCE_PCT = 0.05
-MIN_PNL_THRESHOLD_FOR_HEDGE = -0.5  # solo considerar hedges si PnL% ≤ -0.5%
+MIN_PNL_THRESHOLD_FOR_HEDGE = -0.3  # abrir cobertura si la posición pierde ≥ 0.3%
 
 # ── State persistence ────────────────────────────────────────────────────────
 def _empty_state() -> dict:
@@ -399,13 +399,21 @@ CHAINS ACTIVOS:
 {insights_block}
 
 DECIDE para cada chain (o nuevo símbolo):
-- OPEN_LEVEL: abre cobertura. Especifica direction (same=martingala / opposite=hedge) y level_multiplier ∈ [1.1, 2.0]
-- HOLD: mantener sin tocar
-- CLOSE_CHAIN: cerrar todas las posiciones del chain (toma profit/corta pérdida)
+- OPEN_LEVEL: abre nivel de cobertura. direction=same (martingala, promedia precio) o direction=opposite (hedge, neutraliza). level_multiplier ∈ [1.1, 2.0]
+- HOLD: mantener posición sin cambios — úsalo cuando la pérdida aún es pequeña y es mejor esperar recuperación
+- CLOSE_CHAIN: cerrar TODAS las posiciones del chain
+
+⚠️ REGLA CRÍTICA DE CLOSE_CHAIN:
+  Solo usar CLOSE_CHAIN cuando:
+  (a) el chain está en PROFIT neto combinado (pnl > 0) → tomar ganancia ✅
+  (b) ya tienes 3 niveles de cobertura Y el drawdown global supera 15%
+  NUNCA uses CLOSE_CHAIN solo para "cortar pérdida" si aún no abriste ningún nivel de cobertura.
+  El propósito del wild mode es AGUANTAR la pérdida inicial mediante coberturas y RECUPERAR en bloque.
+  Si un chain pierde y está en nivel 0 → OPEN_LEVEL o HOLD. NO CLOSE_CHAIN.
 
 A nivel global:
 - CONTINUE: seguir operando
-- ABANDON_ALL: cerrar TODO (sólo si ves señal muy en contra)
+- ABANDON_ALL: cerrar TODO (sólo si drawdown global supera 15% o señal muy adversa)
 
 REGLAS DURAS (los guardrails sanitizan tu output, pero respétalos):
 - multiplier ∈ [{MIN_LEVEL_MULTIPLIER}, {MAX_LEVEL_MULTIPLIER}]
@@ -576,6 +584,41 @@ def validate_decision(decision: dict, state: dict, portfolio: dict) -> dict:
         'new_margin': 0.0,
         'guardrails_hit': hits,
     }
+
+    if action == 'CLOSE_CHAIN':
+        # GUARDRAIL: Never allow premature close of an unprotected chain in loss
+        chains_g = state.get('martingale_chains', {})
+        chain_g = chains_g.get(sym)
+        if chain_g:
+            levels_g = chain_g.get('levels', [])
+            # Get combined chain PnL from portfolio positions
+            pos_by_id = {p['id']: p for p in portfolio.get('positions', []) if p.get('status') == 'open'}
+            chain_pnl = sum(float(pos_by_id.get(lv['position_id'], {}).get('pnl_usd', 0)) for lv in levels_g)
+            n_levels_g = len(levels_g)
+            equity_g = _equity(portfolio)
+            starting_g = float(state.get('starting_equity', equity_g))
+            global_dd_pct = (starting_g - equity_g) / starting_g * 100 if starting_g > 0 else 0
+
+            if chain_pnl < 0 and n_levels_g <= 1:
+                # Chain has no hedges yet and is losing — block close unless drawdown is critical
+                if global_dd_pct < MAX_DRAWDOWN_FROM_START_PCT * 100:
+                    hits.append(f'premature_close_blocked_no_hedge_pnl={chain_pnl:.2f}_dd={global_dd_pct:.1f}%')
+                    log.info(f'WILD MODE: CLOSE_CHAIN blocked for {sym} — no hedge placed yet, '
+                             f'chain_pnl={chain_pnl:.2f}, dd={global_dd_pct:.1f}% < {MAX_DRAWDOWN_FROM_START_PCT*100:.0f}% limit. '
+                             f'Forcing HOLD to allow hedge placement.')
+                    out['action'] = 'HOLD'
+                    return out
+            elif chain_pnl < 0 and n_levels_g > 1:
+                # Has hedges but combined still losing — also block unless critical dd
+                if global_dd_pct < MAX_DRAWDOWN_FROM_START_PCT * 100:
+                    hits.append(f'close_in_loss_with_hedges_pnl={chain_pnl:.2f}_dd={global_dd_pct:.1f}%')
+                    log.info(f'WILD MODE: CLOSE_CHAIN blocked for {sym} — combined chain losing '
+                             f'({chain_pnl:.2f}), dd={global_dd_pct:.1f}% < limit. Holding.')
+                    out['action'] = 'HOLD'
+                    return out
+            # If chain is in profit (chain_pnl >= 0) → allow close (take profit!)
+            # If global drawdown is critical → allow close (damage control)
+        return out
 
     if action != 'OPEN_LEVEL':
         return out
