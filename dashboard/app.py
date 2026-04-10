@@ -1249,6 +1249,12 @@ function _reasonFallback(closeReason, pnl) {
   return 'Razón de cierre: ' + closeReason + '. No hay descripción detallada disponible para este tipo de cierre.';
 }
 
+function showReasonByIdx(idx) {
+  const d = (window._tradeReasonData || {})[idx];
+  if (!d) return;
+  showReason(d.symbol, d.closeReason, d.aiReasoning, d.pnl, d.closeTime);
+}
+
 function showReason(symbol, closeReason, aiReasoning, pnl, closeTime) {
   const modal = document.getElementById('reasonModal');
   const r = (closeReason || '').toUpperCase();
@@ -1416,14 +1422,25 @@ function renderTradesPage() {
     <th>P&L $</th><th>P&L %</th><th>Resultado</th><th>Razón cierre</th>
   </tr></thead><tbody>`;
 
+  // Store trade data for modal lookups — avoids HTML attribute quote-escaping issues
+  window._tradeReasonData = {};
   page.forEach((t, i) => {
+    const idx = start + i;
+    window._tradeReasonData[idx] = {
+      symbol: t.symbol, closeReason: t.close_reason || '',
+      aiReasoning: t.ai_reasoning || '', pnl: t.pnl_usd, closeTime: t.close_time || ''
+    };
+  });
+
+  page.forEach((t, i) => {
+    const idx = start + i;
     const pnlCls = t.pnl_usd > 0 ? 'pos' : t.pnl_usd < 0 ? 'neg' : '';
     const resultBadge = t.pnl_usd > 0 ? 'badge-win' : t.pnl_usd < 0 ? 'badge-loss' : 'badge-hold';
     const resultTxt = t.pnl_usd > 0 ? 'WIN' : t.pnl_usd < 0 ? 'LOSS' : 'FLAT';
     const reasonLabel = t.close_reason || '—';
-    const reasonCell = `<button class="reason-btn" onclick="showReason(${JSON.stringify(t.symbol)}, ${JSON.stringify(t.close_reason||'')}, ${JSON.stringify(t.ai_reasoning||'')}, ${JSON.stringify(t.pnl_usd)}, ${JSON.stringify(t.close_time||'')})" title="Ver razonamiento de la IA">${reasonLabel}</button>`;
+    const reasonCell = `<button class="reason-btn" onclick="showReasonByIdx(${idx})" title="Ver razonamiento de la IA">${reasonLabel}</button>`;
     html += `<tr>
-      <td class="text2">${start + i + 1}</td>
+      <td class="text2">${idx + 1}</td>
       <td>${t.open_time ? t.open_time.replace('T',' ').slice(0,16) : '—'}</td>
       <td><strong>${t.symbol}</strong></td>
       <td><span class="badge badge-${t.direction}">${t.direction.toUpperCase()}</span></td>
