@@ -318,6 +318,79 @@ DASHBOARD_HTML = r"""
   .reason-modal-body { font-size: 13px; line-height: 1.7; color: var(--text); white-space: pre-wrap; border-left: 3px solid var(--blue); padding-left: 12px; }
   .reason-modal-close { position: absolute; top: 14px; right: 16px; background: none; border: none; color: var(--text2); font-size: 18px; cursor: pointer; }
   .reason-modal-close:hover { color: var(--text); }
+
+  /* ── AI Thinking Modal ── */
+  #aiThinkingModal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:10000; align-items:flex-start; justify-content:center; overflow-y:auto; padding:20px 0; }
+  #aiThinkingModal.open { display:flex; }
+  .ait-box { background:var(--bg); border:1px solid #30363d; border-radius:14px; width:min(900px,96vw); padding:0; overflow:hidden; position:relative; }
+  /* header */
+  .ait-header { background:linear-gradient(135deg,rgba(188,140,255,0.15),rgba(88,166,255,0.1)); border-bottom:1px solid #30363d; padding:18px 24px; display:flex; align-items:center; justify-content:space-between; }
+  .ait-header-left { display:flex; align-items:center; gap:12px; }
+  .ait-brain { font-size:28px; animation:ait-pulse 2s infinite; }
+  @keyframes ait-pulse { 0%,100%{transform:scale(1);filter:brightness(1)} 50%{transform:scale(1.1);filter:brightness(1.3)} }
+  .ait-title { font-size:16px; font-weight:700; background:linear-gradient(90deg,#bc8cff,#58a6ff); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+  .ait-subtitle { font-size:11px; color:var(--text2); margin-top:2px; }
+  .ait-live { display:flex; align-items:center; gap:6px; font-size:11px; font-weight:700; color:#3fb950; }
+  .ait-live-dot { width:8px; height:8px; border-radius:50%; background:#3fb950; box-shadow:0 0 8px #3fb950; animation:pulse 1.5s infinite; }
+  .ait-close-btn { background:none; border:1px solid #30363d; color:var(--text2); border-radius:6px; padding:4px 10px; cursor:pointer; font-size:14px; }
+  .ait-close-btn:hover { color:var(--text); border-color:var(--text2); }
+  /* refresh bar */
+  .ait-refresh-bar { height:2px; background:var(--bg3); position:relative; overflow:hidden; }
+  .ait-refresh-fill { height:100%; background:linear-gradient(90deg,#bc8cff,#58a6ff); transition:width 1s linear; }
+  /* global context */
+  .ait-global { display:grid; grid-template-columns:repeat(4,1fr); gap:1px; background:#30363d; border-bottom:1px solid #30363d; }
+  .ait-kpi { background:var(--bg2); padding:12px 16px; text-align:center; }
+  .ait-kpi-val { font-size:18px; font-weight:700; }
+  .ait-kpi-lbl { font-size:10px; color:var(--text2); margin-top:2px; text-transform:uppercase; letter-spacing:0.5px; }
+  /* body */
+  .ait-body { padding:20px 24px; display:flex; flex-direction:column; gap:16px; }
+  /* position card */
+  .ait-pos-card { background:var(--bg2); border:1px solid #30363d; border-radius:10px; overflow:hidden; transition:border-color .2s; }
+  .ait-pos-card:hover { border-color:#bc8cff44; }
+  .ait-pos-header { display:flex; align-items:center; gap:10px; padding:12px 16px; border-bottom:1px solid #30363d; }
+  .ait-sym { font-size:16px; font-weight:700; }
+  .ait-pos-pnl { margin-left:auto; font-size:15px; font-weight:700; }
+  .ait-decision-badge { font-size:11px; font-weight:700; padding:3px 10px; border-radius:12px; letter-spacing:0.5px; }
+  .ait-badge-hold { background:rgba(210,153,34,0.2); color:#d29922; border:1px solid #d2992244; }
+  .ait-badge-open { background:rgba(63,185,80,0.2); color:#3fb950; border:1px solid #3fb95044; }
+  .ait-badge-close { background:rgba(88,166,255,0.2); color:#58a6ff; border:1px solid #58a6ff44; }
+  .ait-badge-abandon { background:rgba(248,81,73,0.2); color:#f85149; border:1px solid #f8514944; }
+  .ait-pos-body { padding:12px 16px; display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  /* alignment */
+  .ait-align { font-size:11px; padding:6px 10px; border-radius:6px; background:var(--bg3); }
+  .ait-align-split { border-left:3px solid #d29922; }
+  .ait-align-agree { border-left:3px solid #3fb950; }
+  /* confidence bar */
+  .ait-conf-wrap { display:flex; align-items:center; gap:8px; }
+  .ait-conf-track { flex:1; height:6px; background:var(--bg3); border-radius:3px; overflow:hidden; }
+  .ait-conf-fill { height:100%; border-radius:3px; background:linear-gradient(90deg,#bc8cff,#58a6ff); transition:width .5s ease; }
+  .ait-conf-lbl { font-size:10px; color:var(--text2); width:30px; text-align:right; }
+  /* quant reasons */
+  .ait-reasons { display:flex; flex-wrap:wrap; gap:4px; }
+  .ait-reason-chip { font-size:10px; padding:2px 7px; border-radius:10px; background:var(--bg3); color:var(--text2); border:1px solid #30363d; }
+  .ait-reason-chip.good { color:#3fb950; border-color:#3fb95033; background:rgba(63,185,80,0.08); }
+  .ait-reason-chip.bad  { color:#f85149; border-color:#f8514933; background:rgba(248,81,73,0.08); }
+  /* LLM reasoning block */
+  .ait-llm-block { grid-column:1/-1; background:rgba(88,166,255,0.04); border:1px solid rgba(88,166,255,0.15); border-radius:8px; padding:12px 14px; }
+  .ait-llm-title { font-size:10px; font-weight:700; color:var(--blue); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px; display:flex; align-items:center; gap:6px; }
+  .ait-llm-text { font-size:12px; color:var(--text); line-height:1.7; white-space:pre-wrap; }
+  /* guardrails */
+  .ait-guardrail { font-size:11px; color:#f85149; background:rgba(248,81,73,0.08); border:1px solid rgba(248,81,73,0.2); border-radius:6px; padding:4px 10px; display:flex; align-items:center; gap:6px; }
+  /* metrics row */
+  .ait-metrics { display:flex; gap:16px; flex-wrap:wrap; }
+  .ait-metric { font-size:11px; color:var(--text2); }
+  .ait-metric span { color:var(--text); font-weight:600; }
+  /* wild mode section */
+  .ait-wild-header { display:flex; align-items:center; gap:8px; font-size:12px; font-weight:700; color:var(--orange); margin-bottom:10px; }
+  .ait-wild-chain { background:rgba(255,123,114,0.06); border:1px solid rgba(255,123,114,0.2); border-radius:8px; padding:10px 14px; margin-bottom:8px; }
+  /* loading state */
+  .ait-loading { padding:60px 24px; text-align:center; color:var(--text2); }
+  .ait-loading-spinner { font-size:32px; animation:ait-pulse 1s infinite; margin-bottom:12px; }
+  /* distance bars */
+  .ait-dist-row { display:flex; align-items:center; gap:6px; font-size:10px; color:var(--text2); }
+  .ait-dist-bar { flex:1; height:4px; background:var(--bg3); border-radius:2px; overflow:hidden; position:relative; }
+  .ait-dist-sl { height:100%; background:#f85149; border-radius:2px; }
+  .ait-dist-tp { height:100%; background:#3fb950; border-radius:2px; position:absolute; right:0; top:0; }
   .badge {
     display: inline-block; padding: 2px 7px; border-radius: 4px;
     font-size: 10px; font-weight: 600; text-transform: uppercase;
@@ -568,6 +641,7 @@ DASHBOARD_HTML = r"""
           <span id="wildModeBadge" style="display:none;font-size:10px;padding:3px 8px;border-radius:6px;background:var(--orange);color:#000;font-weight:700;"></span>
           <span id="pnlTargetStatus" style="font-size:10px;color:var(--text2);"></span>
         </div>
+        <button onclick="openAIThinking()" id="aiThinkingBtn" style="font-size:11px;padding:4px 12px;background:linear-gradient(135deg,#bc8cff,#58a6ff);color:#000;border:none;border-radius:6px;cursor:pointer;font-weight:700;letter-spacing:0.3px;">🧠 Qué está pensando la IA</button>
         <button onclick="closeAllPositions()" style="font-size:11px;padding:4px 12px;background:var(--red);color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:600;">Cerrar Todas</button>
       </div>
     </div>
@@ -1274,7 +1348,208 @@ function showReason(symbol, closeReason, aiReasoning, pnl, closeTime) {
 function closeReasonModal() {
   document.getElementById('reasonModal').classList.remove('open');
 }
-document.addEventListener('keydown', e => { if (e.key === 'Escape') closeReasonModal(); });
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { closeReasonModal(); closeAIThinking(); }
+});
+
+// ── AI Thinking Modal ────────────────────────────────────────────────
+let _aitTimer = null;
+let _aitCountdownVal = 20;
+let _aitCountdownTimer = null;
+
+async function openAIThinking() {
+  document.getElementById('aiThinkingModal').classList.add('open');
+  await fetchAIThinking();
+  _startAitCountdown();
+}
+
+function closeAIThinking() {
+  document.getElementById('aiThinkingModal').classList.remove('open');
+  clearTimeout(_aitTimer);
+  clearInterval(_aitCountdownTimer);
+}
+
+function _startAitCountdown() {
+  clearInterval(_aitCountdownTimer);
+  _aitCountdownVal = 20;
+  _updateAitBar();
+  _aitCountdownTimer = setInterval(() => {
+    _aitCountdownVal--;
+    _updateAitBar();
+    if (_aitCountdownVal <= 0) {
+      clearInterval(_aitCountdownTimer);
+      fetchAIThinking().then(_startAitCountdown);
+    }
+  }, 1000);
+}
+
+function _updateAitBar() {
+  const pct = (_aitCountdownVal / 20) * 100;
+  const bar = document.getElementById('aitRefillBar');
+  const lbl = document.getElementById('aitCountdown');
+  if (bar) bar.style.width = pct + '%';
+  if (lbl) lbl.textContent = 'Actualiza en ' + _aitCountdownVal + 's';
+}
+
+async function fetchAIThinking() {
+  try {
+    const r = await fetch('/api/ai-thinking');
+    const d = await r.json();
+    renderAIThinking(d);
+  } catch(e) {
+    document.getElementById('aitContent').innerHTML =
+      '<div class="ait-loading"><div>⚠️ Error consultando la IA: ' + e.message + '</div></div>';
+  }
+}
+
+function _actionBadge(action) {
+  if (!action) return '';
+  const a = action.toUpperCase();
+  if (a === 'HOLD')        return `<span class="ait-decision-badge ait-badge-hold">⏸ HOLD — Esperar</span>`;
+  if (a === 'OPEN_LEVEL')  return `<span class="ait-decision-badge ait-badge-open">➕ ABRIR COBERTURA</span>`;
+  if (a === 'CLOSE_CHAIN') return `<span class="ait-decision-badge ait-badge-close">✅ CERRAR CADENA</span>`;
+  if (a === 'CLOSE')       return `<span class="ait-decision-badge ait-badge-close">✅ CERRAR</span>`;
+  if (a.includes('ABANDON'))return `<span class="ait-decision-badge ait-badge-abandon">🚨 ABANDONAR</span>`;
+  return `<span class="ait-decision-badge ait-badge-hold">${action}</span>`;
+}
+
+function _pnlColor(v) { return v > 0 ? '#3fb950' : v < 0 ? '#f85149' : 'var(--text2)'; }
+function _fmtUsd(v) { const s = v >= 0 ? '+' : ''; return s + '$' + Math.abs(v).toFixed(2); }
+function _fmtPct(v) { const s = v >= 0 ? '+' : ''; return s + v.toFixed(2) + '%'; }
+
+function renderAIThinking(d) {
+  const fg = d.fear_greed || {};
+  const fgColor = fg.value <= 25 ? '#f85149' : fg.value >= 75 ? '#3fb950' : '#d29922';
+  const ts = d.timestamp ? new Date(d.timestamp).toLocaleTimeString() : '—';
+  document.getElementById('aitSubtitle').textContent = 'Último análisis: ' + ts + ' · Ciclo #' + (d.cycle || '—');
+
+  // Global KPIs
+  const ddColor = (d.drawdown_pct||0) > 10 ? '#f85149' : (d.drawdown_pct||0) > 5 ? '#d29922' : '#3fb950';
+  let html = `<div class="ait-global">
+    <div class="ait-kpi">
+      <div class="ait-kpi-val" style="color:${fgColor}">${fg.value || '—'}</div>
+      <div class="ait-kpi-lbl">Fear & Greed</div>
+      <div style="font-size:10px;color:${fgColor};margin-top:2px;">${fg.label || ''}</div>
+    </div>
+    <div class="ait-kpi">
+      <div class="ait-kpi-val">\$${(d.equity||0).toFixed(2)}</div>
+      <div class="ait-kpi-lbl">Equity</div>
+    </div>
+    <div class="ait-kpi">
+      <div class="ait-kpi-val" style="color:${ddColor}">-${(d.drawdown_pct||0).toFixed(1)}%</div>
+      <div class="ait-kpi-lbl">Drawdown</div>
+    </div>
+    <div class="ait-kpi">
+      <div class="ait-kpi-val">${d.open_positions || 0}</div>
+      <div class="ait-kpi-lbl">Posiciones abiertas</div>
+    </div>
+  </div>
+  <div class="ait-body">`;
+
+  // Wild mode chains
+  const chains = d.wild_chains || {};
+  const chainSyms = Object.keys(chains);
+  if (chainSyms.length > 0) {
+    html += `<div><div class="ait-wild-header">🔥 MODO SALVAJE — Cadenas activas (${chainSyms.length})</div>`;
+    for (const sym of chainSyms) {
+      const c = chains[sym];
+      const dec = c.last_decision || {};
+      const raw = dec.raw || {};
+      const validated = dec.validated || {};
+      const guardrails = validated.guardrails_hit || [];
+      const pnlColor = _pnlColor(c.chain_pnl || 0);
+      const badgeHtml = _actionBadge(validated.action || raw.action);
+      html += `<div class="ait-wild-chain">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+          <strong style="font-size:14px;">${sym}</strong>
+          <span style="font-size:11px;color:var(--text2);">${c.n_levels || 1} nivel(es) · margen $${(c.total_margin||0).toFixed(2)}</span>
+          <span style="font-size:14px;font-weight:700;color:${pnlColor};margin-left:auto;">${_fmtUsd(c.chain_pnl||0)}</span>
+          ${badgeHtml}
+        </div>`;
+      if (raw.reasoning && !raw.reasoning.startsWith('fallback')) {
+        html += `<div style="font-size:12px;color:var(--text);line-height:1.6;border-left:3px solid var(--purple);padding-left:10px;">${escHtml(raw.reasoning)}</div>`;
+      } else if (raw.reasoning) {
+        html += `<div style="font-size:11px;color:var(--text2);">⚙️ ${escHtml(raw.reasoning)}</div>`;
+      }
+      if (guardrails.length > 0) {
+        html += guardrails.map(g => `<div class="ait-guardrail" style="margin-top:6px;">🛡️ Guardrail: ${escHtml(g)}</div>`).join('');
+      }
+      html += `</div>`;
+    }
+    html += `</div>`;
+  }
+
+  // Per-position cards from position_decisions
+  const positions = d.positions || [];
+  if (positions.length === 0) {
+    html += `<div style="text-align:center;padding:30px;color:var(--text2);">Sin posiciones abiertas para analizar</div>`;
+  }
+  for (const p of positions) {
+    const pnlColor = _pnlColor(p.pnl_usd || 0);
+    const alignClass = (p.alignment||'').includes('SPLIT') ? 'ait-align-split' : 'ait-align-agree';
+    const confPct = Math.round((p.confidence || 0) * 100);
+    const action = p.action || p.llm_action || 'HOLD';
+    const badgeHtml = _actionBadge(action);
+    // Build quant reason chips
+    const reasons = (p.quant_reasons || []).map(r => {
+      const isGood = /TP_|RR_|PROFIT|GAIN|BULL/i.test(r);
+      const isBad  = /SL_|LOSS|BEAR|LIQUIDAT|PANIC|FEAR/i.test(r);
+      const cls = isGood ? 'good' : isBad ? 'bad' : '';
+      return `<span class="ait-reason-chip ${cls}">${r}</span>`;
+    }).join('');
+
+    // Distance bars
+    const sl = p.dist_sl_pct || 0;
+    const tp = p.dist_tp_pct || 0;
+    const total = sl + tp || 1;
+    const slW = Math.min(100, (sl / total) * 100).toFixed(0);
+    const tpW = Math.min(100, (tp / total) * 100).toFixed(0);
+
+    html += `<div class="ait-pos-card">
+      <div class="ait-pos-header">
+        <span class="ait-sym">${p.symbol}</span>
+        <span class="badge badge-${p.direction}">${(p.direction||'').toUpperCase()}</span>
+        ${badgeHtml}
+        <div class="ait-conf-wrap" style="width:120px;">
+          <div class="ait-conf-track"><div class="ait-conf-fill" style="width:${confPct}%"></div></div>
+          <span class="ait-conf-lbl">${confPct}%</span>
+        </div>
+        <span class="ait-pos-pnl" style="color:${pnlColor}">${_fmtUsd(p.pnl_usd||0)} (${_fmtPct(p.pnl_pct||0)})</span>
+      </div>
+      <div class="ait-pos-body">
+        <div>
+          <div style="font-size:10px;color:var(--text2);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;">Análisis cuantitativo</div>
+          <div class="ait-align ${alignClass}" style="margin-bottom:8px;">${escHtml(p.alignment || '—')}</div>
+          <div class="ait-reasons">${reasons || '<span style="font-size:11px;color:var(--text2);">Sin señales cuantitativas</span>'}</div>
+        </div>
+        <div>
+          <div style="font-size:10px;color:var(--text2);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;">Distancias</div>
+          <div class="ait-metrics" style="margin-bottom:8px;">
+            <div class="ait-metric">SL <span style="color:#f85149">${sl.toFixed(2)}%</span></div>
+            <div class="ait-metric">TP <span style="color:#3fb950">${tp.toFixed(2)}%</span></div>
+            <div class="ait-metric">R/R <span>${(p.rr_remaining||0).toFixed(2)}x</span></div>
+            <div class="ait-metric">Abierta <span>${p.hours_open||0}h</span></div>
+          </div>
+          <div class="ait-dist-row">
+            <span style="color:#f85149;min-width:18px;">SL</span>
+            <div class="ait-dist-bar">
+              <div class="ait-dist-sl" style="width:${slW}%"></div>
+              <div class="ait-dist-tp" style="width:${tpW}%"></div>
+            </div>
+            <span style="color:#3fb950;min-width:18px;">TP</span>
+          </div>
+        </div>
+        <div class="ait-llm-block">
+          <div class="ait-llm-title">🤖 Razonamiento del LLM <span style="color:var(--text2);font-weight:400;text-transform:none;">${p.llm_source ? '· ' + p.llm_source : ''}</span></div>
+          <div class="ait-llm-text">${p.llm_reasoning && p.llm_reasoning.length > 15 && !p.llm_reasoning.includes('workdir:') ? escHtml(p.llm_reasoning) : '<span style="color:var(--text2);font-style:italic;">Analizando condiciones del mercado...</span>'}</div>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  html += `</div>`; // end ait-body
+  document.getElementById('aitContent').innerHTML = html;
+}
 
 async function loadTrades() {
   const r = await fetch('/api/trades?limit=500');
@@ -1756,6 +2031,28 @@ function connectChatSSE(){
   connectChatSSE();
 })();
 </script>
+
+<!-- ── AI Thinking Modal ── -->
+<div id="aiThinkingModal" onclick="if(event.target===this)closeAIThinking()">
+  <div class="ait-box">
+    <div class="ait-header">
+      <div class="ait-header-left">
+        <span class="ait-brain">🧠</span>
+        <div>
+          <div class="ait-title">Qué está pensando la IA</div>
+          <div class="ait-subtitle" id="aitSubtitle">Análisis en tiempo real de cada posición abierta</div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;">
+        <div class="ait-live"><div class="ait-live-dot"></div>EN VIVO</div>
+        <span id="aitCountdown" style="font-size:10px;color:var(--text2);"></span>
+        <button class="ait-close-btn" onclick="closeAIThinking()">✕ Cerrar</button>
+      </div>
+    </div>
+    <div class="ait-refresh-bar"><div class="ait-refresh-fill" id="aitRefillBar" style="width:100%"></div></div>
+    <div id="aitContent"><div class="ait-loading"><div class="ait-loading-spinner">🧠</div><div>Consultando a la IA...</div></div></div>
+  </div>
+</div>
 
 <!-- ── AI Reasoning Modal ── -->
 <div id="reasonModal" onclick="if(event.target===this)closeReasonModal()">
@@ -2550,6 +2847,114 @@ def api_positions():
         })
 
     return jsonify({"positions": result})
+
+
+@app.route('/api/ai-thinking')
+def api_ai_thinking():
+    """Aggregates live AI reasoning for the 'What is the AI thinking?' panel."""
+    import json as _json
+
+    port = load_portfolio()
+    market = load_json(DATA / "market_latest.json") or {}
+
+    # Equity / drawdown
+    positions_raw = [p for p in port.get('positions', []) if p.get('status') == 'open']
+    cash = safe_float(port.get('capital_usd', 0))
+    margin_total = sum(safe_float(p.get('margin_usd', 0)) for p in positions_raw)
+    unreal = sum(safe_float(p.get('unrealized_pnl_usd', 0)) for p in positions_raw)
+    equity = cash + margin_total + unreal
+    initial = safe_float(port.get('initial_capital', equity or 1))
+    drawdown_pct = max(0, (initial - equity) / initial * 100) if initial > 0 else 0
+
+    # Fear & Greed
+    fg_raw = market.get('fear_greed', {})
+    fg = fg_raw if isinstance(fg_raw, dict) else {'value': int(fg_raw or 50), 'label': ''}
+
+    # Position decisions
+    pd_data = {}
+    try:
+        pd_path = DATA / 'position_decisions.json'
+        if pd_path.exists():
+            pd_raw = _json.loads(pd_path.read_text())
+            pd_data = {d['symbol']: d for d in pd_raw.get('decisions', [])}
+    except Exception:
+        pass
+
+    # Build per-position data
+    live_prices = get_live_prices([p.get('symbol', '') for p in positions_raw])
+    pos_out = []
+    for p in positions_raw:
+        sym = p.get('symbol', '')
+        dec = pd_data.get(sym, {})
+        cur_price = live_prices.get(sym, safe_float(p.get('current_price', 0)))
+        est = estimate_open_position_pnl(p, cur_price)
+
+        # Strip Codex header from llm_reasoning if present
+        llm_r = dec.get('llm_reasoning', '') or ''
+        if '\nassistant\n' in llm_r:
+            llm_r = llm_r.split('\nassistant\n')[-1].strip()
+        elif 'workdir:' in llm_r:
+            llm_r = ''
+
+        pos_out.append({
+            'symbol':       sym,
+            'direction':    p.get('direction', 'long'),
+            'pnl_usd':      round(est.get('pnl_usd', 0), 4),
+            'pnl_pct':      round(est.get('pnl_pct', 0), 4),
+            'action':       dec.get('action', ''),
+            'llm_action':   dec.get('llm_action', ''),
+            'quant_action': dec.get('quant_action', ''),
+            'alignment':    dec.get('alignment', ''),
+            'confidence':   safe_float(dec.get('confidence', 0)),
+            'quant_reasons':dec.get('quant_reasons', []),
+            'llm_reasoning':llm_r,
+            'llm_source':   dec.get('llm_source', ''),
+            'dist_sl_pct':  safe_float(dec.get('dist_sl_pct', 0)),
+            'dist_tp_pct':  safe_float(dec.get('dist_tp_pct', 0)),
+            'rr_remaining': safe_float(dec.get('rr_remaining', 0)),
+            'hours_open':   safe_float(dec.get('hours_open', 0)),
+        })
+
+    # Wild mode chains with last decision
+    wild_chains_out = {}
+    try:
+        wm_path = DATA / 'wild_mode_state.json'
+        if wm_path.exists():
+            wm = _json.loads(wm_path.read_text())
+            if wm.get('active'):
+                chains = wm.get('martingale_chains', {})
+                dlog = wm.get('decisions_log', [])
+                # Last decision per symbol
+                last_dec_by_sym = {}
+                for entry in dlog:
+                    s = entry.get('raw', {}).get('symbol') or entry.get('validated', {}).get('symbol')
+                    if s:
+                        last_dec_by_sym[s] = entry
+                # Chain PnL from portfolio
+                chain_pnl_by_sym = {}
+                for p in positions_raw:
+                    s = p.get('symbol', '')
+                    chain_pnl_by_sym[s] = chain_pnl_by_sym.get(s, 0) + safe_float(p.get('unrealized_pnl_usd', 0))
+                for sym, chain in chains.items():
+                    wild_chains_out[sym] = {
+                        'n_levels':     len(chain.get('levels', [])),
+                        'total_margin': safe_float(chain.get('total_margin', 0)),
+                        'chain_pnl':    round(chain_pnl_by_sym.get(sym, 0), 4),
+                        'last_decision':last_dec_by_sym.get(sym, {}),
+                    }
+    except Exception:
+        pass
+
+    return jsonify({
+        'timestamp':     datetime.now(timezone.utc).isoformat(),
+        'cycle':         port.get('cycle_counter', '—'),
+        'equity':        round(equity, 2),
+        'drawdown_pct':  round(drawdown_pct, 2),
+        'open_positions':len(positions_raw),
+        'fear_greed':    fg,
+        'positions':     pos_out,
+        'wild_chains':   wild_chains_out,
+    })
 
 
 @app.route('/api/reset-history')
