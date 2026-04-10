@@ -119,7 +119,7 @@ while true; do
     # Pattern matches BOTH agents/orchestrator.py AND root-level orchestrator.py
     # Uses both pgrep (process check) and the absolute lock file for double protection
     ORCH_PID_LOCK="/tmp/solana_jupiter_orchestrator.lock"
-    if pgrep -f "orchestrator\.py" > /dev/null 2>&1; then
+    if pgrep -f "Solana-Cripto-Trader/agents/orchestrator" > /dev/null 2>&1; then
         echo "[WATCHDOG] orchestrator already running (detected by pgrep), skipping launch"
     elif [ -f "$ORCH_PID_LOCK" ] && kill -0 "$(cat $ORCH_PID_LOCK)" 2>/dev/null; then
         echo "[WATCHDOG] orchestrator already running (lock file PID $(cat $ORCH_PID_LOCK)), skipping launch"
