@@ -485,7 +485,7 @@ def run_cycle(safe=True, debug=False):
                                 log.info(f"   ✂️ REDUCED {symbol} 50%: returned ${returned:.2f}, SL->breakeven")
 
                                 # Record REDUCE as trade in history (fix accounting gap)
-                                from datetime import datetime, timezone
+                                _dt = __import__('datetime').datetime
                                 history.append({
                                     "id": f"{pos.get('id','')}_reduce",
                                     "symbol": symbol,
