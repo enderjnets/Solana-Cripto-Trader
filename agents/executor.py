@@ -273,18 +273,23 @@ PORTFOLIO_RISK_PCT  = 0.10    # 10% of capital total risk (was fixed $20)
 MIN_PROFIT_PCT      = 0.002   # 0.2% of capital min profit per pos (was fixed $0.50)
 
 def _get_risk_for_capital(capital: float, confidence: float = 0.7) -> tuple:
-    """Returns (max_risk_usd, leverage) based on capital and confidence."""
+    """Returns (max_risk_usd, leverage) based on capital and confidence.
+    Leverage tiers aligned with Drift Protocol limits (10x max for major perps).
+    """
     base_risk = capital * MAX_RISK_PCT
-    # Confidence-based scaling
+    # Confidence-based scaling — usar techo de Drift Protocol (10x)
     if confidence >= 0.85:
         risk = base_risk * 1.4   # 3.5% of capital
-        lev = min(7, 7)
-    elif confidence >= 0.70:
+        lev = 10                  # Drift Protocol permite 10x — aprovechar en alta confianza
+    elif confidence >= 0.75:
+        risk = base_risk * 1.2   # 3% of capital
+        lev = 7
+    elif confidence >= 0.65:
         risk = base_risk          # 2.5% of capital
-        lev = min(5, 5)
+        lev = 5
     else:
         risk = base_risk * 0.6   # 1.5% of capital
-        lev = min(3, 3)
+        lev = 3
     # Floor: minimum $0.50 risk to avoid dust trades
     risk = max(0.50, risk)
     return round(risk, 2), lev
