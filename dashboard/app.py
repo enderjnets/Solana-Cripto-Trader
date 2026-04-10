@@ -699,7 +699,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initCharts();
   refreshAll();
   // Refresh completo cada 30 segundos
-  setInterval(refreshAll, 30000);
+  setInterval(refreshAll, 10000);  // 10s refresh (was 30s)
   // Refresh de posiciones cada 3 segundos (tiempo real)
   setInterval(loadPositionsRealtime, 3000);
 });
