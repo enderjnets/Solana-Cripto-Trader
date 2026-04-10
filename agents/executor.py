@@ -263,7 +263,7 @@ SHORT_REBOUND_FILTER_DRY_RUN = os.environ.get("SHORT_REBOUND_FILTER_DRY_RUN", "f
 
 # ─── Risk Management (ajustado 31-Mar-2026 — orden de Ender) ─────────────────
 MIN_CONFIDENCE      = 0.55     # E1: Lowered from 0.70 for more trades     # Bajado de 0.85 para aprovechar más señales en extremos (2026-03-31)
-BLOCK_LONGS_FG      = 20       # E1: Lowered from 35 - only block in extreme fear       # Bloquear LONGs si Fear & Greed < 35 (mercado bajista)
+BLOCK_LONGS_FG      = 10       # E1: Lowered from 20 — allow longs during F&G recovery bounces
 MAX_TRADES_PER_DAY  = 0        # 0 = sin límite
 
 # ─── Regla de Ender (31-Mar-2026): $4 min profit, $2 max risk ────────────

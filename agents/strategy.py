@@ -663,14 +663,35 @@ def score_short(ind: dict) -> tuple[float, list]:
     # ══════════════════════════════════════════════════════════════════
     # NUEVO: Trend Following SHORT en mercados bajistas
     # ══════════════════════════════════════════════════════════════════
-    
-    # Fear & Greed extremo → mercado en pánico → continuar tendencia bajista
+
+    # Guard: penalizar SHORT si el precio 24h es alcista (mercado recuperándose)
+    c24_guard = ind.get('change_24h', 0)
+    if c24_guard > 8:
+        score -= 0.18
+        reasons.append(f"📈 24h +{c24_guard:.1f}% momentum alcista fuerte — SHORT muy arriesgado ⚠️⚠️⚠️")
+    elif c24_guard > 4:
+        score -= 0.10
+        reasons.append(f"📈 24h +{c24_guard:.1f}% momentum alcista — SHORT arriesgado ⚠️⚠️")
+
+    # Fear & Greed + acción de precio real — NO shortear solo por pánico si el precio sube
+    c24_fg = ind.get('change_24h', 0)
     if fear_greed <= 20:
-        score += 0.20
-        reasons.append(f"😨 Fear & Greed {fear_greed} — Extreme Fear, trend following SHORT ✅✅")
+        if c24_fg < -2 and ind.get('trend') == 'down':
+            score += 0.20
+            reasons.append(f"😨 F&G {fear_greed} + precio {c24_fg:.1f}% + EMA down — trend following SHORT ✅✅")
+        elif c24_fg < 0:
+            score += 0.08
+            reasons.append(f"😨 F&G {fear_greed} Extreme Fear, precio {c24_fg:.1f}% — SHORT parcial ⚠️")
+        else:
+            score -= 0.05
+            reasons.append(f"😨 F&G {fear_greed} pero precio {c24_fg:+.1f}% — mercado rebotando, SHORT arriesgado ⚠️⚠️")
     elif fear_greed <= 35:
-        score += 0.12
-        reasons.append(f"😰 Fear & Greed {fear_greed} — Fear, favorable para SHORT ✅")
+        if c24_fg < 0:
+            score += 0.12
+            reasons.append(f"😰 F&G {fear_greed} Fear + precio {c24_fg:.1f}% — favorable SHORT ✅")
+        else:
+            score += 0.03
+            reasons.append(f"😰 F&G {fear_greed} Fear pero precio {c24_fg:+.1f}% — SHORT con cautela ⚠️")
     elif fear_greed >= 75:
         score -= 0.10
         reasons.append(f"🤑 Fear & Greed {fear_greed} — Greed extremo, SHORT arriesgado ⚠️")
