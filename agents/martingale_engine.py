@@ -26,6 +26,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
+try:
+    import paperclip_client as _pc
+except Exception:
+    _pc = None  # Paperclip unavailable — bot continues normally
+
 log = logging.getLogger('martingale_engine')
 
 # ── Paths ────────────────────────────────────────────────────────────────────
@@ -778,10 +783,24 @@ def apply_decision(decision: dict, state: dict, portfolio: dict, market: dict, h
             return stats
         try:
             import executor
+            # Calculate chain PnL before closing for Paperclip report
+            _chain_pnl = sum(
+                float(p.get('unrealized_pnl_usd', 0))
+                for p in portfolio.get('positions', [])
+                if p.get('symbol') == sym and p.get('status') == 'open'
+            )
+            _n_levels = len(chain.get('levels', []))
+            _total_margin = float(chain.get('total_margin', 0))
             level_syms = [sym]  # close all positions of this symbol (covers all levels)
             closed = executor.close_positions_emergency(portfolio, level_syms, market, history, reason='WILD_MODE_CLOSE_CHAIN')
             stats['closed'] = len(closed)
             chains.pop(sym, None)
+            # Notify Paperclip
+            if _pc:
+                try:
+                    _pc.on_wild_mode_chain_closed(sym, _n_levels, _chain_pnl, _total_margin, reason='AI_CLOSE')
+                except Exception:
+                    pass
         except Exception as e:
             log.error(f'CLOSE_CHAIN error: {e}')
         return stats
@@ -866,6 +885,26 @@ def apply_decision(decision: dict, state: dict, portfolio: dict, market: dict, h
                 'opened_at': pos.get('open_time'),
             })
             chain['total_margin'] = sum(float(lv['margin']) for lv in chain['levels'])
+            # Calculate combined chain PnL for Paperclip notification
+            _chain_pnl = sum(
+                float(p.get('unrealized_pnl_usd', 0))
+                for p in portfolio.get('positions', [])
+                if p.get('symbol') == sym and p.get('status') == 'open'
+            )
+            # Notify Paperclip about new hedge/martingale level
+            if _pc:
+                try:
+                    _pc.on_wild_mode_level_opened(
+                        sym=sym,
+                        level=n_lvl,
+                        direction=new_direction,
+                        margin=float(pos.get('margin_usd', 0)),
+                        multiplier=float(decision.get('level_multiplier', 1.0)),
+                        chain_total_margin=chain['total_margin'],
+                        chain_pnl=_chain_pnl,
+                    )
+                except Exception:
+                    pass
 
     return stats
 

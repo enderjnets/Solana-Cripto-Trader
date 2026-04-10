@@ -217,3 +217,81 @@ def on_reset(old_capital: float, new_capital: float, reason: str = "Manual reset
         f"| Time | {datetime.now(timezone.utc).isoformat()} |"
     )
     return _create_issue(title, desc, priority="high", status="done")
+
+
+# ── Wild Mode (Modo Salvaje / Martingala) ───────────────────────────
+
+def on_wild_mode_session_start(session_id: str, equity: float, chains: dict) -> str | None:
+    """Notify when a new wild mode session starts."""
+    n_chains = len(chains)
+    symbols = ", ".join(chains.keys()) if chains else "—"
+    title = f"[WILD] Sesión iniciada — {n_chains} cadenas activas | ${equity:.2f}"
+    desc = (
+        f"## Modo Salvaje Activado\n\n"
+        f"| Campo | Valor |\n|---|---|\n"
+        f"| Session | `{session_id}` |\n"
+        f"| Equity inicial | ${equity:.2f} |\n"
+        f"| Cadenas activas | {n_chains} |\n"
+        f"| Símbolos | {symbols} |\n"
+        f"| Hora | {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')} |"
+    )
+    return _create_issue(title, desc, priority="medium", status="in_progress")
+
+
+def on_wild_mode_level_opened(sym: str, level: int, direction: str, margin: float,
+                               multiplier: float, chain_total_margin: float,
+                               chain_pnl: float) -> str | None:
+    """Notify when a martingale/hedge level is added to a chain."""
+    lvl_type = "Martingala" if direction == "same" else "Cobertura"
+    sign = "+" if chain_pnl >= 0 else ""
+    title = f"[WILD] {sym} — Nivel {level} ({lvl_type}) x{multiplier:.1f} | Chain PnL: {sign}${chain_pnl:.2f}"
+    desc = (
+        f"## Nuevo Nivel de Cadena — {sym}\n\n"
+        f"| Campo | Valor |\n|---|---|\n"
+        f"| Símbolo | {sym} |\n"
+        f"| Nivel | {level} |\n"
+        f"| Tipo | {lvl_type} |\n"
+        f"| Dirección | {direction} |\n"
+        f"| Margen | ${margin:.2f} |\n"
+        f"| Multiplicador | x{multiplier:.1f} |\n"
+        f"| Margen total cadena | ${chain_total_margin:.2f} |\n"
+        f"| PnL combinado | {sign}${chain_pnl:.2f} |\n"
+        f"| Hora | {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')} |"
+    )
+    return _create_issue(title, desc, priority="high", status="in_progress")
+
+
+def on_wild_mode_chain_closed(sym: str, n_levels: int, total_pnl: float,
+                               total_margin: float, reason: str = "AI_CLOSE") -> str | None:
+    """Notify when a martingale chain is closed."""
+    emoji = "✅" if total_pnl >= 0 else "❌"
+    sign = "+" if total_pnl >= 0 else ""
+    title = f"[WILD] {emoji} {sym} cadena cerrada {sign}${total_pnl:.2f} | {n_levels} niveles | {reason}"
+    desc = (
+        f"## Cadena Cerrada — {sym}\n\n"
+        f"| Campo | Valor |\n|---|---|\n"
+        f"| Símbolo | {sym} |\n"
+        f"| Niveles | {n_levels} |\n"
+        f"| PnL total | {sign}${total_pnl:.2f} |\n"
+        f"| Margen usado | ${total_margin:.2f} |\n"
+        f"| Razón | {reason} |\n"
+        f"| Resultado | {'GANANCIA' if total_pnl >= 0 else 'PÉRDIDA'} |\n"
+        f"| Hora | {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')} |"
+    )
+    priority = "medium" if total_pnl >= 0 else "high"
+    status = "done"
+    return _create_issue(title, desc, priority=priority, status=status)
+
+
+def on_wild_mode_guardrail_hit(sym: str, guardrail: str, details: str) -> str | None:
+    """Notify when a wild mode safety guardrail is triggered."""
+    title = f"[WILD] ⚠️ Guardrail — {sym}: {guardrail}"
+    desc = (
+        f"## Guardrail de Seguridad Activado\n\n"
+        f"| Campo | Valor |\n|---|---|\n"
+        f"| Símbolo | {sym} |\n"
+        f"| Guardrail | {guardrail} |\n"
+        f"| Detalles | {details} |\n"
+        f"| Hora | {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')} |"
+    )
+    return _create_issue(title, desc, priority="high", status="in_progress")

@@ -300,6 +300,11 @@ DASHBOARD_HTML = r"""
   tbody tr { border-bottom: 1px solid rgba(48,54,61,0.5); transition: background .15s; }
   tbody tr:hover { background: rgba(88,166,255,0.04); }
   tbody td { padding: 8px 10px; white-space: nowrap; }
+  .chain-sub-row { background: rgba(188,140,255,0.05); border-left: 3px solid var(--purple); }
+  .chain-sub-row td:first-child { padding-left: 24px; }
+  .chain-sub-row:hover { background: rgba(188,140,255,0.1); }
+  .chain-toggle { background: none; border: 1px solid var(--purple); color: var(--purple); border-radius: 4px; padding: 1px 5px; font-size: 10px; cursor: pointer; margin-right: 4px; transition: all .15s; }
+  .chain-toggle:hover { background: var(--purple); color: var(--bg); }
   .badge {
     display: inline-block; padding: 2px 7px; border-radius: 4px;
     font-size: 10px; font-weight: 600; text-transform: uppercase;
@@ -1140,10 +1145,22 @@ function renderPositions(d) {
   </tr></thead><tbody>`;
   for (const p of d.positions) {
     const pnlCls = p.pnl_usd >= 0 ? 'pos' : 'neg';
-    // Animación de flash cuando cambia el precio
     const flashCls = p.price_changed ? 'flash-update' : '';
+    const hasHedges = p.chain_levels && p.chain_levels.length > 0;
+    const symId = p.symbol.replace(/[^a-zA-Z0-9]/g, '_');
+    const toggleBtn = hasHedges
+      ? `<button class="chain-toggle" id="ctbtn_${symId}" onclick="toggleChainRows('${symId}')" title="${p.chain_levels.length} cobertura(s)">▶ ${p.chain_levels.length}</button>`
+      : '';
+    // Chain combined PnL badge (if in chain)
+    const chainBadge = hasHedges
+      ? (() => {
+          const totalPnl = p.pnl_usd + p.chain_levels.reduce((s,lv) => s + (lv.pnl_usd||0), 0);
+          const cls = totalPnl >= 0 ? 'pos' : 'neg';
+          return ` <span class="${cls}" style="font-size:10px;" title="PnL combinado de la cadena">[${totalPnl >= 0 ? '+' : ''}${totalPnl.toFixed(2)}]</span>`;
+        })()
+      : '';
     html += `<tr class="${flashCls}">
-      <td><strong>${p.symbol}</strong></td>
+      <td>${toggleBtn}<strong>${p.symbol}</strong>${chainBadge}</td>
       <td><span class="badge badge-${p.direction}">${p.direction.toUpperCase()}</span></td>
       <td>${fmtPrice(p.entry_price)}</td>
       <td class="price-cell">${fmtPrice(p.current_price)}</td>
@@ -1157,9 +1174,37 @@ function renderPositions(d) {
       <td><button onclick="closePosition('${p.symbol}')" style="font-size:10px;padding:2px 8px;background:var(--orange);color:#fff;border:none;border-radius:4px;cursor:pointer;">Cerrar</button></td>
       <td>${p.strategy || '—'}</td>
     </tr>`;
+    // Sub-rows for hedge levels (hidden by default)
+    if (hasHedges) {
+      for (const lv of p.chain_levels) {
+        const lvPnlCls = (lv.pnl_usd||0) >= 0 ? 'pos' : 'neg';
+        const lvDir = lv.direction || '—';
+        const lvBadge = `<span class="badge badge-${lvDir}" style="font-size:9px;">${lvDir.toUpperCase()}</span>`;
+        html += `<tr class="chain-sub-row" id="csub_${symId}_${lv.level}" style="display:none;">
+          <td><span style="color:var(--purple);font-size:10px;">Nivel ${lv.level}</span> ${lvBadge} <span style="font-size:9px;color:var(--text2);">x${lv.size_multiplier||1}</span></td>
+          <td>${lvBadge}</td>
+          <td>${fmtPrice(lv.entry_price)}</td>
+          <td class="price-cell">${fmtPrice(lv.current_price)}</td>
+          <td class="${lvPnlCls}">${(lv.pnl_usd||0) >= 0 ? '+' : ''}${fmt$(lv.pnl_usd||0)}</td>
+          <td class="${lvPnlCls}">${fmtPct(lv.pnl_pct||0, true)}</td>
+          <td>${fmt$(lv.margin||0)}</td>
+          <td>—</td><td>—</td><td>—</td>
+          <td style="font-size:10px;color:var(--text2);">${lv.opened_at ? new Date(lv.opened_at).toLocaleTimeString() : '—'}</td>
+          <td>—</td><td style="font-size:10px;color:var(--purple);">Cobertura</td>
+        </tr>`;
+      }
+    }
   }
   html += '</tbody></table>';
   wrap.innerHTML = html;
+}
+
+function toggleChainRows(symId) {
+  const btn = document.getElementById('ctbtn_' + symId);
+  const rows = document.querySelectorAll('[id^="csub_' + symId + '_"]');
+  const isOpen = btn && btn.textContent.startsWith('▼');
+  rows.forEach(r => r.style.display = isOpen ? 'none' : '');
+  if (btn) btn.textContent = btn.textContent.replace(isOpen ? '▼' : '▶', isOpen ? '▶' : '▼');
 }
 
 async function loadTrades() {
@@ -2235,6 +2280,18 @@ def api_wild_mode_activate():
                 "max_total_allowed": margin * 4.0
             }
         me.save_state(state)
+        # Notify Paperclip — non-blocking
+        try:
+            import sys as _sys2
+            _sys2.path.insert(0, str(DATA.parent))
+            import paperclip_client as _pcc
+            _pcc.on_wild_mode_session_start(
+                session_id=state["session_id"],
+                equity=round(equity, 2),
+                chains=state["martingale_chains"],
+            )
+        except Exception:
+            pass
         return jsonify({"ok": True, "state": state})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
@@ -2285,13 +2342,47 @@ def api_positions():
         trades_raw = load_trade_history()
         open_pos = [t for t in trades_raw if t.get("status") == "open"]
 
+    # Load wild mode chains to attach hedge level data per position
+    wm_chains = {}
+    pos_to_chain = {}  # position_id -> {chain_sym, level_num}
+    try:
+        import json as _json2
+        wm_path = DATA / "wild_mode_state.json"
+        if wm_path.exists():
+            wm_data = _json2.loads(wm_path.read_text())
+            if wm_data.get("active"):
+                wm_chains = wm_data.get("martingale_chains", {})
+                for _sym, _chain in wm_chains.items():
+                    for _lv in _chain.get("levels", []):
+                        pos_to_chain[_lv["position_id"]] = {
+                            "chain_sym": _sym,
+                            "level_num": _lv["level"],
+                        }
+    except Exception:
+        pass
+
+    # Build position_id -> raw position map for hedge level PnL lookup
+    pos_by_id = {p.get("position_id", p.get("symbol", "")): p for p in open_pos}
+
     # Fetch live prices for all open position symbols
     symbols = [t.get("symbol", "") for t in open_pos]
     live_prices = get_live_prices(symbols) if symbols else {}
 
+    # Collect position_ids AND symbols that are hedge levels (level > 0) — skip as top-level rows
+    hedge_pos_ids = {pid for pid, info in pos_to_chain.items() if info["level_num"] > 0}
+    # Also collect hedge symbols (for portfolios where position_id is None)
+    hedge_symbols = {info["chain_sym"] for info in pos_to_chain.values()
+                     if info["level_num"] > 0}
+
     result = []
 
     for t in open_pos:
+        pos_id = t.get("position_id", t.get("symbol", ""))
+        _sym_check = t.get("symbol", "")
+        # Skip hedge levels — they appear as sub-rows under the base position
+        if pos_id in hedge_pos_ids or _sym_check in hedge_symbols:
+            continue
+
         ot = t.get("open_time", "")
         symbol = t.get("symbol", "")
         direction = t.get("direction", "long")
@@ -2304,7 +2395,7 @@ def api_positions():
         size_usd = est.get("notional_value", safe_float(t.get("notional_value", 0)) or safe_float(t.get("size_usd", 0)))
         pnl_pct = est.get("pnl_pct", safe_float(t.get("pnl_pct", 0)))
         pnl_usd = est.get("pnl_usd", safe_float(t.get("pnl_usd", 0)))
-        
+
         # Compute time open
         time_open_str = "—"
         if ot:
@@ -2317,6 +2408,35 @@ def api_positions():
                 time_open_str = f"{h}h {m}m"
             except Exception:
                 pass
+
+        # Build chain sub-level data if this position is in a wild mode chain
+        # Fallback to symbol lookup when position_id is None/missing in portfolio
+        chain_info = pos_to_chain.get(pos_id, {})
+        if not chain_info and symbol in wm_chains:
+            chain_info = {"chain_sym": symbol, "level_num": 0}
+        chain_sym = chain_info.get("chain_sym", symbol)
+        chain_data = wm_chains.get(chain_sym, {})
+        chain_levels_out = []
+        for _lv in chain_data.get("levels", []):
+            if _lv["level"] == 0:
+                continue  # skip base level (shown as main row)
+            lv_pos_id = _lv["position_id"]
+            lv_pos = pos_by_id.get(lv_pos_id, {})
+            lv_sym = lv_pos.get("symbol", chain_sym)
+            lv_price = live_prices.get(lv_sym, safe_float(lv_pos.get("current_price", 0)))
+            lv_est = estimate_open_position_pnl(lv_pos, lv_price) if lv_pos else {}
+            chain_levels_out.append({
+                "level":           _lv["level"],
+                "direction":       _lv.get("direction", ""),
+                "margin":          _lv.get("margin", 0),
+                "size_multiplier": _lv.get("size_multiplier", 1),
+                "entry_price":     safe_float(lv_pos.get("entry_price", 0)),
+                "current_price":   round(lv_price, 8),
+                "pnl_usd":         round(lv_est.get("pnl_usd", 0), 4),
+                "pnl_pct":         round(lv_est.get("pnl_pct", 0), 4),
+                "opened_at":       _lv.get("opened_at", ""),
+            })
+
         result.append({
             "symbol":        symbol,
             "direction":     direction,
@@ -2330,6 +2450,8 @@ def api_positions():
             "tp_price":      safe_float(t.get("tp_price", 0)),
             "strategy":      t.get("strategy", ""),
             "time_open":     time_open_str,
+            "in_chain":      bool(chain_info),
+            "chain_levels":  chain_levels_out,
         })
 
     return jsonify({"positions": result})
