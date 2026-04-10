@@ -337,6 +337,43 @@ Responde SOLO con JSON:
         return (False, f'error_{type(e).__name__}')
 
 # ── Build decision prompt ────────────────────────────────────────────────────
+def _get_market_ctx(sym: str, market: dict) -> dict:
+    """Per-symbol market context: price change, trend, range."""
+    tok = market.get('tokens', {}).get(sym, {})
+    high = float(tok.get('hourly_high', 0) or 0)
+    low = float(tok.get('hourly_low', 0) or 1)
+    return {
+        'change_5m': float(tok.get('price_5min_change_pct', 0) or 0),
+        'change_24h': float(tok.get('price_24h_change_pct', 0) or 0),
+        'trend_1h': tok.get('price_1h_trend', 'unknown'),
+        'trend_pct': float(tok.get('trend_change_pct', 0) or 0),
+        'range_pct': (high - low) / low * 100 if low > 0 else 0,
+    }
+
+
+def _get_signal_ctx(sym: str) -> dict:
+    """Load RSI / MACD / BB for a symbol from signals_latest.json."""
+    try:
+        import json as _j
+        from pathlib import Path as _P
+        sig_file = _P(__file__).parent / 'data' / 'signals_latest.json'
+        if not sig_file.exists():
+            return {}
+        sigs = _j.loads(sig_file.read_text()).get('signals', [])
+        s = next((x for x in sigs if x.get('symbol') == sym), None)
+        if not s:
+            return {}
+        return {
+            'rsi': float(s.get('rsi', 50) or 50),
+            'macd_hist': float(s.get('macd_hist', 0) or 0),
+            'bb_pct_b': float(s.get('bb_pct_b', 0.5) or 0.5),
+            'obv_trend': s.get('obv_trend', '?'),
+            'trend': s.get('trend', 'sideways'),
+        }
+    except Exception:
+        return {}
+
+
 def build_decision_prompt(state: dict, portfolio: dict, market: dict, fear_greed: int) -> str:
     chains = state.get('martingale_chains', {})
     equity = _equity(portfolio)
@@ -355,11 +392,27 @@ def build_decision_prompt(state: dict, portfolio: dict, market: dict, fear_greed
         base_margin = ch.get('base_margin', 0)
         total_margin = ch.get('total_margin', 0)
         used_ratio = total_margin / base_margin if base_margin > 0 else 0
-        chain_lines.append(
+        # Add market & signal context for this symbol
+        mctx = _get_market_ctx(sym, market)
+        sctx = _get_signal_ctx(sym)
+        base_line = (
             f"  {sym}: dir={ch.get('base_direction')} levels={len(levels)} "
             f"margin=${total_margin:.2f}/{base_margin*MAX_CHAIN_TOTAL_RATIO:.2f} "
             f"(used={used_ratio:.1f}x/{MAX_CHAIN_TOTAL_RATIO:.0f}x) pnl=${ch_pnl:+.2f}"
         )
+        indicators = []
+        if sctx.get('rsi') is not None:
+            indicators.append(f"RSI={sctx['rsi']:.0f}")
+        if sctx.get('macd_hist') is not None:
+            indicators.append(f"MACD={sctx['macd_hist']:+.4f}")
+        if sctx.get('bb_pct_b') is not None:
+            indicators.append(f"BB%={sctx['bb_pct_b']:.2f}")
+        if mctx.get('trend_1h'):
+            indicators.append(f"trend1h={mctx['trend_1h']}({mctx['trend_pct']:+.1f}%)")
+        if mctx.get('change_5m') is not None:
+            indicators.append(f"5m={mctx['change_5m']:+.2f}%")
+        ctx_line = f"    📊 {' | '.join(indicators)}" if indicators else ""
+        chain_lines.append(base_line + (("\n" + ctx_line) if ctx_line else ""))
     chain_block = '\n'.join(chain_lines) if chain_lines else '  (sin chains)'
 
     # Try to load insights from learner
@@ -403,13 +456,28 @@ DECIDE para cada chain (o nuevo símbolo):
 - HOLD: mantener posición sin cambios — úsalo cuando la pérdida aún es pequeña y es mejor esperar recuperación
 - CLOSE_CHAIN: cerrar TODAS las posiciones del chain
 
-⚠️ REGLA CRÍTICA DE CLOSE_CHAIN:
-  Solo usar CLOSE_CHAIN cuando:
-  (a) el chain está en PROFIT neto combinado (pnl > 0) → tomar ganancia ✅
-  (b) ya tienes 3 niveles de cobertura Y el drawdown global supera 15%
-  NUNCA uses CLOSE_CHAIN solo para "cortar pérdida" si aún no abriste ningún nivel de cobertura.
-  El propósito del wild mode es AGUANTAR la pérdida inicial mediante coberturas y RECUPERAR en bloque.
-  Si un chain pierde y está en nivel 0 → OPEN_LEVEL o HOLD. NO CLOSE_CHAIN.
+⚠️ REGLA CRÍTICA DE CLOSE_CHAIN — CIERRE INTELIGENTE SEGÚN MERCADO:
+  CLOSE_CHAIN solo está permitido cuando el chain está en PROFIT neto (pnl > 0).
+  
+  Cuando el chain está en profit, decide CUÁNDO cerrar según el mercado:
+  
+  🟢 CIERRA AHORA si detectas señal de reversión:
+     - RSI > 70 (sobrecompra) en un short, o RSI < 30 (sobreventa) en un long
+     - MACD_hist cambiando de negativo a positivo (cruce) contra tu posición
+     - Tendencia 1h cambiando de dirección (up→down o down→up)
+     - BB% > 0.95 (precio tocando banda superior) en short
+     - Cambio 5min contrario y acelerando (ej: short pero 5m=+1.2%)
+  
+  🟡 ESPERA MÁS PROFIT si el momentum sigue a tu favor:
+     - RSI entre 40-60 (neutro, tendencia sostenida)
+     - MACD_hist negativo estable en short (tendencia bajista intacta)
+     - Trend_1h confirmando tu dirección (ej: short + trend_1h=down)
+     - Cambio 5min en tu dirección (ej: short + 5m=-0.5%)
+     - F&G extremo confirmando tendencia (F&G<20 para shorts)
+  
+  🔴 NUNCA uses CLOSE_CHAIN para cortar pérdidas en nivel 0 sin coberturas.
+     Si el chain pierde → OPEN_LEVEL (cobertura) o HOLD. Aguantar es la estrategia.
+     El guardrail rechazará CLOSE_CHAIN en pérdida automáticamente.
 
 A nivel global:
 - CONTINUE: seguir operando
@@ -424,14 +492,15 @@ REGLAS DURAS (los guardrails sanitizan tu output, pero respétalos):
 
 Responde SOLO con JSON válido. NO copies este esquema — emite decisiones reales basadas en los datos de arriba.
 
-EJEMPLO (solo ilustrativo, NO lo copies literalmente):
+EJEMPLO (solo ilustrativo — NO copies, emite decisiones reales):
 {{
   "decisions": [
-    {{"symbol": "MOODENG", "action": "OPEN_LEVEL", "direction": "opposite", "level_multiplier": 1.4, "reasoning": "posición pierde -8.3%, abro hedge contrario para neutralizar", "confidence": 0.75}}
+    {{"symbol": "ETH", "action": "HOLD", "direction": "same", "level_multiplier": 1.0, "reasoning": "chain pierde -0.06%, RSI=48 neutro, tendencia aún bajista, espero más pérdida para abrir cobertura óptima", "confidence": 0.72}},
+    {{"symbol": "BTC", "action": "CLOSE_CHAIN", "direction": "same", "level_multiplier": 1.0, "reasoning": "chain en +$2.14 profit, RSI=68 acercándose a sobrecompra, MACD_hist virando positivo — es buen momento para asegurar ganancia antes de reversión", "confidence": 0.81}}
   ],
   "global_action": "CONTINUE",
   "abandon_reason": null,
-  "risk_assessment": "medium"
+  "risk_assessment": "low"
 }}
 
 REGLAS ESTRICTAS DEL JSON:
