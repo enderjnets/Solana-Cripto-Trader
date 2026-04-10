@@ -232,22 +232,61 @@ def call_minimax(prompt: str, system: str = "", max_tokens: int = 2000) -> str:
 # MAIN: call_llm with fallback chain
 # ══════════════════════════════════════════════════════════════════════
 
+# ── GPT-5.4 via OpenClaw Proxy (PRIMARY for deep reasoning) ──────────────
+GPT5_URL = "http://127.0.0.1:18793/v1/chat/completions"
+GPT5_TOKEN = "eyJhbGciOiJSUzI1NiIsImtpZCI6IjE5MzQ0ZTY1LWJiYzktNDRkMS1hOWQwLWY5NTdiMDc5YmQwZSIsInR5cCI6IkpXVCJ9.eyJhdWQiOlsiaHR0cHM6Ly9hcGkub3BlbmFpLmNvbS92MSJdLCJjbGllbnRfaWQiOiJhcHBfRU1vYW1FRVo3M2YwQ2tYYVhwN2hyYW5uIiwiZXhwIjoxNzc2NDc0MzE2LCJodHRwczovL2FwaS5vcGVuYWkuY29tL2F1dGgiOnsiY2hhdGdwdF9hY2NvdW50X2lkIjoiMDIxZDhmMTMtMjM1Yy00ZDY4LWJkN2MtODhlNmY4MmVlZmNmIiwiY2hhdGdwdF9hY2NvdW50X3VzZXJfaWQiOiJ1c2VyLW11U2F5ZWhqeG1zTzZNR1lRZDhld2dLaF9fMDIxZDhmMTMtMjM1Yy00ZDY4LWJkN2MtODhlNmY4MmVlZmNmIiwiY2hhdGdwdF9jb21wdXRlX3Jlc2lkZW5jeSI6Im5vX2NvbnN0cmFpbnQiLCJjaGF0Z3B0X3BsYW5fdHlwZSI6InBsdXMiLCJjaGF0Z3B0X3VzZXJfaWQiOiJ1c2VyLW11U2F5ZWhqeG1zTzZNR1lRZDhld2dLaCIsImxvY2FsaG9zdCI6dHJ1ZSwidXNlcl9pZCI6InVzZXItbXVTYXllaGp4bXNPNk1HWVFkOGV3Z0toIn0sImh0dHBzOi8vYXBpLm9wZW5haS5jb20vcHJvZmlsZSI6eyJlbWFpbCI6ImVuZGVyam5ldHNAZ21haWwuY29tIiwiZW1haWxfdmVyaWZpZWQiOnRydWV9LCJpYXQiOjE3NzU2MTAzMTYsImlzcyI6Imh0dHBzOi8vYXV0aC5vcGVuYWkuY29tIiwianRpIjoiYWYyZTcyNDAtYzk4MC00NjgwLTg3OTAtOTJhYjkwMGE4YTg5IiwibmJmIjoxNzc1NjEwMzE2LCJwd2RfYXV0aF90aW1lIjoxNzc1NjEwMzE1MzI2LCJzY3AiOlsib3BlbmlkIiwicHJvZmlsZSIsImVtYWlsIiwib2ZmbGluZV9hY2Nlc3MiLCJhcGkuY29ubmVjdG9ycy5yZWFkIiwiYXBpLmNvbm5lY3RvcnMuaW52b2tlIl0sInNlc3Npb25faWQiOiJhdXRoc2Vzc19xcHJCRUZ6b1BmR3AxUUt1Y0U4cW55WXUiLCJzbCI6dHJ1ZSwic3ViIjoiZ29vZ2xlLW9hdXRoMnwxMDM5NzkwMTQ0Njk4ODM5MDczMTMifQ.GvUdegjur8dIjmsIPIPShzmSHiZgi26GjYIHXxFozQ9KVrmwfQBeBEVND0dMEhrZAHGPiihCcaqpanQoa-zoBhtWoWqSfNJgm7a6wMIyVgbQ6nchSjMOOVCds9qoAyahYBsyKjKkM2dMcCCCHGjGRSZrjuBwei22amGssdsF2Fx9hhko2txtVk3UvDboUUA42hOR5zELiWqoGCpWmAHyC08nryET0HpKIaOj2bRaVTK_-qBhmXKlEkkG90XyGHuraD49N4xpm3_7fgvbWn-fAJFgqyR_GVurl7YKK2tobUYfAg4CSlpLhuGEPdM_WEnFibrx0tJn7EbLUa1ILi8apAKLoQF7-oeXLf63logh-dFjqCwoUumaPWQc6ZoMg47gTxvhhtewOWiB6h_sJQh8GufdHylc2DYBVSeeu_YB7vAu3wp-pvl1jUosPNnMaJcYdKYIVJp75MH3TiMHL1alKjiGQwRyTCnafLRKQj__kf0rxUn06zknE-v5uomxflaRolkTzhZlVeDr9krgqBh4srsnR212S9XMzipqk-p1KUYSbjkb5sVuFJNFE42gsKP_sgKdR0d6dvlOqQzB9aXnkGXLLSkjZlHbbNid9OJDerFhi4_X9KLvd8MCg2-UzTcM_mP3qNJkYeSNbzqiw7v4sp7NzxPPMWMqMG3MaEjEEDY"
+GPT5_MODEL = "gpt-5.4"
+
+def call_gpt5(prompt: str, system: str = "", max_tokens: int = 2000) -> str:
+    """Call GPT-5.4 via OpenClaw proxy. Returns None if unavailable."""
+    try:
+        messages = []
+        if system:
+            messages.append({"role": "system", "content": system})
+        messages.append({"role": "user", "content": prompt})
+        r = requests.post(GPT5_URL, headers={
+            "Authorization": f"Bearer {GPT5_TOKEN}",
+            "Content-Type": "application/json"
+        }, json={
+            "model": GPT5_MODEL,
+            "messages": messages,
+            "max_tokens": max_tokens,
+            "temperature": 0.7,
+        }, timeout=30)
+        if r.ok:
+            text = r.json().get("choices", [{}])[0].get("message", {}).get("content", "").strip()
+            if text:
+                return text
+    except Exception as e:
+        print(f"GPT-5.4 error: {e}")
+    return None
+
+
 def call_llm(prompt: str, system: str = "", max_tokens: int = 2000) -> str:
     """
-    LLM chain: MiniMax M2.5 (PRIMARY - reliable).
-    Claude Sonnet fallback DISABLED — API key is invalid (401).
-    Updated: 2026-03-30 — Removed broken Claude fallback to stop 324 consecutive failures.
+    LLM chain: GPT-5.4 (PRIMARY - best reasoning) → MiniMax M2.7 (FALLBACK - always available).
+    GPT-5.4 via OpenClaw proxy (localhost:18793).
+    MiniMax M2.7 as reliable fallback when proxy is down.
     """
     if _cb_is_open():
         return None
 
+    # Try GPT-5.4 first (best reasoning for trading decisions)
+    result = call_gpt5(prompt, system, max_tokens)
+    if result:
+        _cb_record_success()
+        print("    🧠 LLM: GPT-5.4 (primary)")
+        return result
+
+    # Fallback to MiniMax M2.7 (always available)
     result = call_minimax(prompt, system, max_tokens)
     if result:
         _cb_record_success()
+        print("    🧠 LLM: MiniMax M2.7 (fallback)")
         return result
 
     _cb_record_failure()
-    print("    ❌ MiniMax failed — circuit breaker activated")
+    print("    \u274c Both GPT-5.4 and MiniMax failed")
     return None
 
 
