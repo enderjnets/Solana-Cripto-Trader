@@ -14,7 +14,7 @@ log = logging.getLogger("paperclip")
 # ── Config ──────────────────────────────────────────────────────────
 PAPERCLIP_API = "http://100.88.47.99:3100"
 COMPANY_ID = "782b926b-4fb7-424a-a881-f368b0f79e3c"
-PAPERCLIP_API_KEY = os.environ.get("PAPERCLIP_API_KEY", "")
+PAPERCLIP_API_KEY = os.environ.get("PAPERCLIP_API_KEY", "pcp_board_68ed2bc4520167360cb1ae178b2b3285692f536e08aa7300")
 TIMEOUT = 5  # seconds — don't block trading
 HEADERS = {"Authorization": f"Bearer {PAPERCLIP_API_KEY}", "Content-Type": "application/json"}
 
