@@ -299,7 +299,7 @@ EVITAR SEÑALES EN:
     
     # Determine how many signals to request based on sentiment
     if fg_value <= 20:
-        target_signals = "2-3 señales mixtas (Extreme Fear — shorts en tendencia bajista + longs en oversold bounce)"
+        target_signals = "3-4 SHORTS como primario (Extreme Fear sostiene tendencia bajista). PERMITIDO 1 LONG SOLO si algún token tiene RSI < 30 (oversold bounce real). NUNCA generes LONGs con RSI ≥ 40 — el executor los bloqueará."
     elif fg_value <= 35:
         target_signals = "2-3 señales mixtas (Fear — equilibrar shorts y longs oversold)"
     elif fg_value >= 85:

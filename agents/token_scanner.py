@@ -341,6 +341,7 @@ def update_token_list(opportunities: list, current_tracked: dict) -> dict:
                 log.info(f"➕ Agregado {symbol} (score={opp['opportunity_score']:.2f})")
     
     # Remove expired tokens (older than 7 days)
+    # FIX: rename loop-local variable to avoid shadowing the `added` list
     now = datetime.now(timezone.utc)
     expired = []
     for sym, data in list(tokens.items()):
@@ -349,12 +350,12 @@ def update_token_list(opportunities: list, current_tracked: dict) -> dict:
         added_str = data.get("added_at", "")
         if added_str:
             try:
-                added = datetime.fromisoformat(added_str)
-                if added.tzinfo is None:
-                    added = added.replace(tzinfo=timezone.utc)
-                if (now - added).days > 7:
+                added_dt = datetime.fromisoformat(added_str)
+                if added_dt.tzinfo is None:
+                    added_dt = added_dt.replace(tzinfo=timezone.utc)
+                if (now - added_dt).days > 7:
                     expired.append(sym)
-            except:
+            except Exception:
                 pass
     for sym in expired:
         del tokens[sym]

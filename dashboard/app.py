@@ -48,23 +48,23 @@ def load_trade_history():
     
     BUG FIX (2026-03-23): Previously used portfolio.json positions as primary source,
     which only contained the last ~10 trades. trade_history.json has 2200+ trades.
-    portfolio.json positions are used only for open positions (api/positions).
+    
+    AUDIT FIX (2026-04-10): REMOVED portfolio.json fallback. The fallback was
+    leaking OPEN positions into trade_history when the file was empty (post-reset),
+    causing duplicate entries and false accounting discrepancies. If trade_history.json
+    is missing/empty/invalid, we return [] — never mix open positions with history.
     """
-    # Primary: trade_history.json (full history)
     path = DATA / "trade_history.json"
     try:
         with open(path) as f:
             data = json.load(f)
-        if isinstance(data, list) and data:
+        if isinstance(data, list):
             return data
-        # Handle dict format: {"trades": [...], "last_updated": "..."}
         if isinstance(data, dict):
             return data.get("trades", [])
     except Exception:
         pass
-    # Fallback: portfolio.json positions
-    port = load_json(DATA / "portfolio.json")
-    return port.get("positions", [])
+    return []
 
 # ── Agent Notes (Chat) ────────────────────────────────────────────────────────
 AGENT_NOTES_FILE = DATA / "agent_notes.json"
@@ -101,6 +101,46 @@ def safe_parse_dt(s):
         return d
     except (ValueError, TypeError):
         return None
+
+def estimate_open_position_pnl(pos: dict, current_price: float | None = None) -> dict:
+    """Estimate net PnL if the open position were closed now."""
+    symbol = str(pos.get('symbol', ''))
+    direction = str(pos.get('direction', 'long')).lower()
+    entry_price = safe_float(pos.get('entry_price', 0))
+    margin = safe_float(pos.get('margin_usd', 0))
+    leverage = safe_float(pos.get('leverage', 0))
+    notional = safe_float(pos.get('notional_value', 0)) or safe_float(pos.get('size_usd', 0)) or (margin * leverage)
+    funding = safe_float(pos.get('funding_accumulated', 0))
+    fee_entry = safe_float(pos.get('fee_entry', 0))
+    current_price = safe_float(current_price if current_price is not None else pos.get('current_price', 0))
+
+    if entry_price <= 0 or current_price <= 0:
+        return {
+            'pnl_usd': safe_float(pos.get('pnl_usd', 0)),
+            'pnl_pct': safe_float(pos.get('pnl_pct', 0)),
+            'current_price': current_price,
+            'notional_value': notional,
+        }
+
+    gross_price_pct = ((current_price - entry_price) / entry_price) if direction == 'long' else ((entry_price - current_price) / entry_price)
+    gross_pnl_usd = (gross_price_pct * notional) + funding
+    fee_exit_est = 0.0
+    try:
+        import sys
+        sys.path.insert(0, str(DATA.parent))
+        import executor as ex
+        fee_exit_est = notional * (ex.TAKER_FEE + ex.get_slippage(symbol))
+    except Exception:
+        fee_exit_est = notional * 0.001
+
+    pnl_usd = gross_pnl_usd - fee_entry - fee_exit_est
+    pnl_pct = ((pnl_usd / margin) * 100) if margin > 0 else (gross_price_pct * 100)
+    return {
+        'pnl_usd': round(pnl_usd, 4),
+        'pnl_pct': round(pnl_pct, 4),
+        'current_price': current_price,
+        'notional_value': notional,
+    }
 
 # ── HTML template (single-file SPA) ──────────────────────────────────────────
 DASHBOARD_HTML = r"""
@@ -503,6 +543,11 @@ DASHBOARD_HTML = r"""
           <input type="number" id="pnlTargetInput" placeholder="ej: 5" style="width:60px;font-size:12px;" step="0.5" min="0">
           <button onclick="setPnlTarget()" style="font-size:11px;padding:3px 8px;background:var(--green);color:#000;border:none;border-radius:4px;cursor:pointer;">Set</button>
           <button onclick="clearPnlTarget()" style="font-size:11px;padding:3px 8px;background:var(--bg3);color:var(--text2);border:1px solid var(--bg3);border-radius:4px;cursor:pointer;">Clear</button>
+          <label style="display:flex;align-items:center;gap:4px;font-size:11px;cursor:pointer;margin-left:8px;" title="Modo Salvaje: IA gestiona coberturas martingala automaticamente">
+            <input type="checkbox" id="wildModeSwitch" onchange="toggleWildMode()" style="cursor:pointer;">
+            <span style="color:var(--orange);font-weight:600;">🔥 Salvaje</span>
+          </label>
+          <span id="wildModeBadge" style="display:none;font-size:10px;padding:3px 8px;border-radius:6px;background:var(--orange);color:#000;font-weight:700;"></span>
           <span id="pnlTargetStatus" style="font-size:10px;color:var(--text2);"></span>
         </div>
         <button onclick="closeAllPositions()" style="font-size:11px;padding:4px 12px;background:var(--red);color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:600;">Cerrar Todas</button>
@@ -954,7 +999,9 @@ function updateTotalPnl(positions) {
   el.textContent = 'Total: ' + sign + '$' + total.toFixed(2);
   el.style.color = total >= 0 ? 'var(--green)' : 'var(--red)';
   // Check auto-close target
-  if (_pnlTarget > 0 && total >= _pnlTarget) {
+  const wildSw = document.getElementById('wildModeSwitch');
+  const wildActive = wildSw && wildSw.checked;
+  if (!wildActive && _pnlTarget > 0 && total >= _pnlTarget) {
     autoCloseAllPositions();
     _pnlTarget = 0;
     document.getElementById('pnlTargetStatus').textContent = '✅ Target hit!';
@@ -976,6 +1023,71 @@ function clearPnlTarget() {
   document.getElementById('pnlTargetStatus').textContent = 'Sin target';
   setTimeout(() => document.getElementById('pnlTargetStatus').textContent = '', 3000);
 }
+
+// ── Wild Mode (Modo Salvaje) ─────────────────────────────────────────────
+async function toggleWildMode() {
+  const sw = document.getElementById('wildModeSwitch');
+  const badge = document.getElementById('wildModeBadge');
+  if (sw.checked) {
+    const targetMode = _pnlTarget > 0
+      ? `con target $${_pnlTarget.toFixed(2)} (cierra al alcanzar)`
+      : `SIN target — la IA decidirá cuándo cerrar según mercado`;
+    if (!confirm(`Activar MODO SALVAJE ${targetMode}?\n\nLa IA abrirá coberturas martingala automáticamente.\n\nCap duro: 4x del margen original por chain, 60% equity total.\nDrawdown máximo: 15% — luego abandona todo.\n\n¿Confirmar?`)) {
+      sw.checked = false;
+      return;
+    }
+    try {
+      const r = await fetch('/api/wild-mode/activate', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({target: _pnlTarget})
+      });
+      const j = await r.json();
+      if (j.ok) {
+        badge.style.display = 'inline-block';
+        badge.textContent = _pnlTarget > 0 ? `🔥 $${_pnlTarget.toFixed(2)}` : '🔥 IA-LIBRE';
+      } else {
+        alert('Error: ' + (j.error || 'unknown'));
+        sw.checked = false;
+      }
+    } catch(e) {
+      alert('Error de red: ' + e);
+      sw.checked = false;
+    }
+  } else {
+    if (!confirm('Desactivar Modo Salvaje? (las posiciones quedan abiertas)')) {
+      sw.checked = true;
+      return;
+    }
+    try {
+      await fetch('/api/wild-mode/deactivate', {method: 'POST'});
+      badge.style.display = 'none';
+    } catch(e) { alert('Error: ' + e); }
+  }
+}
+
+async function loadWildModeState() {
+  try {
+    const r = await fetch('/api/wild-mode/state');
+    const s = await r.json();
+    if (s && s.active) {
+      document.getElementById('wildModeSwitch').checked = true;
+      const badge = document.getElementById('wildModeBadge');
+      badge.style.display = 'inline-block';
+      const tgt = parseFloat(s.target_usd || 0);
+      if (tgt > 0) {
+        _pnlTarget = tgt;
+        document.getElementById('pnlTargetInput').value = tgt;
+        document.getElementById('pnlTargetStatus').textContent = `Target: $${tgt.toFixed(2)} 🔥`;
+        badge.textContent = `🔥 $${tgt.toFixed(2)}`;
+      } else {
+        badge.textContent = '🔥 IA-LIBRE';
+      }
+    }
+  } catch(e) { /* silencioso */ }
+}
+// Carga estado al iniciar
+window.addEventListener('DOMContentLoaded', loadWildModeState);
 async function autoCloseAllPositions() {
   try {
     await fetch('/api/close-all-target', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({target: _pnlTarget}) });
@@ -1022,7 +1134,7 @@ function renderPositions(d) {
   }
   let html = `<table><thead><tr>
     <th>Símbolo</th><th>Dirección</th><th>Entrada</th><th>Precio Act.</th>
-    <th>P&L $</th><th>P&L %</th><th>Margin</th><th>Tamaño</th>
+    <th>Ganancia real estimada</th><th>% neto est.</th><th>Margin</th><th>Tamaño</th>
     <th>SL</th><th>TP</th><th>Tiempo</th><th>Estrategia</th>
     <th>Acción</th>
   </tr></thead><tbody>`;
@@ -1378,7 +1490,7 @@ function fmtPct(v, sign=false) {
 function fmtPrice(v) {
   if (!v || v === 0) return '—';
   if (v < 0.0001) return v.toExponential(4);
-  if (v < 1) return '$' + v.toFixed(6);
+  if (v < 1) return '$' + v.toFixed(8);
   if (v < 10) return '$' + v.toFixed(4);
   if (v < 1000) return '$' + v.toFixed(2);
   return '$' + v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -1580,6 +1692,8 @@ def api_stats():
     if not open_pos:
         open_pos = [t for t in trades_raw if t.get("status") == "open"]
     total_exp = sum(safe_float(t.get("size_usd", 0)) for t in open_pos)
+    market_live = load_json(DATA / "market_latest.json") or {}
+    market_tokens = market_live.get("tokens", {}) if isinstance(market_live, dict) else {}
 
     # --- Compute real metrics from closed trades ---
     win_trades  = [t for t in closed if safe_float(t.get("pnl_usd", 0)) > 0]
@@ -1628,7 +1742,12 @@ def api_stats():
     # The executor DOES deduct margin_usd from capital when opening positions.
     # So capital_usd = free capital only. True equity = capital + locked margin + unrealized PnL.
     capital_usd = safe_float(port.get("capital_usd", initial_capital))
-    unrealized = sum(safe_float(p.get("pnl_usd", 0)) for p in open_pos)
+    unrealized = 0.0
+    for p in open_pos:
+        sym = str(p.get("symbol", "")).upper()
+        mkt = market_tokens.get(sym, {}) if isinstance(market_tokens, dict) else {}
+        current_price = safe_float(mkt.get("price", p.get("current_price", 0)))
+        unrealized += estimate_open_position_pnl(p, current_price).get("pnl_usd", 0.0)
     margin_locked = sum(safe_float(p.get("margin_usd", 0)) for p in open_pos)
     invested = sum(safe_float(p.get("margin_usd", p.get("size_usd", 0))) for p in open_pos)
     # True equity includes free capital + margin locked in positions + unrealized PnL
@@ -1979,6 +2098,7 @@ def api_close_all_target():
             closed = ex.close_positions_emergency(port, symbols, market, history, reason=reason)
             ex.save_portfolio(port)
             ex.save_history(history)
+            _sync_wild_mode_after_close([p["symbol"] for p in closed])
             return jsonify({"ok": True, "closed": len(closed), "target": target})
         return jsonify({"ok": True, "closed": 0})
     except Exception as e:
@@ -1999,6 +2119,7 @@ def api_close_all():
             closed = ex.close_positions_emergency(port, symbols, market, history, reason="MANUAL_CLOSE_ALL")
             ex.save_portfolio(port)
             ex.save_history(history)
+            _sync_wild_mode_after_close([p["symbol"] for p in closed])
             return jsonify({"ok": True, "closed": len(closed)})
         return jsonify({"ok": True, "closed": 0})
     except Exception as e:
@@ -2020,10 +2141,138 @@ def api_close_position():
         history = load_trade_history()
         closed = ex.close_positions_emergency(port, [symbol], market, history, reason="MANUAL_CLOSE")
         ex.save_portfolio(port)
+        _sync_wild_mode_after_close([symbol])
         ex.save_history(history)
         return jsonify({"ok": True, "closed": len(closed)})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
+
+
+def _sync_wild_mode_after_close(closed_symbols: list):
+    """After manual close, sync wild_mode chains to remove orphaned position_ids.
+       If all chains gone, deactivate wild mode and record outcome."""
+    try:
+        import sys
+        sys.path.insert(0, str(DATA.parent))
+        import martingale_engine as me
+        state = me.load_state()
+        if not state.get('active'):
+            return
+        chains = state.setdefault('martingale_chains', {})
+        for sym in closed_symbols:
+            chains.pop(sym, None)
+        if not chains:
+            from datetime import datetime, timezone
+            state['active'] = False
+            state['ended_at'] = datetime.now(timezone.utc).isoformat()
+            state['end_reason'] = 'manual_close_all_positions'
+            try:
+                _port_now = load_portfolio()
+                _hist_now = load_trade_history()
+                me.record_session_outcome(state, _port_now, _hist_now, 'manual_off')
+            except Exception:
+                pass
+        me.save_state(state)
+    except Exception as _e:
+        print(f"wild_mode sync error (non-fatal): {_e}")
+
+
+@app.route('/api/wild-mode/activate', methods=['POST'])
+def api_wild_mode_activate():
+    try:
+        data = request.get_json(force=True)
+        target = float(data.get('target', 0))
+        if target < 0:
+            return jsonify({"ok": False, "error": "target must be >= 0"}), 400
+        port = load_portfolio()
+        cash = float(port.get('capital_usd', 0))
+        margins = sum(float(p.get('margin_usd', 0)) for p in port.get('positions', []) if p.get('status') == 'open')
+        unreal = sum(float(p.get('pnl_usd', 0)) for p in port.get('positions', []) if p.get('status') == 'open')
+        equity = cash + margins + unreal
+        if equity <= 0:
+            return jsonify({"ok": False, "error": "no equity"}), 400
+        import sys, time
+        from datetime import datetime, timezone
+        sys.path.insert(0, str(DATA.parent))
+        import martingale_engine as me
+        # Read F&G from market
+        try:
+            mkt = load_json(DATA / "market_latest.json") or {}
+            fg_raw = mkt.get("fear_greed", {})
+            fg_val = fg_raw.get("value", 50) if isinstance(fg_raw, dict) else int(fg_raw or 50)
+        except Exception:
+            fg_val = 50
+        state = {
+            "active": True,
+            "target_usd": target,
+            "session_id": f"wild_{int(time.time())}",
+            "started_at": datetime.now(timezone.utc).isoformat(),
+            "starting_equity": round(equity, 4),
+            "starting_position_count": len([p for p in port.get('positions', []) if p.get('status') == 'open']),
+            "starting_fg": fg_val,
+            "martingale_chains": {},
+            "decisions_log": []
+        }
+        # Bootstrap chains: each open position becomes a level-0 chain
+        for p in port.get('positions', []):
+            if p.get('status') != 'open':
+                continue
+            sym = p['symbol']
+            margin = float(p.get('margin_usd', 0))
+            state['martingale_chains'][sym] = {
+                "base_position_id": p['id'],
+                "base_margin": margin,
+                "base_direction": p['direction'],
+                "levels": [{
+                    "level": 0,
+                    "position_id": p['id'],
+                    "size_multiplier": 1.0,
+                    "margin": margin,
+                    "direction": p['direction'],
+                    "opened_at": p.get('open_time')
+                }],
+                "total_margin": margin,
+                "max_total_allowed": margin * 4.0
+            }
+        me.save_state(state)
+        return jsonify({"ok": True, "state": state})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route('/api/wild-mode/deactivate', methods=['POST'])
+def api_wild_mode_deactivate():
+    try:
+        import sys
+        from datetime import datetime, timezone
+        sys.path.insert(0, str(DATA.parent))
+        import martingale_engine as me
+        state = me.load_state()
+        state['active'] = False
+        state['deactivated_at'] = datetime.now(timezone.utc).isoformat()
+        me.save_state(state)
+        # Record outcome
+        try:
+            port = load_portfolio()
+            history = load_trade_history()
+            me.record_session_outcome(state, port, history, 'manual_off')
+        except Exception:
+            pass
+        return jsonify({"ok": True})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route('/api/wild-mode/state', methods=['GET'])
+def api_wild_mode_state():
+    try:
+        import sys
+        sys.path.insert(0, str(DATA.parent))
+        import martingale_engine as me
+        return jsonify(me.load_state())
+    except Exception as e:
+        return jsonify({"active": False, "error": str(e)})
+
 
 @app.route('/api/positions')
 def api_positions():
@@ -2041,29 +2290,20 @@ def api_positions():
     live_prices = get_live_prices(symbols) if symbols else {}
 
     result = []
+
     for t in open_pos:
         ot = t.get("open_time", "")
         symbol = t.get("symbol", "")
         direction = t.get("direction", "long")
         entry_price = safe_float(t.get("entry_price", 0))
-        
+
         # Use live price if available, fallback to stored price
         current_price = live_prices.get(symbol, safe_float(t.get("current_price", 0)))
-        
-        # Recalculate P&L with live price
+        est = estimate_open_position_pnl(t, current_price)
         margin = safe_float(t.get("margin_usd", 0))
-        leverage = safe_float(t.get("leverage", 3))
-        size_usd = margin * leverage
-        
-        if entry_price > 0 and current_price > 0:
-            if direction == "long":
-                pnl_pct = ((current_price - entry_price) / entry_price) * 100
-            else:  # short
-                pnl_pct = ((entry_price - current_price) / entry_price) * 100
-            pnl_usd = (pnl_pct / 100) * size_usd
-        else:
-            pnl_pct = safe_float(t.get("pnl_pct", 0))
-            pnl_usd = safe_float(t.get("pnl_usd", 0))
+        size_usd = est.get("notional_value", safe_float(t.get("notional_value", 0)) or safe_float(t.get("size_usd", 0)))
+        pnl_pct = est.get("pnl_pct", safe_float(t.get("pnl_pct", 0)))
+        pnl_usd = est.get("pnl_usd", safe_float(t.get("pnl_usd", 0)))
         
         # Compute time open
         time_open_str = "—"
@@ -2211,6 +2451,22 @@ def api_reset():
         # 2. Trade History
         with open(DATA / "trade_history.json", "w") as f:
             json.dump([], f)
+
+        # 2b. Wild Mode State — clear any active salvage session on reset
+        try:
+            import sys
+            sys.path.insert(0, str(DATA.parent))
+            import martingale_engine as me
+            me.save_state({
+                "active": False,
+                "target_usd": 0.0,
+                "martingale_chains": {},
+                "decisions_log": [],
+                "ended_at": now,
+                "end_reason": "reset",
+            })
+        except Exception as _e:
+            log.warning(f'reset: could not clear wild mode state: {_e}')
         
         # 3. Daily Target State
         daily_state = {

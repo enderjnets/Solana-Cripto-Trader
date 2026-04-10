@@ -663,6 +663,10 @@ def paper_open_position(signal: dict, portfolio: dict, market: dict) -> Optional
     signal["_coordinated_risk"] = _dyn_risk
     log.info(f"   \U0001f4b0 Sizing: capital=${_capital:.0f} conf={confidence:.2f} -> risk=${_dyn_risk:.2f} lev={leverage}x")
     leverage = max(1, min(leverage, MAX_LEVERAGE))
+    # WILD MODE: signal may force leverage (inherited from chain base position)
+    if signal.get("_force_leverage"):
+        leverage = max(1, min(int(signal["_force_leverage"]), MAX_LEVERAGE))
+        log.info(f"   \U0001f525 Wild mode: leverage forced to {leverage}x")
 
     # ─── Position Sizing basado en Regla de Ender ─────────────────────────
     # Regla: ganar mín $4 neto después de comisiones, arriesgar máx $2
@@ -780,6 +784,12 @@ def paper_open_position(signal: dict, portfolio: dict, market: dict) -> Optional
     notional_value = max_notional_by_risk  # Usar max permitido por riesgo
     margin_usd = notional_value / leverage
 
+    # WILD MODE: signal may force exact margin (bypass risk-based sizing)
+    if signal.get("_force_margin"):
+        margin_usd = float(signal["_force_margin"])
+        notional_value = margin_usd * leverage
+        log.info(f"   \U0001f525 Wild mode: margin forced to ${margin_usd:.2f} (notional ${notional_value:.2f})")
+
     # Hard cap: max 25% of equity per position (safety for small accounts)
     _eq = portfolio.get("capital_usd", 100) + sum(
         p.get("margin_usd", 0) for p in portfolio.get("positions", []) if p.get("status") == "open"
@@ -872,7 +882,11 @@ def paper_open_position(signal: dict, portfolio: dict, market: dict) -> Optional
     }
 
     # Descontar solo el MARGEN del capital (no el notional completo)
-    portfolio["capital_usd"] = round(portfolio["capital_usd"] - margin_usd, 2)
+    _new_cap = round(portfolio["capital_usd"] - margin_usd, 2)
+    if _new_cap < 0:
+        log.error(f"\U0001f6d1 NEGATIVE CAPITAL prevented: ${portfolio['capital_usd']:.2f} - ${margin_usd:.2f} = ${_new_cap:.2f} - REJECTING TRADE")
+        return None
+    portfolio["capital_usd"] = _new_cap
     # Paperclip: track trade open
     if _PAPERCLIP:
         try:

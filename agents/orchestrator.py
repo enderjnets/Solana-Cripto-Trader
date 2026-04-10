@@ -426,7 +426,22 @@ def run_cycle(safe=True, debug=False):
         if research_file.exists():
             research_data = json.loads(research_file.read_text())
 
-        if portfolio_data and portfolio_data.get("positions"):
+        # FIX 4 (audit): Staleness check — never feed stale data to LLM-based position decisions
+        _stale_dec = False
+        try:
+            if market_data_for_dec.get("_stale"):
+                _stale_dec = True
+            else:
+                _ts_dec = market_data_for_dec.get("timestamp", "")
+                if _ts_dec:
+                    _age_sec = (datetime.now(timezone.utc) - datetime.fromisoformat(str(_ts_dec).replace("Z", "+00:00"))).total_seconds()
+                    if _age_sec > 300:
+                        _stale_dec = True
+                        log.warning(f"   ⚠️ Position decisions: market data is {_age_sec:.0f}s old (>300s), skipping LLM eval")
+        except Exception as _e_st:
+            log.debug(f"staleness check error: {_e_st}")
+
+        if portfolio_data and portfolio_data.get("positions") and not _stale_dec:
             decisions = rm.evaluate_position_decision(portfolio_data, market_data_for_dec, research_data)
             # Fix 3: Excluir posiciones recién abiertas de recomendaciones de cierre
             # FIX 2026-04-05: Umbrales MUY estrictos — solo cerrar si confidence >= 0.75 AND hours >= 20min
@@ -630,6 +645,41 @@ def run_cycle(safe=True, debug=False):
             results["circuit_breaker"] = {"triggered": True, "closes": _cycle_emergency_closes}
             return results
 
+    # Paso 4.5: WILD MODE (martingale_engine) — opcional, controlado por dashboard
+    try:
+        import martingale_engine as wild_me
+        if wild_me.is_active():
+            log.info("━" * 40)
+            log.info("🔥 [4.5] Wild Mode (Martingale Engine)")
+            # Reload portfolio (may have changed during this cycle)
+            from executor import load_portfolio as _load_p, load_history as _load_h, save_portfolio as _save_p, save_history as _save_h, load_market as _load_m
+            _wild_port = _load_p()
+            _wild_market = _load_m()
+            _wild_history = _load_h()
+            try:
+                _wild_mkt = _wild_market or {}
+                _fg_raw = _wild_mkt.get("fear_greed", {})
+                _fg_val = _fg_raw.get("value", 50) if isinstance(_fg_raw, dict) else int(_fg_raw or 50)
+            except Exception:
+                _fg_val = 50
+            wild_result = wild_me.run_cycle(_wild_port, _wild_market, _wild_history, _fg_val)
+            # Persist any changes the engine made
+            if wild_result.get("opened") or wild_result.get("closed") or wild_result.get("abandoned") or wild_result.get("target_hit"):
+                _save_p(_wild_port)
+                _save_h(_wild_history)
+            if wild_result.get("abandoned"):
+                log.warning(f"   🔥 WILD MODE ABANDONED: {wild_result.get('reason')}")
+            elif wild_result.get("target_hit"):
+                log.info(f"   🎯 WILD MODE TARGET HIT: closed {wild_result.get('closed')} positions ({wild_result.get('reason')})")
+            elif wild_result.get("opened"):
+                log.info(f"   🔥 WILD MODE: opened {wild_result.get('opened')} hedge levels, closed {wild_result.get('closed')}")
+            else:
+                log.info(f"   🔥 WILD MODE: HOLD (no changes)")
+            results["wild_mode"] = wild_result
+    except Exception as e:
+        log.warning(f"   ⚠️ Wild Mode error (non-fatal): {e}")
+        results["wild_mode"] = {"ok": False, "error": str(e)}
+
     # Paso 5: Auto-Learner — analiza trades y adapta parámetros
     log.info("━" * 40)
     log.info("🧠 [5/6] Auto-Learner")
@@ -733,6 +783,29 @@ def run_token_scanner():
 import tempfile
 LOCK_FILE = Path(tempfile.gettempdir()) / "solana_jupiter_orchestrator.lock"
 
+# AUDIT FIX: Persistent cycle counter so scanner runs even across restarts
+CYCLE_COUNT_FILE = DATA_DIR / "cycle_counter.txt"
+
+def _load_cycle_count() -> int:
+    """Load persistent cycle counter from file. Returns 0 if missing/corrupt."""
+    try:
+        if CYCLE_COUNT_FILE.exists():
+            return int(CYCLE_COUNT_FILE.read_text().strip() or "0")
+    except Exception:
+        pass
+    return 0
+
+def _save_cycle_count(n: int) -> None:
+    """Persist cycle counter to file (atomic via temp+rename)."""
+    try:
+        DATA_DIR.mkdir(parents=True, exist_ok=True)
+        _tmp = CYCLE_COUNT_FILE.with_suffix(".tmp")
+        _tmp.write_text(str(n))
+        _tmp.rename(CYCLE_COUNT_FILE)
+    except Exception as _e_save:
+        log.warning(f"cycle_count save error: {_e_save}")
+
+
 def _acquire_lock():
     """Acquire PID lock. Exit if another instance is running."""
     log.info(f"📁 DATA_DIR={DATA_DIR} | PID={os.getpid()} | LOCK_FILE={LOCK_FILE}")
@@ -769,15 +842,38 @@ if __name__ == "__main__":
         _acquire_lock()  # Prevent dual orchestrator instances
         interval = args.interval if args.interval else 60
         scan_interval = args.scan_interval if args.scan_interval else 10
-        cycle_count = 0
+        cycle_count = _load_cycle_count()
+        log.info(f"🔢 Cycle counter loaded from disk: {cycle_count}")
 
         log.info(f"🔄 Modo continuo — intervalo: {interval}s")
         log.info(f"🔍 Token Scanner cada {scan_interval} ciclos (~{scan_interval}min)")
         log.info(f"📁 DATA_DIR={DATA_DIR} | PID={os.getpid()}")
-        
+
+        # Kickstart: run scanner once at startup if last scan is stale (>30 min)
+        try:
+            _scanner_report = DATA_DIR / "scanner_report.json"
+            _should_kickstart = True
+            if _scanner_report.exists():
+                import json as _json_kick
+                _sr = _json_kick.loads(_scanner_report.read_text())
+                _ts = _sr.get("timestamp", "")
+                if _ts:
+                    _age_min = (datetime.now(timezone.utc) - datetime.fromisoformat(str(_ts).replace("Z", "+00:00"))).total_seconds() / 60
+                    if _age_min < 30:
+                        _should_kickstart = False
+                        log.info(f"🔍 Scanner: last scan {_age_min:.0f}min ago, skipping kickstart")
+            if _should_kickstart:
+                log.info(f"🔍 Scanner kickstart on startup (stale or never run)")
+                run_token_scanner()
+        except Exception as _e_kick:
+            log.warning(f"scanner kickstart check error: {_e_kick}")
+
         while True:
             try:
                 cycle_count += 1
+                if cycle_count > 1_000_000:
+                    cycle_count = 0
+                _save_cycle_count(cycle_count)
                 
                 # Ejecutar scanner cada N ciclos
                 if cycle_count % scan_interval == 0:

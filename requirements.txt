@@ -39,6 +39,7 @@ python-telegram-bot>=20.0
 openai>=1.0.0  # MiniMax API compatibility
 
 # Utilities
+base58>=2.1.1
 python-dotenv>=1.0.0
 cryptography>=41.0.0
 pyyaml>=6.0.0
