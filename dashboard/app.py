@@ -2217,7 +2217,8 @@ def api_stats():
     # Accounting discrepancy: use equity (not free capital) vs recorded PnL
     # Suppress warning if gap ≈ initial_capital - equity_with_no_trades (manual reset scenario)
     real_capital_change = equity - initial_capital
-    accounting_gap = real_capital_change - total_pnl
+    # Subtract unrealized PnL — it is already accounted for by open positions
+    accounting_gap = real_capital_change - total_pnl - unrealized
     # If no closed trades and gap ≈ initial_capital, it's a manual reset — suppress
     if abs(total_pnl) < 0.01 and abs(accounting_gap - initial_capital) < 1.0:
         accounting_gap = 0
