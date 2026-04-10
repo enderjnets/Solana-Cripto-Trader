@@ -502,6 +502,7 @@ DASHBOARD_HTML = r"""
           <label style="font-size:11px;color:var(--text2);">Target $:</label>
           <input type="number" id="pnlTargetInput" placeholder="ej: 5" style="width:60px;font-size:12px;" step="0.5" min="0">
           <button onclick="setPnlTarget()" style="font-size:11px;padding:3px 8px;background:var(--green);color:#000;border:none;border-radius:4px;cursor:pointer;">Set</button>
+          <button onclick="clearPnlTarget()" style="font-size:11px;padding:3px 8px;background:var(--bg3);color:var(--text2);border:1px solid var(--bg3);border-radius:4px;cursor:pointer;">Clear</button>
           <span id="pnlTargetStatus" style="font-size:10px;color:var(--text2);"></span>
         </div>
         <button onclick="closeAllPositions()" style="font-size:11px;padding:4px 12px;background:var(--red);color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:600;">Cerrar Todas</button>
@@ -965,7 +966,15 @@ function setPnlTarget() {
   if (val > 0) {
     _pnlTarget = val;
     document.getElementById('pnlTargetStatus').textContent = 'Target: $' + val.toFixed(2);
+  } else {
+    clearPnlTarget();
   }
+}
+function clearPnlTarget() {
+  _pnlTarget = 0;
+  document.getElementById('pnlTargetInput').value = '';
+  document.getElementById('pnlTargetStatus').textContent = 'Sin target';
+  setTimeout(() => document.getElementById('pnlTargetStatus').textContent = '', 3000);
 }
 async function autoCloseAllPositions() {
   try {
