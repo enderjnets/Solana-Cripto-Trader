@@ -410,7 +410,7 @@ DASHBOARD_HTML = r"""
   </div>
   <div class="header-right">
     <div class="capital-header">
-      Capital: <span class="val" id="headerCapital">$0.00</span>
+      Equity: <span class="val" id="headerCapital">$0.00</span>
       <span class="chg" id="headerChg">+0.00%</span>
     </div>
     <div class="last-update" id="lastUpdate">Actualizado: —</div>
