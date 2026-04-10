@@ -28,11 +28,20 @@ def is_ollama_available() -> bool:
         return _cache["available"]
     try:
         r = requests.get(f"{OLLAMA_URL}/api/version", timeout=3)
-        ok = r.ok
+        if not r.ok:
+            _cache.update({"available": False, "ts": now})
+            return False
+        # Warm-up: ping the model to load it into GPU with 24h keep_alive
+        wr = requests.post(f"{OLLAMA_URL}/api/chat", json={
+            "model": MODEL, "messages": [{"role": "user", "content": "ping"}],
+            "stream": False, "keep_alive": "24h", "options": {"num_predict": 1}
+        }, timeout=30)
+        ok = wr.ok and bool(wr.json().get("message", {}).get("content", ""))
+        _cache.update({"available": ok, "ts": now})
+        return ok
     except Exception:
-        ok = False
-    _cache.update({"available": ok, "ts": now})
-    return ok
+        _cache.update({"available": False, "ts": now})
+        return False
 
 
 def _chat(messages: list, max_tokens: int = 500) -> str | None:

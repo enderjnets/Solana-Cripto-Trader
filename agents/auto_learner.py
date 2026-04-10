@@ -59,8 +59,8 @@ log = logging.getLogger("auto_learner_v2")
 
 # ─── Constants ────────────────────────────────────────────────────────────────
 
-PERFORMANCE_WINDOW = 50    # Analyze last 50 trades
-MIN_TRADES_TO_ADAPT = 10   # Need at least 10 new trades before adapting
+PERFORMANCE_WINDOW = 20    # Lowered from 50 - focuses on recent trades    # Analyze last 50 trades
+MIN_TRADES_TO_ADAPT = 5    # Lowered from 10 - learns faster after resets   # Need at least 10 new trades before adapting
 KNOWLEDGE_MAX_LINES = 200  # Keep knowledge base manageable
 
 # Parameter bounds (safety rails — LLM cannot go outside these)

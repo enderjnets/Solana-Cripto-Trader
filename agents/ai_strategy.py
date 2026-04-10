@@ -338,7 +338,7 @@ TOKENS DISPONIBLES (Top 10):
 
 INSTRUCCIONES:
 1. Analiza cada token según los criterios de entrada
-2. Genera MÁXIMO 3 señales de alta confianza
+2. Genera Genera 4-5 señales (más oportunidades) de alta confianza
 3. NO generar señales para tokens con posiciones abiertas
 4. Calcula SL/TP según las reglas
 5. Size USD = 2% del capital ($10 USD)
