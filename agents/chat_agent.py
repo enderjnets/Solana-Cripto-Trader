@@ -122,7 +122,7 @@ try:
 except Exception:
     MINIMAX_KEY = "sk-cp-8tBIgoE2Vs8QE0AIoMjq4MTh8kiHtem3KWlOnNlAJZgKwAlYh_nt6oCq382Y0cmBi2buvch3nJJbMg7uqr_hIV6Z0ZqY3Q_qZ6AStHCUpKKT_IT-e0vEl4A"
 MINIMAX_URL = "https://api.minimax.io/v1/text/chatcompletion_v2"
-MINIMAX_MODEL = "MiniMax-M2.5"
+MINIMAX_MODEL = "MiniMax-M2.7"
 
 def get_response(user_msg):
     """Obtiene respuesta usando Gemma 4 local (gratis) con fallback a MiniMax."""

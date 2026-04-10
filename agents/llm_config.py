@@ -127,7 +127,7 @@ def call_claude_sonnet(prompt: str, system: str = "", max_tokens: int = 2000) ->
 
 MINIMAX_KEY   = json.loads((KEYS_DIR / "minimax.json").read_text())["minimax_api_key"]
 MINIMAX_URL   = "https://api.minimax.io/v1/text/chatcompletion_v2"
-MINIMAX_MODEL = "MiniMax-M2.5"
+MINIMAX_MODEL = "MiniMax-M2.7"  # Upgraded from M2.5 - better reasoning for trading decisions
 
 # ── OpenRouter config ──────────────────────────────────────────────────────
 OPENROUTER_URL   = "https://openrouter.ai/api/v1/chat/completions"
