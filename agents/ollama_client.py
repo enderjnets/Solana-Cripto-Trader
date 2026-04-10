@@ -36,7 +36,7 @@ def is_ollama_available() -> bool:
             "model": MODEL, "messages": [{"role": "user", "content": "ping"}],
             "stream": False, "keep_alive": "24h", "options": {"num_predict": 1}
         }, timeout=30)
-        ok = wr.ok and bool(wr.json().get("message", {}).get("content", ""))
+        ok = wr.ok  # Just check HTTP 200, content may be empty on warmup
         _cache.update({"available": ok, "ts": now})
         return ok
     except Exception:
