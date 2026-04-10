@@ -425,12 +425,12 @@ DASHBOARD_HTML = r"""
   <section>
     <div class="grid-7" id="kpiRow">
       <div class="kpi-card neutral">
-        <div class="kpi-label">Capital</div>
+        <div class="kpi-label">Equity</div>
         <div class="kpi-value neu" id="kpiCapital">$—</div>
         <div class="kpi-sub" id="kpiCapitalSub">—</div>
       </div>
       <div class="kpi-card" id="kpiPnlCard">
-        <div class="kpi-label">P&amp;L Total</div>
+        <div class="kpi-label">P&amp;L Realizado</div>
         <div class="kpi-value" id="kpiPnl">$—</div>
         <div class="kpi-sub" id="kpiPnlSub">—</div>
       </div>
@@ -782,7 +782,7 @@ async function loadStats() {
   const pnlCard = document.getElementById('kpiPnlCard');
   pnlEl.textContent = (pnl >= 0 ? '+' : '') + fmt$(pnl);
   pnlEl.className = 'kpi-value ' + (pnl >= 0 ? 'pos' : 'neg');
-  pnlSubEl.textContent = fmtPct(d.return_pct, true);
+  const unrealized_val = d.unrealized_pnl || 0; pnlSubEl.textContent = "Unrealized: " + (unrealized_val >= 0 ? "+" : "") + fmt$(unrealized_val);
   pnlSubEl.className = 'kpi-sub ' + (pnl >= 0 ? 'pos' : 'neg');
   pnlCard.className = 'kpi-card ' + (pnl >= 0 ? 'positive' : 'negative');
 
