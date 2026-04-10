@@ -954,7 +954,7 @@ function updateTotalPnl(positions) {
   el.style.color = total >= 0 ? 'var(--green)' : 'var(--red)';
   // Check auto-close target
   if (_pnlTarget > 0 && total >= _pnlTarget) {
-    closeAllPositions();
+    autoCloseAllPositions();
     _pnlTarget = 0;
     document.getElementById('pnlTargetStatus').textContent = '✅ Target hit!';
     document.getElementById('pnlTargetInput').value = '';
@@ -966,6 +966,15 @@ function setPnlTarget() {
     _pnlTarget = val;
     document.getElementById('pnlTargetStatus').textContent = 'Target: $' + val.toFixed(2);
   }
+}
+async function autoCloseAllPositions() {
+  try {
+    await fetch('/api/close-all-target', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({target: _pnlTarget}) });
+    _pnlTarget = 0;
+    document.getElementById('pnlTargetInput').value = '';
+    document.getElementById('pnlTargetStatus').textContent = '\u2705 Target reached!';
+    setTimeout(refreshAll, 1000);
+  } catch(e) { console.error(e); }
 }
 async function closeAllPositions() {
   if (!confirm('¿Cerrar TODAS las posiciones abiertas?')) return;
@@ -1941,6 +1950,30 @@ def get_live_prices(symbols: list) -> dict:
 
 
 
+
+
+@app.route('/api/close-all-target', methods=['POST'])
+def api_close_all_target():
+    """Close all positions automatically when PnL target reached. No confirmation."""
+    try:
+        data = request.get_json(force=True) or {}
+        target = data.get('target', 0)
+        import sys
+        sys.path.insert(0, str(DATA.parent))
+        import executor as ex
+        port = load_portfolio()
+        market = load_json(DATA / "market_latest.json") or {}
+        history = load_trade_history()
+        symbols = [p["symbol"] for p in port.get("positions", []) if p.get("status") == "open"]
+        if symbols:
+            reason = f"PNL_TARGET_${target:.2f}" if target else "PNL_TARGET"
+            closed = ex.close_positions_emergency(port, symbols, market, history, reason=reason)
+            ex.save_portfolio(port)
+            ex.save_history(history)
+            return jsonify({"ok": True, "closed": len(closed), "target": target})
+        return jsonify({"ok": True, "closed": 0})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
 
 @app.route('/api/close-all', methods=['POST'])
 def api_close_all():
