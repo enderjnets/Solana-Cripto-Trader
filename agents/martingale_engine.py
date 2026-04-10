@@ -6,7 +6,7 @@ toma el control de las posiciones existentes y delega a un agente IA las
 decisiones de hedge/martingala/abandono.
 
 Hard guardrails (NO la IA NO los puede sobrepasar):
-  - level_multiplier ∈ [1.1, 2.0]
+  - level_multiplier ∈ [1.1, 1.8]
   - sum(chain.levels[*].margin) ≤ 4 × chain.base_margin
   - sum(all_chains.total_margin) ≤ 0.60 × equity
   - max 5 niveles por símbolo
@@ -68,7 +68,7 @@ MIN_LEVEL_MULTIPLIER = 1.1
 MAX_LEVEL_MULTIPLIER = 1.8        # validated by sweep (was 2.0 — 1.8 wins)
 MAX_CHAIN_TOTAL_RATIO = 3.0       # validated by sweep (was 4.0)
 MAX_LEVELS_PER_SYMBOL = 3         # validated by sweep (was 5)
-MAX_TOTAL_MARGIN_PCT = 0.60       # confirmed by sweep
+MAX_TOTAL_MARGIN_PCT = 0.75       # raised from 0.60 — 3 chains at 0.60 left no room to escalate
 MAX_DRAWDOWN_FROM_START_PCT = 0.15  # confirmed by sweep
 MAX_SESSION_MINUTES = 360         # 6h max
 MIN_LIQUIDATION_DISTANCE_PCT = 0.05
@@ -386,6 +386,8 @@ def build_decision_prompt(state: dict, portfolio: dict, market: dict, fear_greed
     target = float(state.get('target_usd', 0))
     total_pnl = sum(float(p.get('pnl_usd', 0)) for p in portfolio.get('positions', []) if p.get('status') == 'open')
     chain_margin_total = _total_chain_margin(state)
+    # Total margin = ALL open positions (base level 0 + chain levels 1+)
+    total_margin_all = sum(float(p.get("margin_usd", 0)) for p in portfolio.get("positions", []) if p.get("status") == "open")
 
     # Build per-chain summary
     chain_lines = []
@@ -447,7 +449,7 @@ ESTADO GLOBAL:
 - Equity: ${equity:.2f} (inicial ${starting:.2f}, dd={((starting-equity)/starting*100 if starting>0 else 0):.1f}%)
 - PnL combinado: ${total_pnl:+.2f}
 - Target: {('$%.2f' % target) if target > 0 else 'NINGUNO (libre)'}
-- Margen en chains: ${chain_margin_total:.2f} de máx ${equity*MAX_TOTAL_MARGIN_PCT:.2f} ({MAX_TOTAL_MARGIN_PCT*100:.0f}% equity)
+- Margen total (todas posiciones): ${total_margin_all:.2f} de máx ${equity*MAX_TOTAL_MARGIN_PCT:.2f} ({MAX_TOTAL_MARGIN_PCT*100:.0f}% equity) | chains nivel1+: ${chain_margin_total:.2f}
 - F&G: {fear_greed}
 - Sesión: {_session_age_minutes(state):.0f} min
 
@@ -457,7 +459,7 @@ CHAINS ACTIVOS:
 {insights_block}
 
 DECIDE para cada chain (o nuevo símbolo):
-- OPEN_LEVEL: abre nivel de cobertura. direction=same (martingala, promedia precio) o direction=opposite (hedge, neutraliza). level_multiplier ∈ [1.1, 2.0]
+- OPEN_LEVEL: abre nivel de cobertura. direction=same (martingala, promedia precio) o direction=opposite (hedge, neutraliza). level_multiplier ∈ [1.1, 1.8] — OBLIGATORIO ≥ 1.1, NUNCA uses 1.0 (cada nivel debe ser mayor al anterior para que la martingala funcione)
 - HOLD: mantener posición sin cambios — úsalo cuando la pérdida aún es pequeña y es mejor esperar recuperación
 - CLOSE_CHAIN: cerrar TODAS las posiciones del chain
 
@@ -768,14 +770,14 @@ def validate_decision(decision: dict, state: dict, portfolio: dict) -> dict:
         new_margin = room
         hits.append(f'margin_reduced_to_fit_chain_cap_{new_margin:.2f}')
 
-    # Check global margin cap
+    # Check global margin cap — use TOTAL portfolio margin (base pos + chain levels)
     equity = _equity(portfolio)
-    total_chain_margin = _total_chain_margin(state)
+    total_portfolio_margin = sum(float(p.get('margin_usd', 0)) for p in portfolio.get('positions', []) if p.get('status') == 'open')
     global_cap = equity * MAX_TOTAL_MARGIN_PCT
-    if total_chain_margin + new_margin > global_cap:
-        room = max(0, global_cap - total_chain_margin)
+    if total_portfolio_margin + new_margin > global_cap:
+        room = max(0, global_cap - total_portfolio_margin)
         if room < base_margin * 0.1:
-            hits.append(f'global_margin_cap_{total_chain_margin:.2f}+{new_margin:.2f}>{global_cap:.2f}')
+            hits.append(f'global_margin_cap_{total_portfolio_margin:.2f}+{new_margin:.2f}>{global_cap:.2f}')
             out['action'] = 'HOLD'
             return out
         new_margin = min(new_margin, room)
