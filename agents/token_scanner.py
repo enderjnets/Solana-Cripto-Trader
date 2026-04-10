@@ -31,9 +31,9 @@ DEXSCREENER_SOLANA = "https://api.dexscreener.com/latest/dex/search?q=solana"
 DEXSCREENER_GAINERS = "https://api.dexscreener.com/token-boosts/top/v1"
 
 # Criterios mínimos para agregar un token
-MIN_LIQUIDITY_USD = 100_000      # $100K mínimo de liquidez (bajado para más oportunidades)
-MIN_VOLUME_24H = 50_000          # $50K volumen mínimo
-MIN_MARKET_CAP = 500_000         # $500K market cap mínimo
+MIN_LIQUIDITY_USD = 500_000      # $500K - safe for trading mínimo de liquidez (bajado para más oportunidades)
+MIN_VOLUME_24H = 200_000         # $200K - meaningful volume volumen mínimo
+MIN_MARKET_CAP = 2_000_000       # $2M - established tokens only market cap mínimo
 MAX_TOKENS_TRACKED = 30          # Máximo de tokens a trackear
 MIN_PRICE_CHANGE_ALERT = 8       # % cambio para alertar (pump o dump)
 
@@ -286,7 +286,7 @@ def identify_opportunities(market_data: list, jupiter_verified: dict) -> list:
         # Puntuar oportunidad
         score, reasons = score_token_opportunity(token_info)
         
-        if score >= 0.4:  # Umbral mínimo
+        if score >= 0.6:  # Raised from 0.4 - only quality opportunities
             token_info["opportunity_score"] = round(score, 3)
             token_info["reasons"] = reasons
             opportunities.append(token_info)
@@ -329,7 +329,7 @@ def update_token_list(opportunities: list, current_tracked: dict) -> dict:
     for opp in opportunities[:MAX_TOKENS_TRACKED]:
         symbol = opp["symbol"]
         if symbol not in tokens and symbol not in CORE_TOKENS:
-            if opp.get("address") and opp["opportunity_score"] >= 0.5:
+            if opp.get("address") and opp["opportunity_score"] >= 0.6:
                 tokens[symbol] = {
                     "address": opp["address"],
                     "added_at": datetime.now(timezone.utc).isoformat(),
@@ -340,6 +340,26 @@ def update_token_list(opportunities: list, current_tracked: dict) -> dict:
                 added.append(symbol)
                 log.info(f"➕ Agregado {symbol} (score={opp['opportunity_score']:.2f})")
     
+    # Remove expired tokens (older than 7 days)
+    now = datetime.now(timezone.utc)
+    expired = []
+    for sym, data in list(tokens.items()):
+        if sym in CORE_TOKENS:
+            continue
+        added_str = data.get("added_at", "")
+        if added_str:
+            try:
+                added = datetime.fromisoformat(added_str)
+                if added.tzinfo is None:
+                    added = added.replace(tzinfo=timezone.utc)
+                if (now - added).days > 7:
+                    expired.append(sym)
+            except:
+                pass
+    for sym in expired:
+        del tokens[sym]
+        log.info(f"⏰ Expired {sym} (older than 7 days)")
+
     # Limitar a MAX_TOKENS_TRACKED (excluyendo core)
     non_core = {k: v for k, v in tokens.items() if k not in CORE_TOKENS}
     if len(non_core) > MAX_TOKENS_TRACKED - len(CORE_TOKENS):

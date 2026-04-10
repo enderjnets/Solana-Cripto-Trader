@@ -597,6 +597,15 @@ def paper_open_position(signal: dict, portfolio: dict, market: dict) -> Optional
     
     # ─── Risk Filters (27-Mar-2026) ───────────────────────────────────────────
     # 1. Filtrar por confidence mínima
+    # Liquidity check for non-core tokens
+    CORE_TOKENS_SET = {"SOL", "BTC", "ETH", "JUP", "RAY", "WIF", "PENGU", "FARTCOIN", "GOAT", "POPCAT", "MOODENG", "BONK"}
+    if symbol not in CORE_TOKENS_SET:
+        _token_data = market.get("tokens", {}).get(symbol, {})
+        _liq = _token_data.get("liquidity", 0)
+        if _liq < 500000:
+            log.warning(f"\u26a0\ufe0f Trade rejected: {symbol} liquidity ${_liq:.0f} < $500K min")
+            return None
+
     # M7: Reject trades on stale market data
     if isinstance(market, dict) and market.get("_stale"):
         log.warning(f"\u26a0\ufe0f Trade rejected: market data is stale")

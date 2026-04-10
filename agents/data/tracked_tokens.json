@@ -22,17 +22,6 @@
       ],
       "price_at_add": 0.2281
     },
-    "COIN": {
-      "address": "BahPLxNWA8i1g2vvA4mUs55Fc8f7gxex4Ji8Y4Z5tsY8",
-      "added_at": "2026-03-27T18:03:50.116866+00:00",
-      "score": 0.75,
-      "reasons": [
-        "Liquidez $0.06M \u26a0\ufe0f",
-        "Volumen $0.24M \u2705",
-        "\ud83d\udcc8 PUMP +3271575.0% \u2705\u2705"
-      ],
-      "price_at_add": 0.1258
-    },
     "TRUMP": {
       "address": "6p6xgHyF7AeE6TZkSmFsko444wqoP15icUSqi2jfGiPN",
       "added_at": "2026-03-27T18:03:50.116887+00:00",
@@ -43,63 +32,8 @@
         "MC $3007.0M \u2014 establecido \u2705"
       ],
       "price_at_add": 3.0069
-    },
-    "AI": {
-      "address": "FVXXkrJnrB9Cd9HD4MmPxJpMraAY3BRk57Enz329FBS1",
-      "added_at": "2026-03-27T19:21:54.462272+00:00",
-      "score": 0.73,
-      "reasons": [
-        "Liquidez $0.06M \u26a0\ufe0f",
-        "Volumen muy alto $3.30M \u2705\u2705",
-        "\ud83d\udcc8 PUMP +179.0% \u2705\u2705"
-      ],
-      "price_at_add": 8.13e-05
-    },
-    "MEME": {
-      "address": "72MDnydBd5kns87tdcTp2VGTGJw8XYqor2YNPzBkcdpY",
-      "added_at": "2026-03-28T15:22:28.263367+00:00",
-      "score": 0.65,
-      "reasons": [
-        "Liquidez $0.05M \u26a0\ufe0f",
-        "Volumen $0.16M \u2705",
-        "\ud83d\udcc8 PUMP +1322.0% \u2705\u2705"
-      ],
-      "price_at_add": 0.000154
-    },
-    "DOG": {
-      "address": "dog1viwbb2vWDpER5FrJ4YFG6gq6XuyFohUe9TXN65u",
-      "added_at": "2026-04-01T05:05:55.717066+00:00",
-      "score": 0.55,
-      "reasons": [
-        "Liquidez $0.06M \u26a0\ufe0f",
-        "Volumen $0.11M \u2705",
-        "Movimiento moderado +5.2%"
-      ],
-      "price_at_add": 0.0007501
-    },
-    "CAT": {
-      "address": "9WnnaRHR73Sn5yVtQtUDWbgtms9RTTCxgLuhJ9nsmZKP",
-      "added_at": "2026-04-02T11:33:50.213113+00:00",
-      "score": 0.65,
-      "reasons": [
-        "Liquidez $0.05M \u26a0\ufe0f",
-        "Volumen $0.24M \u2705",
-        "\ud83d\udcc8 PUMP +1422.0% \u2705\u2705"
-      ],
-      "price_at_add": 0.0001048
-    },
-    "PEPE": {
-      "address": "Drfv7jnfTXpEMuppzBZnBxpSyfpTWUqeTqMhoGfzpump",
-      "added_at": "2026-04-04T17:06:08.929134+00:00",
-      "score": 0.65,
-      "reasons": [
-        "Liquidez $0.06M \u26a0\ufe0f",
-        "Volumen $0.42M \u2705",
-        "\ud83d\udcc8 PUMP +2083.0% \u2705\u2705"
-      ],
-      "price_at_add": 0.0005134
     }
   },
-  "last_scan": "2026-04-09T05:38:35.281823+00:00",
+  "last_scan": "2026-04-10T00:30:52.168757+00:00",
   "added_this_scan": []
 }
