@@ -744,7 +744,11 @@ DASHBOARD_HTML = r"""
     <div class="chat-card">
       <div class="chat-header">
         <span>🤖 <strong>Solana Trading Agent</strong></span>
-        <span class="chat-badge" id="chatBadge">0 notas</span>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span class="chat-badge" id="chatBadge">0 notas</span>
+          <button onclick="clearChat()" title="Limpiar chat — el historial queda guardado para el agente"
+            style="font-size:10px;padding:2px 8px;background:var(--bg);border:1px solid var(--border);color:var(--text2);border-radius:4px;cursor:pointer;">🗑 Limpiar</button>
+        </div>
       </div>
       <div class="chat-messages" id="chatMessages">
         <div class="empty">Conectando con el agente...</div>
@@ -1952,6 +1956,12 @@ function showChatTyping(show){
     el.className = 'typing-wrap';
     if(chatTypingInterval){clearInterval(chatTypingInterval);chatTypingInterval=null;}
   }
+}
+
+async function clearChat(){
+  if(!confirm('¿Limpiar el chat?\nEl historial queda guardado para el agente.')) return;
+  await fetch('/api/chat/clear',{method:'POST'});
+  // SSE detecta el cambio y llama renderChat() automaticamente
 }
 
 async function sendChatNote(){
@@ -3291,6 +3301,27 @@ def api_agent_notes_stream():
 
 
 CHAT_STATE_FILE = DATA / "chat_agent_state.json"
+
+@app.route('/api/chat/clear', methods=['POST'])
+def api_chat_clear():
+    """Archiva mensajes actuales y limpia el chat visible."""
+    now = datetime.now(timezone.utc).isoformat()
+    notes = load_notes()
+    msgs = notes.get("messages", [])
+    if msgs:
+        archive_file = DATA / "agent_notes_archive.json"
+        archive = []
+        if archive_file.exists():
+            try:
+                archive = json.loads(archive_file.read_text())
+            except Exception:
+                archive = []
+        archive.append({"archived_at": now, "messages": msgs})
+        archive_file.write_text(json.dumps(archive, ensure_ascii=False, indent=2))
+    with open(AGENT_NOTES_FILE, "w") as f:
+        json.dump({"messages": [], "last_updated": now}, f)
+    return jsonify({"ok": True, "archived": len(msgs)})
+
 
 @app.route('/api/chat-status')
 def api_chat_status():

@@ -72,6 +72,10 @@ def load_notes():
     try: return json.loads(NOTES_FILE.read_text())
     except: return {"messages": [], "last_updated": None}
 
+def load_archive():
+    try: return json.loads((DATA_DIR / "agent_notes_archive.json").read_text())
+    except: return []
+
 def save_notes(notes):
     notes["last_updated"] = datetime.now(timezone.utc).isoformat()
     NOTES_FILE.write_text(json.dumps(notes, ensure_ascii=False, indent=2))
@@ -450,7 +454,16 @@ def build_prompt(user_msg, ctx):
     )
 
     notes = load_notes()
-    msgs = notes.get("messages", [])[-6:]
+    msgs_current = notes.get("messages", [])
+    if len(msgs_current) < 4:
+        archive = load_archive()
+        if archive:
+            prev = archive[-1].get("messages", [])[-4:]
+            msgs = (prev + msgs_current)[-8:]
+        else:
+            msgs = msgs_current[-6:]
+    else:
+        msgs = msgs_current[-6:]
     history = "\n".join(f"[{'USER' if m.get('sender')=='user' else 'AGENT'}]: {m.get('text','')[:200]}"
                         for m in msgs if m.get('text'))
 
