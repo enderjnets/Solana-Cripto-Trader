@@ -2997,22 +2997,30 @@ def api_reset():
         old_history = load_trade_history()
         
         # Calcular estadísticas del período que termina
-        total_trades = len([t for t in old_history if t.get("status") == "closed"])
-        wins = len([t for t in old_history if t.get("status") == "closed" and safe_float(t.get("pnl_usd", 0)) > 0])
-        losses = len([t for t in old_history if t.get("status") == "closed" and safe_float(t.get("pnl_usd", 0)) < 0])
-        flat = total_trades - wins - losses
-        
-        total_pnl = sum(safe_float(t.get("pnl_usd", 0)) for t in old_history if t.get("status") == "closed")
-        
+        # Fix: trades en history no tienen campo status — identificar por close_time/close_reason
+        _closed = [t for t in old_history if t.get("close_time") or t.get("close_reason")]
+        total_trades = len(_closed)
+        wins   = len([t for t in _closed if safe_float(t.get("pnl_usd", 0)) > 0])
+        losses = len([t for t in _closed if safe_float(t.get("pnl_usd", 0)) < 0])
+        flat   = len([t for t in _closed if safe_float(t.get("pnl_usd", 0)) == 0])
+
+        total_pnl = sum(safe_float(t.get("pnl_usd", 0)) for t in _closed)
+
+        # Fix: equity real = cash libre + márgenes de posiciones abiertas + PnL no realizado
         old_capital = safe_float(old_portfolio.get("capital_usd", 500))
+        _open_pos_old = [p for p in old_portfolio.get("positions", []) if p.get("status") == "open"]
+        _margins_old = sum(safe_float(p.get("margin_usd", 0)) for p in _open_pos_old)
+        _unreal_old  = sum(safe_float(p.get("pnl_usd", 0))    for p in _open_pos_old)
+        old_equity = round(old_capital + _margins_old + _unreal_old, 2)
+
         old_initial = safe_float(old_portfolio.get("initial_capital", 1000))
-        return_pct = ((old_capital - old_initial) / old_initial * 100) if old_initial > 0 else 0
-        
+        return_pct = ((old_equity - old_initial) / old_initial * 100) if old_initial > 0 else 0
+
         win_rate = (wins / total_trades * 100) if total_trades > 0 else 0
-        
+
         # Mejor y peor trade
-        pnls = [safe_float(t.get("pnl_usd", 0)) for t in old_history if t.get("status") == "closed"]
-        best_trade = max(pnls) if pnls else 0
+        pnls = [safe_float(t.get("pnl_usd", 0)) for t in _closed]
+        best_trade  = max(pnls) if pnls else 0
         worst_trade = min(pnls) if pnls else 0
         
         # Crear entrada de historial
@@ -3021,7 +3029,7 @@ def api_reset():
             "period_start": old_portfolio.get("created_at", "unknown"),
             "period_end": now,
             "initial_capital": old_initial,
-            "final_capital": old_capital,
+            "final_capital": old_equity,
             "return_pct": round(return_pct, 2),
             "total_pnl_usd": round(total_pnl, 2),
             "total_trades": total_trades,
