@@ -14,13 +14,17 @@ import threading
 import time as _time
 from datetime import datetime, timezone
 from pathlib import Path
-from flask import Flask, jsonify, render_template_string, request, Response
+from flask import Flask, jsonify, render_template_string, request, Response, send_from_directory
+import uuid
 
 app = Flask(__name__)
 
 # ── Data paths ───────────────────────────────────────────────────────────────
 BASE = Path(__file__).parent.parent
 DATA = BASE / "agents" / "data"
+RESET_ATTACHMENTS_DIR = DATA / "reset_attachments"
+RESET_ATTACHMENTS_DIR.mkdir(parents=True, exist_ok=True)
+ALLOWED_ATTACH_EXT = {'png', 'jpg', 'jpeg', 'gif', 'webp', 'pdf', 'txt', 'csv'}
 WATCHDOG_LOG = Path("/home/enderj/.config/solana-jupiter-bot/modular.log")
 
 def load_json(path):
@@ -318,6 +322,26 @@ DASHBOARD_HTML = r"""
   .reason-modal-body { font-size: 13px; line-height: 1.7; color: var(--text); white-space: pre-wrap; border-left: 3px solid var(--blue); padding-left: 12px; }
   .reason-modal-close { position: absolute; top: 14px; right: 16px; background: none; border: none; color: var(--text2); font-size: 18px; cursor: pointer; }
   .reason-modal-close:hover { color: var(--text); }
+  /* ── Reset Modal ── */
+  #resetModal{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:9999;align-items:center;justify-content:center;}
+  #resetModal.open{display:flex;}
+  .reset-modal-box{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:28px;max-width:520px;width:92%;max-height:90vh;overflow-y:auto;position:relative;}
+  .reset-modal-title{font-size:14px;font-weight:700;color:var(--orange);margin-bottom:20px;}
+  .reset-modal-field{margin-bottom:16px;}
+  .reset-modal-field label{display:block;font-size:11px;color:var(--text2);margin-bottom:5px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;}
+  .reset-modal-field input[type=number],.reset-modal-field textarea{width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:8px 10px;font-size:13px;box-sizing:border-box;}
+  .reset-modal-field textarea{resize:vertical;min-height:80px;font-family:inherit;}
+  .reset-drop-zone{border:2px dashed var(--border);border-radius:8px;padding:20px;text-align:center;cursor:pointer;color:var(--text2);font-size:12px;transition:border-color 0.2s;}
+  .reset-drop-zone.drag-over{border-color:var(--orange);color:var(--orange);}
+  .reset-drop-zone input[type=file]{display:none;}
+  .reset-file-list{margin-top:10px;display:flex;flex-direction:column;gap:4px;}
+  .reset-file-item{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--text2);background:var(--bg3);border-radius:4px;padding:4px 8px;}
+  .reset-file-item button{background:none;border:none;color:var(--red);cursor:pointer;font-size:14px;line-height:1;padding:0 2px;}
+  .reset-modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:20px;}
+  .reset-modal-actions button{padding:8px 20px;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;}
+  .reset-btn-cancel{background:var(--bg3);color:var(--text2);}
+  .reset-btn-confirm{background:var(--orange);color:#000;}
+  .reset-btn-confirm:disabled{opacity:0.4;cursor:not-allowed;}
 
   /* ── AI Thinking Modal ── */
   #aiThinkingModal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:10000; align-items:flex-start; justify-content:center; overflow-y:auto; padding:20px 0; }
@@ -624,6 +648,35 @@ DASHBOARD_HTML = r"""
     </div>
   </div>
 
+  <!-- RESET MODAL -->
+  <div id="resetModal" onclick="if(event.target===this)closeResetModal()">
+    <div class="reset-modal-box">
+      <button class="reason-modal-close" onclick="closeResetModal()">&#x2715;</button>
+      <div class="reset-modal-title">&#x1F504; Reset del Bot</div>
+      <div class="reset-modal-field">
+        <label>Capital inicial (USD)</label>
+        <input type="number" id="resetCapitalInput" value="200" min="100" step="50">
+      </div>
+      <div class="reset-modal-field">
+        <label>Motivo del reset</label>
+        <textarea id="resetNotesInput" placeholder="Describe por que estas reseteando: que salio mal, que vas a cambiar, que aprendiste..."></textarea>
+      </div>
+      <div class="reset-modal-field">
+        <label>Archivos adjuntos (capturas, PDFs, imagenes)</label>
+        <div class="reset-drop-zone" id="resetDropZone" onclick="document.getElementById('resetFileInput').click()">
+          <input type="file" id="resetFileInput" multiple accept="image/*,.pdf,.txt,.csv" onchange="handleResetFiles(this.files)">
+          &#x1F4CE; Arrastra archivos aqui o haz clic para seleccionar<br>
+          <span style="font-size:10px;opacity:0.6;">PNG, JPG, PDF, etc. &middot; Max 10 archivos &middot; 20MB c/u</span>
+        </div>
+        <div class="reset-file-list" id="resetFileList"></div>
+      </div>
+      <div class="reset-modal-actions">
+        <button class="reset-btn-cancel" onclick="closeResetModal()">Cancelar</button>
+        <button class="reset-btn-confirm" id="resetConfirmBtn" onclick="confirmReset()">Confirmar Reset</button>
+      </div>
+    </div>
+  </div>
+
   <!-- OPEN POSITIONS (moved up) -->
   <section>
     <div class="section-title" style="display:flex;align-items:center;justify-content:space-between;">
@@ -877,29 +930,81 @@ async function refreshAll() {
   }
 }
 
-async function resetBot() {
-  const capital = prompt('¿Capital inicial para resetear? (USD)', '500');
-  if (!capital) return;
-  
-  const capitalNum = parseFloat(capital);
-  if (isNaN(capitalNum) || capitalNum < 100) {
-    alert(TRANSLATIONS[currentLang].invalidCapital);
-    return;
+let _resetFiles = [];
+
+function openResetModal() {
+  _resetFiles = [];
+  document.getElementById('resetFileList').innerHTML = '';
+  document.getElementById('resetNotesInput').value = '';
+  document.getElementById('resetCapitalInput').value = '200';
+  document.getElementById('resetModal').classList.add('open');
+  setTimeout(() => document.getElementById('resetCapitalInput').focus(), 100);
+}
+function closeResetModal() {
+  document.getElementById('resetModal').classList.remove('open');
+}
+async function resetBot() { openResetModal(); }
+
+function handleResetFiles(files) {
+  for (const f of Array.from(files)) {
+    if (_resetFiles.length >= 10) break;
+    if (f.size > 20 * 1024 * 1024) { alert(f.name + ': demasiado grande (max 20MB)'); continue; }
+    if (!_resetFiles.find(x => x.name === f.name)) _resetFiles.push(f);
   }
-  
-  if (!confirm(TRANSLATIONS[currentLang].confirmReset.replace('${capital}', '$' + capitalNum))) {
-    return;
-  }
-  
+  renderResetFileList();
+}
+function renderResetFileList() {
+  const list = document.getElementById('resetFileList');
+  list.innerHTML = _resetFiles.map((f, i) =>
+    `<div class="reset-file-item">
+      <span>${_fileIcon(f.name)}</span>
+      <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escHtml(f.name)}</span>
+      <span style="color:var(--text2);flex-shrink:0">${(f.size/1024).toFixed(0)}KB</span>
+      <button onclick="_resetFiles.splice(${i},1);renderResetFileList()" title="Quitar">&#x2715;</button>
+    </div>`).join('');
+}
+function _fileIcon(name) {
+  const ext = (name.split('.').pop()||'').toLowerCase();
+  if (['png','jpg','jpeg','gif','webp'].includes(ext)) return '🖼';
+  if (ext === 'pdf') return '📄';
+  return '📎';
+}
+
+// Drag & drop setup — called once on DOMContentLoaded (see below)
+function _initResetDrop() {
+  const zone = document.getElementById('resetDropZone');
+  if (!zone) return;
+  zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag-over'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+  zone.addEventListener('drop', e => {
+    e.preventDefault(); zone.classList.remove('drag-over');
+    handleResetFiles(e.dataTransfer.files);
+  });
+}
+
+async function confirmReset() {
+  const capitalNum = parseFloat(document.getElementById('resetCapitalInput').value);
+  const notes = document.getElementById('resetNotesInput').value.trim();
+  if (isNaN(capitalNum) || capitalNum < 100) { alert(TRANSLATIONS[currentLang].invalidCapital); return; }
+  const btn = document.getElementById('resetConfirmBtn');
+  btn.disabled = true; btn.textContent = 'Procesando...';
   try {
+    let attachments = [];
+    if (_resetFiles.length > 0) {
+      const fd = new FormData();
+      _resetFiles.forEach(f => fd.append('files', f));
+      const up = await fetch('/api/reset-upload', { method: 'POST', body: fd });
+      const upd = await up.json();
+      attachments = upd.files || [];
+    }
     const r = await fetch('/api/reset', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ capital: capitalNum })
+      body: JSON.stringify({ capital: capitalNum, notes, attachments })
     });
     const d = await r.json();
-    
     if (d.success) {
+      closeResetModal();
       alert(TRANSLATIONS[currentLang].resetSuccess.replace('${capital}', '$' + capitalNum));
       location.reload();
     } else {
@@ -907,6 +1012,8 @@ async function resetBot() {
     }
   } catch(e) {
     alert('❌ Error de conexión: ' + e.message);
+  } finally {
+    btn.disabled = false; btn.textContent = 'Confirmar Reset';
   }
 }
 
@@ -1353,7 +1460,7 @@ function closeReasonModal() {
   document.getElementById('reasonModal').classList.remove('open');
 }
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') { closeReasonModal(); closeAIThinking(); }
+  if (e.key === 'Escape') { closeReasonModal(); closeAIThinking(); closeResetModal(); }
 });
 
 // ── AI Thinking Modal ────────────────────────────────────────────────
@@ -1581,6 +1688,28 @@ async function loadLog() {
   el.scrollTop = el.scrollHeight;
 }
 
+let _resetHistoryData = [];
+
+function showResetDetail(idx) {
+  const h = _resetHistoryData[idx];
+  if (!h) return;
+  const dateStr = new Date(h.reset_date).toLocaleString();
+  document.getElementById('rmSym').textContent = dateStr + '  ·  $' + (h.initial_capital||0).toFixed(0) + ' → $' + (h.new_capital||0).toFixed(0);
+  document.getElementById('rmType').textContent = 'Reset — ' + (h.reason || 'Manual');
+  let body = (h.notes && h.notes.trim()) ? h.notes : '(sin notas)';
+  if (h.attachments && h.attachments.length) {
+    body += '\n\n📎 Archivos adjuntos (' + h.attachments.length + '):\n';
+    h.attachments.forEach(f => {
+      const name = f.split('/').pop();
+      const ext = (name.split('.').pop()||'').toLowerCase();
+      const isImg = ['png','jpg','jpeg','gif','webp'].includes(ext);
+      body += (isImg ? '🖼 ' : '📄 ') + name + '  →  /api/reset-file/' + f + '\n';
+    });
+  }
+  document.getElementById('rmBody').textContent = body;
+  document.getElementById('reasonModal').classList.add('open');
+}
+
 async function loadResetHistory() {
   const r = await fetch('/api/reset-history');
   const d = await r.json();
@@ -1593,6 +1722,7 @@ async function loadResetHistory() {
   
   // Ordenar por fecha (más reciente primero)
   const history = d.history.sort((a, b) => new Date(b.reset_date) - new Date(a.reset_date));
+  _resetHistoryData = history;
   
   let html = `<table>
     <thead>
@@ -1622,9 +1752,13 @@ async function loadResetHistory() {
     const worst = h.worst_trade_usd || 0;
     const flat = h.flat || 0;
 
+    const hasNotes = h.notes && h.notes.trim();
+    const hasFiles = h.attachments && h.attachments.length > 0;
+    const notesBadge = hasNotes ? `<span title="${escHtml(h.notes)}" style="cursor:help;color:var(--yellow);margin-left:4px;">💬</span>` : '';
+    const filesBadge = hasFiles ? `<span onclick="showResetDetail(${i})" style="cursor:pointer;color:var(--blue);margin-left:4px;" title="Ver adjuntos">📎${h.attachments.length}</span>` : '';
     html += `<tr>
       <td><strong>${num}</strong></td>
-      <td>${date}</td>
+      <td>${date}${notesBadge}${filesBadge}</td>
       <td>$${(h.initial_capital||0).toFixed(2)}</td>
       <td>$${(h.final_capital||0).toFixed(2)}</td>
       <td class="${returnCls}">${returnSign}${ret.toFixed(2)}%</td>
@@ -1995,7 +2129,7 @@ function toggleLang() {
   applyLang();
 }
 
-document.addEventListener('DOMContentLoaded', applyLang);
+document.addEventListener('DOMContentLoaded', () => { applyLang(); _initResetDrop(); });
 
 let chatSSE = null;
 let chatLastCount = 0;
@@ -3141,7 +3275,9 @@ def api_reset():
             "best_trade_usd": round(best_trade, 2),
             "worst_trade_usd": round(worst_trade, 2),
             "new_capital": capital,
-            "reason": data.get("reason", "Manual reset")
+            "reason": data.get("reason", "Manual reset"),
+            "notes": data.get("notes", "").strip(),
+            "attachments": data.get("attachments", [])
         }
         
         # Cargar historial existente y agregar
@@ -3393,6 +3529,33 @@ def api_agent_notes_stream():
 
 
 CHAT_STATE_FILE = DATA / "chat_agent_state.json"
+
+@app.route('/api/reset-upload', methods=['POST'])
+def api_reset_upload():
+    """Sube archivos adjuntos para un reset y los guarda en reset_attachments/."""
+    import werkzeug.utils
+    files = request.files.getlist('files')
+    if not files:
+        return jsonify({'files': []})
+    session_id = datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S') + '_' + uuid.uuid4().hex[:6]
+    upload_dir = RESET_ATTACHMENTS_DIR / session_id
+    upload_dir.mkdir(parents=True, exist_ok=True)
+    saved = []
+    for f in files[:10]:
+        if f.filename and '.' in f.filename:
+            ext = f.filename.rsplit('.', 1)[1].lower()
+            if ext in ALLOWED_ATTACH_EXT:
+                safe_name = werkzeug.utils.secure_filename(f.filename)
+                f.save(str(upload_dir / safe_name))
+                saved.append(f'{session_id}/{safe_name}')
+    return jsonify({'files': saved, 'session_id': session_id})
+
+
+@app.route('/api/reset-file/<path:filepath>')
+def api_reset_file(filepath):
+    """Sirve un archivo adjunto de reset."""
+    return send_from_directory(str(RESET_ATTACHMENTS_DIR), filepath)
+
 
 @app.route('/api/set-language', methods=['POST'])
 def api_set_language():
