@@ -546,6 +546,7 @@ DASHBOARD_HTML = r"""
     </div>
     <div class="last-update" id="lastUpdate">Actualizado: —</div>
     <button class="btn-refresh" onclick="refreshAll()">⟳ Refresh</button>
+    <button id="langToggle" onclick="toggleLang()" style="font-size:12px;padding:4px 10px;background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:6px;cursor:pointer;font-weight:600;">🇬🇧 EN</button>
     <button class="btn-reset" onclick="resetBot()">🔄 Reset</button>
   </div>
 </div>
@@ -626,7 +627,7 @@ DASHBOARD_HTML = r"""
   <!-- OPEN POSITIONS (moved up) -->
   <section>
     <div class="section-title" style="display:flex;align-items:center;justify-content:space-between;">
-      <span>⚡ Posiciones Abiertas</span>
+      <span data-i18n="openPositions">⚡ Posiciones Abiertas</span>
       <div style="display:flex;align-items:center;gap:10px;">
         <span id="totalPnlBadge" style="font-size:16px;font-weight:700;padding:4px 12px;border-radius:8px;background:var(--bg3);"></span>
         <div style="display:flex;align-items:center;gap:6px;">
@@ -642,39 +643,39 @@ DASHBOARD_HTML = r"""
           <span id="pnlTargetStatus" style="font-size:10px;color:var(--text2);"></span>
         </div>
         <button onclick="openAIThinking()" id="aiThinkingBtn" style="font-size:11px;padding:4px 12px;background:linear-gradient(135deg,#bc8cff,#58a6ff);color:#000;border:none;border-radius:6px;cursor:pointer;font-weight:700;letter-spacing:0.3px;">🧠 Qué está pensando la IA</button>
-        <button onclick="closeAllPositions()" style="font-size:11px;padding:4px 12px;background:var(--red);color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:600;">Cerrar Todas</button>
+        <button onclick="closeAllPositions()" style="font-size:11px;padding:4px 12px;background:var(--red);color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:600;" data-i18n="closeAll">Cerrar Todas</button>
       </div>
     </div>
     <div class="card">
       <div class="table-wrap" id="positionsTable">
-        <div class="empty">Cargando posiciones...</div>
+        <div class="empty" data-i18n="loadingPositions">Cargando posiciones...</div>
       </div>
     </div>
   </section>
 
   <!-- TRADE HISTORY -->
   <section>
-    <div class="section-title">📋 Historial de Trades</div>
+    <div class="section-title"><span data-i18n="tradeHistory">📋 Historial de Trades</span></div>
     <div class="card">
       <div class="filters">
         <select id="filterSymbol" onchange="filterTrades()">
-          <option value="">Todos los símbolos</option>
+          <option value="" data-i18n="allSymbols">Todos los símbolos</option>
         </select>
         <select id="filterResult" onchange="filterTrades()">
-          <option value="">Todos los resultados</option>
-          <option value="win">Ganadores</option>
-          <option value="loss">Perdedores</option>
-          <option value="flat">Sin cambio (FLAT)</option>
-          <option value="nonflat">Solo W/L (excl. FLAT)</option>
+          <option value="" data-i18n="allResults">Todos los resultados</option>
+          <option value="win" data-i18n="winners">Ganadores</option>
+          <option value="loss" data-i18n="losers">Perdedores</option>
+          <option value="flat" data-i18n="flat">Sin cambio (FLAT)</option>
+          <option value="nonflat" data-i18n="nonFlat">Solo W/L (excl. FLAT)</option>
         </select>
         <select id="filterDir" onchange="filterTrades()">
-          <option value="">Long &amp; Short</option>
+          <option value="" data-i18n="longShort">Long &amp; Short</option>
           <option value="long">Long</option>
           <option value="short">Short</option>
         </select>
       </div>
       <div class="table-wrap" id="tradesTable">
-        <div class="empty">Cargando trades...</div>
+        <div class="empty" data-i18n="loadingTrades">Cargando trades...</div>
       </div>
       <div class="pagination" id="tradesPagination"></div>
     </div>
@@ -685,7 +686,7 @@ DASHBOARD_HTML = r"""
     <div class="grid-2">
       <!-- Equity Curve -->
       <div class="card" style="grid-column: span 1;">
-        <div class="card-title"><span class="icon">📈</span> Equity Curve</div>
+        <div class="card-title"><span class="icon">📈</span> <span data-i18n="equityCurve">Equity Curve</span></div>
         <div class="chart-toolbar">
           <button class="tb-btn active" onclick="setEquityRange('all', this)">All</button>
           <button class="tb-btn" onclick="setEquityRange(50, this)">50T</button>
@@ -702,13 +703,13 @@ DASHBOARD_HTML = r"""
       <!-- Right column: pie + bar -->
       <div style="display:flex; flex-direction:column; gap:16px;">
         <div class="card">
-          <div class="card-title"><span class="icon">🥧</span> Wins vs Losses</div>
+          <div class="card-title"><span class="icon">🥧</span> <span data-i18n="winsVsLosses">Wins vs Losses</span></div>
           <div class="chart-container chart-sm">
             <canvas id="pieChart"></canvas>
           </div>
         </div>
         <div class="card">
-          <div class="card-title"><span class="icon">📊</span> P&amp;L por Símbolo</div>
+          <div class="card-title"><span class="icon">📊</span> <span data-i18n="pnlBySymbol">P&amp;L por Símbolo</span></div>
           <div class="chart-container chart-sm">
             <canvas id="symbolChart"></canvas>
           </div>
@@ -720,7 +721,7 @@ DASHBOARD_HTML = r"""
   <!-- P&L HISTOGRAM -->
   <section>
     <div class="card">
-      <div class="card-title"><span class="icon">📉</span> Distribución de P&amp;L por Trade</div>
+      <div class="card-title"><span class="icon">📉</span> <span data-i18n="pnlDistribution">Distribución de P&amp;L por Trade</span></div>
       <div class="chart-container chart-md">
         <canvas id="histChart"></canvas>
       </div>
@@ -730,42 +731,42 @@ DASHBOARD_HTML = r"""
 
   <!-- RESET HISTORY -->
   <section>
-    <div class="section-title">📊 Historial de Resets</div>
+    <div class="section-title" data-i18n="resetHistory">📊 Historial de Resets</div>
     <div class="card">
       <div class="table-wrap" id="resetHistoryTable">
-        <div class="empty">Sin resets registrados</div>
+        <div class="empty" data-i18n="noResets">Sin resets registrados</div>
       </div>
     </div>
   </section>
 
   <!-- AGENT CHAT -->
   <section class="chat-section">
-    <div class="section-title">💬 Agente de Trading — Chat en Vivo</div>
+    <div class="section-title" data-i18n="chatTitle">💬 Agente de Trading — Chat en Vivo</div>
     <div class="chat-card">
       <div class="chat-header">
-        <span>🤖 <strong>Solana Trading Agent</strong></span>
+        <span>🤖 <strong data-i18n="agentName">Solana Trading Agent</strong></span>
         <div style="display:flex;align-items:center;gap:8px;">
           <span class="chat-badge" id="chatBadge">0 notas</span>
           <button onclick="clearChat()" title="Limpiar chat — el historial queda guardado para el agente"
-            style="font-size:10px;padding:2px 8px;background:var(--bg);border:1px solid var(--border);color:var(--text2);border-radius:4px;cursor:pointer;">🗑 Limpiar</button>
+            style="font-size:10px;padding:2px 8px;background:var(--bg);border:1px solid var(--border);color:var(--text2);border-radius:4px;cursor:pointer;" data-i18n="clearChat">🗑 Limpiar</button>
         </div>
       </div>
       <div class="chat-messages" id="chatMessages">
-        <div class="empty">Conectando con el agente...</div>
+        <div class="empty" data-i18n="connectingAgent">Conectando con el agente...</div>
       </div>
       <div class="typing-wrap" id="chatTyping">
         <div class="typing-label">🤖 Agente</div>
         <div class="typing-row">
           <div class="typing-dots"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
-          <span class="typing-text" id="chatTypingText">Pensando...</span>
+          <span class="typing-text" id="chatTypingText" data-i18n="thinking">Pensando...</span>
         </div>
       </div>
       <div class="chat-input-row">
-        <input type="text" id="chatInput" placeholder="Escribe una nota o pregunta al agente..." maxlength="500"
+        <input type="text" id="chatInput" placeholder="Escribe una nota o pregunta al agente..." data-i18n-placeholder="chatPlaceholder" maxlength="500"
                onkeydown="if(event.key==='Enter')sendChatNote()">
-        <button onclick="sendChatNote()" id="chatSendBtn">Enviar ▸</button>
+        <button onclick="sendChatNote()" id="chatSendBtn" data-i18n="send">Enviar ▸</button>
       </div>
-      <div class="chat-hint">🚀 El agente responde automáticamente. Presiona Enter para enviar.</div>
+      <div class="chat-hint" data-i18n="chatHint">🚀 El agente responde automáticamente. Presiona Enter para enviar.</div>
     </div>
   </section>
 
@@ -774,16 +775,16 @@ DASHBOARD_HTML = r"""
     <div class="grid-2">
       <!-- Watchdog Log -->
       <div class="card">
-        <div class="card-title"><span class="icon">🔍</span> Watchdog Log</div>
+        <div class="card-title"><span class="icon">🔍</span> <span data-i18n="watchdogLog">Watchdog Log</span></div>
         <div class="log-container" id="logContainer">
           <div class="log-info">Cargando log...</div>
         </div>
-        <div class="log-auto">🔄 Auto-refresh cada 30s</div>
+        <div class="log-auto" data-i18n="autoRefresh">🔄 Auto-refresh cada 30s</div>
       </div>
 
       <!-- Advanced Metrics -->
       <div class="card">
-        <div class="card-title"><span class="icon">🧮</span> Métricas Avanzadas</div>
+        <div class="card-title"><span class="icon">🧮</span> <span data-i18n="advancedMetrics">Métricas Avanzadas</span></div>
         <div id="advancedMetrics">
           <div class="metric-row">
             <span class="metric-label">Sharpe Ratio</span>
@@ -882,11 +883,11 @@ async function resetBot() {
   
   const capitalNum = parseFloat(capital);
   if (isNaN(capitalNum) || capitalNum < 100) {
-    alert('Capital inválido (mínimo $100)');
+    alert(TRANSLATIONS[currentLang].invalidCapital);
     return;
   }
   
-  if (!confirm(`⚠️ ¿Resetear el bot a $${capitalNum}?\n\nEsto borrará TODO el historial de trades.`)) {
+  if (!confirm(TRANSLATIONS[currentLang].confirmReset.replace('${capital}', '$' + capitalNum))) {
     return;
   }
   
@@ -899,7 +900,7 @@ async function resetBot() {
     const d = await r.json();
     
     if (d.success) {
-      alert(`✅ Bot reseteado a $${capitalNum}\n\nLa página se recargará.`);
+      alert(TRANSLATIONS[currentLang].resetSuccess.replace('${capital}', '$' + capitalNum));
       location.reload();
     } else {
       alert('❌ Error: ' + (d.error || 'Unknown'));
@@ -937,7 +938,7 @@ async function loadStats() {
   const pnlCard = document.getElementById('kpiPnlCard');
   pnlEl.textContent = (pnl >= 0 ? '+' : '') + fmt$(pnl);
   pnlEl.className = 'kpi-value ' + (pnl >= 0 ? 'pos' : 'neg');
-  const unrealized_val = d.unrealized_pnl || 0; pnlSubEl.textContent = "Unrealized: " + (unrealized_val >= 0 ? "+" : "") + fmt$(unrealized_val);
+  const unrealized_val = d.unrealized_pnl || 0; pnlSubEl.textContent = TRANSLATIONS[currentLang].unrealized + ": " + (unrealized_val >= 0 ? "+" : "") + fmt$(unrealized_val);
   pnlSubEl.className = 'kpi-sub ' + (pnl >= 0 ? 'pos' : 'neg');
   pnlCard.className = 'kpi-card ' + (pnl >= 0 ? 'positive' : 'negative');
 
@@ -971,7 +972,7 @@ async function loadStats() {
 
   const op = d.open_positions;
   document.getElementById('kpiPos').textContent = op;
-  document.getElementById('kpiPosSub').textContent = op === 0 ? 'sin exposición' : `$${fmtNum(d.total_exposure_usd, 0)} exp.`;
+  document.getElementById('kpiPosSub').textContent = op === 0 ? TRANSLATIONS[currentLang].noExposure : `$${fmtNum(d.total_exposure_usd, 0)} exp.`;
 
   // Advanced metrics
   document.getElementById('mSharpe').textContent = fmtNum(d.sharpe_ratio, 3);
@@ -1127,7 +1128,7 @@ async function toggleWildMode() {
     const targetMode = _pnlTarget > 0
       ? `con target $${_pnlTarget.toFixed(2)} (cierra al alcanzar)`
       : `SIN target — la IA decidirá cuándo cerrar según mercado`;
-    if (!confirm(`Activar MODO SALVAJE ${targetMode}?\n\nLa IA abrirá coberturas martingala automáticamente.\n\nCap duro: 4x del margen original por chain, 60% equity total.\nDrawdown máximo: 15% — luego abandona todo.\n\n¿Confirmar?`)) {
+    if (!confirm(TRANSLATIONS[currentLang].confirmWildOn)) {
       sw.checked = false;
       return;
     }
@@ -1150,7 +1151,7 @@ async function toggleWildMode() {
       sw.checked = false;
     }
   } else {
-    if (!confirm('Desactivar Modo Salvaje? (las posiciones quedan abiertas)')) {
+    if (!confirm(TRANSLATIONS[currentLang].confirmWildOff)) {
       sw.checked = true;
       return;
     }
@@ -1193,14 +1194,14 @@ async function autoCloseAllPositions() {
   } catch(e) { console.error(e); }
 }
 async function closeAllPositions() {
-  if (!confirm('¿Cerrar TODAS las posiciones abiertas?')) return;
+  if (!confirm(TRANSLATIONS[currentLang].confirmCloseAll)) return;
   try {
     await fetch('/api/close-all', { method: 'POST' });
     refreshAll();
   } catch(e) { alert('Error: ' + e); }
 }
 async function closePosition(symbol) {
-  if (!confirm('¿Cerrar posición de ' + symbol + '?')) return;
+  if (!confirm(TRANSLATIONS[currentLang].confirmCloseOne.replace('${symbol}', symbol))) return;
   try {
     await fetch('/api/close-position', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({symbol: symbol}) });
     refreshAll();
@@ -1224,7 +1225,7 @@ async function loadPositionsRealtime() {
 function renderPositions(d) {
   const wrap = document.getElementById('positionsTable');
   if (!d.positions || d.positions.length === 0) {
-    wrap.innerHTML = '<div class="empty">⚡ Sin posiciones abiertas en este momento</div>';
+    wrap.innerHTML = `<div class="empty">${TRANSLATIONS[currentLang].noOpenPositions}</div>`;
     return;
   }
   let html = `<table><thead><tr>
@@ -1586,7 +1587,7 @@ async function loadResetHistory() {
   const el = document.getElementById('resetHistoryTable');
   
   if (!d.history || d.history.length === 0) {
-    el.innerHTML = '<div class="empty">Sin resets registrados — el historial aparecerá después del primer reset</div>';
+    el.innerHTML = `<div class="empty">${TRANSLATIONS[currentLang].noResets}</div>`;
     return;
   }
   
@@ -1660,7 +1661,7 @@ function populateFilters() {
   const symbols = [...new Set(allTrades.map(t => t.symbol))].sort();
   const sel = document.getElementById('filterSymbol');
   const current = sel.value;
-  sel.innerHTML = '<option value="">Todos los símbolos</option>';
+  sel.innerHTML = `<option value="">${TRANSLATIONS[currentLang].allSymbols}</option>`;
   symbols.forEach(s => sel.innerHTML += `<option value="${s}" ${s === current ? 'selected' : ''}>${s}</option>`);
 }
 
@@ -1737,13 +1738,13 @@ function renderTradesPage() {
   // Pagination
   const totalPages = Math.ceil(filteredTrades.length / PAGE_SIZE);
   let pg = `<span class="page-info">${filteredTrades.length} trades · Pág ${currentPage}/${totalPages}</span>`;
-  if (currentPage > 1) pg += `<button class="page-btn" onclick="goPage(${currentPage-1})">← Anterior</button>`;
+  if (currentPage > 1) pg += `<button class="page-btn" onclick="goPage(${currentPage-1})">← ${TRANSLATIONS[currentLang].prev}</button>`;
   // page numbers
   const from = Math.max(1, currentPage - 2), to = Math.min(totalPages, currentPage + 2);
   for (let p = from; p <= to; p++) {
     pg += `<button class="page-btn ${p===currentPage?'active':''}" onclick="goPage(${p})">${p}</button>`;
   }
-  if (currentPage < totalPages) pg += `<button class="page-btn" onclick="goPage(${currentPage+1})">Siguiente →</button>`;
+  if (currentPage < totalPages) pg += `<button class="page-btn" onclick="goPage(${currentPage+1})">${TRANSLATIONS[currentLang].next} →</button>`;
   document.getElementById('tradesPagination').innerHTML = pg;
 }
 
@@ -1765,12 +1766,12 @@ function initCharts() {
       backgroundColor: 'rgba(88,166,255,0.08)',
       tension: 0.3, pointRadius: 0, pointHoverRadius: 4
     },{
-      label: 'Ganadores',
+      label: TRANSLATIONS[currentLang].winners,
       data: [], type: 'scatter',
       backgroundColor: 'rgba(63,185,80,0.8)',
       pointStyle: 'triangle', pointRadius: 5, showLine: false
     },{
-      label: 'Perdedores',
+      label: TRANSLATIONS[currentLang].losers,
       data: [], type: 'scatter',
       backgroundColor: 'rgba(248,81,73,0.8)',
       pointStyle: 'rectRot', pointRadius: 4, showLine: false
@@ -1808,7 +1809,7 @@ function initCharts() {
   pieChart = new Chart(pieCtx, {
     type: 'doughnut',
     data: {
-      labels: ['Ganadores', 'Perdedores'],
+      labels: [TRANSLATIONS[currentLang].winners, TRANSLATIONS[currentLang].losers],
       datasets: [{ data: [0,0], backgroundColor: ['rgba(63,185,80,0.8)','rgba(248,81,73,0.8)'], borderWidth: 2, borderColor: '#161b22' }]
     },
     options: {
@@ -1905,6 +1906,97 @@ function escHtml(str) {
 }
 
 // ── Agent Chat (SSE real-time) ────────────────────────────────────────────
+const TRANSLATIONS = {
+  es: {
+    tradeHistory:"📋 Historial de Trades", openPositions:"⚡ Posiciones Abiertas",
+    equityCurve:"📈 Equity Curve", winsVsLosses:"🥧 Wins vs Losses",
+    pnlBySymbol:"📊 P&L por Símbolo", pnlDistribution:"📉 Distribución de P&L por Trade",
+    resetHistory:"📊 Historial de Resets", chatTitle:"💬 Agente de Trading — Chat en Vivo",
+    advancedMetrics:"🧮 Métricas Avanzadas", watchdogLog:"🔍 Watchdog Log",
+    agentName:"Solana Trading Agent",
+    closeAll:"Cerrar Todas", close:"Cerrar", send:"Enviar ▸", clearChat:"🗑 Limpiar",
+    aiThinking:"🧠 Qué está pensando la IA",
+    allSymbols:"Todos los símbolos", allResults:"Todos los resultados",
+    winners:"Ganadores", losers:"Perdedores",
+    flat:"Sin cambio (FLAT)", nonFlat:"Solo W/L (excl. FLAT)", longShort:"Long & Short",
+    loadingPositions:"Cargando posiciones...", loadingTrades:"Cargando trades...",
+    connectingAgent:"Conectando con el agente...", noResets:"Sin resets registrados",
+    noNotes:"Sin notas aún. El agente dejará actualizaciones aquí.",
+    noTrades:"Sin trades que mostrar", noOpenPositions:"⚡ Sin posiciones abiertas en este momento",
+    thinking:"Pensando...", analyzingPos:"Analizando posiciones...",
+    reviewingMarket:"Revisando mercado...", preparingResp:"Preparando respuesta...", writing:"Escribiendo...",
+    chatHint:"🚀 El agente responde automáticamente. Presiona Enter para enviar.",
+    chatPlaceholder:"Escribe una nota o pregunta al agente...",
+    notes:"notas", note:"nota", autoRefresh:"🔄 Auto-refresh cada 30s",
+    invalidCapital:"Capital inválido (mínimo $100)",
+    confirmReset:"⚠️ ¿Resetear el bot a ${capital}?\n\nEsto borrará TODO el historial de trades.",
+    resetSuccess:"✅ Bot reseteado a ${capital}\n\nLa página se recargará.",
+    confirmCloseAll:"¿Cerrar TODAS las posiciones abiertas?",
+    confirmCloseOne:"¿Cerrar posición de ${symbol}?",
+    confirmClearChat:"¿Limpiar el chat?\nEl historial queda guardado para el agente.",
+    confirmWildOn:"Activar MODO SALVAJE?\n\nLa IA abrirá coberturas martingala automáticamente.",
+    confirmWildOff:"¿Desactivar Modo Salvaje? (las posiciones quedan abiertas)",
+    unrealized:"Unrealized", noExposure:"sin exposición", prev:"Anterior", next:"Siguiente",
+  },
+  en: {
+    tradeHistory:"📋 Trade History", openPositions:"⚡ Open Positions",
+    equityCurve:"📈 Equity Curve", winsVsLosses:"🥧 Wins vs Losses",
+    pnlBySymbol:"📊 P&L by Symbol", pnlDistribution:"📉 P&L Distribution per Trade",
+    resetHistory:"📊 Reset History", chatTitle:"💬 Trading Agent — Live Chat",
+    advancedMetrics:"🧮 Advanced Metrics", watchdogLog:"🔍 Watchdog Log",
+    agentName:"Solana Trading Agent",
+    closeAll:"Close All", close:"Close", send:"Send ▸", clearChat:"🗑 Clear",
+    aiThinking:"🧠 What is the AI thinking",
+    allSymbols:"All symbols", allResults:"All results",
+    winners:"Winners", losers:"Losers",
+    flat:"No change (FLAT)", nonFlat:"W/L only (excl. FLAT)", longShort:"Long & Short",
+    loadingPositions:"Loading positions...", loadingTrades:"Loading trades...",
+    connectingAgent:"Connecting to agent...", noResets:"No resets recorded",
+    noNotes:"No notes yet. The agent will leave updates here.",
+    noTrades:"No trades to show", noOpenPositions:"⚡ No open positions at this time",
+    thinking:"Thinking...", analyzingPos:"Analyzing positions...",
+    reviewingMarket:"Reviewing market...", preparingResp:"Preparing response...", writing:"Writing...",
+    chatHint:"🚀 The agent responds automatically. Press Enter to send.",
+    chatPlaceholder:"Write a note or question to the agent...",
+    notes:"notes", note:"note", autoRefresh:"🔄 Auto-refresh every 30s",
+    invalidCapital:"Invalid capital (minimum $100)",
+    confirmReset:"⚠️ Reset bot to ${capital}?\n\nThis will erase ALL trade history.",
+    resetSuccess:"✅ Bot reset to ${capital}\n\nPage will reload.",
+    confirmCloseAll:"Close ALL open positions?",
+    confirmCloseOne:"Close position for ${symbol}?",
+    confirmClearChat:"Clear chat?\nHistory is saved for the agent.",
+    confirmWildOn:"Activate WILD MODE?\n\nThe AI will open martingale hedges automatically.",
+    confirmWildOff:"Deactivate Wild Mode? (positions remain open)",
+    unrealized:"Unrealized", noExposure:"no exposure", prev:"Previous", next:"Next",
+  }
+};
+
+let currentLang = localStorage.getItem('lang') || 'es';
+
+function applyLang() {
+  const t = TRANSLATIONS[currentLang];
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    if (t[key] !== undefined) el.textContent = t[key];
+  });
+  document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+    const key = el.getAttribute('data-i18n-placeholder');
+    if (t[key] !== undefined) el.placeholder = t[key];
+  });
+  const btn = document.getElementById('langToggle');
+  if (btn) btn.textContent = currentLang === 'es' ? '🇬🇧 EN' : '🇪🇸 ES';
+  fetch('/api/set-language', {method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({language: currentLang})}).catch(()=>{});
+}
+
+function toggleLang() {
+  currentLang = currentLang === 'es' ? 'en' : 'es';
+  localStorage.setItem('lang', currentLang);
+  applyLang();
+}
+
+document.addEventListener('DOMContentLoaded', applyLang);
+
 let chatSSE = null;
 let chatLastCount = 0;
 let chatTypingInterval = null;
@@ -1912,9 +2004,9 @@ let chatTypingInterval = null;
 function renderChat(notes){
   const msgs = notes.messages || [];
   const count = msgs.length;
-  document.getElementById('chatBadge').textContent = count + ' ' + (count===1?'nota':'notas');
+  const t_b=TRANSLATIONS[currentLang]; document.getElementById('chatBadge').textContent = count + ' ' + (count===1?t_b.note:t_b.notes);
   if(count===0){
-    document.getElementById('chatMessages').innerHTML='<div class="empty">Sin notas aún. El agente dejará actualizaciones aquí.</div>';
+    document.getElementById('chatMessages').innerHTML=`<div class="empty">${TRANSLATIONS[currentLang].noNotes}</div>`;
     return;
   }
   let h='';
@@ -1945,7 +2037,7 @@ function showChatTyping(show){
     const box = document.getElementById('chatMessages');
     box.scrollTop = box.scrollHeight;
     if(!chatTypingInterval){
-      const statuses=['Pensando...','Analizando posiciones...','Revisando mercado...','Preparando respuesta...','Escribiendo...'];
+      const t_s=TRANSLATIONS[currentLang]; const statuses=[t_s.thinking, t_s.analyzingPos, t_s.reviewingMarket, t_s.preparingResp, t_s.writing];
       let idx=0;
       chatTypingInterval = setInterval(()=>{
         idx=(idx+1)%statuses.length;
@@ -1959,7 +2051,7 @@ function showChatTyping(show){
 }
 
 async function clearChat(){
-  if(!confirm('¿Limpiar el chat?\nEl historial queda guardado para el agente.')) return;
+  if(!confirm(TRANSLATIONS[currentLang].confirmClearChat)) return;
   await fetch('/api/chat/clear',{method:'POST'});
   // SSE detecta el cambio y llama renderChat() automaticamente
 }
@@ -3301,6 +3393,23 @@ def api_agent_notes_stream():
 
 
 CHAT_STATE_FILE = DATA / "chat_agent_state.json"
+
+@app.route('/api/set-language', methods=['POST'])
+def api_set_language():
+    """Guarda preferencia de idioma en user_profile para el chat agent."""
+    data = request.get_json() or {}
+    lang = data.get('language', 'es')
+    if lang not in ('es', 'en'):
+        return jsonify({'error': 'invalid language'}), 400
+    profile_file = DATA / "user_profile.json"
+    profile = {}
+    if profile_file.exists():
+        try: profile = json.loads(profile_file.read_text())
+        except: pass
+    profile['language'] = lang
+    profile_file.write_text(json.dumps(profile, ensure_ascii=False, indent=2))
+    return jsonify({'ok': True})
+
 
 @app.route('/api/chat/clear', methods=['POST'])
 def api_chat_clear():

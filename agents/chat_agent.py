@@ -360,7 +360,7 @@ def handle_onboarding(text, profile):
 # ── Build Enhanced Prompt ────────────────────────────────────────
 SYSTEM_PROMPT = dedent("""\
     Eres el Agente de Trading Inteligente del Solana Cripto Trader.
-    Tu nombre es "Solana Trading Agent". Hablas en español.
+    Tu nombre es "Solana Trading Agent". {lang_instruction}
 
     ## USUARIO
     Nombre: {user_name}
@@ -428,7 +428,10 @@ def build_prompt(user_msg, ctx):
     sl = params.get("sl_pct", 0.025) * 100
     tp = params.get("tp_pct", 0.08) * 100
 
+    _lang = profile.get("language", "es")
+    _lang_instr = "Responde siempre en español." if _lang == "es" else "Always respond in English."
     system = SYSTEM_PROMPT.format(
+        lang_instruction=_lang_instr,
         user_name=profile.get("name", "Trader"),
         risk_profile=profile.get("risk_profile", "moderado"),
         capital=ctx.get("capital", 0),
@@ -490,6 +493,7 @@ def get_response(user_msg):
     if cmd_result:
         return cmd_result
 
+    profile = ctx.get("profile", {})
     prompt = build_prompt(user_msg, ctx)
 
     # Try Gemma 4 local first
@@ -510,7 +514,7 @@ def get_response(user_msg):
         payload = {
             "model": MINIMAX_MODEL, "max_tokens": 500,
             "messages": [
-                {"role": "system", "content": "Responde en espanol. Max 3-4 oraciones."},
+                {"role": "system", "content": ("Respond in English. Max 3-4 sentences." if profile.get("language","es") == "en" else "Responde en español. Max 3-4 oraciones.")},
                 {"role": "user", "content": prompt[:4000]}
             ],
             "temperature": 0.7
