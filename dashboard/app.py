@@ -3076,6 +3076,58 @@ def api_reset():
         with open(DATA / "portfolio.json", "w") as f:
             json.dump(portfolio, f, indent=2)
         
+        # 2a. Exportar trades al auto_learner.db ANTES de borrar el historial
+        #     Asi el aprendizaje acumulado sobrevive a todos los resets
+        if _closed:
+            try:
+                import sqlite3 as _sqlite3
+                _db_path = DATA / "auto_learner.db"
+                _al_state_path = DATA / "auto_learner_state.json"
+                _al_params = {}
+                if _al_state_path.exists():
+                    try:
+                        _al_state_data = json.load(open(_al_state_path))
+                        _al_params = _al_state_data.get("params", {})
+                    except Exception:
+                        pass
+                _create_sql = (
+                    "CREATE TABLE IF NOT EXISTS trade_results ("
+                    "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+                    "timestamp DATETIME DEFAULT CURRENT_TIMESTAMP, "
+                    "trade_id TEXT UNIQUE, symbol TEXT, direction TEXT, "
+                    "sl_pct REAL, tp_pct REAL, leverage REAL, "
+                    "pnl_usd REAL, pnl_pct REAL, win INTEGER, "
+                    "confidence REAL, holding_time REAL)"
+                )
+                _insert_sql = (
+                    "INSERT OR IGNORE INTO trade_results "
+                    "(trade_id, symbol, direction, sl_pct, tp_pct, leverage, "
+                    "pnl_usd, pnl_pct, win, confidence, holding_time) "
+                    "VALUES (?,?,?,?,?,?,?,?,?,?,?)"
+                )
+                with _sqlite3.connect(str(_db_path)) as _conn:
+                    _conn.execute(_create_sql)
+                    _saved = 0
+                    for _t in _closed:
+                        try:
+                            _conn.execute(_insert_sql, (
+                                _t.get("id") or _t.get("position_id") or _t.get("trade_id"),
+                                _t.get("symbol"), _t.get("direction"),
+                                _al_params.get("sl_pct"), _al_params.get("tp_pct"),
+                                safe_float(_t.get("leverage", 5.0)),
+                                safe_float(_t.get("pnl_usd", 0)),
+                                safe_float(_t.get("pnl_pct", 0)),
+                                1 if safe_float(_t.get("pnl_usd", 0)) > 0 else 0,
+                                safe_float(_t.get("confidence", 0.5)),
+                                0.0
+                            ))
+                            _saved += 1
+                        except Exception:
+                            pass
+                log.info(f"reset: {_saved}/{len(_closed)} trades exportados a auto_learner.db")
+            except Exception as _e:
+                log.warning(f"reset: no se pudo exportar trades a auto_learner.db: {_e}")
+
         # 2. Trade History
         with open(DATA / "trade_history.json", "w") as f:
             json.dump([], f)
