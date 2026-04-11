@@ -156,6 +156,24 @@ def get_full_context():
         # User Profile
         ctx["profile"] = load_profile()
 
+        # Wild Mode State
+        try:
+            wm = json.loads((DATA_DIR / "wild_mode_state.json").read_text())
+            ctx["wild_active"] = wm.get("active", False)
+            ctx["wild_session_id"] = wm.get("session_id", "")
+            ctx["wild_started_at"] = (wm.get("started_at", "") or "")[:16]
+            ctx["wild_starting_equity"] = wm.get("starting_equity", 0)
+            ctx["wild_chains"] = wm.get("martingale_chains", {})
+            ctx["wild_target_usd"] = wm.get("target_usd", 0)
+            ctx["wild_session_pnl"] = round(
+                ctx.get("equity", 0) - wm.get("starting_equity", ctx.get("equity", 0)), 2
+            )
+        except Exception:
+            ctx["wild_active"] = False
+            ctx["wild_chains"] = {}
+            ctx["wild_session_pnl"] = 0
+            ctx["wild_starting_equity"] = 0
+
     except Exception as e:
         log(f"Context error: {e}")
 
@@ -386,6 +404,21 @@ SYSTEM_PROMPT = dedent("""\
     - Tokens evitar: {avoid}
     - Tokens preferir: {prefer}
 
+    ## MODO SALVAJE (MARTINGALA/COBERTURA)
+    Estado: {wild_status}
+    {wild_section}
+
+    ### Qué es el Modo Salvaje:
+    - Motor de martingala/cobertura: cuando una posición pierde, en lugar de cerrarla abre "niveles" adicionales
+    - Cada nivel multiplica el margen (1.1x–1.3x) para promediar la pérdida y recuperar
+    - La IA decide cada ciclo: HOLD, abrir nivel de cobertura, o cerrar la cadena completa
+    - Guardrails fijos: máx 2 niveles/símbolo · máx 4× margen base · drawdown máx 15% · duración máx 6h
+    - Cierra la cadena automáticamente cuando el PnL combinado alcanza +20% del margen base
+
+    ### Modos de estrategia:
+    - PURE (Wild OFF): 3 estrategias — oversold_bounce, breakout, trend_momentum
+    - COMBO (Wild ON): 5 estrategias — agrega golden_cross y macd_cross
+
     ## ARQUITECTURA DEL BOT
     - Ejecuta ciclos cada 10-60 segundos
     - Usa Jupiter API para precios de Solana tokens
@@ -428,6 +461,22 @@ def build_prompt(user_msg, ctx):
     sl = params.get("sl_pct", 0.025) * 100
     tp = params.get("tp_pct", 0.08) * 100
 
+    # Wild Mode formatting
+    if ctx.get("wild_active"):
+        _chains = ctx.get("wild_chains", {})
+        _spnl = ctx.get("wild_session_pnl", 0)
+        _sign = "+" if _spnl >= 0 else ""
+        wild_status = f"ACTIVO | Sesión: {ctx.get('wild_session_id','')} | PnL sesión: {_sign}${_spnl:.2f}"
+        if _chains:
+            wild_section = "Cadenas activas: " + ", ".join(
+                f"{s}({len(c.get('levels', []))} niv)" for s, c in _chains.items()
+            )
+        else:
+            wild_section = f"Sin cadenas abiertas | Equity inicio sesión: ${ctx.get('wild_starting_equity', 0):.2f}"
+    else:
+        wild_status = "INACTIVO (modo Pure Strategy)"
+        wild_section = "Usando 3 estrategias puras: oversold_bounce, breakout, trend_momentum"
+
     _lang = profile.get("language", "es")
     _lang_instr = "Responde siempre en español." if _lang == "es" else "Always respond in English."
     system = SYSTEM_PROMPT.format(
@@ -454,6 +503,8 @@ def build_prompt(user_msg, ctx):
         risk_per_trade=params.get("risk_per_trade", 0.015) * 100,
         avoid=ctx.get("avoid", []),
         prefer=ctx.get("prefer", []),
+        wild_status=wild_status,
+        wild_section=wild_section,
     )
 
     notes = load_notes()
