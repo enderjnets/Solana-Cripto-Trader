@@ -744,7 +744,11 @@ def run_cycle(safe=True, debug=False):
     # Extraer equity y posiciones del portfolio para la línea de salud
     try:
         pf = json.loads(portfolio_file.read_text()) if portfolio_file.exists() else {}
-        equity = pf.get("capital_usd", pf.get("equity", pf.get("balance", 0.0)))
+        _cash = float(pf.get("capital_usd", 0))
+        _open_pos = [p for p in pf.get("positions", []) if p.get("status") == "open"]
+        _margins = sum(float(p.get("margin_usd", 0)) for p in _open_pos)
+        _unreal = sum(float(p.get("pnl_usd", 0)) for p in _open_pos)
+        equity = _cash + _margins + _unreal
         n_positions = len([p for p in pf.get("positions", []) if p.get("status") == "open"])
     except Exception:
         equity = 0.0

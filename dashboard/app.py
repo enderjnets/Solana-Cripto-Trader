@@ -2755,25 +2755,22 @@ def api_positions():
         pass
 
     # Build position_id -> raw position map for hedge level PnL lookup
-    pos_by_id = {p.get("position_id", p.get("symbol", "")): p for p in open_pos}
+    pos_by_id = {p.get("position_id", p.get("id", p.get("symbol", ""))): p for p in open_pos}
 
     # Fetch live prices for all open position symbols
     symbols = [t.get("symbol", "") for t in open_pos]
     live_prices = get_live_prices(symbols) if symbols else {}
 
-    # Collect position_ids AND symbols that are hedge levels (level > 0) — skip as top-level rows
+    # Collect position_ids of hedge levels (level > 0) — skip as top-level rows
+    # NOTE: do NOT filter by symbol — same symbol can be both base and hedge (eg. ETH short + ETH hedge long)
     hedge_pos_ids = {pid for pid, info in pos_to_chain.items() if info["level_num"] > 0}
-    # Also collect hedge symbols (for portfolios where position_id is None)
-    hedge_symbols = {info["chain_sym"] for info in pos_to_chain.values()
-                     if info["level_num"] > 0}
 
     result = []
 
     for t in open_pos:
-        pos_id = t.get("position_id", t.get("symbol", ""))
-        _sym_check = t.get("symbol", "")
-        # Skip hedge levels — they appear as sub-rows under the base position
-        if pos_id in hedge_pos_ids or _sym_check in hedge_symbols:
+        pos_id = t.get("position_id", t.get("id", t.get("symbol", "")))
+        # Skip if this specific position_id is a hedge level
+        if pos_id in hedge_pos_ids:
             continue
 
         ot = t.get("open_time", "")
