@@ -460,7 +460,7 @@ def build_prompt(user_msg, ctx):
 # ── LLM Config ──────────────────────────────────────────────────
 try:
     import json as _json
-    _keys = _json.loads(open("/home/enderj/.openclaw/workspace/bittrader/keys/minimax.json").read_text())
+    _keys = _json.loads(open("/home/enderj/.openclaw/workspace/bittrader/keys/minimax.json").read())
     MINIMAX_KEY = os.environ.get("MINIMAX_API_KEY", _keys["minimax_api_key"])
 except Exception:
     MINIMAX_KEY = ""
