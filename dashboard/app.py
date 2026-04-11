@@ -652,6 +652,34 @@ DASHBOARD_HTML = r"""
     </div>
   </section>
 
+  <!-- TRADE HISTORY -->
+  <section>
+    <div class="section-title">📋 Historial de Trades</div>
+    <div class="card">
+      <div class="filters">
+        <select id="filterSymbol" onchange="filterTrades()">
+          <option value="">Todos los símbolos</option>
+        </select>
+        <select id="filterResult" onchange="filterTrades()">
+          <option value="">Todos los resultados</option>
+          <option value="win">Ganadores</option>
+          <option value="loss">Perdedores</option>
+          <option value="flat">Sin cambio (FLAT)</option>
+          <option value="nonflat">Solo W/L (excl. FLAT)</option>
+        </select>
+        <select id="filterDir" onchange="filterTrades()">
+          <option value="">Long &amp; Short</option>
+          <option value="long">Long</option>
+          <option value="short">Short</option>
+        </select>
+      </div>
+      <div class="table-wrap" id="tradesTable">
+        <div class="empty">Cargando trades...</div>
+      </div>
+      <div class="pagination" id="tradesPagination"></div>
+    </div>
+  </section>
+
   <!-- EQUITY + DISTRIBUTIONS -->
   <section>
     <div class="grid-2">
@@ -699,35 +727,6 @@ DASHBOARD_HTML = r"""
     </div>
   </section>
 
-<!-- POSITIONS MOVED UP -->
-
-  <!-- TRADE HISTORY -->
-  <section>
-    <div class="section-title">📋 Historial de Trades</div>
-    <div class="card">
-      <div class="filters">
-        <select id="filterSymbol" onchange="filterTrades()">
-          <option value="">Todos los símbolos</option>
-        </select>
-        <select id="filterResult" onchange="filterTrades()">
-          <option value="">Todos los resultados</option>
-          <option value="win">Ganadores</option>
-          <option value="loss">Perdedores</option>
-          <option value="flat">Sin cambio (FLAT)</option>
-          <option value="nonflat">Solo W/L (excl. FLAT)</option>
-        </select>
-        <select id="filterDir" onchange="filterTrades()">
-          <option value="">Long &amp; Short</option>
-          <option value="long">Long</option>
-          <option value="short">Short</option>
-        </select>
-      </div>
-      <div class="table-wrap" id="tradesTable">
-        <div class="empty">Cargando trades...</div>
-      </div>
-      <div class="pagination" id="tradesPagination"></div>
-    </div>
-  </section>
 
   <!-- RESET HISTORY -->
   <section>
