@@ -76,6 +76,8 @@ MIN_PNL_THRESHOLD_FOR_HEDGE = -0.2  # sim 108M: abrir antes -0.2% (era -0.3%)
 CHAIN_PROFIT_TARGET_PCT = 20.0   # cerrar chain cuando PnL ≥ 20% del margen base (108M sims)
 DAILY_TARGET_PCT        = 0.05   # parar nuevas cadenas cuando sesión sube ≥ 5% del equity
 DAILY_SOFT_STOP_PCT     = 0.08   # parar nuevas cadenas cuando sesión baja ≥ 8% del equity
+MAX_ACTIVE_CHAINS       = 2      # max cadenas simultáneas — garantiza margen para hedges
+EXTREME_FEAR_THRESHOLD  = 20     # F&G ≤ 20: no iniciar cadenas nuevas (solo gestionar existentes)
 
 # ── State persistence ────────────────────────────────────────────────────────
 def _empty_state() -> dict:
@@ -443,13 +445,18 @@ def build_decision_prompt(state: dict, portfolio: dict, market: dict, fear_greed
     chain_syms = set(chains.keys())
     new_candidates = open_syms - chain_syms
     new_block = ''
-    if new_candidates:
+    # Fix: en Extreme Fear (F&G ≤ threshold) no ofrecer nuevas cadenas al AI —
+    # solo gestionar las ya activas. Evita abrir longs en mercado de pánico.
+    _extreme_fear = (fear_greed <= EXTREME_FEAR_THRESHOLD)
+    if new_candidates and not _extreme_fear:
         new_lines = []
         for sym in new_candidates:
             p = next((x for x in portfolio.get('positions', []) if x['symbol'] == sym and x.get('status') == 'open'), None)
             if p:
                 new_lines.append(f"  {sym} {p['direction']} margin=${p.get('margin_usd', 0):.2f} pnl=${p.get('pnl_usd', 0):+.2f}")
         new_block = '\nPOSICIONES SIN CHAIN (puedes iniciar chain si va perdiendo):\n' + '\n'.join(new_lines)
+    elif _extreme_fear and new_candidates:
+        new_block = f'\n⚠️ EXTREME FEAR (F&G={fear_greed}≤{EXTREME_FEAR_THRESHOLD}): NO iniciar nuevas cadenas — solo gestionar las existentes.'
 
     prompt = f"""WILD MODE — gestión activa de coberturas martingala/hedge.
 
@@ -782,6 +789,25 @@ def validate_decision(decision: dict, state: dict, portfolio: dict) -> dict:
     equity = _equity(portfolio)
     total_portfolio_margin = sum(float(p.get('margin_usd', 0)) for p in portfolio.get('positions', []) if p.get('status') == 'open')
     global_cap = equity * MAX_TOTAL_MARGIN_PCT
+
+    # ── Límite de cadenas activas + reserva para hedges ───────────────────────
+    # Con 3 cadenas simultáneas de $18 cada una ($54) no queda margen para
+    # hedges ($18×1.3=$23.4 > cap $67.50-$54=$13.50). Fix: máx 2 cadenas y
+    # verificar room para ≥1 hedge antes de iniciar cadena nueva.
+    _chains_now = state.get('martingale_chains', {})
+    if n_levels == 1:  # Primera vez — iniciando cadena para este símbolo
+        if len(_chains_now) >= MAX_ACTIVE_CHAINS:
+            hits.append(f'max_active_chains_{len(_chains_now)}/{MAX_ACTIVE_CHAINS}')
+            out['action'] = 'HOLD'
+            return out
+        # Verificar que queda margen para al menos 1 hedge futuro
+        _hedge_reserve = base_margin * MAX_LEVEL_MULTIPLIER
+        if total_portfolio_margin + _hedge_reserve > global_cap:
+            _room = max(0, global_cap - total_portfolio_margin)
+            hits.append(f'insufficient_margin_for_hedge_{_room:.2f}<{_hedge_reserve:.2f}')
+            out['action'] = 'HOLD'
+            return out
+
     if total_portfolio_margin + new_margin > global_cap:
         room = max(0, global_cap - total_portfolio_margin)
         if room < base_margin * 0.1:
