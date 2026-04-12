@@ -137,12 +137,12 @@ def update_price_history(tokens: dict) -> dict:
         if symbol not in history:
             history[symbol] = []
         history[symbol].append({"price": price, "ts": now})
-        history[symbol] = history[symbol][-300:]  # 5 horas de historia a 60s/ciclo
+        history[symbol] = history[symbol][-500:]  # 5 horas de historia a 60s/ciclo
 
         if symbol not in vol_history:
             vol_history[symbol] = []
         vol_history[symbol].append({"volume": volume, "ts": now})
-        vol_history[symbol] = vol_history[symbol][-300:]
+        vol_history[symbol] = vol_history[symbol][-500:]
 
     save_json(PRICE_HISTORY, history)
     save_json(VOLUME_HISTORY, vol_history)
