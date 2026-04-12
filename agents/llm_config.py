@@ -264,6 +264,14 @@ def call_gpt5(prompt: str, system: str = "", max_tokens: int = 2000) -> str:
                 # Strip everything before the last "assistant\n" section to get only the reply.
                 if "\nassistant\n" in text:
                     text = text.split("\nassistant\n")[-1].strip()
+                    if text:
+                        return text
+                    return None  # empty assistant section
+                # No assistant section = Codex header/error (usage limit etc)
+                errs = ("usage limit", "upgrade to pro", "hit your usage")
+                if any(kw in text.lower() for kw in errs) or text.startswith("OpenAI Codex"):
+                    print("    ⚠️ GPT-5.4: Codex limit detected -- fallback")
+                    return None
                 return text
     except Exception as e:
         print(f"GPT-5.4 error: {e}")
