@@ -571,6 +571,8 @@ def compute_indicators(symbol: str, token: dict, price_hist: list, vol_hist: lis
     else:
         ind["stoch_k"] = None
 
+    # Pasar price_hist para que las funciones de régimen lo usen en las estrategias
+    ind["_price_hist"] = list(price_hist[-100:]) if price_hist else []
     return ind
 
 
@@ -1161,6 +1163,101 @@ def strategy_oversold_bounce(symbol, ind, risk_eval) -> Optional[dict]:
     return build_signal(symbol, "long", "oversold_bounce", ind, min(score_base, 0.92), reasons, risk_eval)
 
 
+
+# ── Régimen de Mercado ────────────────────────────────────────────────────────
+def efficiency_ratio(price_hist: list, period: int = 14) -> float:
+    """
+    Kaufman Efficiency Ratio.
+    0 = caótico/mean-reverting → scalping tiene ventaja estadística
+    1 = tendencia pura          → scalping es peligroso
+    Umbral bloqueo: ER > 0.55
+    """
+    if len(price_hist) < period + 1:
+        return 0.5
+    prices = [p["price"] for p in price_hist[-(period + 1):]]
+    net  = abs(prices[-1] - prices[0])
+    path = sum(abs(prices[i] - prices[i - 1]) for i in range(1, len(prices)))
+    return net / path if path > 0 else 0.5
+
+
+def hurst_exponent(price_hist: list, min_len: int = 50) -> float:
+    """
+    Hurst exponent R/S simplificado.
+    H < 0.45 → mean-reverting (rebotes predecibles)
+    H = 0.5  → caminata aleatoria
+    H > 0.55 → trending (memoria positiva)
+    """
+    import math as _math
+    prices = [p["price"] for p in price_hist[-100:]]
+    n = len(prices)
+    if n < min_len:
+        return 0.5
+    try:
+        returns = [_math.log(prices[i] / prices[i - 1]) for i in range(1, n) if prices[i - 1] > 0]
+        rs_pairs = []
+        for lag in [8, 16, 32]:
+            if len(returns) < lag * 2:
+                continue
+            segs = [returns[i:i + lag] for i in range(0, len(returns) - lag + 1, lag)]
+            rs_vals = []
+            for seg in segs:
+                if not seg:
+                    continue
+                m = sum(seg) / len(seg)
+                cum = [sum(seg[:k + 1]) - m * (k + 1) for k in range(len(seg))]
+                R = max(cum) - min(cum)
+                S = (_math.sqrt(sum((x - m) ** 2 for x in seg) / len(seg)))
+                if S > 0:
+                    rs_vals.append(R / S)
+            if rs_vals:
+                rs_pairs.append((_math.log(lag), _math.log(sum(rs_vals) / len(rs_vals))))
+        if len(rs_pairs) < 2:
+            return 0.5
+        xs = [p[0] for p in rs_pairs]
+        ys = [p[1] for p in rs_pairs]
+        xm = sum(xs) / len(xs)
+        ym = sum(ys) / len(ys)
+        num = sum((xs[i] - xm) * (ys[i] - ym) for i in range(len(xs)))
+        den = sum((xs[i] - xm) ** 2 for i in range(len(xs)))
+        H = num / den if den != 0 else 0.5
+        return max(0.0, min(1.0, H))
+    except Exception:
+        return 0.5
+
+
+def market_regime(price_hist: list, symbol: str = "") -> str:
+    """
+    Clasifica el régimen de mercado combinando ER, Hurst y ADX (30m OHLCV).
+    'mean_reverting' → scalping con ventaja estadística
+    'trending'       → scalping peligroso, usar momentum/cross
+    'neutral'        → condición ambigua
+    """
+    er = efficiency_ratio(price_hist, period=14)
+    H  = hurst_exponent(price_hist, min_len=50)
+
+    # ADX real desde velas 30m (más preciso que ER/Hurst solos)
+    adx = None
+    if symbol:
+        try:
+            import candle_aggregator as _ca
+            adx = _ca.get_adx(symbol, period=14)
+        except Exception:
+            pass
+
+    # ADX > 25 confirma tendencia fuerte (más peso que ER/Hurst)
+    if adx is not None:
+        if adx > 28:
+            return "trending"
+        if adx < 18 and (er < 0.50 or H < 0.52):
+            return "mean_reverting"
+
+    # Fallback: ER + Hurst
+    if er > 0.60 or H > 0.58:
+        return "trending"
+    if er < 0.42 and H < 0.48:
+        return "mean_reverting"
+    return "neutral"
+
 def strategy_golden_cross(symbol, ind, risk_eval) -> Optional[dict]:
     """Golden Cross EMA7/EMA21 con volumen y RSI confirmando."""
     if not risk_eval.get("approved"):
@@ -1313,6 +1410,13 @@ def strategy_stoch_rsi_scalp(symbol: str, ind: dict, risk_eval: dict) -> Optiona
     """
     if not risk_eval.get("approved"):
         return None
+    # ── Filtro de régimen: stoch_rsi solo funciona en mercados caóticos ──
+    _ph = ind.get("_price_hist", [])
+    if len(_ph) >= 50:
+        _regime = market_regime(_ph, symbol)
+        if _regime == "trending":
+            log.debug(f"⛔ stoch_rsi_scalp bloqueado {symbol}: tendencia detectada (ER/Hurst)")
+            return None
 
     price   = ind.get("price", 0)
     rsi_val = ind.get("rsi")
@@ -1405,6 +1509,13 @@ def strategy_rsi_bb_scalp(symbol: str, ind: dict, risk_eval: dict) -> Optional[d
     """
     if not risk_eval.get("approved"):
         return None
+    # ── Filtro de régimen: rsi_bb también requiere mercado caótico ──
+    _ph2 = ind.get("_price_hist", [])
+    if len(_ph2) >= 50:
+        _regime2 = market_regime(_ph2, symbol)
+        if _regime2 == "trending":
+            log.debug(f"⛔ rsi_bb_scalp bloqueado {symbol}: tendencia detectada")
+            return None
 
     price   = ind.get("price", 0)
     rsi_val = ind.get("rsi")
@@ -1622,6 +1733,12 @@ def run(debug: bool = False, wild_mode: bool = False) -> dict:
 
     # Actualizar historial
     price_hist, vol_hist = update_price_history(tokens)
+    # Actualizar velas 30m para ADX real
+    try:
+        import candle_aggregator as _ca
+        _ca.update(price_hist)
+    except Exception as _ca_e:
+        log.debug(f"candle_aggregator: {_ca_e}")
 
     strategies = STRATEGIES_WILD if wild_mode else STRATEGIES_PURE
     mode_label = "WILD (stoch_rsi+rsi_bb scalping, 6 strats)" if wild_mode else "PURE (golden+death cross, swing, 5 strats)"

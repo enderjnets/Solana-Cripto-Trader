@@ -15,12 +15,41 @@ except ImportError:
     _PAPERCLIP = False
 from datetime import datetime, timezone
 from pathlib import Path
+try:
+    import performance_tracker as pt
+    _PERF_TRACKER = True
+except ImportError:
+    _PERF_TRACKER = False
+try:
+    import candle_aggregator as ca
+    _CANDLE_AGG = True
+except ImportError:
+    _CANDLE_AGG = False
 
 BASE_DIR = Path(__file__).parent
 DATA_DIR = BASE_DIR / "data"
 sys.path.insert(0, str(BASE_DIR))
 
 # ── Helpers para trade_history.json (puede ser dict o list) ──────────────────
+# ── 30m Candle Close Detection ───────────────────────────────────────────────
+_last_candle_bucket: int = -1  # floor(unix_ts / 1800)
+
+def _is_new_candle_30m() -> bool:
+    """
+    Retorna True si acaba de cerrar una vela de 30 minutos.
+    La vela cierra en :00 y :30 de cada hora (UTC).
+    Solo retorna True UNA VEZ por cierre de vela.
+    """
+    global _last_candle_bucket
+    import time as _time
+    now_ts = int(_time.time())
+    bucket = now_ts // 1800
+    if bucket != _last_candle_bucket:
+        _last_candle_bucket = bucket
+        return True
+    return False
+
+
 def _load_trade_history() -> list:
     """Carga trade_history.json y retorna SIEMPRE una lista de trades."""
     f = DATA_DIR / "trade_history.json"
@@ -855,7 +884,19 @@ if __name__ == "__main__":
     if args.once:
         _acquire_lock()  # Prevent dual instances even in single-cycle mode
         log.info(f"📁 DATA_DIR={DATA_DIR} | PID={os.getpid()} | MODE=once")
+        # Detectar cierre de vela 30m
+        _candle_close = _is_new_candle_30m()
+        if _candle_close:
+            log.info("🕯️ [CANDLE CLOSE] Vela 30m cerrada — ejecutando ciclo en punto óptimo")
         run_cycle(debug=args.debug)
+        # Performance snapshot cada 10 ciclos
+        if _PERF_TRACKER and cycle_count % 10 == 0:
+            try:
+                pt.save_performance_snapshot()
+                if cycle_count % 50 == 0:
+                    pt.print_dashboard()
+            except Exception as _pt_err:
+                log.debug(f"perf_tracker error: {_pt_err}")
     else:
         # --live or bare invocation: run continuous loop
         _acquire_lock()  # Prevent dual orchestrator instances
