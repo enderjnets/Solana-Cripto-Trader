@@ -1754,7 +1754,7 @@ async function loadResetHistory() {
 
     const hasNotes = h.notes && h.notes.trim();
     const hasFiles = h.attachments && h.attachments.length > 0;
-    const notesBadge = hasNotes ? `<span title="${escHtml(h.notes)}" style="cursor:help;color:var(--yellow);margin-left:4px;">💬</span>` : '';
+    const notesBadge = hasNotes ? `<span onclick="showResetDetail(${i})" title="Ver notas" style="cursor:pointer;color:var(--yellow);margin-left:4px;">💬</span>` : '';
     const filesBadge = hasFiles ? `<span onclick="showResetDetail(${i})" style="cursor:pointer;color:var(--blue);margin-left:4px;" title="Ver adjuntos">📎${h.attachments.length}</span>` : '';
     html += `<tr>
       <td><strong>${num}</strong></td>
