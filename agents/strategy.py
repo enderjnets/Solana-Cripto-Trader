@@ -561,6 +561,16 @@ def compute_indicators(symbol: str, token: dict, price_hist: list, vol_hist: lis
     # ── Fibonacci Golden Pocket ── (lb=80, GP 61.8-65%, tol=0.8%)
     ind["fib"] = calc_fibonacci_levels(prices, FIB_LOOKBACK) if n >= FIB_LOOKBACK else None
 
+    # ── Stochastic K (14 períodos — usando closes como proxy de high/low) ──
+    # Validado: mejor indicador de extremos en sim 357,984 combos (2026-04-12)
+    # Con RSI ≤35: WR=64.5%, PF=38.5x en 30m scalping
+    if n >= 14:
+        low_14  = min(prices[-14:])
+        high_14 = max(prices[-14:])
+        ind["stoch_k"] = round((prices[-1] - low_14) / (high_14 - low_14) * 100, 2) if (high_14 - low_14) > 0 else 50.0
+    else:
+        ind["stoch_k"] = None
+
     return ind
 
 
@@ -1191,6 +1201,45 @@ def strategy_golden_cross(symbol, ind, risk_eval) -> Optional[dict]:
     return build_signal(symbol, "long", "golden_cross", ind, min(score_base, 0.92), reasons, risk_eval)
 
 
+def strategy_death_cross(symbol, ind, risk_eval) -> Optional[dict]:
+    """Death Cross EMA7/EMA21 — señal SHORT para Pure Mode y Wild Mode.
+    Sim validado: WR~65%, PF~3.0 en 1h×30d (2026-04-12)."""
+    if not risk_eval.get("approved"):
+        return None
+    if ind.get("cross") != "death":
+        return None
+
+    rsi_val = ind.get("rsi")
+    macd_d  = ind.get("macd")
+
+    if not macd_d or macd_d.get("histogram", 0) >= 0:
+        return None  # Death Cross sin MACD negativo = señal débil
+
+    if rsi_val and (rsi_val < 30 or rsi_val > 60):
+        return None  # Muy sobrevendido (riesgo rebote) o muy alto = skip
+
+    score_base = 0.60
+    reasons = ["Death Cross EMA7/EMA21 ✅"]
+
+    if rsi_val and 40 <= rsi_val <= 58:
+        score_base += 0.12
+        reasons.append(f"RSI {rsi_val:.0f} zona óptima short (40-58) ✅")
+    if macd_d.get("histogram", 0) < 0:
+        score_base += 0.10
+        reasons.append("MACD histograma negativo ✅")
+    if macd_d.get("bearish_cross"):
+        score_base += 0.08
+        reasons.append("MACD cruce bajista confirmado ✅")
+    if ind.get("obv_trend") == "down":
+        score_base += 0.10
+        reasons.append("OBV distribución ✅")
+    if ind.get("bb", {}) and ind["bb"].get("pct_b", 0.5) < 0.55:
+        score_base += 0.06
+        reasons.append("BB posición desfavorable ✅")
+
+    return build_signal(symbol, "short", "death_cross", ind, min(score_base, 0.92), reasons, risk_eval)
+
+
 def strategy_macd_cross(symbol, ind, risk_eval) -> Optional[dict]:
     """MACD Cross con tendencia EMA y RSI confirman."""
     if not risk_eval.get("approved"):
@@ -1245,6 +1294,192 @@ def strategy_macd_cross(symbol, ind, risk_eval) -> Optional[dict]:
     return build_signal(symbol, direction, "macd_cross", ind, min(score_base, 0.90), reasons, risk_eval)
 
 
+
+
+def strategy_stoch_rsi_scalp(symbol: str, ind: dict, risk_eval: dict) -> Optional[dict]:
+    """
+    PRIMARY Wild Mode: Scalping bidireccional Stochastic K + RSI.
+    Doble confirmación de extremo — validado como mejor estrategia Wild Mode.
+
+    LONG:  Stoch K ≤ 20  AND  RSI ≤ 35  → precio doblemente sobrevendido
+    SHORT: Stoch K ≥ 80  AND  RSI ≥ 65  → precio doblemente sobrecomprado
+
+    Simulación 357,984 combos (30m × 15d, Kraken, 2026-04-12):
+      + Martingala: WR=64.5%, PF=38.5x, Daily=+0.64%, DD=-0.44%
+      + Sin mart.:  WR=~35%, PF=~2.5x (estrategia selectiva = pocos trades)
+
+    Solo tokens core para martingala (SOL,ETH,XRP,BTC,JUP).
+    exit_mode=fixed para cierre rápido.
+    """
+    if not risk_eval.get("approved"):
+        return None
+
+    price   = ind.get("price", 0)
+    rsi_val = ind.get("rsi")
+    stoch_k = ind.get("stoch_k")
+    atr_pct = ind.get("atr_pct", 0)
+    fg      = ind.get("fear_greed", 50)
+    bb      = ind.get("bb", {})
+    obv_tr  = ind.get("obv_trend", "unknown")
+    diverg  = ind.get("rsi_divergence", None)
+
+    if price <= 0 or rsi_val is None or stoch_k is None:
+        return None
+    if atr_pct is not None and atr_pct > 8.0:   # Evitar tokens extremadamente volátiles
+        return None
+
+    # ── SCALP LONG: Stoch K ≤ 20 AND RSI ≤ 35 ──────────────────────────────
+    if stoch_k <= 20 and rsi_val <= 35 and fg <= 70:
+        score = 0.62
+        reasons = [f"Stoch K {stoch_k:.0f} sobrevendido + RSI {rsi_val:.0f} — doble extremo ✅"]
+
+        if rsi_val <= 28:
+            score += 0.10
+            reasons.append(f"RSI {rsi_val:.0f} extremo (<28) ✅")
+        if stoch_k <= 10:
+            score += 0.08
+            reasons.append(f"Stoch K {stoch_k:.0f} extremo (<10) ✅")
+        if bb and bb.get("below_lower"):
+            score += 0.07
+            reasons.append("Precio bajo BB inferior ✅")
+        if obv_tr == "up":
+            score += 0.06
+            reasons.append("OBV rebote alcista ✅")
+        if diverg == "bullish":
+            score += 0.08
+            reasons.append("Divergencia RSI bullish ✅")
+        if fg <= 20:
+            score += 0.06
+            reasons.append(f"Extreme Fear {fg} — rebote probable ✅")
+
+        if score >= 0.76 and len(reasons) >= 2:
+            sig = build_signal(symbol, "long", "stoch_rsi_scalp", ind, min(score, 0.93), reasons, risk_eval)
+            if sig:
+                sig["exit_mode"] = "fixed"
+                sig["trailing_pct"] = 0.0
+                sig["mart_eligible"] = symbol in {"SOL", "ETH", "XRP", "BTC", "JUP"}
+            return sig
+
+    # ── SCALP SHORT: Stoch K ≥ 80 AND RSI ≥ 65 ──────────────────────────────
+    if stoch_k >= 80 and rsi_val >= 65 and fg >= 25:
+        score = 0.62
+        reasons = [f"Stoch K {stoch_k:.0f} sobrecomprado + RSI {rsi_val:.0f} — doble extremo ✅"]
+
+        if rsi_val >= 72:
+            score += 0.10
+            reasons.append(f"RSI {rsi_val:.0f} extremo (>72) ✅")
+        if stoch_k >= 90:
+            score += 0.08
+            reasons.append(f"Stoch K {stoch_k:.0f} extremo (>90) ✅")
+        if bb and bb.get("above_upper"):
+            score += 0.07
+            reasons.append("Precio sobre BB superior ✅")
+        if obv_tr == "down":
+            score += 0.06
+            reasons.append("OBV distribución bajista ✅")
+        if diverg == "bearish":
+            score += 0.08
+            reasons.append("Divergencia RSI bearish ✅")
+        if fg >= 80:
+            score += 0.06
+            reasons.append(f"Extreme Greed {fg} — caída probable ✅")
+
+        if score >= 0.76 and len(reasons) >= 2:
+            sig = build_signal(symbol, "short", "stoch_rsi_scalp", ind, min(score, 0.93), reasons, risk_eval)
+            if sig:
+                sig["exit_mode"] = "fixed"
+                sig["trailing_pct"] = 0.0
+                sig["mart_eligible"] = symbol in {"SOL", "ETH", "XRP", "BTC", "JUP"}
+            return sig
+
+    return None
+
+
+def strategy_rsi_bb_scalp(symbol: str, ind: dict, risk_eval: dict) -> Optional[dict]:
+    """
+    SECONDARY Wild Mode: RSI extremo + precio toca banda Bollinger.
+    WR=73-76% con martingala, PF=17-20x (sim 357,984 combos 2026-04-12).
+
+    LONG:  RSI ≤ 30  AND  BB pct_b < 0.05  (precio en la banda inferior)
+    SHORT: RSI ≥ 70  AND  BB pct_b > 0.95  (precio en la banda superior)
+    """
+    if not risk_eval.get("approved"):
+        return None
+
+    price   = ind.get("price", 0)
+    rsi_val = ind.get("rsi")
+    bb      = ind.get("bb", {})
+    atr_pct = ind.get("atr_pct", 0)
+    fg      = ind.get("fear_greed", 50)
+    obv_tr  = ind.get("obv_trend", "unknown")
+    diverg  = ind.get("rsi_divergence", None)
+
+    if price <= 0 or rsi_val is None or not bb:
+        return None
+    if atr_pct is not None and atr_pct > 8.0:
+        return None
+
+    bb_pct_b = bb.get("pct_b", 0.5)
+
+    # ── LONG: RSI extremo + BB inferior ──────────────────────────────────────
+    if rsi_val <= 30 and bb_pct_b is not None and bb_pct_b < 0.05 and fg <= 70:
+        score = 0.64
+        reasons = [f"RSI {rsi_val:.0f} oversold + precio en BB inferior ({bb_pct_b:.2f}) ✅"]
+
+        if rsi_val <= 25:
+            score += 0.10
+            reasons.append(f"RSI {rsi_val:.0f} extremo ✅")
+        if bb_pct_b < 0.02:
+            score += 0.08
+            reasons.append("BB inferior extremo (<0.02) ✅")
+        if obv_tr == "up":
+            score += 0.06
+            reasons.append("OBV acumulación ✅")
+        if diverg == "bullish":
+            score += 0.08
+            reasons.append("Divergencia RSI bullish ✅")
+        if fg <= 20:
+            score += 0.06
+            reasons.append(f"Extreme Fear {fg} ✅")
+
+        if score >= 0.76 and len(reasons) >= 2:
+            sig = build_signal(symbol, "long", "rsi_bb_scalp", ind, min(score, 0.93), reasons, risk_eval)
+            if sig:
+                sig["exit_mode"] = "fixed"
+                sig["trailing_pct"] = 0.0
+                sig["mart_eligible"] = symbol in {"SOL", "ETH", "XRP", "BTC", "JUP"}
+            return sig
+
+    # ── SHORT: RSI extremo + BB superior ─────────────────────────────────────
+    if rsi_val >= 70 and bb_pct_b is not None and bb_pct_b > 0.95 and fg >= 25:
+        score = 0.64
+        reasons = [f"RSI {rsi_val:.0f} overbought + precio en BB superior ({bb_pct_b:.2f}) ✅"]
+
+        if rsi_val >= 75:
+            score += 0.10
+            reasons.append(f"RSI {rsi_val:.0f} extremo ✅")
+        if bb_pct_b > 0.98:
+            score += 0.08
+            reasons.append("BB superior extremo (>0.98) ✅")
+        if obv_tr == "down":
+            score += 0.06
+            reasons.append("OBV distribución ✅")
+        if diverg == "bearish":
+            score += 0.08
+            reasons.append("Divergencia RSI bearish ✅")
+        if fg >= 80:
+            score += 0.06
+            reasons.append(f"Extreme Greed {fg} ✅")
+
+        if score >= 0.76 and len(reasons) >= 2:
+            sig = build_signal(symbol, "short", "rsi_bb_scalp", ind, min(score, 0.93), reasons, risk_eval)
+            if sig:
+                sig["exit_mode"] = "fixed"
+                sig["trailing_pct"] = 0.0
+                sig["mart_eligible"] = symbol in {"SOL", "ETH", "XRP", "BTC", "JUP"}
+            return sig
+
+    return None
 
 
 def strategy_scalping(symbol: str, ind: dict, risk_eval: dict) -> Optional[dict]:
@@ -1345,12 +1580,20 @@ def strategy_scalping(symbol: str, ind: dict, risk_eval: dict) -> Optional[dict]
 
     return None
 
-# ── Strategy Lists by Mode (sim validado Kraken 1h×30d, 9516 configs, 2026-04-12) ──
-# PURE: golden_cross primero (WR=73%, PF=5.42 en sim 1h) + estrategias base
-STRATEGIES_PURE  = [strategy_golden_cross, strategy_oversold_bounce, strategy_breakout, strategy_trend_momentum]
-# COMBO: golden_cross primero + scalping bidireccional al final (suplementario)
-STRATEGIES_COMBO = [strategy_golden_cross, strategy_trend_momentum, strategy_breakout, strategy_oversold_bounce,
+# ── Strategy Lists by Mode (sim validado 357,984 combos Kraken 5m-1d, 2026-04-12) ──
+# PURE: golden+death cross primero (WR=73%, PF=5.42) + swing conservadoras
+STRATEGIES_PURE  = [strategy_golden_cross, strategy_death_cross,
+                    strategy_oversold_bounce, strategy_breakout,
+                    strategy_trend_momentum]
+
+# WILD: scalping agresivo bidireccional primero (stoch+rsi=doble extremo)
+# stoch_rsi_scalp → rsi_bb_scalp → golden/death cross → macd → rsi+atr scalp
+STRATEGIES_WILD  = [strategy_stoch_rsi_scalp, strategy_rsi_bb_scalp,
+                    strategy_golden_cross, strategy_death_cross,
                     strategy_macd_cross, strategy_scalping]
+
+# COMBO mantenido por compatibilidad (alias de WILD)
+STRATEGIES_COMBO = STRATEGIES_WILD
 
 # ══════════════════════════════════════════════════════════════════════════════
 # MAIN
@@ -1380,8 +1623,8 @@ def run(debug: bool = False, wild_mode: bool = False) -> dict:
     # Actualizar historial
     price_hist, vol_hist = update_price_history(tokens)
 
-    strategies = STRATEGIES_COMBO if wild_mode else STRATEGIES_PURE
-    mode_label = "COMBO (5 strats)" if wild_mode else "PURE (oversold_bounce, breakout, trend_momentum)"
+    strategies = STRATEGIES_WILD if wild_mode else STRATEGIES_PURE
+    mode_label = "WILD (stoch_rsi+rsi_bb scalping, 6 strats)" if wild_mode else "PURE (golden+death cross, swing, 5 strats)"
     log.info(f"   📊 Strategy mode: {mode_label}")
 
     signals = []

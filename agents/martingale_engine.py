@@ -77,6 +77,9 @@ CHAIN_PROFIT_TARGET_PCT = 20.0   # cerrar chain cuando PnL ≥ 20% del margen ba
 DAILY_TARGET_PCT        = 0.05   # parar nuevas cadenas cuando sesión sube ≥ 5% del equity
 DAILY_SOFT_STOP_PCT     = 0.08   # parar nuevas cadenas cuando sesión baja ≥ 8% del equity
 MAX_ACTIVE_CHAINS       = 2      # max cadenas simultáneas — garantiza margen para hedges
+# Tokens elegibles para martingala — majors líquidos con rebote predecible.
+# Meme coins EXCLUIDOS: riesgo de dump -80% sin rebote = death spiral irrecuperable.
+MART_CORE_TOKENS: frozenset = frozenset({"SOL", "ETH", "XRP", "BTC", "JUP"})
 EXTREME_FEAR_THRESHOLD  = 20     # F&G ≤ 20: no iniciar cadenas nuevas (solo gestionar existentes)
 
 # ── State persistence ────────────────────────────────────────────────────────
@@ -768,6 +771,15 @@ def validate_decision(decision: dict, state: dict, portfolio: dict) -> dict:
     if n_levels >= MAX_LEVELS_PER_SYMBOL:
         hits.append(f'max_levels_{n_levels}')
         out['action'] = 'HOLD'
+        return out
+
+    # Core-token guard: martingala solo para majors líquidos.
+    # Meme coins excluidos — dump sin rebote destruiría la cadena sin recuperación.
+    _sym = decision.get('symbol', '')
+    if _sym not in MART_CORE_TOKENS:
+        log.warning(f'\u26a0\ufe0f MART_CORE_TOKENS: {_sym} bloqueado — martingala solo para SOL/ETH/XRP/BTC/JUP')
+        out['action'] = 'HOLD'
+        hits.append(f'not_core_token_{_sym}')
         return out
 
     # Compute new margin
