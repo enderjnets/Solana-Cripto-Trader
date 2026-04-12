@@ -1245,12 +1245,112 @@ def strategy_macd_cross(symbol, ind, risk_eval) -> Optional[dict]:
     return build_signal(symbol, direction, "macd_cross", ind, min(score_base, 0.90), reasons, risk_eval)
 
 
-# ── Strategy Lists by Mode (sim 108M — 2026-04-10) ───────────────────────────
-# PURE STRATEGY: top 3 performers sin Wild Mode (WR: bounce=42%, breakout=40%, momentum=38%)
-STRATEGIES_PURE  = [strategy_oversold_bounce, strategy_breakout, strategy_trend_momentum]
-# COMBO: 5 estrategias — Wild Mode recupera señales débiles con martingala/hedge
-STRATEGIES_COMBO = [strategy_trend_momentum, strategy_breakout, strategy_oversold_bounce,
-                    strategy_golden_cross, strategy_macd_cross]
+
+
+def strategy_scalping(symbol: str, ind: dict, risk_eval: dict) -> Optional[dict]:
+    """
+    Scalping bidireccional RSI+ATR — suplementario en Wild Mode (COMBO).
+    
+    LONG:  RSI ≤ 30 + caída > 0.4×ATR → SL/TP calculados por auto-learner (exit_mode=fixed)
+    SHORT: RSI ≥ 70 + subida > 0.4×ATR → SL/TP calculados por auto-learner (exit_mode=fixed)
+    
+    Validado: mejor variante en simulación 1h × 30 días (SOL,ETH,XRP).
+    BTC excluido (históricamente negativo en scalping).
+    exit_mode="fixed" para cierre rápido sin trailing.
+    Confidence mínima 0.68 — más exigente que swing (0.55).
+    """
+    if not risk_eval.get("approved"):
+        return None
+
+    # BTC no funciona bien para scalping (0/12 configs positivas en simulación)
+    if symbol == "BTC":
+        return None
+
+    price   = ind.get("price", 0)
+    rsi_val = ind.get("rsi", 50)
+    atr_val = ind.get("atr", 0)
+    atr_pct = ind.get("atr_pct", 0)
+    fg      = ind.get("fear_greed", 50)
+    change  = ind.get("change_5m", 0)
+    bb      = ind.get("bb", {})
+    obv_tr  = ind.get("obv_trend", "unknown")
+    diverg  = ind.get("rsi_divergence", None)
+
+    if price <= 0 or atr_pct < 0.008:  # ATR mínimo 0.8% del precio
+        return None
+
+    atr_thr = (atr_val / price * 100) * 0.4  # 0.4×ATR como mínimo de movimiento
+
+    # ── SCALP LONG: RSI oversold + caída confirmada ─────────────────────────
+    if rsi_val <= 30 and fg <= 65:
+        drop = abs(min(change, 0))
+        score = 0.55
+        reasons = [f"RSI {rsi_val:.0f} oversold — scalp setup ✅"]
+
+        if drop >= atr_thr:
+            score += 0.15
+            reasons.append(f"Drop {drop:.1f}% ≥ 0.4×ATR ({atr_thr:.1f}%) ✅")
+        if obv_tr == "up":
+            score += 0.08
+            reasons.append("OBV rebote alcista ✅")
+        if diverg == "bullish":
+            score += 0.08
+            reasons.append("Divergencia RSI bullish ✅")
+        if bb.get("below_lower"):
+            score += 0.07
+            reasons.append("Precio bajo BB inferior ✅")
+        if fg <= 20:
+            score += 0.08
+            reasons.append(f"Extreme Fear {fg} — rebote probable ✅")
+        elif fg <= 35:
+            score += 0.04
+
+        if score >= 0.68 and len(reasons) >= 2:
+            sig = build_signal(symbol, "long", "scalping", ind, min(score, 0.90), reasons, risk_eval)
+            if sig:
+                sig["exit_mode"] = "fixed"   # Scalp: sin trailing, cierre rápido
+                sig["trailing_pct"] = 0.0
+            return sig
+
+    # ── SCALP SHORT: RSI overbought + subida confirmada ─────────────────────
+    if rsi_val >= 70 and fg >= 20:  # No shortar en panic extremo (riesgo de rebote violento)
+        rise = max(change, 0)
+        score = 0.55
+        reasons = [f"RSI {rsi_val:.0f} overbought — scalp short setup ✅"]
+
+        if rise >= atr_thr:
+            score += 0.15
+            reasons.append(f"Subida {rise:.1f}% ≥ 0.4×ATR ({atr_thr:.1f}%) ✅")
+        if obv_tr == "down":
+            score += 0.08
+            reasons.append("OBV distribución bajista ✅")
+        if diverg == "bearish":
+            score += 0.08
+            reasons.append("Divergencia RSI bearish ✅")
+        if bb.get("above_upper"):
+            score += 0.07
+            reasons.append("Precio sobre BB superior ✅")
+        if fg >= 80:
+            score += 0.08
+            reasons.append(f"Extreme Greed {fg} — caída probable ✅")
+        elif fg >= 65:
+            score += 0.04
+
+        if score >= 0.68 and len(reasons) >= 2:
+            sig = build_signal(symbol, "short", "scalping", ind, min(score, 0.90), reasons, risk_eval)
+            if sig:
+                sig["exit_mode"] = "fixed"
+                sig["trailing_pct"] = 0.0
+            return sig
+
+    return None
+
+# ── Strategy Lists by Mode (sim validado Kraken 1h×30d, 9516 configs, 2026-04-12) ──
+# PURE: golden_cross primero (WR=73%, PF=5.42 en sim 1h) + estrategias base
+STRATEGIES_PURE  = [strategy_golden_cross, strategy_oversold_bounce, strategy_breakout, strategy_trend_momentum]
+# COMBO: golden_cross primero + scalping bidireccional al final (suplementario)
+STRATEGIES_COMBO = [strategy_golden_cross, strategy_trend_momentum, strategy_breakout, strategy_oversold_bounce,
+                    strategy_macd_cross, strategy_scalping]
 
 # ══════════════════════════════════════════════════════════════════════════════
 # MAIN
