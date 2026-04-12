@@ -437,6 +437,9 @@ def load_signals() -> dict:
                         valid_llm_signals = [
                             s for s in llm_signals
                             if s.get("direction", "none") not in ("none", "")
+                            and "|" not in s.get("direction", "")  # reject template placeholder
+                            and s.get("symbol", "") not in ("", "TOKEN")  # reject template placeholder
+                            and s.get("confidence", 0) >= 0.55  # reject low-confidence/template signals
                         ]
                         if valid_llm_signals:
                             # FIX 1.6b: Filtrar tokens_to_avoid TAMBIEN en senales LLM

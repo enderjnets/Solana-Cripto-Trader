@@ -227,18 +227,18 @@ Responde ÚNICAMENTE en formato JSON válido con esta estructura:
 {
   "signals": [
     {
-      "symbol": "TOKEN",
-      "direction": "long|short|none",
-      "entry_price": 0.0,
-      "sl_price": 0.0,
-      "tp_price": 0.0,
-      "exit_mode": "fixed|trailing",
-      "trailing_pct": 0.0,
-      "size_usd": 0.0,
-      "confidence": 0.0,
-      "strategy": "momentum|breakout|oversold",
-      "reasoning": "Breve explicación",
-      "factors": ["factor1", "factor2"]
+      "symbol": "SOL",
+      "direction": "long",
+      "entry_price": 142.50,
+      "sl_price": 138.95,
+      "tp_price": 151.75,
+      "exit_mode": "trailing",
+      "trailing_pct": 0.025,
+      "size_usd": 10.0,
+      "confidence": 0.82,
+      "strategy": "breakout",
+      "reasoning": "RSI 28 sobreventa + rebote desde soporte clave",
+      "factors": ["RSI_oversold_28", "soporte_confirmado"]
     }
   ],
   "summary": {
