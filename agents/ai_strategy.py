@@ -360,9 +360,28 @@ Responde SOLO en JSON válido."""
                 
                 # Validar estructura
                 if "signals" in signals_data:
+                    # Sanear señales: rechazar placeholders y SL/TP imposibles
+                    _cur_prices = {sym: d.get("price", 0) for sym, d in tokens_data.items()}
+                    _clean = []
+                    for _sig in signals_data["signals"]:
+                        _sym = _sig.get("symbol", "")
+                        _dir = _sig.get("direction", "")
+                        _conf = _sig.get("confidence", 0)
+                        if "|" in _dir or _sym in ("", "TOKEN") or _conf < 0.55:
+                            log.warning(f"\u26a0\ufe0f LLM signal rechazada (template): {_sym} dir={_dir} conf={_conf}")
+                            continue
+                        _ep = _sig.get("entry_price", 0)
+                        _cur = _cur_prices.get(_sym, 0)
+                        if _ep > 0 and _cur > 0 and abs(_ep - _cur) / _cur > 0.30:
+                            log.warning(f"\u26a0\ufe0f {_sym} entry={_ep:.4f} vs mkt={_cur:.4f} diff>30% — limpiando SL/TP")
+                            _sig["sl_price"] = 0.0
+                            _sig["tp_price"] = 0.0
+                            _sig["entry_price"] = 0.0
+                        _clean.append(_sig)
+                    signals_data["signals"] = _clean
                     return signals_data
                 else:
-                    log.warning("⚠️ LLM response no contiene 'signals'")
+                    log.warning("\u26a0\ufe0f LLM response no contiene 'signals'")
                     return {"signals": [], "error": "Invalid response structure"}
                     
             except json.JSONDecodeError as e:

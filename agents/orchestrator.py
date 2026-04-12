@@ -229,6 +229,13 @@ def run_cycle(safe=True, debug=False):
                 else:
                     ai_signals = []
                 
+                # Pre-save filter: reject template/placeholder signals
+                ai_signals = [
+                    s for s in ai_signals
+                    if s.get("confidence", 0) >= 0.55
+                    and s.get("symbol", "") not in ("", "TOKEN")
+                    and "|" not in s.get("direction", "")
+                ]
                 if ai_signals and len(ai_signals) > 0:
                     # Guardar en strategy_llm.json para que el executor las use
                     llm_out = DATA_DIR / "strategy_llm.json"
