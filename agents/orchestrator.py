@@ -895,6 +895,9 @@ if __name__ == "__main__":
                 pt.save_performance_snapshot()
                 if cycle_count % 50 == 0:
                     pt.print_dashboard()
+                # Alerta Telegram si estrategia degradada (cada ~60 ciclos = 1h)
+                if cycle_count % 60 == 0:
+                    pt.check_and_alert(cooldown_hours=6.0)
             except Exception as _pt_err:
                 log.debug(f"perf_tracker error: {_pt_err}")
     else:

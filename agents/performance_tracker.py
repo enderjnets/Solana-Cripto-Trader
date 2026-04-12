@@ -199,3 +199,72 @@ def print_dashboard():
                 f"health={h:.2f} mult={mx:.2f}"
             )
     log.info("─" * 60)
+
+
+# ── Alertas de degradación ────────────────────────────────────────────────────
+_last_alert: dict = {}   # {strategy_name: timestamp} para no spam
+
+def check_and_alert(cooldown_hours: float = 6.0):
+    """
+    Revisa la salud de todas las estrategias y envía alerta Telegram si alguna
+    está degradada. Cooldown de 6h por estrategia para evitar spam.
+    """
+    import time
+    now = time.time()
+    alerts_sent = 0
+
+    for name, baseline in BACKTEST_BASELINES.items():
+        h = strategy_health(name)
+        m = get_strategy_metrics(name)
+
+        if m["trades"] < HEALTH_MIN_TRADES:
+            continue  # sin datos suficientes
+
+        # Calcular cuando fue la ultima alerta
+        last = _last_alert.get(name, 0)
+        if (now - last) < cooldown_hours * 3600:
+            continue
+
+        if h < HEALTH_PAUSE_SCORE:
+            emoji = "🔴"
+            level = "PAUSADA"
+        elif h < HEALTH_DEGRADED_SCORE:
+            emoji = "🟠"
+            level = "DEGRADADA"
+        elif h < 0.65:
+            emoji = "🟡"
+            level = "leve degradacion"
+        else:
+            continue  # sana — no alertar
+
+        msg = (
+            f"{emoji} *Solana Bot — Estrategia {level}*\n"
+            f"`{name}`\n"
+            f"Health: {h:.2f} | Trades: {m['trades']} | WR: {m['wr']*100:.0f}% "
+            f"(base {baseline['wr']*100:.0f}%)\n"
+            f"PF: {m['pf']:.1f}x | Sharpe: {m['sharpe']:.2f}\n"
+            f"Multiplier: {get_position_multiplier(name):.2f}x"
+        )
+        try:
+            import sys, os
+            sys.path.insert(0, os.path.dirname(__file__))
+            import reporter
+            reporter.send_telegram(msg)
+            _last_alert[name] = now
+            alerts_sent += 1
+            log.warning(f"⚠️ Alerta enviada: {name} health={h:.2f}")
+        except Exception as e:
+            log.warning(f"No se pudo enviar alerta Telegram: {e}")
+
+    return alerts_sent
+
+
+def integrate_multiplier(strategy_name: str, base_size_usd: float) -> float:
+    """
+    Ajusta el tamaño de posición por salud de la estrategia.
+    Llamar desde executor.py antes de abrir posición.
+    """
+    mult = get_position_multiplier(strategy_name)
+    if mult < 1.0:
+        log.info(f"📉 {strategy_name}: size ajustado {base_size_usd:.2f} → {base_size_usd*mult:.2f} (health mult={mult:.2f})")
+    return base_size_usd * mult
