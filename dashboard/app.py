@@ -549,6 +549,23 @@ DASHBOARD_HTML = r"""
   @keyframes dotBounce{0%,80%,100%{transform:scale(.4);opacity:.4}40%{transform:scale(1);opacity:1}}
   .typing-text{color:var(--text2);font-size:11px;animation:tPulse 2s infinite}
   @keyframes tPulse{0%,100%{opacity:.5}50%{opacity:1}}
+
+/* ── Trades Summary Bar ─────────────────────────────────────────── */
+.trades-summary {
+  display: flex;
+  gap: 1.5rem;
+  align-items: center;
+  padding: 0.55rem 1rem;
+  margin-bottom: 0.75rem;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 8px;
+  font-size: 0.82rem;
+  flex-wrap: wrap;
+}
+.trades-summary .ts-label { color: var(--text-muted, #aaa); margin-right: 0.25rem; }
+.trades-summary .ts-val   { font-weight: 700; }
+.trades-summary .ts-sep   { color: rgba(255,255,255,0.15); }
 </style>
 </head>
 <body>
@@ -727,6 +744,7 @@ DASHBOARD_HTML = r"""
           <option value="short">Short</option>
         </select>
       </div>
+      <div id="tradesSummary" class="trades-summary" style="display:none"></div>
       <div class="table-wrap" id="tradesTable">
         <div class="empty" data-i18n="loadingTrades">Cargando trades...</div>
       </div>
@@ -1849,6 +1867,37 @@ function filterTrades() {
   });
   currentPage = 1;
   renderTradesPage();
+  updateTradesSummary();
+}
+
+function updateTradesSummary() {
+  const el = document.getElementById('tradesSummary');
+  if (!el) return;
+  if (!filteredTrades.length) { el.style.display = 'none'; return; }
+
+  const wins   = filteredTrades.filter(t => (t.pnl_usd || 0) > 0);
+  const losses = filteredTrades.filter(t => (t.pnl_usd || 0) < 0);
+  const net    = filteredTrades.reduce((s, t) => s + (t.pnl_usd || 0), 0);
+  const winSum = wins.reduce((s, t) => s + (t.pnl_usd || 0), 0);
+  const lssSum = losses.reduce((s, t) => s + (t.pnl_usd || 0), 0);
+  const wr     = filteredTrades.length
+    ? (wins.length / filteredTrades.length * 100).toFixed(1)
+    : '0.0';
+
+  const netCls = net >= 0 ? 'pos' : 'neg';
+  el.innerHTML =
+    '<span><span class="ts-label">NET P&L</span>' +
+    '<span class="ts-val ' + netCls + '">' + (net >= 0 ? '+' : '') + fmt$(net) + '</span></span>' +
+    '<span class="ts-sep">·</span>' +
+    '<span><span class="ts-label">' + wins.length + ' WIN</span>' +
+    '<span class="ts-val pos">+' + fmt$(winSum) + '</span></span>' +
+    '<span class="ts-sep">·</span>' +
+    '<span><span class="ts-label">' + losses.length + ' LOSS</span>' +
+    '<span class="ts-val neg">' + fmt$(lssSum) + '</span></span>' +
+    '<span class="ts-sep">·</span>' +
+    '<span><span class="ts-label">Win Rate</span>' +
+    '<span class="ts-val">' + wr + '%</span></span>';
+  el.style.display = 'flex';
 }
 
 function renderTradesPage() {
