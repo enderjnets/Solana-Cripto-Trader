@@ -1057,7 +1057,7 @@ async function loadStats() {
   document.getElementById('kpiCapital').textContent = fmt$(d.capital_usd);
   document.getElementById('kpiCapitalSub').textContent = 'Inicial: ' + fmt$(d.initial_capital);
 
-  const pnl = d.total_pnl;
+  const pnl = d.realized_pnl;
   const pnlEl = document.getElementById('kpiPnl');
   const pnlSubEl = document.getElementById('kpiPnlSub');
   const pnlCard = document.getElementById('kpiPnlCard');
