@@ -2583,7 +2583,13 @@ def api_equity():
     closed_all = [t for t in trades_raw if t.get("status") in ("closed", None, "")]
 
     # Filter to post-reset trades if reset exists
-    reset_log = load_json(DATA / "reset_log_20260326.json")
+    # Try reset_history.json (latest) first, then fallback to legacy file
+    reset_log = {}
+    _rh = load_json(DATA / reset_history.json)
+    if isinstance(_rh, list) and _rh:
+        reset_log = _rh[-1]
+    if not reset_log or not reset_log.get("reset_date"):
+        reset_log = load_json(DATA / "reset_log_20260326.json")
     has_reset = bool(reset_log and reset_log.get("reset_date"))
     reset_dt = None
     if has_reset:
@@ -2610,8 +2616,10 @@ def api_equity():
     closed.sort(key=lambda t: t.get("close_time", ""))
 
     # Build equity curve from reset baseline
-    init_cap = safe_float(reset_log.get("capital_after", 500.0)) if has_reset else \
-               safe_float(port.get("initial_capital", 1000))
+    # reset_history uses new_capital; legacy file uses capital_after
+    _reset_cap = reset_log.get("capital_after") or reset_log.get("new_capital")
+    _fallback_cap = safe_float(port.get("initial_capital", 500))
+    init_cap = safe_float(_reset_cap) if (has_reset and _reset_cap) else _fallback_cap
     capital = init_cap
     equity_full = [init_cap]
     labels_full = ["Start"]
