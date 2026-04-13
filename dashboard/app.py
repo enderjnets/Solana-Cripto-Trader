@@ -2585,7 +2585,7 @@ def api_equity():
     # Filter to post-reset trades if reset exists
     # Try reset_history.json (latest) first, then fallback to legacy file
     reset_log = {}
-    _rh = load_json(DATA / reset_history.json)
+    _rh = load_json(DATA / "reset_history.json")
     if isinstance(_rh, list) and _rh:
         reset_log = _rh[-1]
     if not reset_log or not reset_log.get("reset_date"):
