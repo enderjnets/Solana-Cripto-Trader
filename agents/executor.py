@@ -266,33 +266,50 @@ MIN_CONFIDENCE      = 0.55     # E1: Lowered from 0.70 for more trades     # Baj
 BLOCK_LONGS_FG      = 10       # E1: Lowered from 20 — allow longs during F&G recovery bounces
 MAX_TRADES_PER_DAY  = 0        # 0 = sin límite
 
-# ─── Regla de Ender (31-Mar-2026): $4 min profit, $2 max risk ────────────
-# Capital-proportional risk (works with $100-$10,000)
-MAX_RISK_PCT        = 0.025   # 2.5% of capital per trade (was fixed $5)
-PORTFOLIO_RISK_PCT  = 0.10    # 10% of capital total risk (was fixed $20)
-MIN_PROFIT_PCT      = 0.002   # 0.2% of capital min profit per pos (was fixed $0.50)
+# ─── Regla de Ender (SOL-8): Dual sizing — Wild vs Pure Mode ────────────────
+# Wild Mode: small initial sizes so martingale has room (1.5%/10x at conf=0.85)
+# Pure Mode: moderate swing sizes, lower leverage, no martingale (2%/5x)
+MAX_RISK_PCT        = 0.020   # 2.0% base (reduced from 2.5%)
+PORTFOLIO_RISK_PCT  = 0.10    # 10% of capital total risk (unchanged)
+MIN_PROFIT_PCT      = 0.002   # 0.2% of capital min profit per pos (unchanged)
 
-def _get_risk_for_capital(capital: float, confidence: float = 0.7) -> tuple:
-    """Returns (max_risk_usd, leverage) based on capital and confidence.
-    Leverage tiers aligned with Drift Protocol limits (10x max for major perps).
+def _is_wild_mode_active() -> bool:
+    """Lee wild_mode_state.json para detectar si Wild Mode está ON."""
+    try:
+        state = safe_read_json(DATA_DIR / "wild_mode_state.json", default={})
+        return bool(state.get("active", False))
+    except Exception:
+        return False
+
+# Wild Mode: smaller positions → martingale 2 chains × $37.50 × 2.3x = $172 (34% cap) ✅
+_WILD_TIERS = [
+    (0.85, 0.015, 10),   # conf ≥ 0.85: 1.5% capital, 10x lev → ~$37.50 margin at $500
+    (0.75, 0.012,  7),   # conf ≥ 0.75: 1.2% capital, 7x lev
+    (0.65, 0.010,  5),   # conf ≥ 0.65: 1.0% capital, 5x lev
+    (0.00, 0.008,  3),   # else:         0.8% capital, 3x lev
+]
+# Pure Mode: swing sizes, no martingale → 2 positions × $100 = $200 (40% cap) ✅
+_PURE_TIERS = [
+    (0.85, 0.020,  5),   # conf ≥ 0.85: 2.0% capital, 5x lev → ~$100 margin at $500
+    (0.75, 0.015,  4),   # conf ≥ 0.75: 1.5% capital, 4x lev
+    (0.65, 0.010,  3),   # conf ≥ 0.65: 1.0% capital, 3x lev
+    (0.00, 0.008,  2),   # else:         0.8% capital, 2x lev
+]
+
+def _get_risk_for_capital(capital: float, confidence: float = 0.7,
+                          wild_mode: "Optional[bool]" = None) -> tuple:
+    """Returns (max_risk_usd, leverage) based on capital, confidence and mode.
+    Wild Mode: smaller initial sizes to leave room for martingale.
+    Pure Mode: moderate swing sizes, lower leverage.
     """
-    base_risk = capital * MAX_RISK_PCT
-    # Confidence-based scaling — usar techo de Drift Protocol (10x)
-    if confidence >= 0.85:
-        risk = base_risk * 1.4   # 3.5% of capital
-        lev = 10                  # Drift Protocol permite 10x — aprovechar en alta confianza
-    elif confidence >= 0.75:
-        risk = base_risk * 1.2   # 3% of capital
-        lev = 7
-    elif confidence >= 0.65:
-        risk = base_risk          # 2.5% of capital
-        lev = 5
-    else:
-        risk = base_risk * 0.6   # 1.5% of capital
-        lev = 3
-    # Floor: minimum $0.50 risk to avoid dust trades
-    risk = max(0.50, risk)
-    return round(risk, 2), lev
+    if wild_mode is None:
+        wild_mode = _is_wild_mode_active()
+    tiers = _WILD_TIERS if wild_mode else _PURE_TIERS
+    for min_conf, risk_pct, lev in tiers:
+        if confidence >= min_conf:
+            risk = max(0.50, round(capital * risk_pct, 2))
+            return risk, lev
+    return max(0.50, round(capital * 0.008, 2)), 2
 
 # Legacy compatibility
 MAX_RISK_USD        = 5.00     # Overridden by _get_risk_for_capital() at runtime     # Máximo $3 de riesgo por POSICIÓN individual (ajustado 2026-03-31 para mercado lento)
@@ -679,7 +696,8 @@ def paper_open_position(signal: dict, portfolio: dict, market: dict) -> Optional
     _capital = portfolio.get("capital_usd", 500) + sum(
         p.get("margin_usd", 0) for p in portfolio.get("positions", []) if p.get("status") == "open"
     )
-    _dyn_risk, leverage = _get_risk_for_capital(_capital, confidence)
+    _wm = _is_wild_mode_active()
+    _dyn_risk, leverage = _get_risk_for_capital(_capital, confidence, wild_mode=_wm)
     signal["_coordinated_risk"] = _dyn_risk
     log.info(f"   \U0001f4b0 Sizing: capital=${_capital:.0f} conf={confidence:.2f} -> risk=${_dyn_risk:.2f} lev={leverage}x")
     leverage = max(1, min(leverage, MAX_LEVERAGE))
