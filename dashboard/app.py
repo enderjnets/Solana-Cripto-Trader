@@ -566,6 +566,33 @@ DASHBOARD_HTML = r"""
 .trades-summary .ts-label { color: var(--text-muted, #aaa); margin-right: 0.25rem; }
 .trades-summary .ts-val   { font-weight: 700; }
 .trades-summary .ts-sep   { color: rgba(255,255,255,0.15); }
+
+/* ── AI Thinking: Wild Chain inline block ───────────────────────── */
+.ait-wild-inline {
+  border: 1px solid rgba(251,146,60,0.3);
+  background: rgba(251,146,60,0.05);
+  border-radius: 6px;
+  padding: 8px 10px;
+  margin-bottom: 10px;
+}
+.ait-wild-inline-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #fb923c;
+  margin-bottom: 5px;
+  text-transform: uppercase;
+  letter-spacing: .4px;
+}
+.ait-wild-inline-text {
+  font-size: 12px;
+  color: var(--text);
+  line-height: 1.6;
+  border-left: 2px solid rgba(251,146,60,0.5);
+  padding-left: 8px;
+}
 </style>
 </head>
 <body>
@@ -1611,40 +1638,8 @@ function renderAIThinking(d) {
   </div>
   <div class="ait-body">`;
 
-  // Wild mode chains
+  // Per-position cards — wild chain info integrated inline (no duplicate cards)
   const chains = d.wild_chains || {};
-  const chainSyms = Object.keys(chains);
-  if (chainSyms.length > 0) {
-    html += `<div><div class="ait-wild-header">🔥 MODO SALVAJE — Cadenas activas (${chainSyms.length})</div>`;
-    for (const sym of chainSyms) {
-      const c = chains[sym];
-      const dec = c.last_decision || {};
-      const raw = dec.raw || {};
-      const validated = dec.validated || {};
-      const guardrails = validated.guardrails_hit || [];
-      const pnlColor = _pnlColor(c.chain_pnl || 0);
-      const badgeHtml = _actionBadge(validated.action || raw.action);
-      html += `<div class="ait-wild-chain">
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
-          <strong style="font-size:14px;">${sym}</strong>
-          <span style="font-size:11px;color:var(--text2);">${c.n_levels || 1} nivel(es) · margen $${(c.total_margin||0).toFixed(2)}</span>
-          <span style="font-size:14px;font-weight:700;color:${pnlColor};margin-left:auto;">${_fmtUsd(c.chain_pnl||0)}</span>
-          ${badgeHtml}
-        </div>`;
-      if (raw.reasoning && !raw.reasoning.startsWith('fallback')) {
-        html += `<div style="font-size:12px;color:var(--text);line-height:1.6;border-left:3px solid var(--purple);padding-left:10px;">${escHtml(raw.reasoning)}</div>`;
-      } else if (raw.reasoning) {
-        html += `<div style="font-size:11px;color:var(--text2);">⚙️ ${escHtml(raw.reasoning)}</div>`;
-      }
-      if (guardrails.length > 0) {
-        html += guardrails.map(g => `<div class="ait-guardrail" style="margin-top:6px;">🛡️ Guardrail: ${escHtml(g)}</div>`).join('');
-      }
-      html += `</div>`;
-    }
-    html += `</div>`;
-  }
-
-  // Per-position cards from position_decisions
   const positions = d.positions || [];
   if (positions.length === 0) {
     html += `<div style="text-align:center;padding:30px;color:var(--text2);">Sin posiciones abiertas para analizar</div>`;
@@ -1704,6 +1699,25 @@ function renderAIThinking(d) {
             <span style="color:#3fb950;min-width:18px;">TP</span>
           </div>
         </div>
+        ${(()=>{
+          const chain = chains[p.symbol];
+          if (!chain) return '';
+          const craw = (chain.last_decision || {}).raw || {};
+          const cval = (chain.last_decision || {}).validated || {};
+          const cguards = cval.guardrails_hit || [];
+          const cpnlColor = _pnlColor(chain.chain_pnl || 0);
+          let chtml = '<div class=\"ait-wild-inline\">';
+          chtml += '<div class=\"ait-wild-inline-header\">🔥 Motor Martingala';
+          chtml += '<span style=\"color:var(--text2);font-weight:400;\">' + (chain.n_levels||1) + ' nivel(es) · $' + (chain.total_margin||0).toFixed(2) + ' margen</span>';
+          chtml += '<span style=\"margin-left:auto;color:' + cpnlColor + ';font-weight:700;\">' + _fmtUsd(chain.chain_pnl||0) + '</span>';
+          chtml += '</div>';
+          if (craw.reasoning && !craw.reasoning.startsWith('fallback')) {
+            chtml += '<div class=\"ait-wild-inline-text\">' + escHtml(craw.reasoning) + '</div>';
+          }
+          cguards.forEach(g => { chtml += '<div class=\"ait-guardrail\">🛡️ ' + escHtml(g) + '</div>'; });
+          chtml += '</div>';
+          return chtml;
+        })()}
         <div class="ait-llm-block">
           <div class="ait-llm-title">🤖 Razonamiento del LLM <span style="color:var(--text2);font-weight:400;text-transform:none;">${p.llm_source ? '· ' + p.llm_source : ''}</span></div>
           <div class="ait-llm-text">${p.llm_reasoning && p.llm_reasoning.length > 15 && !p.llm_reasoning.includes('workdir:') ? escHtml(p.llm_reasoning) : '<span style="color:var(--text2);font-style:italic;">Analizando condiciones del mercado...</span>'}</div>
