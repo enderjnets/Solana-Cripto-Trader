@@ -596,10 +596,9 @@ DASHBOARD_HTML = r"""
   font-size: 11px;
 }
 .ait-wild-inline-text {
-  font-size: 11px;
-  color: var(--text2);
-  line-height: 1.5;
-  font-style: italic;
+  font-size: 12px;
+  color: var(--text);
+  line-height: 1.7;
 }
 </style>
 </head>
