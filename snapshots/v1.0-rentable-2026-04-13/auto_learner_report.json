@@ -1,0 +1,65 @@
+{
+  "timestamp": "2026-04-13T21:46:14.298289+00:00",
+  "version": "2.0-ai",
+  "adaptation_count": 6,
+  "total_trades_analyzed": 11,
+  "new_trades_since_last": 5,
+  "performance": {
+    "total": 11,
+    "wins": 9,
+    "losses": 2,
+    "flat": 0,
+    "win_rate": 81.8,
+    "total_pnl": 5.1716,
+    "total_fees": 0,
+    "avg_win": 1.3748,
+    "avg_loss": 3.6008,
+    "rr_ratio": 0.38,
+    "best": 2.912,
+    "worst": -4.5445
+  },
+  "analysis": "The 81.8% win rate is excellent but the catastrophic session expiration losses ($7.20 on 2 trades) exceed all profits combined, while average loss ($3.60) is 2.6x the average win ($1.37), creating a destructive R:R ratio of 0.38. The WILD_MODE_CLOSE_CHAIN and WILD_AI_CLOSE exits are 100% WR and responsible for all profits, while session expiration at 361m is the primary destruction mechanism. BTC and JUP are the star performers while ETH and SOL consistently underperform.",
+  "key_insight": "Session expiration at 361 minutes is the #1 threat - these 2 trades lost $7.20 which exceeds ALL cumulative profits. The trailing stop was correctly increased from 0.5% to 2.5% to capture more gains before abandonment triggers, but session timeout needs to be reduced or positions must exit via trailing stop much earlier.",
+  "confidence": 0.78,
+  "params_before": {
+    "sl_pct": 0.05,
+    "tp_pct": 0.1,
+    "leverage_tier": 1,
+    "risk_per_trade": 0.018,
+    "max_positions": 2,
+    "trailing_stop_pct": 2.5,
+    "trailing_pct": 3.0,
+    "tokens_to_avoid": [
+      "BONK"
+    ]
+  },
+  "params_after": {
+    "sl_pct": 0.05,
+    "tp_pct": 0.1,
+    "leverage_tier": 1,
+    "risk_per_trade": 0.015,
+    "max_positions": 2,
+    "trailing_stop_pct": 2.5,
+    "trailing_pct": 3.0,
+    "tokens_to_avoid": [
+      "BONK"
+    ]
+  },
+  "changes": [
+    "risk_per_trade: 0.0180 \u2192 0.0150"
+  ],
+  "new_lessons": [
+    "WILD_ABANDON_session_expired_361m caused -$7.20 in losses on just 2 trades - session timeout MUST be reduced to 240m or positions must have tighter trailing stop activation to exit before expiration",
+    "BTC and JUP are the dominant performers with 100% WR each, contributing +$7.80 combined vs -$7.20 from expired ETH/SOL - concentrate allocation on these two tokens",
+    "The 2.5% trailing stop is correctly calibrated - increasing from 0.5% allowed WILD_MODE_CLOSE_CHAIN exits to capture full profit on JUP ($2.91) and SOL ($2.11) trades",
+    "With 81.8% WR, the problem is never about being wrong but about loss magnitude - always prioritize loss size reduction over win rate improvement"
+  ],
+  "tokens_to_avoid": [
+    "ETH",
+    "SOL"
+  ],
+  "tokens_to_prefer": [
+    "JUP",
+    "BTC"
+  ]
+}
