@@ -90,7 +90,7 @@ def get_strategy_metrics(strategy_name: str, window_days: int = 30) -> dict:
                 continue
         except Exception:
             pass
-        if t.get("status") == "closed":
+        if "pnl_usd" in t:  # BUG FIX: trade_history.json never sets "status" field
             relevant.append(t)
 
     if not relevant:

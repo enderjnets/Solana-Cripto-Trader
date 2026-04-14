@@ -119,8 +119,8 @@ def calculate_metrics(portfolio: dict, history: list) -> dict:
     # Win Rate
     win_rate = (wins / total_trades * 100) if total_trades > 0 else 0.0
 
-    # P&L total realizado
-    closed_trades = [t for t in history if t.get("status") == "closed"]
+    # P&L total realizado — todos los trades en history son cerrados (no tienen campo "status")
+    closed_trades = [t for t in history if "pnl_usd" in t]
     total_pnl = sum(t.get("pnl_usd", 0) for t in closed_trades)
 
     # P&L no realizado + valor de posiciones abiertas
@@ -511,6 +511,25 @@ def run(daily: bool = False, alert_only: bool = False) -> dict:
         json.dump(report, f, indent=2)
 
     log.info(f"💾 Guardado en {REPORT_FILE}")
+
+    # FIX: Actualizar equity_history.json con snapshot actual (estaba sin actualizar desde Apr 3)
+    EQUITY_HISTORY_FILE = DATA_DIR / "equity_history.json"
+    try:
+        eq_data = {"equity": [], "dates": []}
+        if EQUITY_HISTORY_FILE.exists():
+            with open(EQUITY_HISTORY_FILE) as f:
+                eq_data = json.load(f)
+        eq_data["equity"].append(round(metrics.get("capital_usd", 0), 2))
+        eq_data["dates"].append(datetime.now(timezone.utc).isoformat())
+        # Retener solo últimos 500 puntos
+        if len(eq_data["equity"]) > 500:
+            eq_data["equity"] = eq_data["equity"][-500:]
+            eq_data["dates"] = eq_data["dates"][-500:]
+        with open(EQUITY_HISTORY_FILE, "w") as f:
+            json.dump(eq_data, f, indent=2)
+    except Exception as e:
+        log.warning(f"equity_history update failed: {e}")
+
     return report
 
 

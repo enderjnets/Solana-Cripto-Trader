@@ -13,6 +13,7 @@ Actualiza automáticamente la lista de tokens a tradear.
 
 import json
 import logging
+import time
 import requests
 from pathlib import Path
 from datetime import datetime, timezone
@@ -99,16 +100,40 @@ def fetch_dexscreener_trending() -> list:
     return unique
 
 
+JUPITER_CACHE_FILE = DATA_DIR / "jupiter_tokens_cache.json"
+JUPITER_CACHE_TTL  = 3600 * 6   # 6 horas en segundos
+
+
 def fetch_jupiter_verified_tokens() -> dict:
-    """Obtiene lista de tokens verificados de Jupiter."""
+    """Obtiene tokens verificados de Jupiter. Usa caché local si DNS falla."""
+    # Intentar fetch fresco
     try:
         resp = requests.get(JUPITER_STRICT_LIST, timeout=15)
         if resp.status_code == 200:
             tokens = resp.json()
-            # Convertir a dict por símbolo
-            return {t.get("symbol", ""): t for t in tokens if t.get("symbol")}
+            result = {t.get("symbol", ""): t for t in tokens if t.get("symbol")}
+            # Guardar caché en disco para uso posterior
+            try:
+                with open(JUPITER_CACHE_FILE, "w") as f:
+                    json.dump({"tokens": result, "saved_at": time.time()}, f)
+            except Exception:
+                pass
+            return result
     except Exception as e:
         log.warning(f"Jupiter token list error: {e}")
+
+    # Fallback: caché local si tiene menos de 6h de antigüedad
+    try:
+        if JUPITER_CACHE_FILE.exists():
+            with open(JUPITER_CACHE_FILE) as f:
+                cached = json.load(f)
+            age_h = (time.time() - cached.get("saved_at", 0)) / 3600
+            if age_h < (JUPITER_CACHE_TTL / 3600):
+                log.info(f"Jupiter: usando caché ({age_h:.1f}h de antigüedad, {len(cached['tokens'])} tokens)")
+                return cached["tokens"]
+    except Exception:
+        pass
+
     return {}
 
 

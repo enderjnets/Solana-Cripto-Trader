@@ -399,8 +399,7 @@ def load_portfolio() -> dict:
 
 def save_portfolio(portfolio: dict):
     portfolio["last_updated"] = datetime.now(timezone.utc).isoformat()
-    with open(PORTFOLIO_FILE, "w") as f:
-        json.dump(portfolio, f, indent=2)
+    atomic_write_json(PORTFOLIO_FILE, portfolio)
 
 
 def load_history() -> list:
@@ -419,8 +418,7 @@ def load_history() -> list:
 
 
 def save_history(history: list):
-    with open(HISTORY_FILE, "w") as f:
-        json.dump(history, f, indent=2)
+    atomic_write_json(HISTORY_FILE, history)
 
 
 def load_signals() -> dict:
@@ -1447,6 +1445,7 @@ def run(safe: bool = True, debug: bool = False) -> dict:
     STOP_FILE = DATA_DIR / "STOP_TRADING"
     if STOP_FILE.exists():
         log.warning("🛑 KILL SWITCH ACTIVE — STOP_TRADING file detected. No new positions.")
+        save_history(history)  # BUG FIX: persist any trades closed this cycle before early return
         save_portfolio(portfolio)
         return {
             "status": "kill_switch_active",
@@ -1517,6 +1516,7 @@ def run(safe: bool = True, debug: bool = False) -> dict:
                     TARGET_HIT_FILE.unlink()
                 else:
                     log.warning(f"   🛡️ DAILY_TARGET_HIT activo — FG={fear_greed}, RSI={rsi:.1f}, manteniendo lock")
+                    save_history(history)  # BUG FIX: persist any trades closed this cycle before early return
                     save_portfolio(portfolio)
                     return {
                         "status": "daily_target_hit",
@@ -1528,6 +1528,7 @@ def run(safe: bool = True, debug: bool = False) -> dict:
                     }
             except Exception as e:
                 log.warning(f"   🛡️ DAILY_TARGET_HIT — error en re-eval: {e}, manteniendo lock")
+                save_history(history)  # BUG FIX: persist any trades closed this cycle before early return
                 save_portfolio(portfolio)
                 return {
                     "status": "daily_target_hit",
@@ -1555,6 +1556,7 @@ def run(safe: bool = True, debug: bool = False) -> dict:
 
     if today_pnl < -MAX_DAILY_LOSS:
         log.warning(f"🛑 MAX DAILY LOSS hit: ${today_pnl:.2f} < -${MAX_DAILY_LOSS}. Stopping new trades.")
+        save_history(history)  # BUG FIX: persist any trades closed this cycle before early return
         save_portfolio(portfolio)
         return {
             "status": "max_daily_loss",
