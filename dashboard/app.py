@@ -569,29 +569,37 @@ DASHBOARD_HTML = r"""
 
 /* ── AI Thinking: Wild Chain inline block ───────────────────────── */
 .ait-wild-inline {
-  border: 1px solid rgba(251,146,60,0.3);
-  background: rgba(251,146,60,0.05);
-  border-radius: 6px;
-  padding: 8px 10px;
+  border-left: 3px solid #fb923c;
+  background: transparent;
+  padding: 3px 0 3px 10px;
   margin-bottom: 10px;
 }
 .ait-wild-inline-header {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 11px;
-  font-weight: 600;
+  gap: 6px;
+  font-size: 10px;
+  font-weight: 700;
   color: #fb923c;
-  margin-bottom: 5px;
+  margin-bottom: 3px;
   text-transform: uppercase;
-  letter-spacing: .4px;
+  letter-spacing: .5px;
+}
+.ait-wild-inline-header .ait-chain-meta {
+  color: var(--text2);
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+}
+.ait-wild-inline-header .ait-chain-pnl {
+  margin-left: auto;
+  font-size: 11px;
 }
 .ait-wild-inline-text {
-  font-size: 12px;
-  color: var(--text);
-  line-height: 1.6;
-  border-left: 2px solid rgba(251,146,60,0.5);
-  padding-left: 8px;
+  font-size: 11px;
+  color: var(--text2);
+  line-height: 1.5;
+  font-style: italic;
 }
 </style>
 </head>
@@ -1708,8 +1716,8 @@ function renderAIThinking(d) {
           const cpnlColor = _pnlColor(chain.chain_pnl || 0);
           let chtml = '<div class=\"ait-wild-inline\">';
           chtml += '<div class=\"ait-wild-inline-header\">🔥 Motor Martingala';
-          chtml += '<span style=\"color:var(--text2);font-weight:400;\">' + (chain.n_levels||1) + ' nivel(es) · $' + (chain.total_margin||0).toFixed(2) + ' margen</span>';
-          chtml += '<span style=\"margin-left:auto;color:' + cpnlColor + ';font-weight:700;\">' + _fmtUsd(chain.chain_pnl||0) + '</span>';
+          chtml += '<span class=\"ait-chain-meta\">' + (chain.n_levels||1) + ' nivel(es) · $' + (chain.total_margin||0).toFixed(2) + ' margen</span>';
+          chtml += '<span class=\"ait-chain-pnl\" style=\"color:' + cpnlColor + ';font-weight:700;\">' + _fmtUsd(chain.chain_pnl||0) + '</span>';
           chtml += '</div>';
           if (craw.reasoning && !craw.reasoning.startsWith('fallback')) {
             chtml += '<div class=\"ait-wild-inline-text\">' + escHtml(craw.reasoning) + '</div>';
