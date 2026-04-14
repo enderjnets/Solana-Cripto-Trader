@@ -1469,6 +1469,9 @@ function _reasonFallback(closeReason, pnl) {
   if (r.startsWith('WILD_TARGET_HIT') || r.startsWith('WILD_TARGET')) {
     return 'El Modo Salvaje alcanzó el objetivo de ganancia de la sesión. Todas las posiciones de la cadena se cerraron para asegurar el profit objetivo antes de que el mercado revierta.';
   }
+  if (r === 'WILD_MODE_CLOSE_CHAIN' || r.startsWith('WILD_MODE_CLOSE_CHAIN')) {
+    return 'El motor de Martingala cerró toda la cadena de posiciones porque el PnL combinado de todos los niveles alcanzó el objetivo de la sesión. Las posiciones se cerraron juntas para maximizar la ganancia acumulada antes de que el mercado revierta.';
+  }
   if (r.startsWith('WILD_')) {
     const detail = closeReason.replace(/^WILD_/i, '').trim();
     return 'Cierre por motor Wild Mode. ' + (detail || 'El sistema de martingala ejecutó un cierre automático según sus reglas internas.');
@@ -3702,4 +3705,4 @@ if __name__ == '__main__':
     port = int(sys.argv[1]) if len(sys.argv) > 1 else 8081
     print(f"🚀 Solana Cripto Trader Dashboard")
     print(f"   URL: http://localhost:{port}")
-    app.run(host='0.0.0.0', port=port, debug=False)
+    app.run(host='0.0.0.0', port=port, debug=False, use_reloader=True)
