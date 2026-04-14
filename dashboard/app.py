@@ -568,7 +568,7 @@ DASHBOARD_HTML = r"""
 .trades-summary .ts-sep   { color: rgba(255,255,255,0.15); }
 
 /* ── AI Thinking: Wild Chain inline block ───────────────────────── */
-.ait-wild-inline {
+.ait-wild-inline { grid-column:1/-1;
   border-left: 3px solid #fb923c;
   background: transparent;
   padding: 3px 0 3px 10px;
