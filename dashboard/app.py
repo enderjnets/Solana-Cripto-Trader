@@ -147,8 +147,23 @@ def estimate_open_position_pnl(pos: dict, current_price: float | None = None) ->
     }
 
 # ── Version & Changelog ──────────────────────────────────────────────────────
-VERSION = "2.1.0"
+VERSION = "2.2.0"
 CHANGELOG = [
+    {
+        "version": "2.2.0",
+        "date": "2026-04-15",
+        "title": "OpenClaw webhooks + plugins Fase 1 & 2",
+        "changes": [
+            "Nuevo: agents/openclaw_webhook.py — notificaciones Telegram en tiempo real via OpenClaw",
+            "Integración: executor.py notifica trade abierto/cerrado via webhook",
+            "Integración: martingale_engine.py notifica cadena WILD cerrada y nuevo nivel",
+            "OpenClaw 2026.4.5 → 2026.4.14 actualizado en PC ROG",
+            "Plugins Fase 1 activados: active-memory, diffs, llm-task",
+            "Plugins Fase 2 activados: webhooks con rutas solana-alerts y github-solana",
+            "nginx en ROG puerto 18790 como proxy externo para webhooks",
+            "Fix: conflicto system/user systemd en openclaw-gateway (--force + KillMode=control-group)",
+        ]
+    },
     {
         "version": "2.1.0",
         "date": "2026-04-14",
