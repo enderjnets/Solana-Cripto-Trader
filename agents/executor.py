@@ -28,6 +28,11 @@ try:
     _PAPERCLIP = True
 except ImportError:
     _PAPERCLIP = False
+try:
+    import agents.openclaw_webhook as _ocwh
+    _OPENCLAW_WH = True
+except ImportError:
+    _OPENCLAW_WH = False
 from typing import Optional
 
 try:
@@ -931,6 +936,9 @@ def paper_open_position(signal: dict, portfolio: dict, market: dict) -> Optional
                 position['paperclip_issue_id'] = _pc_id
         except Exception:
             pass
+    if _OPENCLAW_WH:
+        try: _ocwh.on_trade_opened(position)
+        except Exception: pass
 
     portfolio["positions"].append(position)
 
@@ -1338,6 +1346,9 @@ def paper_update_positions(portfolio: dict, market: dict, history: list) -> list
                     on_trade_closed(pos)
                 except Exception:
                     pass
+            if _OPENCLAW_WH:
+                try: _ocwh.on_trade_closed(pos)
+                except Exception: pass
 
             # 📈 Compound Engine: actualizar capital base tras cada cierre
             if _COMPOUND_ENABLED:

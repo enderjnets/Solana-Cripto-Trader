@@ -30,6 +30,11 @@ try:
     import paperclip_client as _pc
 except Exception:
     _pc = None  # Paperclip unavailable — bot continues normally
+try:
+    import agents.openclaw_webhook as _ocwh
+    _OPENCLAW_WH = True
+except ImportError:
+    _OPENCLAW_WH = False
 
 log = logging.getLogger('martingale_engine')
 
@@ -885,6 +890,9 @@ def apply_decision(decision: dict, state: dict, portfolio: dict, market: dict, h
                     _pc.on_wild_mode_chain_closed(sym, _n_levels, _chain_pnl, _total_margin, reason='AI_CLOSE')
                 except Exception:
                     pass
+            if _OPENCLAW_WH:
+                try: _ocwh.on_wild_chain_closed(sym, _chain_pnl, _n_levels, _total_margin, 'AI_CLOSE')
+                except Exception: pass
         except Exception as e:
             log.error(f'CLOSE_CHAIN error: {e}')
         return stats
@@ -989,6 +997,9 @@ def apply_decision(decision: dict, state: dict, portfolio: dict, market: dict, h
                     )
                 except Exception:
                     pass
+            if _OPENCLAW_WH:
+                try: _ocwh.on_wild_level_opened(sym, n_lvl, new_direction, float(pos.get('margin_usd', 0)), float(decision.get('level_multiplier', 1.0)), _chain_pnl)
+                except Exception: pass
 
     return stats
 
