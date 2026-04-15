@@ -146,6 +146,80 @@ def estimate_open_position_pnl(pos: dict, current_price: float | None = None) ->
         'notional_value': notional,
     }
 
+# ── Version & Changelog ──────────────────────────────────────────────────────
+VERSION = "2.1.0"
+CHANGELOG = [
+    {
+        "version": "2.1.0",
+        "date": "2026-04-14",
+        "title": "Auditoría de seguridad & fixes críticos",
+        "changes": [
+            "FIX CRÍTICO: executor.py — 4 rutas de early-return (kill switch, daily target, max loss) perdían trades en trade_history.json al actualizar solo portfolio.json",
+            "FIX: Escrituras atómicas en save_portfolio() y save_history() usando atomic_write_json() — previene corrupción de archivos en crash",
+            "FIX: reporter.py + performance_tracker.py — filtro 'status==closed' retornaba lista vacía; avg_loss_usd mostraba 0 con pérdidas reales",
+            "FIX: equity_history.json sin actualizar desde Apr 3 — ahora se actualiza en cada ciclo del reporter",
+            "FIX: token_scanner.py — Jupiter DNS falla sin fallback; ahora usa caché local válido hasta 6h",
+            "Dashboard: solana-dashboard.service tenía 2 procesos huérfanos usando 41% CPU en puerto 8081 — limpiados",
+        ]
+    },
+    {
+        "version": "2.0.5",
+        "date": "2026-04-12",
+        "title": "Wild Mode & template LLM fix",
+        "changes": [
+            "FIX: Bot sin operaciones — template LLM bloqueaba señales técnicas",
+            "FIX: Wild Mode margin starvation + filtro Extreme Fear",
+            "Ajuste: dashboard estilos ait-wild-inline y tarjeta Motor Martingala",
+        ]
+    },
+    {
+        "version": "2.0.4",
+        "date": "2026-04-08",
+        "title": "Hardening runtime & watchdog",
+        "changes": [
+            "FIX: Invertir lógica shorts cuando RSI < 30 en tendencia bajista",
+            "FIX: Filtro anti-reversión SHORT (RSI<30 + tendencia)",
+            "FIX: Watchdog ownership split entre systemd y run_watchdog manual",
+            "FIX: Bot no ejecuta trades después del restart",
+            "Hardening: single orchestrator lock + canonical state path",
+        ]
+    },
+    {
+        "version": "2.0.3",
+        "date": "2026-04-07",
+        "title": "Pérdidas constantes — fix shorts",
+        "changes": [
+            "Investigación de pérdidas sistemáticas en posiciones short",
+            "Ajuste de parámetros de entrada y salida para shorts",
+        ]
+    },
+    {
+        "version": "2.0.0",
+        "date": "2026-04-03",
+        "title": "Wild Mode + Martingale Engine",
+        "changes": [
+            "Nuevo: Wild Mode con engine Martingala para maximizar ganancias en tendencia",
+            "Nuevo: Análisis LLM combinado con señales técnicas (stoch_rsi, rsi_bb, golden_cross, etc.)",
+            "Nuevo: Auto-Learner v2.0 — parámetros adaptativos basados en historial",
+            "Nuevo: 6 estrategias activas en modo COMBO",
+            "Dashboard: modal AI Thinking en tiempo real",
+            "Dashboard: barra P&L reactiva en historial de trades",
+        ]
+    },
+    {
+        "version": "1.0.0",
+        "date": "2026-03-20",
+        "title": "v1.0-rentable — primera versión rentable confirmada",
+        "changes": [
+            "Primera versión con profit factor > 1 confirmado en paper trading",
+            "Pipeline completo: Market Data → Risk → Strategy → Executor → Reporter",
+            "Integración con Paperclip AI (CEO, CTO, Engineer, Analyst)",
+            "Dashboard web en puerto 8081",
+            "Modo paper_drift (Drift Protocol simulado con 5x leverage)",
+        ]
+    },
+]
+
 # ── HTML template (single-file SPA) ──────────────────────────────────────────
 DASHBOARD_HTML = r"""
 <!DOCTYPE html>
@@ -341,6 +415,31 @@ DASHBOARD_HTML = r"""
   .reset-modal-actions button{padding:8px 20px;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;}
   .reset-btn-cancel{background:var(--bg3);color:var(--text2);}
   .reset-btn-confirm{background:var(--orange);color:#000;}
+  /* ── Version Badge ── */
+  .version-badge {
+    display: inline-block; font-size: 10px; font-weight: 700;
+    background: var(--bg3); border: 1px solid var(--border);
+    color: var(--purple); border-radius: 20px; padding: 2px 9px;
+    cursor: pointer; letter-spacing: 0.5px; transition: border-color 0.2s, color 0.2s;
+    vertical-align: middle; margin-left: 8px;
+  }
+  .version-badge:hover { border-color: var(--purple); color: #d4b8ff; }
+  /* ── Changelog Modal ── */
+  #changelogModal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 9999; align-items: center; justify-content: center; }
+  #changelogModal.open { display: flex; }
+  .changelog-box { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 24px; max-width: 640px; width: 94%; max-height: 82vh; overflow-y: auto; position: relative; }
+  .changelog-title { font-size: 15px; font-weight: 700; color: var(--purple); margin-bottom: 18px; }
+  .changelog-close { position: absolute; top: 14px; right: 16px; background: none; border: none; color: var(--text2); font-size: 18px; cursor: pointer; }
+  .changelog-close:hover { color: var(--text); }
+  .changelog-version { margin-bottom: 20px; }
+  .changelog-ver-header { display: flex; align-items: baseline; gap: 10px; margin-bottom: 8px; }
+  .changelog-ver-tag { font-size: 12px; font-weight: 700; color: var(--purple); background: rgba(188,140,255,0.12); border: 1px solid rgba(188,140,255,0.3); border-radius: 20px; padding: 2px 10px; }
+  .changelog-ver-date { font-size: 11px; color: var(--text2); }
+  .changelog-ver-title { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+  .changelog-ver-list { list-style: none; padding: 0; }
+  .changelog-ver-list li { font-size: 12px; color: var(--text2); padding: 3px 0 3px 16px; position: relative; line-height: 1.5; }
+  .changelog-ver-list li::before { content: "▸"; position: absolute; left: 0; color: var(--purple); opacity: 0.6; }
+  .changelog-ver-divider { border: none; border-top: 1px solid var(--border); margin: 18px 0; }
   .reset-btn-confirm:disabled{opacity:0.4;cursor:not-allowed;}
 
   /* ── AI Thinking Modal ── */
@@ -607,7 +706,7 @@ DASHBOARD_HTML = r"""
 <!-- HEADER -->
 <div class="header">
   <div class="header-left">
-    <div class="logo">◎ Solana <span>Cripto</span> Trader</div>
+    <div class="logo">◎ Solana <span>Cripto</span> Trader<span class="version-badge" id="versionBadge" onclick="openChangelog()" title="Ver historial de versiones">v—</span></div>
     <div class="status-badge" id="statusBadge">
       <div class="status-dot dot-green" id="statusDot"></div>
       <span id="statusText">ACTIVE</span>
@@ -959,11 +1058,20 @@ let equityAllData = { labels: [], datasets: [] };
 document.addEventListener('DOMContentLoaded', () => {
   initCharts();
   refreshAll();
+  loadVersionBadge();
   // Refresh completo cada 30 segundos
   setInterval(refreshAll, 10000);  // 10s refresh (was 30s)
   // Refresh de posiciones cada 3 segundos (tiempo real)
   setInterval(loadPositionsRealtime, 3000);
 });
+
+async function loadVersionBadge() {
+  try {
+    const res = await fetch('/api/version');
+    const data = await res.json();
+    document.getElementById('versionBadge').textContent = 'v' + data.version;
+  } catch(e) {}
+}
 
 async function refreshAll() {
   try {
@@ -996,6 +1104,36 @@ function closeResetModal() {
   document.getElementById('resetModal').classList.remove('open');
 }
 async function resetBot() { openResetModal(); }
+
+/* ── Changelog ── */
+async function openChangelog() {
+  document.getElementById('changelogModal').classList.add('open');
+  const content = document.getElementById('changelogContent');
+  try {
+    const res = await fetch('/api/version');
+    const data = await res.json();
+    let html = '';
+    data.changelog.forEach((entry, idx) => {
+      if (idx > 0) html += '<hr class="changelog-ver-divider">';
+      html += `<div class="changelog-version">
+        <div class="changelog-ver-header">
+          <span class="changelog-ver-tag">v${entry.version}</span>
+          <span class="changelog-ver-date">${entry.date}</span>
+        </div>
+        <div class="changelog-ver-title">${entry.title}</div>
+        <ul class="changelog-ver-list">
+          ${entry.changes.map(c => `<li>${c}</li>`).join('')}
+        </ul>
+      </div>`;
+    });
+    content.innerHTML = html;
+  } catch(e) {
+    content.innerHTML = '<span style="color:var(--red)">Error al cargar el changelog.</span>';
+  }
+}
+function closeChangelog() {
+  document.getElementById('changelogModal').classList.remove('open');
+}
 
 function handleResetFiles(files) {
   for (const f of Array.from(files)) {
@@ -2406,6 +2544,15 @@ function connectChatSSE(){
   </div>
 </div>
 
+<!-- CHANGELOG MODAL -->
+<div id="changelogModal" onclick="if(event.target===this)closeChangelog()">
+  <div class="changelog-box">
+    <button class="changelog-close" onclick="closeChangelog()">✕</button>
+    <div class="changelog-title">📋 Historial de versiones</div>
+    <div id="changelogContent">Cargando...</div>
+  </div>
+</div>
+
 </body>
 </html>
 """
@@ -2415,6 +2562,11 @@ function connectChatSSE(){
 @app.route('/')
 def index():
     return render_template_string(DASHBOARD_HTML)
+
+
+@app.route('/api/version')
+def api_version():
+    return jsonify({"version": VERSION, "changelog": CHANGELOG})
 
 
 @app.route('/api/stats')
