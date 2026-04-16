@@ -140,6 +140,38 @@ MINIMAX_KEY   = _get_minimax_key()
 MINIMAX_URL   = "https://api.minimax.io/v1/text/chatcompletion_v2"
 MINIMAX_MODEL = "MiniMax-M2.7"  # Upgraded from M2.5 - better reasoning for trading decisions
 
+
+# ══════════════════════════════════════════════════════════════════════
+# 4to FALLBACK: Qwen 2.5 14B local via Ollama
+# Sin internet, sin API key, sin coste -- siempre disponible en ROG
+# ══════════════════════════════════════════════════════════════════════
+QWEN_URL   = _os_llm.environ.get("QWEN_URL",   "http://localhost:11434/api/chat")
+QWEN_MODEL = _os_llm.environ.get("QWEN_MODEL", "qwen2.5:14b")
+
+
+def call_qwen_local(prompt: str, system: str = "", max_tokens: int = 2000) -> str:
+    """Qwen 2.5 14B via Ollama -- 4to fallback local. Sin internet, sin coste."""
+    messages = []
+    if system:
+        messages.append({"role": "system", "content": system})
+    messages.append({"role": "user", "content": prompt})
+    try:
+        r = requests.post(QWEN_URL, json={
+            "model": QWEN_MODEL,
+            "messages": messages,
+            "stream": False,
+            "options": {"num_predict": max_tokens, "temperature": 0.2}
+        }, timeout=90)
+        r.raise_for_status()
+        text = r.json().get("message", {}).get("content", "").strip()
+        if "<think>" in text and "</think>" in text:
+            text = text.split("</think>", 1)[-1].strip()
+        return text if text else None
+    except Exception as e:
+        print(f"    \u26a0\ufe0f Qwen local error: {e}")
+        return None
+
+
 # ── OpenRouter config ──────────────────────────────────────────────────────
 OPENROUTER_URL   = "https://openrouter.ai/api/v1/chat/completions"
 NEMOTRON_MODEL   = "nvidia/nemotron-3-super-120b-a12b:free"
@@ -319,8 +351,15 @@ def call_llm(prompt: str, system: str = "", max_tokens: int = 2000) -> str:
         print("    🧠 LLM: Claude Sonnet 4.6 (tertiary)")
         return result
 
+    # 4to fallback: Qwen 2.5 14B local via Ollama
+    result = call_qwen_local(prompt, system, max_tokens)
+    if result:
+        _cb_record_success()
+        print("    \U0001f9e0 LLM: Qwen 2.5 14B local (4to fallback)")
+        return result
+
     _cb_record_failure()
-    print("    \u274c GPT-5.4 + MiniMax + Claude all failed")
+    print("    \u274c GPT-5.4 + MiniMax + Claude + Qwen all failed")
     return None
 
 

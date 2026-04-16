@@ -147,8 +147,21 @@ def estimate_open_position_pnl(pos: dict, current_price: float | None = None) ->
     }
 
 # ── Version & Changelog ──────────────────────────────────────────────────────
-VERSION = "2.4.0"
+VERSION = "2.5.0"
 CHANGELOG = [
+    {
+        "version": "2.5.0",
+        "date": "2026-04-16",
+        "title": "Resiliencia LLM: Qwen local + guardia anti-abandono",
+        "changes": [
+            "NEW: call_qwen_local() -- Qwen 2.5 14B via Ollama como 4to fallback local (sin internet, sin coste)",
+            "Cadena LLM: GPT-5.4 -> MiniMax M2.7 -> Claude Sonnet 4.6 -> Qwen 2.5 14B local",
+            "NEW: _llm_is_down() en martingale_engine -- detecta circuit breaker activo",
+            "NEW: LLM_DOWN_GUARD en run_cycle() -- cierre preventivo a 75% del timeout si LLM caido",
+            "Elimina causa raiz de WILD_ABANDON_session_expired cuando LLM no responde",
+            "QWEN_URL / QWEN_MODEL configurables via .env para cualquier modelo Ollama",
+        ]
+    },
     {
         "version": "2.4.0",
         "date": "2026-04-15",

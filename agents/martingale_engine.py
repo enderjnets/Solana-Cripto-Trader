@@ -43,6 +43,21 @@ HERE = Path(__file__).resolve().parent
 DATA = HERE / 'data'
 STATE_FILE = DATA / 'wild_mode_state.json'
 LLM_FAILURES_FILE = DATA / 'wild_mode_llm_failures.jsonl'
+LLM_HEALTH_FILE   = DATA / 'llm_health.json'  # circuit breaker state
+
+
+def _llm_is_down() -> bool:
+    """Retorna True si el circuit breaker del LLM esta activo (cooldown > 0
+    o >= 3 fallos consecutivos). Falla silenciosamente si no puede leer."""
+    try:
+        import json as _j
+        health = _j.loads(LLM_HEALTH_FILE.read_text())
+        return (
+            health.get('cooldown_remaining', 0) > 0
+            or health.get('consecutive_failures', 0) >= 3
+        )
+    except Exception:
+        return False  # Si no puede leer, asumir LLM OK
 
 def _log_llm_failure(context: str, raw_response: str, error: str) -> None:
     """Append a malformed LLM response to the failures log for post-mortem debugging.
@@ -1155,6 +1170,24 @@ def run_cycle(portfolio: dict, market: dict, history: list, fear_greed: int = 50
             _validated_auto = validate_decision(_auto_close_decision, state, portfolio)
             _stats_auto = apply_decision(_validated_auto, state, portfolio, market, history)
             result['closed'] += _stats_auto.get('closed', 0)
+
+    # 3c. LLM-down guard: si LLM lleva >=3 fallos/cooldown activo Y sesion
+    #     llega al 75% del timeout -> cierre preventivo vs session_expired
+    if _llm_is_down() and _session_age_minutes(state) > MAX_SESSION_MINUTES * 0.75:
+        syms = _all_open_symbols(portfolio)
+        if syms:
+            age_now = _session_age_minutes(state)
+            log.warning(
+                f'WILD MODE: LLM_DOWN_GUARD activado -- LLM caido + sesion {age_now:.0f}min '
+                f'({MAX_SESSION_MINUTES * 0.75:.0f}min umbral). Cierre preventivo.'
+            )
+            n = close_for_target(state, portfolio, market, history, 'LLM_DOWN_PREEMPTIVE')
+            result['abandoned'] = True
+            result['closed'] = n
+            result['reason'] = 'llm_down_preemptive'
+            record_session_outcome(state, portfolio, history, 'llm_down_preemptive')
+            save_state(state)
+            return result
 
     # 4. Decision cycle
     prompt = build_decision_prompt(state, portfolio, market, fear_greed)
