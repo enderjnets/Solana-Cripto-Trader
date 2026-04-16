@@ -45,6 +45,10 @@ STATE_FILE = DATA / 'wild_mode_state.json'
 LLM_FAILURES_FILE = DATA / 'wild_mode_llm_failures.jsonl'
 LLM_HEALTH_FILE   = DATA / 'llm_health.json'  # circuit breaker state
 
+# ── LLM call efficiency ─────────────────────────────────────────────────────
+_WILD_LLM_CACHE_SEC       = 600   # skip if <10 min since last call (env: WILD_LLM_CACHE_SEC)
+_WILD_LLM_PRICE_THRESHOLD = 0.3   # min 5min price change % to trigger LLM (env: WILD_LLM_PRICE_THRESHOLD)
+
 
 def _llm_is_down() -> bool:
     """Retorna True si el circuit breaker del LLM esta activo (cooldown > 0
@@ -58,6 +62,28 @@ def _llm_is_down() -> bool:
         )
     except Exception:
         return False  # Si no puede leer, asumir LLM OK
+
+
+def _should_call_llm_wild(state: dict, market: dict) -> bool:
+    """
+    Returns True only when calling the LLM adds value in WILD mode.
+    Skip if: no active chain moved >=0.3% in 5min AND <10min since last call.
+    Always call if: first call, cache expired (>10min), any chain is at >=3 levels.
+    """
+    now = time.time()
+    last_ts = float(state.get('_last_llm_ts', 0))
+    if (now - last_ts) >= _WILD_LLM_CACHE_SEC:
+        return True  # Cache expired — always call
+    chains = state.get('martingale_chains', {})
+    for sym, ch in chains.items():
+        if ch.get('n_levels', 1) >= 3:
+            return True  # Escalated chain — extra vigilance
+        tok = market.get('tokens', {}).get(sym, {})
+        chg = abs(float(tok.get('price_5min_change_pct', 0) or 0))
+        if chg >= _WILD_LLM_PRICE_THRESHOLD:
+            return True  # Price moving — need fresh decision
+    return False  # No significant change — implicit HOLD
+
 
 def _log_llm_failure(context: str, raw_response: str, error: str) -> None:
     """Append a malformed LLM response to the failures log for post-mortem debugging.
@@ -1189,7 +1215,13 @@ def run_cycle(portfolio: dict, market: dict, history: list, fear_greed: int = 50
             save_state(state)
             return result
 
-    # 4. Decision cycle
+    # 4. Decision cycle — skip LLM if no significant market change (efficiency)
+    if not _should_call_llm_wild(state, market):
+        log.debug('WILD MODE: LLM skip (no_significant_change) — implicit HOLD')
+        save_state(state)
+        return result
+
+    state['_last_llm_ts'] = time.time()
     prompt = build_decision_prompt(state, portfolio, market, fear_greed)
     ai_resp = ask_ai_decision(prompt)
     decisions = ai_resp.get('decisions', [])

@@ -32,7 +32,11 @@ sys.path.insert(0, str(BASE_DIR))
 
 # ── Helpers para trade_history.json (puede ser dict o list) ──────────────────
 # ── 30m Candle Close Detection ───────────────────────────────────────────────
-_last_candle_bucket: int = -1  # floor(unix_ts / 1800)
+_last_candle_bucket: int = -1   # floor(unix_ts / 1800)
+_last_strategy_ts: float    = 0.0   # unix ts of last AI strategy generation
+_last_strategy_fg: int      = -1    # fear_greed value at last generation
+_last_strategy_prices: dict = {}    # {symbol: price} at last generation
+_STRATEGY_CACHE_SEC: int    = int(os.environ.get('STRATEGY_CACHE_SEC', '900'))
 
 def _is_new_candle_30m() -> bool:
     """
@@ -48,6 +52,34 @@ def _is_new_candle_30m() -> bool:
         _last_candle_bucket = bucket
         return True
     return False
+
+
+def _strategy_needs_refresh(current_fg: int, current_prices: dict, force: bool = False) -> bool:
+    """
+    Returns True if AI Strategy should regenerate signals.
+    Refresh if: forced (new 30m candle), cache expired (>15min),
+    F&G changed >=5 pts, or any token moved >=1% since last generation.
+    Updates module-level tracking vars when returning True.
+    """
+    global _last_strategy_ts, _last_strategy_fg, _last_strategy_prices
+    import time as _t
+    now = _t.time()
+    needs = False
+    if force or (now - _last_strategy_ts) >= _STRATEGY_CACHE_SEC:
+        needs = True
+    elif abs(current_fg - _last_strategy_fg) >= 5:
+        needs = True
+    else:
+        for sym, price in current_prices.items():
+            last_p = _last_strategy_prices.get(sym, price)
+            if last_p and price and abs((price - last_p) / last_p * 100) >= 1.0:
+                needs = True
+                break
+    if needs:
+        _last_strategy_ts = now
+        _last_strategy_fg = current_fg
+        _last_strategy_prices = dict(current_prices)
+    return needs
 
 
 def _load_trade_history() -> list:
@@ -242,8 +274,10 @@ def run_cycle(safe=True, debug=False):
             fg = mkt.get("fear_greed", {})
             fg_val = fg.get("value", 50) if isinstance(fg, dict) else 50
             
-            # Solo invocar AI strategy si F&G es extremo o si hay pocas señales técnicas
-            if True:  # E6: Always invoke AI Strategy
+            # Solo invocar AI strategy si hubo cambio relevante (F&G, precio, vela, o >15min)
+            _curr_prices_s = {s: float(v.get('price', 0)) for s, v in mkt.get('tokens', {}).items() if v.get('price')}
+            _force_s = _is_new_candle_30m()
+            if _strategy_needs_refresh(fg_val, _curr_prices_s, force=_force_s):
                 import ai_strategy
                 port_3b = json.loads(portfolio_file_3b.read_text()) if portfolio_file_3b.exists() else {}
                 research_file = DATA_DIR / "research_latest.json"

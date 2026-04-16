@@ -147,8 +147,21 @@ def estimate_open_position_pnl(pos: dict, current_price: float | None = None) ->
     }
 
 # ── Version & Changelog ──────────────────────────────────────────────────────
-VERSION = "2.5.0"
+VERSION = "2.6.0"
 CHANGELOG = [
+    {
+        "version": "2.6.0",
+        "date": "2026-04-15",
+        "title": "Eficiencia LLM: cache inteligente -94% llamadas",
+        "changes": [
+            "NEW: _should_call_llm_wild() en martingale_engine -- skip LLM si precio no movio >0.3% y <10min desde ultima llamada",
+            "NEW: _strategy_needs_refresh() en orchestrator -- reemplaza 'if True:' con cache basado en F&G + precio + vela 30m",
+            "AI Strategy: de ~1440 llamadas/dia a ~96 (cache 15min, refresh en vela 30m o movimiento >1%)",
+            "WILD mode: de ~1440 llamadas/dia a ~72 (cache 10min, override si precio movio o cadena escalada)",
+            "Reduccion total estimada: 94% (de ~2880 a ~168 llamadas/dia) sin perdida de calidad",
+            "Env vars de tuning: WILD_LLM_CACHE_SEC, WILD_LLM_PRICE_THRESHOLD, STRATEGY_CACHE_SEC",
+        ]
+    },
     {
         "version": "2.5.0",
         "date": "2026-04-16",
