@@ -25,7 +25,8 @@ DATA_DIR = AGENTS_DIR / "data"
 NOTES_FILE = DATA_DIR / "agent_notes.json"
 STATE_FILE = DATA_DIR / "chat_agent_state.json"
 PROFILE_FILE = DATA_DIR / "user_profile.json"
-LOG_FILE = Path("/home/enderj/.config/solana-jupiter-bot/chat_agent.log")
+LOG_FILE = Path.home() / ".config" / "solana-jupiter-bot" / "chat_agent.log"
+LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
 
 # ── Risk Profiles ────────────────────────────────────────────────
 RISK_PROFILES = {
@@ -525,12 +526,15 @@ def build_prompt(user_msg, ctx):
 
 
 # ── LLM Config ──────────────────────────────────────────────────
-try:
-    import json as _json
-    _keys = _json.loads(open("/home/enderj/.openclaw/workspace/bittrader/keys/minimax.json").read())
-    MINIMAX_KEY = os.environ.get("MINIMAX_API_KEY", _keys["minimax_api_key"])
-except Exception:
-    MINIMAX_KEY = ""
+MINIMAX_KEY = os.environ.get("MINIMAX_API_KEY", "")  # env var primero (portable)
+if not MINIMAX_KEY:
+    try:
+        import json as _json
+        _mm_path = Path.home() / ".openclaw" / "workspace" / "bittrader" / "keys" / "minimax.json"
+        _keys = _json.loads(_mm_path.read_text()) if _mm_path.exists() else {}
+        MINIMAX_KEY = _keys.get("minimax_api_key", "")
+    except Exception:
+        MINIMAX_KEY = ""
 MINIMAX_URL = "https://api.minimax.io/v1/text/chatcompletion_v2"
 MINIMAX_MODEL = "MiniMax-M2.7"
 

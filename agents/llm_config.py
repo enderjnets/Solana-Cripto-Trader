@@ -11,7 +11,8 @@ import requests
 from pathlib import Path
 
 # ── Paths ──────────────────────────────────────────────────────────────────
-WORKSPACE = Path("/home/enderj/.openclaw/workspace")
+import os as _os_llm
+WORKSPACE = Path(_os_llm.environ.get("SOLANA_WORKSPACE", "/home/enderj/.openclaw/workspace"))
 BITTRADER = WORKSPACE / "bittrader"
 KEYS_DIR  = BITTRADER / "keys"
 
@@ -125,7 +126,17 @@ def call_claude_sonnet(prompt: str, system: str = "", max_tokens: int = 2000) ->
 # FALLBACK: MiniMax M2.5
 # ══════════════════════════════════════════════════════════════════════
 
-MINIMAX_KEY   = json.loads((KEYS_DIR / "minimax.json").read_text())["minimax_api_key"]
+def _get_minimax_key() -> str:
+    # 1. Env var — portable (cualquier instancia nueva)
+    if _os_llm.environ.get("MINIMAX_API_KEY"):
+        return _os_llm.environ["MINIMAX_API_KEY"]
+    # 2. Archivo legacy — backward compat para ROG
+    try:
+        return json.loads((KEYS_DIR / "minimax.json").read_text())["minimax_api_key"]
+    except Exception:
+        return ""
+
+MINIMAX_KEY   = _get_minimax_key()
 MINIMAX_URL   = "https://api.minimax.io/v1/text/chatcompletion_v2"
 MINIMAX_MODEL = "MiniMax-M2.7"  # Upgraded from M2.5 - better reasoning for trading decisions
 

@@ -147,8 +147,21 @@ def estimate_open_position_pnl(pos: dict, current_price: float | None = None) ->
     }
 
 # ── Version & Changelog ──────────────────────────────────────────────────────
-VERSION = "2.3.0"
+VERSION = "2.4.0"
 CHANGELOG = [
+    {
+        "version": "2.4.0",
+        "date": "2026-04-15",
+        "title": "Portabilidad multi-instancia",
+        "changes": [
+            "FIX: llm_config.py — MINIMAX_API_KEY ahora lee de env var primero (portable), fallback a archivo legacy (ROG sin cambios)",
+            "FIX: chat_agent.py — minimax key lee env var antes que archivo; LOG_FILE usa Path.home() (funciona en Mac/Linux)",
+            "FIX: reporter.py — ruta minimax.json para TTS usa Path.home() en lugar de /home/enderj/",
+            "FIX: run_watchdog.sh — cd usa dirname BASH_SOURCE (portable); logs usan $HOME en vez de /home/enderj/",
+            "NEW: .env.example completo con MINIMAX_API_KEY, GPT5_URL, PAPERCLIP, OPENCLAW_WEBHOOK documentados",
+            "NUEVO colaborador puede arrancar con: cp .env.example .env + pip install -r requirements.txt + bash run_watchdog.sh",
+        ]
+    },
     {
         "version": "2.3.0",
         "date": "2026-04-15",

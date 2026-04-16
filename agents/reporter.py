@@ -224,7 +224,7 @@ def send_telegram_voice(text: str) -> bool:
     """
     try:
         # Cargar MiniMax API key
-        minimax_key_file = Path("/home/enderj/.openclaw/workspace/bittrader/keys/minimax.json")
+        minimax_key_file = Path.home() / ".openclaw" / "workspace" / "bittrader" / "keys" / "minimax.json"
         if not minimax_key_file.exists():
             log.warning("⚠️  minimax.json no encontrado, skip TTS")
             return False
