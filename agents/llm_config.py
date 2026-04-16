@@ -280,9 +280,9 @@ def call_gpt5(prompt: str, system: str = "", max_tokens: int = 2000) -> str:
 
 def call_llm(prompt: str, system: str = "", max_tokens: int = 2000) -> str:
     """
-    LLM chain: GPT-5.4 (PRIMARY - best reasoning) → MiniMax M2.7 (FALLBACK - always available).
+    LLM chain: GPT-5.4 → MiniMax M2.7 → Claude Sonnet 4.6 (tertiary).
     GPT-5.4 via OpenClaw proxy (localhost:18793).
-    MiniMax M2.7 as reliable fallback when proxy is down.
+    MiniMax M2.7 as reliable 2nd fallback, Claude Sonnet 4.6 as last resort.
     """
     if _cb_is_open():
         return None
@@ -301,8 +301,15 @@ def call_llm(prompt: str, system: str = "", max_tokens: int = 2000) -> str:
         print("    🧠 LLM: MiniMax M2.7 (fallback)")
         return result
 
+    # Last resort: Claude Sonnet 4.6 via direct Anthropic API
+    result = call_claude_sonnet(prompt, system, max_tokens)
+    if result:
+        _cb_record_success()
+        print("    🧠 LLM: Claude Sonnet 4.6 (tertiary)")
+        return result
+
     _cb_record_failure()
-    print("    \u274c Both GPT-5.4 and MiniMax failed")
+    print("    \u274c GPT-5.4 + MiniMax + Claude all failed")
     return None
 
 

@@ -519,7 +519,7 @@ def run(daily: bool = False, alert_only: bool = False) -> dict:
         if EQUITY_HISTORY_FILE.exists():
             with open(EQUITY_HISTORY_FILE) as f:
                 eq_data = json.load(f)
-        eq_data["equity"].append(round(metrics.get("capital_usd", 0), 2))
+        eq_data["equity"].append(round(metrics.get("total_value", metrics.get("capital_usd", 0)), 2))
         eq_data["dates"].append(datetime.now(timezone.utc).isoformat())
         # Retener solo últimos 500 puntos
         if len(eq_data["equity"]) > 500:

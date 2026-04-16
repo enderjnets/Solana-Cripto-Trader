@@ -147,8 +147,20 @@ def estimate_open_position_pnl(pos: dict, current_price: float | None = None) ->
     }
 
 # ── Version & Changelog ──────────────────────────────────────────────────────
-VERSION = "2.2.0"
+VERSION = "2.3.0"
 CHANGELOG = [
+    {
+        "version": "2.3.0",
+        "date": "2026-04-15",
+        "title": "Auditoría post-deploy: 5 fixes críticos",
+        "changes": [
+            "FIX: MAX_SESSION_MINUTES 360 → 180 (martingale_engine.py) — reduce pérdidas por session_expired de -$35.23 histórico",
+            "FIX: equity_history.json usaba capital_usd ($299) en vez de total_value ($490) — gráfico mostraba falsa caída",
+            "FIX: orchestrator.py — eliminado _dt = __import__('datetime').datetime (línea no usada causaba WARNING cada ciclo)",
+            "FIX: LLM chain ampliada: GPT-5.4 → MiniMax M2.7 → Claude Sonnet 4.6 (tertiary) — cero cierres sin LLM",
+            "FIX: Proceso zombie dashboard PID 178985 consumía 92.8% CPU desde Apr 14 — eliminado",
+        ]
+    },
     {
         "version": "2.2.0",
         "date": "2026-04-15",
