@@ -147,8 +147,19 @@ def estimate_open_position_pnl(pos: dict, current_price: float | None = None) ->
     }
 
 # ── Version & Changelog ──────────────────────────────────────────────────────
-VERSION = "2.8.0"
+VERSION = "2.8.1"
 CHANGELOG = [
+    {
+        "version": "2.8.1",
+        "date": "2026-04-17",
+        "title": "Hotfix: cambio de idioma fuerza regeneracion LLM en WILD mode",
+        "changes": [
+            "FIX: al cambiar idioma, se invalida _last_llm_ts en wild_mode_state.json",
+            "El proximo ciclo WILD (~10s a 2min) regenera el reasoning en el nuevo idioma",
+            "Antes: el tag (EN)/(ES) permanecia hasta 10min por el cache v2.6.0 sin movimiento de precio",
+            "NUEVO endpoint: POST /api/force-reasoning-refresh -- invocado por toggleLang() automaticamente",
+        ]
+    },
     {
         "version": "2.8.0",
         "date": "2026-04-17",
@@ -2519,6 +2530,8 @@ function toggleLang() {
   currentLang = currentLang === 'es' ? 'en' : 'es';
   localStorage.setItem('lang', currentLang);
   applyLang();
+  // v2.8.1: invalida cache WILD para regenerar reasoning en nuevo idioma
+  fetch('/api/force-reasoning-refresh', {method:'POST'}).catch(()=>{});
 }
 
 document.addEventListener('DOMContentLoaded', () => { applyLang(); _initResetDrop(); });
@@ -3987,6 +4000,26 @@ def api_set_language():
     profile['language'] = lang
     profile_file.write_text(json.dumps(profile, ensure_ascii=False, indent=2))
     return jsonify({'ok': True})
+
+
+@app.route('/api/force-reasoning-refresh', methods=['POST'])
+def api_force_reasoning_refresh():
+    """v2.8.1: Invalida el cache LLM del WILD mode para que el proximo
+    ciclo regenere los reasonings en el idioma actual del usuario.
+    Se llama automaticamente desde toggleLang() al cambiar idioma."""
+    try:
+        wm_path = DATA / 'wild_mode_state.json'
+        cleared = []
+        if wm_path.exists():
+            state = json.loads(wm_path.read_text())
+            if state.get('_last_llm_ts', 0) > 0:
+                state['_last_llm_ts'] = 0
+                wm_path.write_text(json.dumps(state, indent=2))
+                cleared.append('wild_mode._last_llm_ts')
+        return jsonify({'ok': True, 'cleared': cleared,
+                        'ts': datetime.now(timezone.utc).isoformat()})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 500
 
 
 @app.route('/api/chat/clear', methods=['POST'])
