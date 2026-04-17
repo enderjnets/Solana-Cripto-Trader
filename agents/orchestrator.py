@@ -862,7 +862,8 @@ def run_token_scanner():
 # Use absolute path so ALL entry points (agents/orchestrator.py, root orchestrator.py, etc.)
 # share the same lock regardless of working directory.
 import tempfile
-LOCK_FILE = Path(tempfile.gettempdir()) / "solana_jupiter_orchestrator.lock"
+# Lock file override via ORCH_LOCK_FILE env var (permite correr paper + live en paralelo)
+LOCK_FILE = Path(os.environ.get("ORCH_LOCK_FILE", str(Path(tempfile.gettempdir()) / "solana_jupiter_orchestrator.lock")))
 
 # AUDIT FIX: Persistent cycle counter so scanner runs even across restarts
 CYCLE_COUNT_FILE = DATA_DIR / "cycle_counter.txt"

@@ -1,7 +1,9 @@
 #!/bin/bash
-LOCKFILE="/tmp/solana_modular_orchestrator.lock"
-HANDOVER_FLAG="/tmp/solana_watchdog_handover.lock"
-RESTART_MARKER="/tmp/solana_watchdog_restart_marker"
+# Env vars para correr paper + live en paralelo (WATCHDOG_PREFIX distingue instancias)
+WATCHDOG_PREFIX="${WATCHDOG_PREFIX:-solana_jupiter}"
+LOCKFILE="${WATCHDOG_LOCKFILE:-/tmp/${WATCHDOG_PREFIX}_modular_orchestrator.lock}"
+HANDOVER_FLAG="${WATCHDOG_HANDOVER:-/tmp/${WATCHDOG_PREFIX}_watchdog_handover.lock}"
+RESTART_MARKER="${WATCHDOG_RESTART_MARKER:-/tmp/${WATCHDOG_PREFIX}_watchdog_restart_marker}"
 IS_SYSTEMD=false
 
 # Detect if running under systemd (PPid=1 or cgroup contains system.slice)
@@ -119,8 +121,10 @@ while true; do
     # Check for existing orchestrator before launching (fast-fail)
     # Pattern matches BOTH agents/orchestrator.py AND root-level orchestrator.py
     # Uses both pgrep (process check) and the absolute lock file for double protection
-    ORCH_PID_LOCK="/tmp/solana_jupiter_orchestrator.lock"
-    if pgrep -f "Solana-Cripto-Trader/agents/orchestrator" > /dev/null 2>&1; then
+    ORCH_PID_LOCK="${ORCH_LOCK_FILE:-/tmp/solana_jupiter_orchestrator.lock}"
+    # Pattern: distingue instancia por directorio de trabajo (paper vs live)
+    ORCH_PATTERN="${ORCH_PGREP_PATTERN:-Solana-Cripto-Trader/agents/orchestrator}"
+    if pgrep -f "$ORCH_PATTERN" > /dev/null 2>&1; then
         echo "[WATCHDOG] orchestrator already running (detected by pgrep), skipping launch"
     elif [ -f "$ORCH_PID_LOCK" ] && kill -0 "$(cat $ORCH_PID_LOCK)" 2>/dev/null; then
         echo "[WATCHDOG] orchestrator already running (lock file PID $(cat $ORCH_PID_LOCK)), skipping launch"
