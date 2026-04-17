@@ -1906,7 +1906,7 @@ function renderAIThinking(d) {
         <div>
           <div style="font-size:10px;color:var(--text2);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;">${T('aitQuantAnalysis')}</div>
           <div class="ait-align ${alignClass}" style="margin-bottom:8px;">${escHtml(p.alignment || '—')}</div>
-          <div class="ait-reasons">${reasons || '<span style="font-size:11px;color:var(--text2);">${T('aitNoQuant')}</span>'}</div>
+          <div class="ait-reasons">${reasons || '<span style="font-size:11px;color:var(--text2);">' + T('aitNoQuant') + '</span>'}</div>
         </div>
         <div>
           <div style="font-size:10px;color:var(--text2);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;">${T('aitDistances')}</div>
@@ -1946,7 +1946,7 @@ function renderAIThinking(d) {
         })()}
         <div class="ait-llm-block">
           <div class="ait-llm-title">${T('aitLlmTitle')}${currentLang==='en'?' (ES)':''} <span style="color:var(--text2);font-weight:400;text-transform:none;">${p.llm_source ? '· ' + p.llm_source : ''}</span></div>
-          <div class="ait-llm-text">${p.llm_reasoning && p.llm_reasoning.length > 15 && !p.llm_reasoning.includes('workdir:') ? escHtml(p.llm_reasoning) : '<span style="color:var(--text2);font-style:italic;">${T('aitLlmAnalyzing')}</span>'}</div>
+          <div class="ait-llm-text">${p.llm_reasoning && p.llm_reasoning.length > 15 && !p.llm_reasoning.includes('workdir:') ? escHtml(p.llm_reasoning) : '<span style="color:var(--text2);font-style:italic;">' + T('aitLlmAnalyzing') + '</span>'}</div>
         </div>
       </div>
     </div>`;
