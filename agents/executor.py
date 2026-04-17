@@ -1619,11 +1619,25 @@ def run(safe: bool = True, debug: bool = False) -> dict:
     if slots_available <= 0:
         log.info(f"📊 Máximo de posiciones alcanzado ({MAX_POSITIONS})")
     else:
-        # Paso 1: Filtrar señales válidas (no duplicadas, con confidence)
+        # Paso 1: Filtrar señales válidas (no duplicadas, con confidence, whitelist)
         valid_signals = []
         open_symbols = {p["symbol"] for p in portfolio["positions"] if p.get("status") == "open"}
+        # v2.9.0-live: pre-carga modulo safety para whitelist (fail-safe)
+        try:
+            import safety as _safety_mod
+        except Exception:
+            _safety_mod = None
         for signal in signals:
             sym = signal["symbol"]
+            # v2.9.0-live Sprint 1: TRADE_WHITELIST filter (empty whitelist = allow all)
+            if _safety_mod is not None:
+                try:
+                    if not _safety_mod.is_whitelisted(sym):
+                        if debug:
+                            log.info(f"  ⏭️  {sym}: fuera de TRADE_WHITELIST, skip")
+                        continue
+                except Exception:
+                    pass
             if sym in open_symbols:
                 if debug:
                     log.info(f"  ⏭️  {sym}: posición ya abierta, skip")

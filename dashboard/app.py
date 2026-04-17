@@ -147,8 +147,23 @@ def estimate_open_position_pnl(pos: dict, current_price: float | None = None) ->
     }
 
 # ── Version & Changelog ──────────────────────────────────────────────────────
-VERSION = "2.8.1"
+VERSION = "2.9.0-live"
 CHANGELOG = [
+    {
+        "version": "2.9.0-live",
+        "date": "2026-04-17",
+        "title": "Sprint 1 Safety Nets: kill switch + daily loss + whitelist + startup validation",
+        "changes": [
+            "NEW agents/safety.py: modulo centralizado fail-safe (todos los hooks con try/except)",
+            "NEW kill switch: /tmp/solana_live_killswitch -- orchestrator skipea ciclo si existe",
+            "NEW MAX_DAILY_LOSS_USD: si se alcanza, activa kill switch automatico",
+            "NEW TRADE_WHITELIST env var: filtro de tokens en signal loop (vacio = allow all = paper behavior)",
+            "NEW validate_startup(): chequea kill switch inactivo + si LIVE_TRADING_ENABLED=true exige wallet/RPC/limites configurados",
+            "NEW MAX_SLIPPAGE_BPS: cutoff para swaps reales (aun no usado; se activa en Sprint 2 con real_open_position)",
+            "NUEVOS endpoints: GET /api/safety/status, POST /api/safety/kill-switch",
+            "Retrocompatible: sin env vars, comportamiento identico al paper. Safe merge back to master.",
+        ]
+    },
     {
         "version": "2.8.1",
         "date": "2026-04-17",
@@ -4018,6 +4033,51 @@ def api_force_reasoning_refresh():
                 cleared.append('wild_mode._last_llm_ts')
         return jsonify({'ok': True, 'cleared': cleared,
                         'ts': datetime.now(timezone.utc).isoformat()})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+
+# ════════════════════════════════════════════════════════════════════
+# v2.9.0-live Sprint 1 — Safety endpoints (kill switch + status)
+# ════════════════════════════════════════════════════════════════════
+@app.route('/api/safety/status', methods=['GET'])
+def api_safety_status():
+    """Devuelve el estado actual del modulo safety: kill switch,
+    limites, whitelist, y si live trading esta habilitado."""
+    try:
+        import sys as _sys
+        _agents_path = str(Path(__file__).resolve().parent.parent / 'agents')
+        if _agents_path not in _sys.path:
+            _sys.path.insert(0, _agents_path)
+        import importlib
+        import safety as _safety
+        importlib.reload(_safety)  # refrescar env vars si cambiaron
+        return jsonify({'ok': True, **_safety.status_snapshot()})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+
+@app.route('/api/safety/kill-switch', methods=['POST'])
+def api_safety_kill_switch():
+    """Activa o desactiva el kill switch.
+    Body: {"action": "activate"|"deactivate", "reason": "texto opcional"}"""
+    try:
+        import sys as _sys
+        _agents_path = str(Path(__file__).resolve().parent.parent / 'agents')
+        if _agents_path not in _sys.path:
+            _sys.path.insert(0, _agents_path)
+        import safety as _safety
+        data = request.get_json() or {}
+        action = (data.get('action') or '').lower()
+        if action == 'activate':
+            reason = data.get('reason', 'manual_dashboard')
+            _safety.activate_kill_switch(reason)
+            return jsonify({'ok': True, 'status': 'activated', 'reason': reason})
+        elif action == 'deactivate':
+            _safety.deactivate_kill_switch()
+            return jsonify({'ok': True, 'status': 'deactivated'})
+        else:
+            return jsonify({'ok': False, 'error': 'action must be activate|deactivate'}), 400
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e)}), 500
 

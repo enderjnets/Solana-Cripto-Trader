@@ -205,6 +205,27 @@ def run_cycle(safe=True, debug=False):
     cycle_start = time.time()
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     log.info(f"📁 [run_cycle] DATA_DIR={DATA_DIR} | PID={os.getpid()}")
+
+    # v2.9.0-live Sprint 1: Safety gates antes de cualquier actividad
+    try:
+        import safety as _safety
+        _ks_active, _ks_reason = _safety.is_kill_switch_active()
+        if _ks_active:
+            log.error(f"🛑 KILL SWITCH ACTIVO: {_ks_reason} — ciclo omitido")
+            return {"status": "KILL_SWITCH_ACTIVE", "reason": _ks_reason}
+        # Chequear limite diario de perdida
+        _pf_file = DATA_DIR / "portfolio.json"
+        _pf_data = None
+        if _pf_file.exists():
+            try: _pf_data = json.loads(_pf_file.read_text())
+            except Exception: _pf_data = None
+        _hit, _todays_pnl = _safety.check_daily_loss(_pf_data)
+        if _hit:
+            log.error(f"🛑 MAX_DAILY_LOSS_USD alcanzado (${_todays_pnl:.2f}) — activando kill switch")
+            _safety.activate_kill_switch(f"daily_loss_exceeded_{_todays_pnl:.2f}")
+            return {"status": "DAILY_LOSS_LIMIT_HIT", "todays_pnl": _todays_pnl}
+    except Exception as _se:
+        log.warning(f"safety check error (non-fatal, continuando): {_se}")
     
     log.info("=" * 60)
     log.info(f"🔄 CICLO INICIADO — {now}")
@@ -891,6 +912,19 @@ def _save_cycle_count(n: int) -> None:
 def _acquire_lock():
     """Acquire PID lock. Exit if another instance is running."""
     log.info(f"📁 DATA_DIR={DATA_DIR} | PID={os.getpid()} | LOCK_FILE={LOCK_FILE}")
+    # v2.9.0-live: validar configuracion al arrancar
+    try:
+        import safety as _safety
+        _startup_errors = _safety.validate_startup()
+        if _startup_errors:
+            for _e in _startup_errors:
+                log.error(f"❌ STARTUP VALIDATION: {_e}")
+            log.error("❌ Abortando arranque. Corregir errores y reiniciar.")
+            sys.exit(1)
+    except SystemExit:
+        raise
+    except Exception as _ve:
+        log.warning(f"validate_startup error (non-fatal): {_ve}")
     if LOCK_FILE.exists():
         try:
             old_pid = int(LOCK_FILE.read_text().strip())
