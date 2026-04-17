@@ -147,8 +147,23 @@ def estimate_open_position_pnl(pos: dict, current_price: float | None = None) ->
     }
 
 # ── Version & Changelog ──────────────────────────────────────────────────────
-VERSION = "2.6.0"
+VERSION = "2.7.0"
 CHANGELOG = [
+    {
+        "version": "2.7.0",
+        "date": "2026-04-16",
+        "title": "i18n completo: traducción ES/EN de modal AI Thinking + UI dinámica",
+        "changes": [
+            "FIX: modal 'Que esta pensando la IA' ahora traduce 100% al ingles (titulo, KPIs, badges, labels, fallbacks)",
+            "NEW: 25 keys nuevas en TRANSLATIONS (ES+EN) para modal AI Thinking y strings dinamicos",
+            "NEW: helper T(key) en JS -- reemplaza TRANSLATIONS[currentLang].key con fallback seguro",
+            "FIX: _actionBadge() traduce HOLD/OPEN_LEVEL/CLOSE_CHAIN/CLOSE/ABANDON segun idioma",
+            "FIX: renderAIThinking() usa templates con {n}/{ts}/{c} para interpolar datos en strings traducidos",
+            "NEW: applyLang() re-renderiza modal AI Thinking si esta abierto -- cambio de idioma en vivo",
+            "FIX: botones 'Cerrar' en tabla posiciones, 'Sin trades que mostrar', 'Sin log disponible' ahora se traducen",
+            "NOTA: el razonamiento del LLM (p.llm_reasoning) queda en ES -- marcado con '(ES)' en modo EN como Fase 2",
+        ]
+    },
     {
         "version": "2.6.0",
         "date": "2026-04-15",
@@ -911,7 +926,7 @@ DASHBOARD_HTML = r"""
           <span id="wildModeBadge" style="display:none;font-size:10px;padding:3px 8px;border-radius:6px;background:var(--orange);color:#000;font-weight:700;"></span>
           <span id="pnlTargetStatus" style="font-size:10px;color:var(--text2);"></span>
         </div>
-        <button onclick="openAIThinking()" id="aiThinkingBtn" style="font-size:11px;padding:4px 12px;background:linear-gradient(135deg,#bc8cff,#58a6ff);color:#000;border:none;border-radius:6px;cursor:pointer;font-weight:700;letter-spacing:0.3px;">🧠 Qué está pensando la IA</button>
+        <button onclick="openAIThinking()" id="aiThinkingBtn" style="font-size:11px;padding:4px 12px;background:linear-gradient(135deg,#bc8cff,#58a6ff);color:#000;border:none;border-radius:6px;cursor:pointer;font-weight:700;letter-spacing:0.3px;" data-i18n="aiThinking">🧠 Qué está pensando la IA</button>
         <button onclick="closeAllPositions()" style="font-size:11px;padding:4px 12px;background:var(--red);color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:600;" data-i18n="closeAll">Cerrar Todas</button>
       </div>
     </div>
@@ -1047,7 +1062,7 @@ DASHBOARD_HTML = r"""
       <div class="card">
         <div class="card-title"><span class="icon">🔍</span> <span data-i18n="watchdogLog">Watchdog Log</span></div>
         <div class="log-container" id="logContainer">
-          <div class="log-info">Cargando log...</div>
+          <div class="log-info" data-i18n="logLoading">Cargando log...</div>
         </div>
         <div class="log-auto" data-i18n="autoRefresh">🔄 Auto-refresh cada 30s</div>
       </div>
@@ -1625,7 +1640,7 @@ function renderPositions(d) {
       <td class="neg">${fmtPrice(p.sl_price)}</td>
       <td class="pos">${fmtPrice(p.tp_price)}</td>
       <td>${p.time_open || '—'}</td>
-      <td><button onclick="closePosition('${p.symbol}')" style="font-size:10px;padding:2px 8px;background:var(--orange);color:#fff;border:none;border-radius:4px;cursor:pointer;">Cerrar</button></td>
+      <td><button onclick="closePosition('${p.symbol}')" style="font-size:10px;padding:2px 8px;background:var(--orange);color:#fff;border:none;border-radius:4px;cursor:pointer;">${T('closeBtnCell')}</button></td>
       <td>${p.strategy || '—'}</td>
     </tr>`;
     // Sub-rows for hedge levels (hidden by default)
@@ -1791,7 +1806,7 @@ function _updateAitBar() {
   const bar = document.getElementById('aitRefillBar');
   const lbl = document.getElementById('aitCountdown');
   if (bar) bar.style.width = pct + '%';
-  if (lbl) lbl.textContent = 'Actualiza en ' + _aitCountdownVal + 's';
+  if (lbl) lbl.textContent = T('aitCountdown').replace('{n}', _aitCountdownVal);
 }
 
 async function fetchAIThinking() {
@@ -1801,18 +1816,18 @@ async function fetchAIThinking() {
     renderAIThinking(d);
   } catch(e) {
     document.getElementById('aitContent').innerHTML =
-      '<div class="ait-loading"><div>⚠️ Error consultando la IA: ' + e.message + '</div></div>';
+      '<div class="ait-loading"><div>⚠️ ' + T('aitError') + ' ' + e.message + '</div></div>';
   }
 }
 
 function _actionBadge(action) {
   if (!action) return '';
   const a = action.toUpperCase();
-  if (a === 'HOLD')        return `<span class="ait-decision-badge ait-badge-hold">⏸ HOLD — Esperar</span>`;
-  if (a === 'OPEN_LEVEL')  return `<span class="ait-decision-badge ait-badge-open">➕ ABRIR COBERTURA</span>`;
-  if (a === 'CLOSE_CHAIN') return `<span class="ait-decision-badge ait-badge-close">✅ CERRAR CADENA</span>`;
-  if (a === 'CLOSE')       return `<span class="ait-decision-badge ait-badge-close">✅ CERRAR</span>`;
-  if (a.includes('ABANDON'))return `<span class="ait-decision-badge ait-badge-abandon">🚨 ABANDONAR</span>`;
+  if (a === 'HOLD')        return `<span class="ait-decision-badge ait-badge-hold">${T('badgeHold')}</span>`;
+  if (a === 'OPEN_LEVEL')  return `<span class="ait-decision-badge ait-badge-open">${T('badgeOpen')}</span>`;
+  if (a === 'CLOSE_CHAIN') return `<span class="ait-decision-badge ait-badge-close">${T('badgeCloseChain')}</span>`;
+  if (a === 'CLOSE')       return `<span class="ait-decision-badge ait-badge-close">${T('badgeClose')}</span>`;
+  if (a.includes('ABANDON'))return `<span class="ait-decision-badge ait-badge-abandon">${T('badgeAbandon')}</span>`;
   return `<span class="ait-decision-badge ait-badge-hold">${action}</span>`;
 }
 
@@ -1824,7 +1839,7 @@ function renderAIThinking(d) {
   const fg = d.fear_greed || {};
   const fgColor = fg.value <= 25 ? '#f85149' : fg.value >= 75 ? '#3fb950' : '#d29922';
   const ts = d.timestamp ? new Date(d.timestamp).toLocaleTimeString() : '—';
-  document.getElementById('aitSubtitle').textContent = 'Último análisis: ' + ts + ' · Ciclo #' + (d.cycle || '—');
+  document.getElementById('aitSubtitle').textContent = T('aitLastAnalysis').replace('{ts}', ts).replace('{c}', d.cycle || '—');
 
   // Global KPIs
   const ddColor = (d.drawdown_pct||0) > 10 ? '#f85149' : (d.drawdown_pct||0) > 5 ? '#d29922' : '#3fb950';
@@ -1844,7 +1859,7 @@ function renderAIThinking(d) {
     </div>
     <div class="ait-kpi">
       <div class="ait-kpi-val">${d.open_positions || 0}</div>
-      <div class="ait-kpi-lbl">Posiciones abiertas</div>
+      <div class="ait-kpi-lbl">${T('aitKpiOpenPos')}</div>
     </div>
   </div>
   <div class="ait-body">`;
@@ -1853,7 +1868,7 @@ function renderAIThinking(d) {
   const chains = d.wild_chains || {};
   const positions = d.positions || [];
   if (positions.length === 0) {
-    html += `<div style="text-align:center;padding:30px;color:var(--text2);">Sin posiciones abiertas para analizar</div>`;
+    html += `<div style="text-align:center;padding:30px;color:var(--text2);">${T('aitEmpty')}</div>`;
   }
   for (const p of positions) {
     const pnlColor = _pnlColor(p.pnl_usd || 0);
@@ -1889,17 +1904,17 @@ function renderAIThinking(d) {
       </div>
       <div class="ait-pos-body">
         <div>
-          <div style="font-size:10px;color:var(--text2);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;">Análisis cuantitativo</div>
+          <div style="font-size:10px;color:var(--text2);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;">${T('aitQuantAnalysis')}</div>
           <div class="ait-align ${alignClass}" style="margin-bottom:8px;">${escHtml(p.alignment || '—')}</div>
-          <div class="ait-reasons">${reasons || '<span style="font-size:11px;color:var(--text2);">Sin señales cuantitativas</span>'}</div>
+          <div class="ait-reasons">${reasons || '<span style="font-size:11px;color:var(--text2);">${T('aitNoQuant')}</span>'}</div>
         </div>
         <div>
-          <div style="font-size:10px;color:var(--text2);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;">Distancias</div>
+          <div style="font-size:10px;color:var(--text2);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;">${T('aitDistances')}</div>
           <div class="ait-metrics" style="margin-bottom:8px;">
             <div class="ait-metric">SL <span style="color:#f85149">${sl.toFixed(2)}%</span></div>
             <div class="ait-metric">TP <span style="color:#3fb950">${tp.toFixed(2)}%</span></div>
             <div class="ait-metric">R/R <span>${(p.rr_remaining||0).toFixed(2)}x</span></div>
-            <div class="ait-metric">Abierta <span>${p.hours_open||0}h</span></div>
+            <div class="ait-metric">${T('aitOpenFor')} <span>${p.hours_open||0}h</span></div>
           </div>
           <div class="ait-dist-row">
             <span style="color:#f85149;min-width:18px;">SL</span>
@@ -1918,8 +1933,8 @@ function renderAIThinking(d) {
           const cguards = cval.guardrails_hit || [];
           const cpnlColor = _pnlColor(chain.chain_pnl || 0);
           let chtml = '<div class=\"ait-wild-inline\">';
-          chtml += '<div class=\"ait-wild-inline-header\">🔥 Motor Martingala';
-          chtml += '<span class=\"ait-chain-meta\">' + (chain.n_levels||1) + ' nivel(es) · $' + (chain.total_margin||0).toFixed(2) + ' margen</span>';
+          chtml += '<div class=\"ait-wild-inline-header\">' + T('aitMartingale');
+          chtml += '<span class=\"ait-chain-meta\">' + T('aitChainMeta').replace('{n}', chain.n_levels||1).replace('{m}', (chain.total_margin||0).toFixed(2)) + '</span>';
           chtml += '<span class=\"ait-chain-pnl\" style=\"color:' + cpnlColor + ';font-weight:700;\">' + _fmtUsd(chain.chain_pnl||0) + '</span>';
           chtml += '</div>';
           if (craw.reasoning && !craw.reasoning.startsWith('fallback')) {
@@ -1930,8 +1945,8 @@ function renderAIThinking(d) {
           return chtml;
         })()}
         <div class="ait-llm-block">
-          <div class="ait-llm-title">🤖 Razonamiento del LLM <span style="color:var(--text2);font-weight:400;text-transform:none;">${p.llm_source ? '· ' + p.llm_source : ''}</span></div>
-          <div class="ait-llm-text">${p.llm_reasoning && p.llm_reasoning.length > 15 && !p.llm_reasoning.includes('workdir:') ? escHtml(p.llm_reasoning) : '<span style="color:var(--text2);font-style:italic;">Analizando condiciones del mercado...</span>'}</div>
+          <div class="ait-llm-title">${T('aitLlmTitle')}${currentLang==='en'?' (ES)':''} <span style="color:var(--text2);font-weight:400;text-transform:none;">${p.llm_source ? '· ' + p.llm_source : ''}</span></div>
+          <div class="ait-llm-text">${p.llm_reasoning && p.llm_reasoning.length > 15 && !p.llm_reasoning.includes('workdir:') ? escHtml(p.llm_reasoning) : '<span style="color:var(--text2);font-style:italic;">${T('aitLlmAnalyzing')}</span>'}</div>
         </div>
       </div>
     </div>`;
@@ -1954,7 +1969,7 @@ async function loadLog() {
   const d = await r.json();
   const el = document.getElementById('logContainer');
   if (!d.lines || d.lines.length === 0) {
-    el.innerHTML = '<div class="log-info">Sin log disponible</div>';
+    el.innerHTML = '<div class="log-info">' + T('logEmpty') + '</div>';
     return;
   }
   el.innerHTML = d.lines.map(line => {
@@ -2134,7 +2149,7 @@ function renderTradesPage() {
   const wrap = document.getElementById('tradesTable');
 
   if (page.length === 0) {
-    wrap.innerHTML = '<div class="empty">Sin trades que mostrar</div>';
+    wrap.innerHTML = '<div class="empty">' + T('noTrades') + '</div>';
     document.getElementById('tradesPagination').innerHTML = '';
     return;
   }
@@ -2381,6 +2396,28 @@ const TRANSLATIONS = {
     confirmWildOn:"Activar MODO SALVAJE?\n\nLa IA abrirá coberturas martingala automáticamente.",
     confirmWildOff:"¿Desactivar Modo Salvaje? (las posiciones quedan abiertas)",
     unrealized:"Unrealized", noExposure:"sin exposición", prev:"Anterior", next:"Siguiente",
+    // ── AI Thinking modal (v2.7.0) ──
+    aitTitle:"Qué está pensando la IA",
+    aitSubtitleDefault:"Análisis en tiempo real de cada posición abierta",
+    aitLive:"EN VIVO", aitClose:"✕ Cerrar",
+    aitLoading:"Consultando a la IA...",
+    aitCountdown:"Actualiza en {n}s",
+    aitError:"Error consultando la IA:",
+    aitLastAnalysis:"Último análisis: {ts} · Ciclo #{c}",
+    aitKpiOpenPos:"Posiciones abiertas",
+    aitEmpty:"Sin posiciones abiertas para analizar",
+    aitQuantAnalysis:"Análisis cuantitativo",
+    aitNoQuant:"Sin señales cuantitativas",
+    aitDistances:"Distancias", aitOpenFor:"Abierta",
+    aitMartingale:"🔥 Motor Martingala",
+    aitChainMeta:"{n} nivel(es) · ${m} margen",
+    aitLlmTitle:"🤖 Razonamiento del LLM",
+    aitLlmAnalyzing:"Analizando condiciones del mercado...",
+    badgeHold:"⏸ HOLD — Esperar", badgeOpen:"➕ ABRIR COBERTURA",
+    badgeCloseChain:"✅ CERRAR CADENA", badgeClose:"✅ CERRAR",
+    badgeAbandon:"🚨 ABANDONAR",
+    logEmpty:"Sin log disponible", logLoading:"Cargando log...",
+    closeBtnCell:"Cerrar", changelogLoading:"Cargando...",
   },
   en: {
     tradeHistory:"📋 Trade History", openPositions:"⚡ Open Positions",
@@ -2412,10 +2449,35 @@ const TRANSLATIONS = {
     confirmWildOn:"Activate WILD MODE?\n\nThe AI will open martingale hedges automatically.",
     confirmWildOff:"Deactivate Wild Mode? (positions remain open)",
     unrealized:"Unrealized", noExposure:"no exposure", prev:"Previous", next:"Next",
+    // ── AI Thinking modal (v2.7.0) ──
+    aitTitle:"What is the AI thinking",
+    aitSubtitleDefault:"Real-time analysis of each open position",
+    aitLive:"LIVE", aitClose:"✕ Close",
+    aitLoading:"Querying the AI...",
+    aitCountdown:"Refresh in {n}s",
+    aitError:"Error querying the AI:",
+    aitLastAnalysis:"Last analysis: {ts} · Cycle #{c}",
+    aitKpiOpenPos:"Open positions",
+    aitEmpty:"No open positions to analyze",
+    aitQuantAnalysis:"Quantitative analysis",
+    aitNoQuant:"No quantitative signals",
+    aitDistances:"Distances", aitOpenFor:"Open for",
+    aitMartingale:"🔥 Martingale Engine",
+    aitChainMeta:"{n} level(s) · ${m} margin",
+    aitLlmTitle:"🤖 LLM Reasoning",
+    aitLlmAnalyzing:"Analyzing market conditions...",
+    badgeHold:"⏸ HOLD — Wait", badgeOpen:"➕ OPEN HEDGE",
+    badgeCloseChain:"✅ CLOSE CHAIN", badgeClose:"✅ CLOSE",
+    badgeAbandon:"🚨 ABANDON",
+    logEmpty:"No log available", logLoading:"Loading log...",
+    closeBtnCell:"Close", changelogLoading:"Loading...",
   }
 };
 
 let currentLang = localStorage.getItem('lang') || 'es';
+
+// Helper: resuelve clave de traducción con fallback al propio key
+const T = (key) => (TRANSLATIONS[currentLang] && TRANSLATIONS[currentLang][key]) || key;
 
 function applyLang() {
   const t = TRANSLATIONS[currentLang];
@@ -2431,6 +2493,11 @@ function applyLang() {
   if (btn) btn.textContent = currentLang === 'es' ? '🇬🇧 EN' : '🇪🇸 ES';
   fetch('/api/set-language', {method:'POST', headers:{'Content-Type':'application/json'},
     body: JSON.stringify({language: currentLang})}).catch(()=>{});
+  // Re-render modal AI Thinking si está abierto — fuerza traducción de contenido dinámico
+  const aitModal = document.getElementById('aiThinkingModal');
+  if (aitModal && aitModal.style.display === 'flex') {
+    fetchAIThinking();
+  }
 }
 
 function toggleLang() {
@@ -2584,18 +2651,18 @@ function connectChatSSE(){
       <div class="ait-header-left">
         <span class="ait-brain">🧠</span>
         <div>
-          <div class="ait-title">Qué está pensando la IA</div>
-          <div class="ait-subtitle" id="aitSubtitle">Análisis en tiempo real de cada posición abierta</div>
+          <div class="ait-title" data-i18n="aitTitle">Qué está pensando la IA</div>
+          <div class="ait-subtitle" id="aitSubtitle" data-i18n="aitSubtitleDefault">Análisis en tiempo real de cada posición abierta</div>
         </div>
       </div>
       <div style="display:flex;align-items:center;gap:12px;">
-        <div class="ait-live"><div class="ait-live-dot"></div>EN VIVO</div>
+        <div class="ait-live"><div class="ait-live-dot"></div><span data-i18n="aitLive">EN VIVO</span></div>
         <span id="aitCountdown" style="font-size:10px;color:var(--text2);"></span>
-        <button class="ait-close-btn" onclick="closeAIThinking()">✕ Cerrar</button>
+        <button class="ait-close-btn" onclick="closeAIThinking()" data-i18n="aitClose">✕ Cerrar</button>
       </div>
     </div>
     <div class="ait-refresh-bar"><div class="ait-refresh-fill" id="aitRefillBar" style="width:100%"></div></div>
-    <div id="aitContent"><div class="ait-loading"><div class="ait-loading-spinner">🧠</div><div>Consultando a la IA...</div></div></div>
+    <div id="aitContent"><div class="ait-loading"><div class="ait-loading-spinner">🧠</div><div data-i18n="aitLoading">Consultando a la IA...</div></div></div>
   </div>
 </div>
 
@@ -2615,7 +2682,7 @@ function connectChatSSE(){
   <div class="changelog-box">
     <button class="changelog-close" onclick="closeChangelog()">✕</button>
     <div class="changelog-title">📋 Historial de versiones</div>
-    <div id="changelogContent">Cargando...</div>
+    <div id="changelogContent" data-i18n="changelogLoading">Cargando...</div>
   </div>
 </div>
 
