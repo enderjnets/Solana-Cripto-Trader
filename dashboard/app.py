@@ -147,8 +147,20 @@ def estimate_open_position_pnl(pos: dict, current_price: float | None = None) ->
     }
 
 # ── Version & Changelog ──────────────────────────────────────────────────────
-VERSION = "2.8.1"
+VERSION = "2.9.0"
 CHANGELOG = [
+    {
+        "version": "2.9.0",
+        "date": "2026-04-17",
+        "title": "WILD session-expired guards + daily_target auto-reset",
+        "changes": [
+            "NEW CHAIN_MAX_LOSS_PCT=15%: auto-close chain cuando pérdida ≥15% del base margin (runaway cutoff)",
+            "NEW pre-expiry loss guard: cierra chains en pérdida al 75%% del timeout (135min) vs esperar al abandono a 180min",
+            "FIX daily_target_state.json auto-reset cuando la fecha cambia (antes podia quedar stale)",
+            "Contexto: hoy el bot perdio -$38.20 por 5 WILD_ABANDON_session_expired; con estas guardas habria ahorrado ~$20-25",
+            "Ambas guardas reusan validate_decision + apply_decision del profit-target loop (mismo path probado)",
+        ]
+    },
     {
         "version": "2.8.1",
         "date": "2026-04-17",

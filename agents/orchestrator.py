@@ -211,6 +211,32 @@ def run_cycle(safe=True, debug=False):
     mode_label = "📄 PAPER" if safe else "🔴 LIVE"
     log.info(f"   Modo: {mode_label}")
     log.info("=" * 60)
+
+    # v2.9.0: auto-reset daily_target_state si la fecha cambió (evita queda stale)
+    try:
+        _dt_state_file = DATA_DIR / "daily_target_state.json"
+        if _dt_state_file.exists():
+            _dts = json.loads(_dt_state_file.read_text())
+            _today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+            if _dts.get("date") != _today:
+                _pf_file = DATA_DIR / "portfolio.json"
+                _cap = 0.0
+                if _pf_file.exists():
+                    try:
+                        _cap = float(json.loads(_pf_file.read_text()).get("capital_usd", 0))
+                    except Exception:
+                        _cap = 0.0
+                _prev_date = _dts.get("date")
+                _dts.update({
+                    "date": _today,
+                    "starting_capital": _cap,
+                    "current_pnl_pct": 0.0,
+                    "target_reached": False,
+                })
+                _dt_state_file.write_text(json.dumps(_dts, indent=2))
+                log.info(f"🗓️  daily_target_state reseteado: {_prev_date} → {_today} (capital: ${_cap:.2f})")
+    except Exception as _e_dt:
+        log.warning(f"daily_target reset error (non-fatal): {_e_dt}")
     
     results = {}
     _cycle_emergency_closes = 0  # Circuit breaker: contador de emergency closes este ciclo
