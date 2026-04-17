@@ -147,8 +147,21 @@ def estimate_open_position_pnl(pos: dict, current_price: float | None = None) ->
     }
 
 # ── Version & Changelog ──────────────────────────────────────────────────────
-VERSION = "2.7.0"
+VERSION = "2.8.0"
 CHANGELOG = [
+    {
+        "version": "2.8.0",
+        "date": "2026-04-17",
+        "title": "LLM razona en ingles cuando idioma = EN (Fase 2 i18n)",
+        "changes": [
+            "NEW: agents/lang_utils.py con get_user_language() + lang_directive()",
+            "NEW: martingale_engine y risk_manager apendizan directiva EN al prompt cuando user_profile.json language=en -- el LLM devuelve reasoning traducido",
+            "NEW: reasoning_lang persistido en wild_mode_state.json y position_decisions.json para saber en que idioma fue generado cada texto",
+            "FIX: dashboard muestra tag (ES)/(EN) SOLO si hay desajuste real entre idioma del texto y idioma seleccionado -- tag desaparece cuando el ciclo regenera en idioma correcto",
+            "FAIL-SAFE: si lang_utils falla o user_profile.json esta ausente, bot opera normal en espanol (cero regresion)",
+            "NOTA: razonamientos persistidos antes del cambio de idioma muestran su tag original hasta que el ciclo WILD regenera (~2min)",
+        ]
+    },
     {
         "version": "2.7.0",
         "date": "2026-04-16",
@@ -1933,7 +1946,9 @@ function renderAIThinking(d) {
           const cguards = cval.guardrails_hit || [];
           const cpnlColor = _pnlColor(chain.chain_pnl || 0);
           let chtml = '<div class=\"ait-wild-inline\">';
-          chtml += '<div class=\"ait-wild-inline-header\">' + T('aitMartingale');
+          const cRlang = (chain.last_decision || {}).reasoning_lang || 'es';
+          const cLangTag = cRlang !== currentLang ? ' (' + cRlang.toUpperCase() + ')' : '';
+          chtml += '<div class=\"ait-wild-inline-header\">' + T('aitMartingale') + cLangTag;
           chtml += '<span class=\"ait-chain-meta\">' + T('aitChainMeta').replace('{n}', chain.n_levels||1).replace('{m}', (chain.total_margin||0).toFixed(2)) + '</span>';
           chtml += '<span class=\"ait-chain-pnl\" style=\"color:' + cpnlColor + ';font-weight:700;\">' + _fmtUsd(chain.chain_pnl||0) + '</span>';
           chtml += '</div>';
@@ -1945,7 +1960,7 @@ function renderAIThinking(d) {
           return chtml;
         })()}
         <div class="ait-llm-block">
-          <div class="ait-llm-title">${T('aitLlmTitle')}${currentLang==='en'?' (ES)':''} <span style="color:var(--text2);font-weight:400;text-transform:none;">${p.llm_source ? '· ' + p.llm_source : ''}</span></div>
+          <div class="ait-llm-title">${T('aitLlmTitle')}${(p.llm_reasoning_lang||'es')!==currentLang?' ('+(p.llm_reasoning_lang||'es').toUpperCase()+')':''} <span style="color:var(--text2);font-weight:400;text-transform:none;">${p.llm_source ? '· ' + p.llm_source : ''}</span></div>
           <div class="ait-llm-text">${p.llm_reasoning && p.llm_reasoning.length > 15 && !p.llm_reasoning.includes('workdir:') ? escHtml(p.llm_reasoning) : '<span style="color:var(--text2);font-style:italic;">' + T('aitLlmAnalyzing') + '</span>'}</div>
         </div>
       </div>
@@ -3540,6 +3555,7 @@ def api_ai_thinking():
             'confidence':   safe_float(dec.get('confidence', 0)),
             'quant_reasons':dec.get('quant_reasons', []),
             'llm_reasoning':llm_r,
+            'llm_reasoning_lang': dec.get('llm_reasoning_lang', 'es'),
             'llm_source':   dec.get('llm_source', ''),
             'dist_sl_pct':  safe_float(dec.get('dist_sl_pct', 0)),
             'dist_tp_pct':  safe_float(dec.get('dist_tp_pct', 0)),

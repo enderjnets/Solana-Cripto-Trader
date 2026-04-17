@@ -581,6 +581,11 @@ REGLAS ESTRICTAS DEL JSON:
 - "global_action" debe ser EXACTAMENTE: CONTINUE, o ABANDON_ALL
 - Incluye una entrada por cada chain activo arriba indicado
 - Si no hay nada que hacer en un chain, usa {{"symbol": "X", "action": "HOLD", ...}}"""
+    try:
+        from lang_utils import lang_directive, get_user_language
+        prompt += lang_directive(get_user_language())
+    except Exception:
+        pass  # Fail-safe: si lang_utils falla, sigue en espanol (comportamiento actual)
     return prompt
 
 def _parse_llm_response(raw: str) -> dict | None:
@@ -1245,11 +1250,17 @@ def run_cycle(portfolio: dict, market: dict, history: list, fear_greed: int = 50
         stats = apply_decision(validated, state, portfolio, market, history)
         result['opened'] += stats.get('opened', 0)
         result['closed'] += stats.get('closed', 0)
+        try:
+            from lang_utils import get_user_language
+            _dec_lang = get_user_language()
+        except Exception:
+            _dec_lang = 'es'
         decisions_log.append({
             'ts': datetime.now(timezone.utc).isoformat(),
             'raw': d,
             'validated': validated,
             'stats': stats,
+            'reasoning_lang': _dec_lang,
         })
     # cap log size
     if len(decisions_log) > 200:

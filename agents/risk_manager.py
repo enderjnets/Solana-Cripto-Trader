@@ -749,6 +749,13 @@ REGLAS DE DECISIÓN:
 Responde SOLO en JSON válido:
 {{"action": "CLOSE|HOLD|REDUCE|TIGHTEN", "confidence": 0.0-1.0, "reasoning": "máx 2 oraciones", "trailing_pct": 0.005}}"""
 
+    try:
+        from lang_utils import lang_directive, get_user_language
+        _user_lang = get_user_language()
+        prompt += lang_directive(_user_lang)
+    except Exception:
+        _user_lang = 'es'  # Fail-safe
+
     system = "Eres un risk manager de crypto. Responde siempre con JSON válido únicamente, sin markdown."
 
     response = call_llm(prompt, system=system, max_tokens=4000)
@@ -765,6 +772,7 @@ Responde SOLO en JSON válido:
             "action": action,
             "confidence": 0.5,
             "reasoning": f"Decisión cuantitativa (LLM no disponible). Score: {quant['score']}",
+            "lang": "es",
             "source": "quantitative_fallback"
         }
 
@@ -779,6 +787,7 @@ Responde SOLO en JSON válido:
         text = text.strip()
         result = json.loads(text)
         result["source"] = "llm_claude_sonnet"
+        result["lang"] = _user_lang
         return result
     except Exception:
         # Try extracting action from text
@@ -793,6 +802,7 @@ Responde SOLO en JSON válido:
             "action": action,
             "confidence": 0.5,
             "reasoning": response[:200],
+            "lang": _user_lang,
             "source": "llm_text_fallback"
         }
 
@@ -872,6 +882,7 @@ def evaluate_position_decision(portfolio: dict, market: dict, research: dict) ->
             "llm_action":       llm_action,
             "llm_confidence":   llm_rec.get("confidence", 0),
             "llm_reasoning":    llm_rec.get("reasoning", ""),
+            "llm_reasoning_lang": llm_rec.get("lang", "es"),
             "llm_source":       llm_rec.get("source", "unknown"),
             "pnl_usd":          pos.get("pnl_usd", 0),
             "pnl_pct":          pos.get("pnl_pct", 0),
