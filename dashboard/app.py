@@ -147,8 +147,22 @@ def estimate_open_position_pnl(pos: dict, current_price: float | None = None) ->
     }
 
 # ── Version & Changelog ──────────────────────────────────────────────────────
-VERSION = "2.10.0-live"
+VERSION = "2.10.1-live"
 CHANGELOG = [
+    {
+        "version": "2.10.1-live",
+        "date": "2026-04-18",
+        "title": "UI: Botón ON/OFF del bot en header (kill switch toggle)",
+        "changes": [
+            "NEW botón en header junto a Reset: 🟢 ON / 🔴 OFF según estado kill switch",
+            "Click con confirm() dialog → POST /api/safety/kill-switch (activate/deactivate)",
+            "Auto-sync vía polling cada 10s (hook en refreshAll) — si kill switch se activa por otro canal (cron emergency_close, DAILY_LOSS trigger, reconcile critical), el botón se pinta rojo solo",
+            "Reconciliación visual: si falla request, refreshBotStatus restaura UI al estado real del server",
+            "Reusa endpoints safety.py del Sprint 1 — zero cambio al motor de trading",
+            "SL/TP de posiciones abiertas NO se tocan al apagar — solo pausa aperturas nuevas",
+            "Ambos dashboards (paper 8081 + live 8082) ganan el botón",
+        ]
+    },
     {
         "version": "2.10.0-live",
         "date": "2026-04-18",
