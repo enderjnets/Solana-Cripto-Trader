@@ -1420,17 +1420,161 @@ def paper_update_positions(portfolio: dict, market: dict, history: list) -> list
     return closed
 
 
-# ─── Ejecución Real (Jupiter Swap API) ───────────────────────────────────────
+# ─── Ejecución Real (Jupiter Swap API) — Sprint 2 Fase 3 ────────────────────
+# SPOT-only: Jupiter permite comprar/vender tokens pero NO perpetuos ni shorts.
+# Para paridad con paper (perps + leverage + shorts) ver branch drift-integration.
 
-def real_open_position(signal: dict, portfolio: dict) -> Optional[dict]:
+MINT_MAP = {
+    # Majors líquidos en Solana — MINT addresses verificados mainnet
+    "SOL":  "So11111111111111111111111111111111111111112",   # wrapped SOL
+    # BTC/ETH/XRP requieren wrapped tokens (Wormhole/Portal) — agregar cuando
+    # se extienda TRADE_WHITELIST_STRICT más allá de SOL. Por ahora solo SOL.
+    # "BTC":  "<wBTC mint>",
+    # "ETH":  "<wETH mint>",
+    # "JUP":  "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
+}
+
+DECIMALS_MAP = {
+    "SOL":  9,   # SOL = 10^9 lamports
+    "USDC": 6,   # USDC = 10^6
+    "BTC":  8,
+    "ETH":  8,
+    "JUP":  6,
+}
+
+
+def real_open_position(signal: dict, portfolio: dict, market: dict = None) -> Optional[dict]:
+    """Execute REAL spot trade on Solana via Jupiter Swap (USDC → token).
+
+    Safety gates (defense-in-depth, cualquiera bloquea):
+    1. LIVE_TRADING_ENABLED env var MUST be "true"
+    2. signal.direction MUST be "long" (Jupiter no soporta shorts)
+    3. Symbol MUST be in MINT_MAP (SOL por ahora)
+    4. Wallet MUST load as LiveWallet (not MockWallet)
+    5. Size MUST be >= $1 (Jupiter min swap)
+    6. Upstream filters ya aplicaron: TRADE_WHITELIST_STRICT, MIN_SL_DISTANCE, MAX_NOTIONAL
+
+    Returns position dict on success, None on any safety/execution failure.
     """
-    Ejecuta trade real via Jupiter Swap API.
-    REQUIERE: keypair configurado en .env (HOT_WALLET_PRIVATE_KEY)
-    """
-    log.warning("⚠️  Modo LIVE no implementado aún — activar manualmente")
-    log.warning("   Para activar trades reales, configura HOT_WALLET_PRIVATE_KEY en .env")
-    log.warning("   y revisa MAINNET_GUIDE.md para el proceso seguro")
-    return None
+    import os as _os
+    symbol = signal.get("symbol", "?")
+
+    # Gate 1: master switch
+    if _os.environ.get("LIVE_TRADING_ENABLED", "false").lower() != "true":
+        log.debug(f"real_open_position: LIVE_TRADING_ENABLED=false — {symbol} skip")
+        return None
+
+    # Gate 2: direction
+    direction = signal.get("direction", "long")
+    if direction != "long":
+        log.warning(f"real_open_position: {symbol} direction={direction} — Jupiter solo long (spot)")
+        return None
+
+    # Gate 3: mint mapping
+    mint = MINT_MAP.get(symbol)
+    if not mint:
+        log.warning(f"real_open_position: {symbol} no mapeado en MINT_MAP (actualmente solo SOL)")
+        return None
+
+    # Gate 4: wallet + deps lazy import (evita romper imports si deps ausentes)
+    try:
+        import solana_rpc as _srpc
+        import wallet as _wallet_mod
+        import jupiter_swap as _jswap
+    except Exception as _e:
+        log.error(f"real_open_position: deps import failed: {_e}")
+        return None
+
+    try:
+        w = _wallet_mod.load_wallet()
+    except Exception as _e:
+        log.error(f"real_open_position: wallet load failed: {_e}")
+        return None
+    if not getattr(w, "is_live", False):
+        log.error(f"real_open_position: wallet is MockWallet — set LIVE_TRADING_ENABLED=true + HOT_WALLET_PRIVATE_KEY")
+        return None
+
+    # Gate 5: sizing
+    size_usd = float(signal.get("_coordinated_margin", 0) or 0)
+    if size_usd <= 0:
+        # Fallback al LIVE_MAX_POSITION_USD como estimación conservadora
+        size_usd = float(_os.environ.get("LIVE_MAX_POSITION_USD", 20))
+    # Cap absoluto
+    max_pos_usd = float(_os.environ.get("LIVE_MAX_POSITION_USD", 20))
+    size_usd = min(size_usd, max_pos_usd)
+    if size_usd < 1.0:
+        log.warning(f"real_open_position: {symbol} size=${size_usd:.2f} < $1 min, skip")
+        return None
+
+    # Convert USD → USDC lamports (6 decimals)
+    usdc_lamports = int(size_usd * 1_000_000)
+
+    # Execute swap USDC → symbol_token
+    rpc = _srpc.get_rpc()
+    swap = _jswap.JupiterSwap(wallet=w, rpc=rpc)
+    max_slippage = int(_os.environ.get("MAX_SLIPPAGE_BPS", 100))
+
+    log.info(f"🔴 LIVE SWAP iniciando: {symbol} ${size_usd:.2f} USDC → {symbol} (slippage max {max_slippage}bps)")
+    result = swap.execute_swap(
+        input_mint=_srpc.MINT_USDC,
+        output_mint=mint,
+        amount_lamports=usdc_lamports,
+        slippage_bps=max_slippage,
+        priority_fee_level="medium",
+        dry_run=False,
+    )
+
+    if not result.success:
+        log.error(f"❌ LIVE SWAP failed: {symbol} — {result.error}")
+        return None
+
+    # Build position dict (mismo schema que paper_open_position para consistencia)
+    decimals = DECIMALS_MAP.get(symbol, 9)
+    tokens_received = result.out_amount / (10 ** decimals)
+    # entry_price: USDC spent / tokens received (USD per token)
+    real_entry_price = (result.in_amount / 1_000_000) / tokens_received if tokens_received else 0.0
+
+    sl_pct = float(signal.get("sl_pct", 0.035))
+    tp_pct = float(signal.get("tp_pct", 0.080))
+
+    now_iso = datetime.now(timezone.utc).isoformat()
+    position = {
+        "id":                  f"{symbol}_live_{int(time.time())}",
+        "symbol":              symbol,
+        "direction":           "long",
+        "strategy":            signal.get("strategy", "unknown"),
+        "entry_price":         real_entry_price,
+        "current_price":       real_entry_price,
+        "margin_usd":          round(size_usd, 4),
+        "notional_value":      round(size_usd, 4),    # spot 1x
+        "leverage":            1,
+        "size_usd":            round(size_usd, 4),
+        "tokens":              tokens_received,
+        "sl_price":            real_entry_price * (1 - sl_pct),
+        "tp_price":            real_entry_price * (1 + tp_pct),
+        "liquidation_price":   0,                     # N/A en spot
+        "margin_maintenance":  0,                     # N/A
+        "fee_entry":           size_usd * TAKER_FEE,  # estimación
+        "funding_accumulated": 0,                     # N/A
+        "pnl_usd":             0.0,
+        "pnl_pct":             0.0,
+        "status":              "open",
+        "open_time":           now_iso,
+        "mode":                "live",
+        "confidence":          float(signal.get("confidence", 0.5)),
+        # Live-specific fields
+        "tx_signature":        result.signature,
+        "chain":               "solana",
+        "price_impact_pct":    result.price_impact_pct,
+        "route_plan_steps":    result.route_plan_steps,
+    }
+
+    portfolio.setdefault("positions", []).append(position)
+
+    log.info(f"✅ LIVE TRADE OPENED: {symbol} ${size_usd:.2f} @ ${real_entry_price:.6f}")
+    log.info(f"   tx: {result.signature}")
+    log.info(f"   tokens: {tokens_received:.6f} | impact: {result.price_impact_pct:.4f}%")
+    return position
 
 
 # ─── Entry Point ─────────────────────────────────────────────────────────────
@@ -1822,7 +1966,7 @@ def run(safe: bool = True, debug: bool = False) -> dict:
                 if safe:
                     pos = paper_open_position(signal, portfolio, market)
                 else:
-                    pos = real_open_position(signal, portfolio)
+                    pos = real_open_position(signal, portfolio, market)
             except Exception as e:
                 import traceback
                 log.error(f"   💥 Error abriendo posición {signal.get('symbol','?')}: {e}")
