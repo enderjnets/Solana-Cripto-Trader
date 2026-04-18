@@ -32,6 +32,10 @@ from driftpy.drift_user import DriftUser
 from solana.rpc.async_api import AsyncClient
 from solders.keypair import Keypair
 from solders.pubkey import Pubkey
+from spl.token.instructions import get_associated_token_address
+
+USDC_DEVNET_MINT = Pubkey.from_string("8zGuJQqwhZafTah7Uc7Z4tXRnguqkn5KLFAP8oV6PHe2")
+USDC_MAINNET_MINT = Pubkey.from_string("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v")
 
 log = logging.getLogger("live_drift")
 
@@ -113,10 +117,17 @@ class LiveDriftClient:
             account_subscription=AccountSubscriptionConfig("cached"),
         )
         await self._drift_client.subscribe()
-        user_pk = get_user_account_public_key(
+        self._user_pk = get_user_account_public_key(
             self._drift_client.program_id, self.pubkey, 0
         )
-        self._drift_user = DriftUser(self._drift_client, user_public_key=user_pk)
+        # If user account exists on-chain, subscribe so balance reads work.
+        # If not, we'll subscribe lazily after initialize_user().
+        info = await self._connection.get_account_info(self._user_pk)
+        if info.value is not None:
+            await self._drift_client.add_user(0)
+            self._drift_user = self._drift_client.get_user(0)
+        else:
+            self._drift_user = None
         log.info(f"LiveDriftClient connected: env={self.env} pubkey={self.pubkey}")
 
     async def close(self) -> None:
@@ -125,11 +136,57 @@ class LiveDriftClient:
         if self._connection is not None:
             await self._connection.close()
 
+    @property
+    def usdc_mint(self) -> Pubkey:
+        return USDC_DEVNET_MINT if self.env == "devnet" else USDC_MAINNET_MINT
+
+    @property
+    def usdc_ata(self) -> Pubkey:
+        return get_associated_token_address(self.pubkey, self.usdc_mint)
+
     async def get_native_sol_balance(self) -> float:
         """Native SOL balance on the wallet (not inside Drift)."""
         assert self._connection is not None
         resp = await self._connection.get_balance(self.pubkey)
         return resp.value / 1_000_000_000  # lamports → SOL
+
+    async def drift_user_exists(self) -> bool:
+        """Check if the Drift user PDA account is initialized on-chain."""
+        assert self._connection is not None
+        info = await self._connection.get_account_info(self._user_pk)
+        return info.value is not None
+
+    async def initialize_user(self) -> str:
+        """Create the Drift user + user_stats accounts (sub_account 0). Idempotent."""
+        assert self._drift_client is not None
+        if await self.drift_user_exists():
+            log.info("Drift user already initialized")
+            if self._drift_user is None:
+                await self._drift_client.add_user(0)
+                self._drift_user = self._drift_client.get_user(0)
+            return ""
+        sig = await self._drift_client.initialize_user(sub_account_id=0, name="live-bot")
+        log.info(f"initialize_user tx: {sig}")
+        await self._drift_client.add_user(0)
+        self._drift_user = self._drift_client.get_user(0)
+        return str(sig)
+
+    async def deposit_usdc(self, amount_usd: float) -> str:
+        """Deposit USDC from our ATA into Drift spot market 0.
+
+        amount_usd is a float in USD units (e.g. 500.0 = 500 USDC).
+        """
+        assert self._drift_client is not None
+        base_units = int(amount_usd * QUOTE_PRECISION)
+        result = await self._drift_client.deposit(
+            amount=base_units,
+            spot_market_index=USDC_SPOT_MARKET_INDEX,
+            user_token_account=self.usdc_ata,
+            sub_account_id=0,
+        )
+        sig = str(result.tx_sig)
+        log.info(f"deposit {amount_usd} USDC tx: {sig}")
+        return sig
 
     async def get_mark_price(self, market_index: int = SOL_PERP_MARKET_INDEX) -> float:
         assert self._drift_client is not None
@@ -159,19 +216,19 @@ class LiveDriftClient:
         mark = await self.get_mark_price()
         funding = await self.get_hourly_funding_rate()
 
-        exists = True
+        exists = await self.drift_user_exists()
         free_coll = total_coll = leverage = 0.0
         sol_base = 0.0
-        try:
-            free_coll = self._drift_user.get_free_collateral() / QUOTE_PRECISION
-            total_coll = self._drift_user.get_total_collateral() / QUOTE_PRECISION
-            leverage = self._drift_user.get_leverage() / 10_000
-            pos = self._drift_user.get_perp_position(SOL_PERP_MARKET_INDEX)
-            if pos is not None:
-                sol_base = pos.base_asset_amount / BASE_PRECISION
-        except Exception as e:
-            log.debug(f"drift_user read failed (user account likely not initialized yet): {e}")
-            exists = False
+        if exists and self._drift_user is not None:
+            try:
+                free_coll = self._drift_user.get_free_collateral() / QUOTE_PRECISION
+                total_coll = self._drift_user.get_total_collateral() / QUOTE_PRECISION
+                leverage = self._drift_user.get_leverage() / 10_000
+                pos = self._drift_user.get_perp_position(SOL_PERP_MARKET_INDEX)
+                if pos is not None:
+                    sol_base = pos.base_asset_amount / BASE_PRECISION
+            except Exception as e:
+                log.debug(f"drift_user read failed: {e}")
 
         return AccountSnapshot(
             pubkey=str(self.pubkey),
