@@ -478,6 +478,23 @@ DASHBOARD_HTML = r"""
     cursor: pointer; font-size: 12px; transition: all .2s; margin-left: 8px;
   }
   .btn-reset:hover { background: var(--orange); color: var(--bg); }
+  /* v2.10.0-live: bot ON/OFF toggle (kill switch) */
+  .btn-bot {
+    border: 1px solid var(--border);
+    padding: 6px 14px; border-radius: 6px;
+    cursor: pointer; font-size: 12px;
+    transition: all .2s; margin-left: 8px;
+    font-weight: 600;
+    min-width: 72px;
+    background: var(--bg3);
+    color: var(--text2);
+  }
+  .btn-bot.on  { border-color: #3fb950; color: #3fb950; }
+  .btn-bot.on:hover  { background: #3fb950; color: var(--bg); }
+  .btn-bot.off { border-color: #f85149; color: #f85149; }
+  .btn-bot.off:hover { background: #f85149; color: #fff; }
+  .btn-bot.loading { opacity: 0.5; cursor: wait; }
+  .btn-bot:disabled { opacity: 0.4; cursor: not-allowed; }
   .mode-badge {
     font-size: 11px; padding: 2px 8px; border-radius: 10px;
     background: rgba(188,140,255,0.15); color: var(--purple); border: 1px solid var(--purple);
@@ -929,6 +946,7 @@ DASHBOARD_HTML = r"""
     <button class="btn-refresh" onclick="refreshAll()">⟳ Refresh</button>
     <button id="langToggle" onclick="toggleLang()" style="font-size:12px;padding:4px 10px;background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:6px;cursor:pointer;font-weight:600;">🇬🇧 EN</button>
     <button class="btn-reset" onclick="resetBot()">🔄 Reset</button>
+    <button class="btn-bot" id="botToggleBtn" onclick="toggleBot()" title="Encender/Apagar bot (kill switch)">⏳</button>
   </div>
 </div>
 
@@ -1297,7 +1315,8 @@ async function refreshAll() {
       loadPositions(),
       loadTrades(),
       loadLog(),
-      loadResetHistory()
+      loadResetHistory(),
+      refreshBotStatus()
     ]);
     document.getElementById('lastUpdate').textContent =
       'Actualizado: ' + new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -1319,6 +1338,57 @@ function openResetModal() {
 function closeResetModal() {
   document.getElementById('resetModal').classList.remove('open');
 }
+/* ── Bot ON/OFF toggle (v2.10.0-live) ── */
+async function refreshBotStatus() {
+  try {
+    const r = await fetch('/api/safety/status');
+    const d = await r.json();
+    if (!d.ok) return;
+    const btn = document.getElementById('botToggleBtn');
+    if (!btn) return;
+    btn.classList.remove('on', 'off', 'loading');
+    // kill_switch_active=true → bot APAGADO (🔴)
+    // kill_switch_active=false → bot ENCENDIDO (🟢)
+    if (d.kill_switch_active) {
+      btn.classList.add('off');
+      btn.textContent = '🔴 OFF';
+      btn.title = 'Bot APAGADO — click para encender. Razón: ' + (d.kill_switch_reason || '—');
+    } else {
+      btn.classList.add('on');
+      btn.textContent = '🟢 ON';
+      btn.title = 'Bot ENCENDIDO — click para apagar (pausa aperturas nuevas, no toca posiciones abiertas)';
+    }
+  } catch (e) {
+    console.warn('refreshBotStatus error', e);
+  }
+}
+
+async function toggleBot() {
+  const btn = document.getElementById('botToggleBtn');
+  const isOn = btn.classList.contains('on');
+  const action = isOn ? 'activate' : 'deactivate';
+  const actionLabel = isOn ? 'APAGAR' : 'ENCENDER';
+  const msg = isOn
+    ? '¿Apagar el bot?\n\nSe pausarán las aperturas nuevas.\nLas posiciones abiertas siguen gestionadas (SL/TP activos).'
+    : '¿Encender el bot?\n\nVolverá a abrir posiciones cuando las señales pasen los filtros.';
+  if (!confirm(msg)) return;
+  btn.classList.add('loading');
+  btn.textContent = '⏳';
+  try {
+    const r = await fetch('/api/safety/kill-switch', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({action: action, reason: 'dashboard_button:' + actionLabel.toLowerCase()}),
+    });
+    const d = await r.json();
+    if (!d.ok) throw new Error(d.error || 'unknown');
+    await refreshBotStatus();
+  } catch (e) {
+    alert('Error toggling bot: ' + e.message);
+    await refreshBotStatus();
+  }
+}
+
 async function resetBot() { openResetModal(); }
 
 /* ── Changelog ── */
