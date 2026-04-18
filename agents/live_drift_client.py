@@ -1,0 +1,186 @@
+"""Drift Protocol live trading client (devnet / mainnet).
+
+Wraps driftpy so the rest of the bot can treat Drift like the paper simulator.
+Phase 1 scope: connect + read-only (balance, mark price, funding, position).
+Write ops land in Phase 3.
+
+Environment:
+- DRIFT_ENV:        "devnet" (default) or "mainnet"
+- DRIFT_RPC_URL:    optional override (else public RPC for the env)
+- DRIFT_WALLET_PATH: path to keypair JSON (default ~/.config/solana-drift-bot/id.json)
+"""
+from __future__ import annotations
+
+import json
+import logging
+import os
+from dataclasses import dataclass
+from pathlib import Path
+
+from anchorpy import Wallet
+from driftpy.account_subscription_config import AccountSubscriptionConfig
+from driftpy.constants.numeric_constants import (
+    BASE_PRECISION,
+    FUNDING_RATE_PRECISION,
+    PRICE_PRECISION,
+    QUOTE_PRECISION,
+)
+from driftpy.addresses import get_user_account_public_key
+from driftpy.constants.config import get_markets_and_oracles
+from driftpy.drift_client import DriftClient
+from driftpy.drift_user import DriftUser
+from solana.rpc.async_api import AsyncClient
+from solders.keypair import Keypair
+from solders.pubkey import Pubkey
+
+log = logging.getLogger("live_drift")
+
+SOL_PERP_MARKET_INDEX = 0
+USDC_SPOT_MARKET_INDEX = 0
+
+_DEFAULT_RPC = {
+    "devnet": "https://api.devnet.solana.com",
+    "mainnet": "https://api.mainnet-beta.solana.com",
+}
+_DEFAULT_WALLET = Path.home() / ".config" / "solana-drift-bot" / "id.json"
+
+
+def _load_keypair(path: Path) -> Keypair:
+    secret = json.loads(path.read_text())
+    return Keypair.from_bytes(bytes(secret))
+
+
+@dataclass
+class AccountSnapshot:
+    pubkey: str
+    sol_balance: float             # native SOL on the wallet
+    free_collateral_usd: float     # USDC free collateral inside Drift
+    total_collateral_usd: float
+    leverage: float
+    sol_perp_base: float           # signed: positive=long, negative=short
+    sol_perp_mark: float           # oracle price in USD
+    sol_perp_funding_hourly: float # fraction (0.0001 = 0.01%/hr), signed
+    drift_user_exists: bool
+
+
+class LiveDriftClient:
+    """Thin async wrapper around driftpy.DriftClient for SOL-PERP.
+
+    Call `await client.initialize()` before use and `await client.close()` when done.
+    """
+
+    def __init__(
+        self,
+        env: str | None = None,
+        rpc_url: str | None = None,
+        wallet_path: Path | None = None,
+    ):
+        self.env = env or os.environ.get("DRIFT_ENV", "devnet")
+        if self.env not in ("devnet", "mainnet"):
+            raise ValueError(f"DRIFT_ENV must be devnet|mainnet, got {self.env!r}")
+        self.rpc_url = rpc_url or os.environ.get("DRIFT_RPC_URL", _DEFAULT_RPC[self.env])
+        self.wallet_path = Path(
+            wallet_path
+            or os.environ.get("DRIFT_WALLET_PATH", str(_DEFAULT_WALLET))
+        )
+
+        self._keypair: Keypair | None = None
+        self._wallet: Wallet | None = None
+        self._connection: AsyncClient | None = None
+        self._drift_client: DriftClient | None = None
+        self._drift_user: DriftUser | None = None
+
+    @property
+    def pubkey(self) -> Pubkey:
+        assert self._keypair is not None, "call initialize() first"
+        return self._keypair.pubkey()
+
+    async def initialize(self) -> None:
+        self._keypair = _load_keypair(self.wallet_path)
+        self._wallet = Wallet(self._keypair)
+        self._connection = AsyncClient(self.rpc_url)
+
+        spot_oracles, perp_oracles, spot_indexes = get_markets_and_oracles(
+            env=self.env, perp_markets=[SOL_PERP_MARKET_INDEX]
+        )
+        self._drift_client = DriftClient(
+            self._connection,
+            self._wallet,
+            self.env,
+            perp_market_indexes=[SOL_PERP_MARKET_INDEX],
+            spot_market_indexes=spot_indexes,
+            oracle_infos=spot_oracles + perp_oracles,
+            account_subscription=AccountSubscriptionConfig("cached"),
+        )
+        await self._drift_client.subscribe()
+        user_pk = get_user_account_public_key(
+            self._drift_client.program_id, self.pubkey, 0
+        )
+        self._drift_user = DriftUser(self._drift_client, user_public_key=user_pk)
+        log.info(f"LiveDriftClient connected: env={self.env} pubkey={self.pubkey}")
+
+    async def close(self) -> None:
+        if self._drift_client is not None:
+            await self._drift_client.unsubscribe()
+        if self._connection is not None:
+            await self._connection.close()
+
+    async def get_native_sol_balance(self) -> float:
+        """Native SOL balance on the wallet (not inside Drift)."""
+        assert self._connection is not None
+        resp = await self._connection.get_balance(self.pubkey)
+        return resp.value / 1_000_000_000  # lamports → SOL
+
+    async def get_mark_price(self, market_index: int = SOL_PERP_MARKET_INDEX) -> float:
+        assert self._drift_client is not None
+        oracle = self._drift_client.get_oracle_price_data_for_perp_market(market_index)
+        return oracle.price / PRICE_PRECISION
+
+    async def get_hourly_funding_rate(self, market_index: int = SOL_PERP_MARKET_INDEX) -> float:
+        """Return last hourly funding rate as signed fraction (0.0001 = 0.01%/hr).
+
+        Positive → longs pay shorts. Negative → shorts pay longs.
+        Formula: last_funding_rate / FUNDING_RATE_PRECISION / oracle_price,
+        which yields the per-funding-period rate relative to notional.
+        """
+        assert self._drift_client is not None
+        market = self._drift_client.get_perp_market_account(market_index)
+        oracle = self._drift_client.get_oracle_price_data_for_perp_market(market_index)
+        oracle_price = oracle.price / PRICE_PRECISION
+        if oracle_price <= 0:
+            return 0.0
+        raw = market.amm.last_funding_rate / FUNDING_RATE_PRECISION
+        return raw / oracle_price
+
+    async def snapshot(self) -> AccountSnapshot:
+        """One-shot account state (native SOL, collateral, position, mark)."""
+        assert self._drift_user is not None
+        sol = await self.get_native_sol_balance()
+        mark = await self.get_mark_price()
+        funding = await self.get_hourly_funding_rate()
+
+        exists = True
+        free_coll = total_coll = leverage = 0.0
+        sol_base = 0.0
+        try:
+            free_coll = self._drift_user.get_free_collateral() / QUOTE_PRECISION
+            total_coll = self._drift_user.get_total_collateral() / QUOTE_PRECISION
+            leverage = self._drift_user.get_leverage() / 10_000
+            pos = self._drift_user.get_perp_position(SOL_PERP_MARKET_INDEX)
+            if pos is not None:
+                sol_base = pos.base_asset_amount / BASE_PRECISION
+        except Exception as e:
+            log.debug(f"drift_user read failed (user account likely not initialized yet): {e}")
+            exists = False
+
+        return AccountSnapshot(
+            pubkey=str(self.pubkey),
+            sol_balance=sol,
+            free_collateral_usd=free_coll,
+            total_collateral_usd=total_coll,
+            leverage=leverage,
+            sol_perp_base=sol_base,
+            sol_perp_mark=mark,
+            sol_perp_funding_hourly=funding,
+            drift_user_exists=exists,
+        )

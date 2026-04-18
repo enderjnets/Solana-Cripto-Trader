@@ -11,6 +11,7 @@ pydantic>=2.5.0
 solana>=0.30.0
 solders>=0.20.0
 anchorpy>=0.19.0
+driftpy>=0.8.89  # Drift Protocol SDK — only used by live branch (perps)
 
 # Jupiter API
 # (uses httpx directly, no separate SDK)
