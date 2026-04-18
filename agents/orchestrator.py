@@ -588,7 +588,8 @@ def run_cycle(safe=True, debug=False):
                                 reduce_frac = 0.5
                                 reduced_notional = original_notional * reduce_frac
                                 reduced_margin = original_margin * reduce_frac
-                                fee_exit = reduced_notional * ex.TAKER_FEE
+                                # FIX C (2026-04-18): include slippage in REDUCE exit fee
+                                fee_exit = reduced_notional * (ex.TAKER_FEE + ex.get_slippage(symbol))
                                 partial_pnl = pos.get("pnl_usd", 0) * reduce_frac - fee_exit
                                 returned = max(0, reduced_margin + partial_pnl)
                                 portfolio_data["capital_usd"] = round(portfolio_data["capital_usd"] + returned, 2)
@@ -596,6 +597,8 @@ def run_cycle(safe=True, debug=False):
                                 pos["notional_value"] = round(original_notional - reduced_notional, 2)
                                 pos["margin_usd"] = round(original_margin - reduced_margin, 2)
                                 pos["size_usd"] = pos["notional_value"]
+                                # FIX C (2026-04-18): apportion fee_entry on remaining
+                                pos["fee_entry"] = round(pos.get("fee_entry", 0) * (1 - reduce_frac), 4)
                                 if pos.get("tokens", 0) > 0:
                                     pos["tokens"] = round(pos["tokens"] * (1 - reduce_frac), 8)
                                 # Mover SL a breakeven

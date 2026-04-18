@@ -563,7 +563,8 @@ def close_positions_emergency(portfolio: dict, symbols: list, market: dict, hist
             if pos["direction"] == "short":
                 pnl_pct = -pnl_pct
             # FIX 1.2: Incluir exit fee en emergency close
-            fee_exit = notional * TAKER_FEE
+            # FIX D (2026-04-18): slippage symmetry with normal close (executor.py:1300)
+            fee_exit = notional * (TAKER_FEE + get_slippage(pos["symbol"]))
             pnl_usd = notional * pnl_pct + pos.get("funding_accumulated", 0) - fee_exit - pos.get("fee_entry", 0)
             pos["fee_exit"] = round(fee_exit, 4)
 
@@ -580,6 +581,13 @@ def close_positions_emergency(portfolio: dict, symbols: list, market: dict, hist
             # Devolver margen + P&L al portfolio
             returned = max(0, margin + pnl_usd)
             portfolio["capital_usd"] += returned
+            # FIX A (2026-04-18): when margin floor clamps capital to 0, align
+            # the recorded pnl_usd with the actual capital delta (-margin).
+            # Previously the record kept the unclamped (more negative) value,
+            # causing recorded pnl_usd < true capital loss and an accounting gap.
+            if margin + pnl_usd < 0:
+                pos["pnl_usd"] = round(-margin, 4)
+                pos["pnl_pct"] = round(-100.0, 4)
 
             # Agregar al historial
             record = {
@@ -588,13 +596,21 @@ def close_positions_emergency(portfolio: dict, symbols: list, market: dict, hist
                 "direction": pos["direction"],
                 "entry_price": pos["entry_price"],
                 "exit_price": pos["close_price"],
+                "current_price": pos["close_price"],
                 "size_usd": pos["size_usd"],
+                "notional_value": pos.get("notional_value", pos.get("size_usd", 0)),
+                "margin_usd": pos.get("margin_usd", 0),
+                "leverage": pos.get("leverage", 1),
+                "fee_entry": pos.get("fee_entry", 0),
+                "fee_exit": pos.get("fee_exit", 0),
+                "funding_accumulated": pos.get("funding_accumulated", 0),
                 "pnl_usd": pos["pnl_usd"],
                 "pnl_pct": pos["pnl_pct"],
                 "open_time": pos["open_time"],
                 "close_time": pos["close_time"],
                 "close_reason": reason,  # Usar la razón correcta, no hardcodear
                 "strategy": pos.get("strategy", "unknown"),
+                "mode": pos.get("mode", "paper"),
             }
             if ai_reasoning:
                 record["ai_reasoning"] = ai_reasoning
@@ -1132,13 +1148,17 @@ def paper_update_positions(portfolio: dict, market: dict, history: list) -> list
                     reduce_frac = 0.5
                     reduced_notional = notional * reduce_frac
                     reduced_margin = margin * reduce_frac
-                    fee_partial = reduced_notional * TAKER_FEE
+                    # FIX C (2026-04-18): include slippage in partial exit fee (parity with Fix D)
+                    fee_partial = reduced_notional * (TAKER_FEE + get_slippage(pos["symbol"]))
                     partial_pnl = pnl_usd * reduce_frac - fee_partial
                     returned = max(0, reduced_margin + partial_pnl)
                     portfolio["capital_usd"] = round(portfolio["capital_usd"] + returned, 2)
                     pos["notional_value"] = round(notional - reduced_notional, 2)
                     pos["margin_usd"] = round(margin - reduced_margin, 2)
                     pos["size_usd"] = pos["notional_value"]
+                    # FIX C (2026-04-18): apportion fee_entry on remaining pos so final
+                    # close does not re-subtract the full original entry fee.
+                    pos["fee_entry"] = round(pos.get("fee_entry", 0) * (1 - reduce_frac), 4)
                     if pos.get("tokens", 0) > 0:
                         pos["tokens"] = round(pos["tokens"] * (1 - reduce_frac), 8)
                     pos["sl_price"] = pos["entry_price"]  # Move SL to breakeven
@@ -1157,7 +1177,7 @@ def paper_update_positions(portfolio: dict, market: dict, history: list) -> list
                     log.info(f"  \u2702\ufe0f PARTIAL TAKE: {symbol} 50% at halfway to TP, SL->breakeven, returned ${returned:.2f}")
 
                     # Record partial take as a trade in history (fix accounting gap)
-                    from datetime import datetime, timezone
+                    # FIX B (2026-04-18): removed local datetime import that shadowed module-level binding
                     history.append({
                         "id": f"{pos['id']}_partial",
                         "symbol": symbol,
@@ -1300,15 +1320,24 @@ def paper_update_positions(portfolio: dict, market: dict, history: list) -> list
             fee_exit = notional * (TAKER_FEE + get_slippage(symbol))  # FIX 2.4: includes slippage
             pos["fee_exit"] = round(fee_exit, 4)
 
-            # Devolver margen + P&L - fees
-            returned = margin + pnl_usd - fee_exit
-            returned = max(0, returned)  # No puede ser negativo (ya se descontó margen)
-            portfolio["capital_usd"] = round(portfolio["capital_usd"] + returned, 2)
-
-            # Estadísticas
-            # FIX 1.3: Incluir entry fee en PnL registrado
+            # FIX B (2026-04-18): normal close now records net lifetime pnl (gross - fees)
+            # matching emergency close semantics. Capital delta == recorded pnl_usd.
             fee_entry = pos.get("fee_entry", 0)
             net_pnl = pnl_usd - fee_exit - fee_entry
+            pos["pnl_usd"] = round(net_pnl, 4)
+            pos["pnl_pct"] = round((net_pnl / margin * 100) if margin > 0 else 0, 4)
+
+            # Devolver margen + net_pnl al portfolio
+            returned = margin + net_pnl
+            returned = max(0, returned)  # No puede ser negativo (ya se descontó margen)
+            portfolio["capital_usd"] = round(portfolio["capital_usd"] + returned, 2)
+            # FIX B (2026-04-18): if margin floor clamps capital, align record with
+            # actual capital delta (= -margin). Mirrors Fix A in emergency close.
+            if margin + net_pnl < 0:
+                pos["pnl_usd"] = round(-margin, 4)
+                pos["pnl_pct"] = round(-100.0, 4)
+
+            # Estadísticas
             is_win = net_pnl > 0
             portfolio["total_trades"] = portfolio.get("total_trades", 0) + 1
             if is_win:
