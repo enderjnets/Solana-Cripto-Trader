@@ -29,6 +29,13 @@ from driftpy.addresses import get_user_account_public_key
 from driftpy.constants.config import get_markets_and_oracles
 from driftpy.drift_client import DriftClient
 from driftpy.drift_user import DriftUser
+from driftpy.types import (
+    MarketType,
+    OrderParams,
+    OrderType,
+    PositionDirection,
+    PostOnlyParams,
+)
 from solana.rpc.async_api import AsyncClient
 from solders.keypair import Keypair
 from solders.pubkey import Pubkey
@@ -170,6 +177,99 @@ class LiveDriftClient:
         await self._drift_client.add_user(0)
         self._drift_user = self._drift_client.get_user(0)
         return str(sig)
+
+    def _market_auction_prices(
+        self, direction: str, oracle_price_raw: int, slippage_bps: int = 100
+    ) -> tuple[int, int]:
+        """Return (start, end) auction prices in PRICE_PRECISION for a market order.
+
+        LONG: auction climbs from oracle to oracle*(1+slip) — worst fill at top.
+        SHORT: auction drops from oracle to oracle*(1-slip) — worst fill at bottom.
+        Default slippage 1% — generous enough to fill on devnet vAMM.
+        """
+        if direction == "long":
+            start = oracle_price_raw
+            end = oracle_price_raw + (oracle_price_raw * slippage_bps) // 10_000
+        else:
+            start = oracle_price_raw
+            end = oracle_price_raw - (oracle_price_raw * slippage_bps) // 10_000
+        return start, end
+
+    async def open_sol_perp_market(
+        self,
+        direction: str,
+        size_sol: float,
+        market_index: int = SOL_PERP_MARKET_INDEX,
+        slippage_bps: int = 100,
+    ) -> str:
+        """Open a SOL-PERP position with a market order. Returns tx signature.
+
+        direction    : "long" or "short"
+        size_sol     : position size in SOL (0.1 = 0.1 SOL ≈ $8 notional at $80)
+        slippage_bps : max slippage on auction end price (100 = 1%)
+        """
+        assert self._drift_client is not None
+        oracle = self._drift_client.get_oracle_price_data_for_perp_market(market_index)
+        start, end = self._market_auction_prices(direction, oracle.price, slippage_bps)
+        dir_enum = (
+            PositionDirection.Long() if direction == "long" else PositionDirection.Short()
+        )
+        params = OrderParams(
+            order_type=OrderType.Market(),
+            base_asset_amount=int(size_sol * BASE_PRECISION),
+            market_index=market_index,
+            direction=dir_enum,
+            market_type=MarketType.Perp(),
+            post_only=PostOnlyParams.NONE(),
+            auction_duration=10,
+            auction_start_price=start,
+            auction_end_price=end,
+        )
+        result = await self._drift_client.place_and_take_perp_order(params)
+        sig = str(getattr(result, "tx_sig", result))
+        log.info(f"open {direction} {size_sol} SOL @ oracle ${oracle.price/PRICE_PRECISION:.2f} "
+                 f"auction=[{start/PRICE_PRECISION:.2f}..{end/PRICE_PRECISION:.2f}] tx: {sig}")
+        return sig
+
+    async def close_sol_perp(
+        self,
+        market_index: int = SOL_PERP_MARKET_INDEX,
+        slippage_bps: int = 100,
+    ) -> str | None:
+        """Close existing SOL-PERP position with a reduce-only market order.
+
+        Returns tx signature, or None if there was no open position.
+        """
+        assert self._drift_client is not None and self._drift_user is not None
+        pos = self._drift_user.get_perp_position(market_index)
+        if pos is None or pos.base_asset_amount == 0:
+            log.info("no open position to close")
+            return None
+
+        # Opposite direction of current position.
+        is_long = pos.base_asset_amount > 0
+        close_direction = "short" if is_long else "long"
+        dir_enum = (
+            PositionDirection.Short() if is_long else PositionDirection.Long()
+        )
+        oracle = self._drift_client.get_oracle_price_data_for_perp_market(market_index)
+        start, end = self._market_auction_prices(close_direction, oracle.price, slippage_bps)
+        params = OrderParams(
+            order_type=OrderType.Market(),
+            base_asset_amount=abs(pos.base_asset_amount),
+            market_index=market_index,
+            direction=dir_enum,
+            market_type=MarketType.Perp(),
+            post_only=PostOnlyParams.NONE(),
+            reduce_only=True,
+            auction_duration=10,
+            auction_start_price=start,
+            auction_end_price=end,
+        )
+        result = await self._drift_client.place_and_take_perp_order(params)
+        sig = str(getattr(result, "tx_sig", result))
+        log.info(f"close tx: {sig}")
+        return sig
 
     async def deposit_usdc(self, amount_usd: float) -> str:
         """Deposit USDC from our ATA into Drift spot market 0.
