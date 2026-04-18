@@ -284,8 +284,55 @@ GPT5_URL = _os_gpt5.environ.get("GPT5_URL", "http://127.0.0.1:18793/v1/chat/comp
 GPT5_TOKEN = _os_gpt5.environ.get("GPT5_TOKEN", _DEFAULT_GPT5_TOKEN)
 GPT5_MODEL = _os_gpt5.environ.get("GPT5_MODEL", "gpt-5.4")
 
+# ── v2.9.1: validador compartido de respuestas LLM ───────────────────
+# Rechaza respuestas que parecen logs/errores en vez de razonamientos validos.
+# Aplicable a GPT-5.4, MiniMax, Claude, Qwen — defensa en profundidad.
+_LLM_ERROR_MARKERS = (
+    # Auth / token errors (Codex OAuth, genericos)
+    "codex_login::auth::manager", "failed to refresh token",
+    "refresh token has already been used", "401 unauthorized",
+    "403 forbidden", "invalid api key", "invalid_api_key",
+    "authentication failed", "unauthorized",
+    # Runtime errors / stack traces
+    "traceback (most recent", "traceback:",
+    # Usage limits (heredado de call_gpt5 original)
+    "usage limit", "upgrade to pro", "hit your usage",
+    # Network / connection
+    "connection refused", "connection timeout", "connection reset",
+    "no route to host", "dns lookup failed",
+    # Generic HTTP errors
+    "500 internal server", "502 bad gateway", "503 service",
+    "504 gateway timeout",
+)
+_LLM_ERROR_TS_RE = None  # lazy compile
+
+def _is_valid_llm_response(text) -> bool:
+    """True si el texto parece un razonamiento valido (no un log de error)."""
+    if not text or not isinstance(text, str):
+        return False
+    stripped = text.strip()
+    if len(stripped) < 10:
+        return False  # respuestas triviales no son utiles
+    # Patron: log line que arranca con timestamp ISO + ERROR/WARN/FATAL
+    global _LLM_ERROR_TS_RE
+    if _LLM_ERROR_TS_RE is None:
+        import re as _re
+        _LLM_ERROR_TS_RE = _re.compile(
+            r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.*?(ERROR|WARN|FATAL|CRITICAL)',
+            _re.IGNORECASE,
+        )
+    if _LLM_ERROR_TS_RE.match(stripped):
+        return False
+    # Busqueda case-insensitive de markers
+    lower = stripped.lower()
+    for marker in _LLM_ERROR_MARKERS:
+        if marker in lower:
+            return False
+    return True
+
+
 def call_gpt5(prompt: str, system: str = "", max_tokens: int = 2000) -> str:
-    """Call GPT-5.4 via OpenClaw proxy. Returns None if unavailable."""
+    """Call GPT-5.4 via OpenClaw proxy. Returns None if unavailable or response looks like an error."""
     try:
         messages = []
         if system:
@@ -307,13 +354,17 @@ def call_gpt5(prompt: str, system: str = "", max_tokens: int = 2000) -> str:
                 # Strip everything before the last "assistant\n" section to get only the reply.
                 if "\nassistant\n" in text:
                     text = text.split("\nassistant\n")[-1].strip()
-                    if text:
+                    if text and _is_valid_llm_response(text):
                         return text
-                    return None  # empty assistant section
-                # No assistant section = Codex header/error (usage limit etc)
-                errs = ("usage limit", "upgrade to pro", "hit your usage")
-                if any(kw in text.lower() for kw in errs) or text.startswith("OpenAI Codex"):
-                    print("    ⚠️ GPT-5.4: Codex limit detected -- fallback")
+                    if text:
+                        print("    ⚠️ GPT-5.4: assistant section looks like error — fallback")
+                    return None  # empty or error-like assistant section
+                # No assistant section = Codex header/error (usage limit, auth, etc)
+                if text.startswith("OpenAI Codex"):
+                    print("    ⚠️ GPT-5.4: Codex header only -- fallback")
+                    return None
+                if not _is_valid_llm_response(text):
+                    print("    ⚠️ GPT-5.4: response matches error pattern (auth/limit/traceback) -- fallback")
                     return None
                 return text
     except Exception as e:
@@ -332,31 +383,39 @@ def call_llm(prompt: str, system: str = "", max_tokens: int = 2000) -> str:
 
     # Try GPT-5.4 first (best reasoning for trading decisions)
     result = call_gpt5(prompt, system, max_tokens)
-    if result:
+    if result and _is_valid_llm_response(result):
         _cb_record_success()
         print("    🧠 LLM: GPT-5.4 (primary)")
         return result
+    if result:
+        print("    ⚠️ GPT-5.4: returned error-like content -- skipping to next provider")
 
     # Fallback to MiniMax M2.7 (always available)
     result = call_minimax(prompt, system, max_tokens)
-    if result:
+    if result and _is_valid_llm_response(result):
         _cb_record_success()
         print("    🧠 LLM: MiniMax M2.7 (fallback)")
         return result
+    if result:
+        print("    ⚠️ MiniMax: returned error-like content -- skipping to next provider")
 
     # Last resort: Claude Sonnet 4.6 via direct Anthropic API
     result = call_claude_sonnet(prompt, system, max_tokens)
-    if result:
+    if result and _is_valid_llm_response(result):
         _cb_record_success()
         print("    🧠 LLM: Claude Sonnet 4.6 (tertiary)")
         return result
+    if result:
+        print("    ⚠️ Claude Sonnet: returned error-like content -- skipping to next provider")
 
     # 4to fallback: Qwen 2.5 14B local via Ollama
     result = call_qwen_local(prompt, system, max_tokens)
-    if result:
+    if result and _is_valid_llm_response(result):
         _cb_record_success()
         print("    \U0001f9e0 LLM: Qwen 2.5 14B local (4to fallback)")
         return result
+    if result:
+        print("    ⚠️ Qwen local: returned error-like content -- skipping")
 
     _cb_record_failure()
     print("    \u274c GPT-5.4 + MiniMax + Claude + Qwen all failed")
