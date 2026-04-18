@@ -227,6 +227,14 @@ def run_cycle(safe=True, debug=False):
     except Exception as _se:
         log.warning(f"safety check error (non-fatal, continuando): {_se}")
     
+    # v2.10.0-live Sprint 2 Fase 5: heartbeat para watchdog externo (emergency_close.py)
+    try:
+        _hb_path = os.environ.get("HEARTBEAT_FILE", "/tmp/solana_live_heartbeat")
+        with open(_hb_path, "w") as _hf:
+            _hf.write(str(time.time()))
+    except Exception as _hb_err:
+        log.debug(f"heartbeat write error (non-fatal): {_hb_err}")
+
     log.info("=" * 60)
     log.info(f"🔄 CICLO INICIADO — {now}")
     mode_label = "📄 PAPER" if safe else "🔴 LIVE"
