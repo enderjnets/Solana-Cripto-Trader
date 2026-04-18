@@ -235,6 +235,15 @@ def run_cycle(safe=True, debug=False):
     except Exception as _hb_err:
         log.debug(f"heartbeat write error (non-fatal): {_hb_err}")
 
+    # v2.10.0-live Sprint 2 Fase 4: on-chain reconciliation cada 10 ciclos (solo live)
+    if _cycle_global_count % 10 == 0 and os.environ.get("LIVE_TRADING_ENABLED", "false").lower() == "true":
+        try:
+            import reconcile
+            _rec = reconcile.check_reconciliation(trigger_kill_switch=True)
+            log.info(f"🔄 reconcile: {reconcile.summary(_rec)}")
+        except Exception as _rec_err:
+            log.warning(f"reconcile error (non-fatal): {_rec_err}")
+
     log.info("=" * 60)
     log.info(f"🔄 CICLO INICIADO — {now}")
     mode_label = "📄 PAPER" if safe else "🔴 LIVE"
