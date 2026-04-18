@@ -232,6 +232,32 @@ def run_cycle(safe=True, debug=False):
     mode_label = "📄 PAPER" if safe else "🔴 LIVE"
     log.info(f"   Modo: {mode_label}")
     log.info("=" * 60)
+
+    # v2.9.0: auto-reset daily_target_state si la fecha cambió (evita queda stale)
+    try:
+        _dt_state_file = DATA_DIR / "daily_target_state.json"
+        if _dt_state_file.exists():
+            _dts = json.loads(_dt_state_file.read_text())
+            _today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+            if _dts.get("date") != _today:
+                _pf_file = DATA_DIR / "portfolio.json"
+                _cap = 0.0
+                if _pf_file.exists():
+                    try:
+                        _cap = float(json.loads(_pf_file.read_text()).get("capital_usd", 0))
+                    except Exception:
+                        _cap = 0.0
+                _prev_date = _dts.get("date")
+                _dts.update({
+                    "date": _today,
+                    "starting_capital": _cap,
+                    "current_pnl_pct": 0.0,
+                    "target_reached": False,
+                })
+                _dt_state_file.write_text(json.dumps(_dts, indent=2))
+                log.info(f"🗓️  daily_target_state reseteado: {_prev_date} → {_today} (capital: ${_cap:.2f})")
+    except Exception as _e_dt:
+        log.warning(f"daily_target reset error (non-fatal): {_e_dt}")
     
     results = {}
     _cycle_emergency_closes = 0  # Circuit breaker: contador de emergency closes este ciclo
@@ -583,7 +609,8 @@ def run_cycle(safe=True, debug=False):
                                 reduce_frac = 0.5
                                 reduced_notional = original_notional * reduce_frac
                                 reduced_margin = original_margin * reduce_frac
-                                fee_exit = reduced_notional * ex.TAKER_FEE
+                                # FIX C (2026-04-18): include slippage in REDUCE exit fee
+                                fee_exit = reduced_notional * (ex.TAKER_FEE + ex.get_slippage(symbol))
                                 partial_pnl = pos.get("pnl_usd", 0) * reduce_frac - fee_exit
                                 returned = max(0, reduced_margin + partial_pnl)
                                 portfolio_data["capital_usd"] = round(portfolio_data["capital_usd"] + returned, 2)
@@ -591,6 +618,8 @@ def run_cycle(safe=True, debug=False):
                                 pos["notional_value"] = round(original_notional - reduced_notional, 2)
                                 pos["margin_usd"] = round(original_margin - reduced_margin, 2)
                                 pos["size_usd"] = pos["notional_value"]
+                                # FIX C (2026-04-18): apportion fee_entry on remaining
+                                pos["fee_entry"] = round(pos.get("fee_entry", 0) * (1 - reduce_frac), 4)
                                 if pos.get("tokens", 0) > 0:
                                     pos["tokens"] = round(pos["tokens"] * (1 - reduce_frac), 8)
                                 # Mover SL a breakeven

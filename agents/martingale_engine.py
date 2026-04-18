@@ -64,11 +64,19 @@ def _llm_is_down() -> bool:
         return False  # Si no puede leer, asumir LLM OK
 
 
-def _should_call_llm_wild(state: dict, market: dict) -> bool:
+def _should_call_llm_wild(state: dict, market: dict, portfolio: dict = None) -> bool:
     """
     Returns True only when calling the LLM adds value in WILD mode.
-    Skip if: no active chain moved >=0.3% in 5min AND <10min since last call.
-    Always call if: first call, cache expired (>10min), any chain is at >=3 levels.
+
+    v2.9.5: SIEMPRE llama si alguna chain esta en loss (necesita supervision activa).
+    El cache v2.6.0 solo aplica a chains ganadoras/neutrales. Esto previene el
+    patron observado 2026-04-17 donde chains perdedoras se mantenian en HOLD por
+    10 min sin ser vigiladas, acumulando perdida hasta session_expired.
+
+    Skip si: todas las chains estan en ganancia/neutral, ningun token movio
+    >=0.3% en 5min, <10min desde ultima llamada.
+    Siempre llama si: cualquier chain en loss, cache expirado, chain escalada (>=3),
+    o precio movio significativamente.
     """
     now = time.time()
     last_ts = float(state.get('_last_llm_ts', 0))
@@ -76,6 +84,15 @@ def _should_call_llm_wild(state: dict, market: dict) -> bool:
         return True  # Cache expired — always call
     chains = state.get('martingale_chains', {})
     for sym, ch in chains.items():
+        # v2.9.5: override — si la chain esta en pérdida, siempre evaluar
+        if portfolio is not None:
+            _chain_pnl = sum(
+                float(p.get('unrealized_pnl_usd', 0) or 0)
+                for p in portfolio.get('positions', [])
+                if p.get('symbol') == sym and p.get('status') == 'open'
+            )
+            if _chain_pnl < 0:
+                return True  # Chain en pérdida — supervisión continua (anti session_expired)
         if ch.get('n_levels', 1) >= 3:
             return True  # Escalated chain — extra vigilance
         tok = market.get('tokens', {}).get(sym, {})
@@ -120,6 +137,7 @@ MAX_SESSION_MINUTES = 180         # 3h max — reduce session expiry losses
 MIN_LIQUIDATION_DISTANCE_PCT = 0.05
 MIN_PNL_THRESHOLD_FOR_HEDGE = -0.2  # sim 108M: abrir antes -0.2% (era -0.3%)
 CHAIN_PROFIT_TARGET_PCT = 20.0   # cerrar chain cuando PnL ≥ 20% del margen base (108M sims)
+CHAIN_MAX_LOSS_PCT      = 15.0   # v2.9.0: cerrar chain cuando pérdida ≥ 15% del base margin (evita runaway)
 DAILY_TARGET_PCT        = 0.05   # parar nuevas cadenas cuando sesión sube ≥ 5% del equity
 DAILY_SOFT_STOP_PCT     = 0.08   # parar nuevas cadenas cuando sesión baja ≥ 8% del equity
 MAX_ACTIVE_CHAINS       = 2      # max cadenas simultáneas — garantiza margen para hedges
@@ -1202,6 +1220,58 @@ def run_cycle(portfolio: dict, market: dict, history: list, fear_greed: int = 50
             _stats_auto = apply_decision(_validated_auto, state, portfolio, market, history)
             result['closed'] += _stats_auto.get('closed', 0)
 
+    # 3b-loss (v2.9.0). Chain max loss cutoff: cerrar chains con pérdida ≥ 15% del base margin.
+    # Mirror simétrico de 3b. Previene runaway losses sin esperar al timeout.
+    for _sym, _chain in chains_snap.items():
+        _base_margin = float(_chain.get('base_margin', 0))
+        if _base_margin <= 0:
+            continue
+        _chain_pnl_now = sum(
+            float(p.get('unrealized_pnl_usd', 0))
+            for p in portfolio.get('positions', [])
+            if p.get('symbol') == _sym and p.get('status') == 'open'
+        )
+        _loss_pct = (_chain_pnl_now / _base_margin) * 100
+        if _loss_pct <= -CHAIN_MAX_LOSS_PCT:
+            log.warning(f'WILD MODE: chain {_sym} max loss cutoff ({_loss_pct:.1f}% ≤ -{CHAIN_MAX_LOSS_PCT}%) — auto-closing')
+            _auto_close_loss = {
+                'symbol': _sym, 'action': 'CLOSE_CHAIN',
+                'direction': 'same', 'level_multiplier': 1.0,
+                'reasoning': f'chain_max_loss_cutoff_{_loss_pct:.1f}pct',
+                'confidence': 1.0,
+            }
+            _validated_loss = validate_decision(_auto_close_loss, state, portfolio)
+            _stats_loss = apply_decision(_validated_loss, state, portfolio, market, history)
+            result['closed'] += _stats_loss.get('closed', 0)
+
+    # 3b-stale (v2.9.0). Pre-expiry loss guard: si >75% del timeout Y chain en pérdida,
+    # cerrar preemptivamente en lugar de esperar al session_expired_181m.
+    # Mirror del LLM_DOWN_GUARD pero driven por edad+pérdida, no por LLM down.
+    _age_now = _session_age_minutes(state)
+    if _age_now > MAX_SESSION_MINUTES * 0.75:
+        for _sym, _chain in dict(state.get('martingale_chains', {})).items():
+            _base_margin = float(_chain.get('base_margin', 0))
+            if _base_margin <= 0:
+                continue
+            _chain_pnl_now = sum(
+                float(p.get('unrealized_pnl_usd', 0))
+                for p in portfolio.get('positions', [])
+                if p.get('symbol') == _sym and p.get('status') == 'open'
+            )
+            if _chain_pnl_now < 0:
+                log.warning(f'WILD MODE: pre-expiry loss guard {_sym} — sesión {_age_now:.0f}min '
+                            f'(>{MAX_SESSION_MINUTES*0.75:.0f}min umbral) con pérdida ${_chain_pnl_now:.2f}. '
+                            f'Cierre preemptivo (vs esperar al abandono).')
+                _auto_close_pre = {
+                    'symbol': _sym, 'action': 'CLOSE_CHAIN',
+                    'direction': 'same', 'level_multiplier': 1.0,
+                    'reasoning': f'pre_expiry_loss_guard_{_age_now:.0f}min',
+                    'confidence': 1.0,
+                }
+                _validated_pre = validate_decision(_auto_close_pre, state, portfolio)
+                _stats_pre = apply_decision(_validated_pre, state, portfolio, market, history)
+                result['closed'] += _stats_pre.get('closed', 0)
+
     # 3c. LLM-down guard: si LLM lleva >=3 fallos/cooldown activo Y sesion
     #     llega al 75% del timeout -> cierre preventivo vs session_expired
     if _llm_is_down() and _session_age_minutes(state) > MAX_SESSION_MINUTES * 0.75:
@@ -1221,7 +1291,7 @@ def run_cycle(portfolio: dict, market: dict, history: list, fear_greed: int = 50
             return result
 
     # 4. Decision cycle — skip LLM if no significant market change (efficiency)
-    if not _should_call_llm_wild(state, market):
+    if not _should_call_llm_wild(state, market, portfolio):
         log.debug('WILD MODE: LLM skip (no_significant_change) — implicit HOLD')
         save_state(state)
         return result

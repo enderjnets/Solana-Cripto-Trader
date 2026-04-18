@@ -268,6 +268,14 @@ SHORT_REBOUND_FILTER_DRY_RUN = os.environ.get("SHORT_REBOUND_FILTER_DRY_RUN", "f
 
 # ─── Risk Management (ajustado 31-Mar-2026 — orden de Ender) ─────────────────
 MIN_CONFIDENCE      = 0.55     # E1: Lowered from 0.70 for more trades     # Bajado de 0.85 para aprovechar más señales en extremos (2026-03-31)
+
+# ── v2.10.0: Safety nets críticos (post-desastre 2026-04-18 -$57.27) ──
+TRADE_WHITELIST_STRICT: frozenset = frozenset({"SOL", "BTC", "ETH", "XRP", "JUP"})
+# Meme coins EXCLUIDOS: rug pulls frecuentes, liquidez ilusoria, fees 10-12% del margen
+# Hardcoded (NO usar auto-learner.tokens_to_avoid — puede vaciarse al re-aprender)
+
+MIN_SL_DISTANCE_PCT = 2.0      # Rechazar trades con SL a <2% del entry (con 5x lev = -10% max margin)
+MAX_NOTIONAL_PCT_EQUITY = 0.50 # Cap notional <=50% del equity actual por trade (evita concentración)
 BLOCK_LONGS_FG      = 10       # E1: Lowered from 20 — allow longs during F&G recovery bounces
 MAX_TRADES_PER_DAY  = 0        # 0 = sin límite
 
@@ -563,7 +571,8 @@ def close_positions_emergency(portfolio: dict, symbols: list, market: dict, hist
             if pos["direction"] == "short":
                 pnl_pct = -pnl_pct
             # FIX 1.2: Incluir exit fee en emergency close
-            fee_exit = notional * TAKER_FEE
+            # FIX D (2026-04-18): slippage symmetry with normal close (executor.py:1300)
+            fee_exit = notional * (TAKER_FEE + get_slippage(pos["symbol"]))
             pnl_usd = notional * pnl_pct + pos.get("funding_accumulated", 0) - fee_exit - pos.get("fee_entry", 0)
             pos["fee_exit"] = round(fee_exit, 4)
 
@@ -580,6 +589,13 @@ def close_positions_emergency(portfolio: dict, symbols: list, market: dict, hist
             # Devolver margen + P&L al portfolio
             returned = max(0, margin + pnl_usd)
             portfolio["capital_usd"] += returned
+            # FIX A (2026-04-18): when margin floor clamps capital to 0, align
+            # the recorded pnl_usd with the actual capital delta (-margin).
+            # Previously the record kept the unclamped (more negative) value,
+            # causing recorded pnl_usd < true capital loss and an accounting gap.
+            if margin + pnl_usd < 0:
+                pos["pnl_usd"] = round(-margin, 4)
+                pos["pnl_pct"] = round(-100.0, 4)
 
             # Agregar al historial
             record = {
@@ -588,13 +604,21 @@ def close_positions_emergency(portfolio: dict, symbols: list, market: dict, hist
                 "direction": pos["direction"],
                 "entry_price": pos["entry_price"],
                 "exit_price": pos["close_price"],
+                "current_price": pos["close_price"],
                 "size_usd": pos["size_usd"],
+                "notional_value": pos.get("notional_value", pos.get("size_usd", 0)),
+                "margin_usd": pos.get("margin_usd", 0),
+                "leverage": pos.get("leverage", 1),
+                "fee_entry": pos.get("fee_entry", 0),
+                "fee_exit": pos.get("fee_exit", 0),
+                "funding_accumulated": pos.get("funding_accumulated", 0),
                 "pnl_usd": pos["pnl_usd"],
                 "pnl_pct": pos["pnl_pct"],
                 "open_time": pos["open_time"],
                 "close_time": pos["close_time"],
                 "close_reason": reason,  # Usar la razón correcta, no hardcodear
                 "strategy": pos.get("strategy", "unknown"),
+                "mode": pos.get("mode", "paper"),
             }
             if ai_reasoning:
                 record["ai_reasoning"] = ai_reasoning
@@ -873,6 +897,23 @@ def paper_open_position(signal: dict, portfolio: dict, market: dict) -> Optional
     sl_price = price * (1 - sl_pct) if signal["direction"] == "long" else price * (1 + sl_pct)
     tp_price = price * (1 + tp_pct) if signal["direction"] == "long" else price * (1 - tp_pct)
 
+    # v2.10.0 Fix B: MIN_SL_DISTANCE_PCT - rechazar trades con SL muy ajustado
+    sl_distance_pct = abs(price - sl_price) / price * 100 if price > 0 else 0
+    if sl_distance_pct < MIN_SL_DISTANCE_PCT:
+        log.warning(f"\u26a0\ufe0f {symbol}: SL a {sl_distance_pct:.2f}% del entry < min {MIN_SL_DISTANCE_PCT}%, skip "
+                    f"(evita MOODENG-pattern: SL 0.38% + 10x = -33% en 35min)")
+        return None
+
+    # v2.10.0 Fix C: MAX_NOTIONAL_PCT_EQUITY - cap notional a 50% del equity
+    current_equity = float(portfolio.get("capital_usd", 0))
+    if current_equity > 0:
+        max_notional_allowed = current_equity * MAX_NOTIONAL_PCT_EQUITY
+        if notional_value > max_notional_allowed:
+            log.warning(f"\u26a0\ufe0f {symbol}: notional ${notional_value:.2f} > {MAX_NOTIONAL_PCT_EQUITY*100:.0f}% equity "
+                        f"(${max_notional_allowed:.2f}), skip "
+                        f"(MOODENG-pattern: notional 160% equity)")
+            return None
+
     # FIX: Validate sizing - reject if margin or notional is zero/negative
     if notional_value <= 0 or margin_usd <= 0:
         log.warning(f"\u26a0\ufe0f Position rejected: {symbol} has zero sizing (notional=${notional_value:.2f}, margin=${margin_usd:.2f})")
@@ -1132,13 +1173,17 @@ def paper_update_positions(portfolio: dict, market: dict, history: list) -> list
                     reduce_frac = 0.5
                     reduced_notional = notional * reduce_frac
                     reduced_margin = margin * reduce_frac
-                    fee_partial = reduced_notional * TAKER_FEE
+                    # FIX C (2026-04-18): include slippage in partial exit fee (parity with Fix D)
+                    fee_partial = reduced_notional * (TAKER_FEE + get_slippage(pos["symbol"]))
                     partial_pnl = pnl_usd * reduce_frac - fee_partial
                     returned = max(0, reduced_margin + partial_pnl)
                     portfolio["capital_usd"] = round(portfolio["capital_usd"] + returned, 2)
                     pos["notional_value"] = round(notional - reduced_notional, 2)
                     pos["margin_usd"] = round(margin - reduced_margin, 2)
                     pos["size_usd"] = pos["notional_value"]
+                    # FIX C (2026-04-18): apportion fee_entry on remaining pos so final
+                    # close does not re-subtract the full original entry fee.
+                    pos["fee_entry"] = round(pos.get("fee_entry", 0) * (1 - reduce_frac), 4)
                     if pos.get("tokens", 0) > 0:
                         pos["tokens"] = round(pos["tokens"] * (1 - reduce_frac), 8)
                     pos["sl_price"] = pos["entry_price"]  # Move SL to breakeven
@@ -1157,7 +1202,7 @@ def paper_update_positions(portfolio: dict, market: dict, history: list) -> list
                     log.info(f"  \u2702\ufe0f PARTIAL TAKE: {symbol} 50% at halfway to TP, SL->breakeven, returned ${returned:.2f}")
 
                     # Record partial take as a trade in history (fix accounting gap)
-                    from datetime import datetime, timezone
+                    # FIX B (2026-04-18): removed local datetime import that shadowed module-level binding
                     history.append({
                         "id": f"{pos['id']}_partial",
                         "symbol": symbol,
@@ -1300,15 +1345,24 @@ def paper_update_positions(portfolio: dict, market: dict, history: list) -> list
             fee_exit = notional * (TAKER_FEE + get_slippage(symbol))  # FIX 2.4: includes slippage
             pos["fee_exit"] = round(fee_exit, 4)
 
-            # Devolver margen + P&L - fees
-            returned = margin + pnl_usd - fee_exit
-            returned = max(0, returned)  # No puede ser negativo (ya se descontó margen)
-            portfolio["capital_usd"] = round(portfolio["capital_usd"] + returned, 2)
-
-            # Estadísticas
-            # FIX 1.3: Incluir entry fee en PnL registrado
+            # FIX B (2026-04-18): normal close now records net lifetime pnl (gross - fees)
+            # matching emergency close semantics. Capital delta == recorded pnl_usd.
             fee_entry = pos.get("fee_entry", 0)
             net_pnl = pnl_usd - fee_exit - fee_entry
+            pos["pnl_usd"] = round(net_pnl, 4)
+            pos["pnl_pct"] = round((net_pnl / margin * 100) if margin > 0 else 0, 4)
+
+            # Devolver margen + net_pnl al portfolio
+            returned = margin + net_pnl
+            returned = max(0, returned)  # No puede ser negativo (ya se descontó margen)
+            portfolio["capital_usd"] = round(portfolio["capital_usd"] + returned, 2)
+            # FIX B (2026-04-18): if margin floor clamps capital, align record with
+            # actual capital delta (= -margin). Mirrors Fix A in emergency close.
+            if margin + net_pnl < 0:
+                pos["pnl_usd"] = round(-margin, 4)
+                pos["pnl_pct"] = round(-100.0, 4)
+
+            # Estadísticas
             is_win = net_pnl > 0
             portfolio["total_trades"] = portfolio.get("total_trades", 0) + 1
             if is_win:
@@ -1616,37 +1670,70 @@ def run(safe: bool = True, debug: bool = False) -> dict:
 
     slots_available = MAX_POSITIONS - open_count
 
+    # v2.9.6 B2: no abrir posiciones nuevas si ya estamos cerca del daily target
+    # (>=80% del TARGET_MAX_PCT). Esas posiciones no tienen tiempo de desarrollar
+    # antes del force-close por DAILY_TARGET_MAX_REACHED -> cierran en pérdida.
+    _near_target = False
+    try:
+        _dt_state_file = DATA_DIR / "daily_target_state.json"
+        if _dt_state_file.exists():
+            _dts = json.loads(_dt_state_file.read_text())
+            _curr_pct = float(_dts.get("current_pnl_pct", 0))
+            _target_pct = float(_dts.get("target_pct", 0.05))
+            # NOTE: current_pnl_pct se guarda como fraccion (0.04 = 4%) en algunos sitios,
+            # pero como porcentaje (4.0) en otros. Normalizamos.
+            if _curr_pct > 1:
+                _curr_pct = _curr_pct / 100.0
+            if _target_pct > 1:
+                _target_pct = _target_pct / 100.0
+            if _target_pct > 0 and _curr_pct >= _target_pct * 0.8:
+                _near_target = True
+                log.info(f"   🎯 DAILY_TARGET near-limit: daily_pnl {_curr_pct*100:.2f}% >= 80%% del target ({_target_pct*100:.1f}%%) — no abrir nuevas posiciones")
+    except Exception as _e_dt_guard:
+        log.debug(f"daily_target near-check error (non-fatal): {_e_dt_guard}")
+
     if slots_available <= 0:
         log.info(f"📊 Máximo de posiciones alcanzado ({MAX_POSITIONS})")
+    elif _near_target:
+        # Skip opening new positions near daily target (v2.9.6 B2)
+        pass
     else:
         # Paso 1: Filtrar señales válidas (no duplicadas, con confidence, whitelist)
         valid_signals = []
         open_symbols = {p["symbol"] for p in portfolio["positions"] if p.get("status") == "open"}
-        # v2.9.0-live: pre-carga modulo safety para whitelist (fail-safe)
+# v2.10.0-live: pre-load safety module for env-driven whitelist layer (fail-safe)
         try:
             import safety as _safety_mod
         except Exception:
             _safety_mod = None
         for signal in signals:
             sym = signal["symbol"]
-            # v2.9.0-live Sprint 1: TRADE_WHITELIST filter (empty whitelist = allow all)
+            # Layer 1 (v2.10.0 hardcoded): strict whitelist — only majors {SOL,BTC,ETH,XRP,JUP}
+            if sym not in TRADE_WHITELIST_STRICT:
+                skipped_whitelist.append(sym)
+                if debug:
+                    log.info(f"  skip {sym}: fuera de TRADE_WHITELIST_STRICT")
+                continue
+            # Layer 2 (v2.9.0-live Sprint 1): env-driven extra restriction via TRADE_WHITELIST env var
             if _safety_mod is not None:
                 try:
                     if not _safety_mod.is_whitelisted(sym):
                         if debug:
-                            log.info(f"  ⏭️  {sym}: fuera de TRADE_WHITELIST, skip")
+                            log.info(f"  skip {sym}: fuera de safety TRADE_WHITELIST (env)")
                         continue
                 except Exception:
                     pass
             if sym in open_symbols:
                 if debug:
-                    log.info(f"  ⏭️  {sym}: posición ya abierta, skip")
+                    log.info(f"  skip {sym}: posicion ya abierta")
                 continue
             if signal.get("confidence", 0) < MIN_CONFIDENCE:
                 continue
             valid_signals.append(signal)
             if len(valid_signals) >= slots_available:
                 break
+        if skipped_whitelist:
+            log.info(f"   [WL v2.10] excluidos {len(skipped_whitelist)} tokens fuera de majors: {skipped_whitelist[:6]}")
 
         # Paso 1b: FILTRO AI STRATEGY — excluir tokens que el Auto-Learner dice evitar
         avoid_file = DATA_DIR / "auto_learner_state.json"

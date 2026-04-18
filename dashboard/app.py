@@ -147,12 +147,67 @@ def estimate_open_position_pnl(pos: dict, current_price: float | None = None) ->
     }
 
 # ── Version & Changelog ──────────────────────────────────────────────────────
-VERSION = "2.9.0-live"
+VERSION = "2.10.0-live"
 CHANGELOG = [
+    {
+        "version": "2.10.0-live",
+        "date": "2026-04-18",
+        "title": "Sync master v2.10.0 recovery + Sprint 1 Safety Nets en live (4-layer defense)",
+        "changes": [
+            "MERGE: todos los 12 commits del recovery paper (v2.9.0 → v2.10.0) en branch live",
+            "Defense-in-depth 4 capas para aperturas: TRADE_WHITELIST_STRICT (hardcoded) + safety.is_whitelisted (env) + MIN_SL 2% + MAX_NOTIONAL 50%",
+            "Capa 1: TRADE_WHITELIST_STRICT bloquea memecoins sí o sí (hardcoded en executor.py)",
+            "Capa 2: safety.is_whitelisted permite restricción adicional vía TRADE_WHITELIST env var (opcional)",
+            "Claude OAuth Bearer fix heredado — el live puede usar Claude Max sin 401",
+            "Accounting A-E fixes + near-target guard + cache LLM selectivo + session-expired guards",
+            "Live-specific preservado: agents/safety.py + run_watchdog_live.sh + endpoints /api/safety/*",
+            "Snapshot preservado: branch snapshot-live-pre-merge-2026-04-18",
+        ]
+    },
+    {
+        "version": "2.10.0",
+        "date": "2026-04-18",
+        "title": "Recovery post-desastre -$57: whitelist estricta + SL mínimo + Claude OAuth fix",
+        "changes": [
+            "CRITICAL TRADE_WHITELIST_STRICT={SOL,BTC,ETH,XRP,JUP}: memecoins excluidos (causaron -$57.27 hoy)",
+            "CRITICAL MIN_SL_DISTANCE_PCT=2.0: rechaza SL a <2%% del entry (MOODENG tenia 0.38%% -> -33%%)",
+            "SAFETY MAX_NOTIONAL_PCT_EQUITY=0.50: cap notional a 50%% del equity (MOODENG era 160%%)",
+            "FIX Claude OAuth: lee ~/.claude/.credentials.json con auto-refresh (resuelve 401 cascada)",
+            "FIX Claude auth header: OAuth tokens (sk-ant-oat01-) ahora usan Bearer (no x-api-key)",
+            "INCLUYE v2.9.1 filter LLM errors + v2.9.5 cache LLM selectivo + v2.9.6 B2 near-target guard",
+            "INCLUYE accounting fixes A-E (fee apportionment, slippage, emergency close audit fields)",
+            "EXCLUYE v2.9.2+3 (Claude Sonnet primary via x-api-key) -- reemplazado por Fix OAuth Bearer",
+            "Snapshot pre-recovery: branch snapshot-disaster-2026-04-18 (commit 45009a4) preservado",
+            "Replay desde v2.9.0 (commit 4969ebf); tests verificados: 28 passed, 10 pre-existing fails",
+        ]
+    },
+    {
+        "version": "2.9.6",
+        "date": "2026-04-18",
+        "title": "B2: no abrir posiciones nuevas cerca del daily target (>=80%)",
+        "changes": [
+            "NEW near-target guard en executor.py: skip nuevas aperturas si daily_pnl >= 80%% del TARGET_MAX_PCT",
+            "Previene el patron 2026-04-18: bot abrio 3 posiciones con daily_pnl ya ~4% -> force-close 1.6h despues en perdida",
+            "Lee current_pnl_pct + target_pct de daily_target_state.json (v2.9.0 auto-reset activo)",
+            "Fallback: si daily_target_state.json falta o esta corrupto, comportamiento v2.9.5 (abrir normalmente)",
+        ]
+    },
+    {
+        "version": "2.9.5",
+        "date": "2026-04-18",
+        "title": "Fix regresion v2.6.0 cache LLM + equity history extendido",
+        "changes": [
+            "FIX _should_call_llm_wild: ahora SIEMPRE llama al LLM si alguna chain esta en loss (anti session_expired)",
+            "Cache v2.6.0 solo aplica a chains ganadoras/neutrales -- previene las perdidas de $-75.91 del 2026-04-17",
+            "FIX equity_history.json: cap 500 puntos (~12.5h) -> 5000 con downsample automatico (~30 dias de historia)",
+            "Contexto: auditoria revelo que cache agresivo de v2.6.0 dejaba chains perdedoras sin supervision por 10 min, acumulando hasta WILD_ABANDON_session_expired_181m",
+            "Backup en capas: v2.9.0 CHAIN_MAX_LOSS_PCT 15% y pre-expiry loss guard siguen activos",
+        ]
+    },
     {
         "version": "2.9.0-live",
         "date": "2026-04-17",
-        "title": "Sprint 1 Safety Nets: kill switch + daily loss + whitelist + startup validation",
+        "title": "Sprint 1 Safety Nets en branch live: kill switch + daily loss + whitelist + startup validation",
         "changes": [
             "NEW agents/safety.py: modulo centralizado fail-safe (todos los hooks con try/except)",
             "NEW kill switch: /tmp/solana_live_killswitch -- orchestrator skipea ciclo si existe",
@@ -162,6 +217,18 @@ CHANGELOG = [
             "NEW MAX_SLIPPAGE_BPS: cutoff para swaps reales (aun no usado; se activa en Sprint 2 con real_open_position)",
             "NUEVOS endpoints: GET /api/safety/status, POST /api/safety/kill-switch",
             "Retrocompatible: sin env vars, comportamiento identico al paper. Safe merge back to master.",
+        ]
+    },
+    {
+        "version": "2.9.0",
+        "date": "2026-04-17",
+        "title": "WILD session-expired guards + daily_target auto-reset",
+        "changes": [
+            "NEW CHAIN_MAX_LOSS_PCT=15%: auto-close chain cuando pérdida ≥15% del base margin (runaway cutoff)",
+            "NEW pre-expiry loss guard: cierra chains en pérdida al 75%% del timeout (135min) vs esperar al abandono a 180min",
+            "FIX daily_target_state.json auto-reset cuando la fecha cambia (antes podia quedar stale)",
+            "Contexto: hoy el bot perdio -$38.20 por 5 WILD_ABANDON_session_expired; con estas guardas habria ahorrado ~$20-25",
+            "Ambas guardas reusan validate_decision + apply_decision del profit-target loop (mismo path probado)",
         ]
     },
     {

@@ -512,8 +512,13 @@ def run(daily: bool = False, alert_only: bool = False) -> dict:
 
     log.info(f"💾 Guardado en {REPORT_FILE}")
 
-    # FIX: Actualizar equity_history.json con snapshot actual (estaba sin actualizar desde Apr 3)
+    # v2.9.5: equity_history extendido a 5000 puntos + downsample automatico
+    # Antes: cap 500 = ~12.5h de historia (perdian 4+ dias). Ahora: 3000 full-res + older
+    # downsampleado a 1 punto cada 5 min → historia ~30 dias util.
     EQUITY_HISTORY_FILE = DATA_DIR / "equity_history.json"
+    MAX_POINTS         = 5000
+    FULL_RES_TAIL      = 3000   # ultimos ~75h a 90s/ciclo en resolucion completa
+    DOWNSAMPLE_BUCKET  = 300    # segundos entre puntos downsampleados (5 min)
     try:
         eq_data = {"equity": [], "dates": []}
         if EQUITY_HISTORY_FILE.exists():
@@ -521,10 +526,25 @@ def run(daily: bool = False, alert_only: bool = False) -> dict:
                 eq_data = json.load(f)
         eq_data["equity"].append(round(metrics.get("total_value", metrics.get("capital_usd", 0)), 2))
         eq_data["dates"].append(datetime.now(timezone.utc).isoformat())
-        # Retener solo últimos 500 puntos
-        if len(eq_data["equity"]) > 500:
-            eq_data["equity"] = eq_data["equity"][-500:]
-            eq_data["dates"] = eq_data["dates"][-500:]
+        # Downsample cuando pase del cap: mantener full-res tail, downsample older
+        if len(eq_data["equity"]) > MAX_POINTS:
+            recent_d = eq_data["dates"][-FULL_RES_TAIL:]
+            recent_e = eq_data["equity"][-FULL_RES_TAIL:]
+            older_d  = eq_data["dates"][:-FULL_RES_TAIL]
+            older_e  = eq_data["equity"][:-FULL_RES_TAIL]
+            sampled_d, sampled_e = [], []
+            last_bucket = None
+            for d, e in zip(older_d, older_e):
+                try:
+                    t = datetime.fromisoformat(str(d).replace("Z","+00:00"))
+                    bucket = int(t.timestamp()) // DOWNSAMPLE_BUCKET
+                    if bucket != last_bucket:
+                        sampled_d.append(d); sampled_e.append(e)
+                        last_bucket = bucket
+                except Exception:
+                    sampled_d.append(d); sampled_e.append(e)
+            eq_data["dates"]  = sampled_d + recent_d
+            eq_data["equity"] = sampled_e + recent_e
         with open(EQUITY_HISTORY_FILE, "w") as f:
             json.dump(eq_data, f, indent=2)
     except Exception as e:
