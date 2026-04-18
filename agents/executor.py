@@ -1141,13 +1141,17 @@ def paper_update_positions(portfolio: dict, market: dict, history: list) -> list
                     reduce_frac = 0.5
                     reduced_notional = notional * reduce_frac
                     reduced_margin = margin * reduce_frac
-                    fee_partial = reduced_notional * TAKER_FEE
+                    # FIX C (2026-04-18): include slippage in partial exit fee (parity with Fix D)
+                    fee_partial = reduced_notional * (TAKER_FEE + get_slippage(pos["symbol"]))
                     partial_pnl = pnl_usd * reduce_frac - fee_partial
                     returned = max(0, reduced_margin + partial_pnl)
                     portfolio["capital_usd"] = round(portfolio["capital_usd"] + returned, 2)
                     pos["notional_value"] = round(notional - reduced_notional, 2)
                     pos["margin_usd"] = round(margin - reduced_margin, 2)
                     pos["size_usd"] = pos["notional_value"]
+                    # FIX C (2026-04-18): apportion fee_entry on remaining pos so final
+                    # close does not re-subtract the full original entry fee.
+                    pos["fee_entry"] = round(pos.get("fee_entry", 0) * (1 - reduce_frac), 4)
                     if pos.get("tokens", 0) > 0:
                         pos["tokens"] = round(pos["tokens"] * (1 - reduce_frac), 8)
                     pos["sl_price"] = pos["entry_price"]  # Move SL to breakeven
