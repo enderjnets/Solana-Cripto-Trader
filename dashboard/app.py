@@ -147,8 +147,25 @@ def estimate_open_position_pnl(pos: dict, current_price: float | None = None) ->
     }
 
 # ── Version & Changelog ──────────────────────────────────────────────────────
-VERSION = "2.9.6"
+VERSION = "2.10.0"
 CHANGELOG = [
+    {
+        "version": "2.10.0",
+        "date": "2026-04-18",
+        "title": "Recovery post-desastre -$57: whitelist estricta + SL mínimo + Claude OAuth fix",
+        "changes": [
+            "CRITICAL TRADE_WHITELIST_STRICT={SOL,BTC,ETH,XRP,JUP}: memecoins excluidos (causaron -$57.27 hoy)",
+            "CRITICAL MIN_SL_DISTANCE_PCT=2.0: rechaza SL a <2%% del entry (MOODENG tenia 0.38%% -> -33%%)",
+            "SAFETY MAX_NOTIONAL_PCT_EQUITY=0.50: cap notional a 50%% del equity (MOODENG era 160%%)",
+            "FIX Claude OAuth: lee ~/.claude/.credentials.json con auto-refresh (resuelve 401 cascada)",
+            "FIX Claude auth header: OAuth tokens (sk-ant-oat01-) ahora usan Bearer (no x-api-key)",
+            "INCLUYE v2.9.1 filter LLM errors + v2.9.5 cache LLM selectivo + v2.9.6 B2 near-target guard",
+            "INCLUYE accounting fixes A-E (fee apportionment, slippage, emergency close audit fields)",
+            "EXCLUYE v2.9.2+3 (Claude Sonnet primary via x-api-key) -- reemplazado por Fix OAuth Bearer",
+            "Snapshot pre-recovery: branch snapshot-disaster-2026-04-18 (commit 45009a4) preservado",
+            "Replay desde v2.9.0 (commit 4969ebf); tests verificados: 28 passed, 10 pre-existing fails",
+        ]
+    },
     {
         "version": "2.9.6",
         "date": "2026-04-18",
