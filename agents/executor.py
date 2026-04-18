@@ -563,7 +563,8 @@ def close_positions_emergency(portfolio: dict, symbols: list, market: dict, hist
             if pos["direction"] == "short":
                 pnl_pct = -pnl_pct
             # FIX 1.2: Incluir exit fee en emergency close
-            fee_exit = notional * TAKER_FEE
+            # FIX D (2026-04-18): slippage symmetry with normal close (executor.py:1300)
+            fee_exit = notional * (TAKER_FEE + get_slippage(pos["symbol"]))
             pnl_usd = notional * pnl_pct + pos.get("funding_accumulated", 0) - fee_exit - pos.get("fee_entry", 0)
             pos["fee_exit"] = round(fee_exit, 4)
 
