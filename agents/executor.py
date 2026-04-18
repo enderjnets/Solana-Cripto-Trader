@@ -1670,8 +1670,33 @@ def run(safe: bool = True, debug: bool = False) -> dict:
 
     slots_available = MAX_POSITIONS - open_count
 
+    # v2.9.6 B2: no abrir posiciones nuevas si ya estamos cerca del daily target
+    # (>=80% del TARGET_MAX_PCT). Esas posiciones no tienen tiempo de desarrollar
+    # antes del force-close por DAILY_TARGET_MAX_REACHED -> cierran en pérdida.
+    _near_target = False
+    try:
+        _dt_state_file = DATA_DIR / "daily_target_state.json"
+        if _dt_state_file.exists():
+            _dts = json.loads(_dt_state_file.read_text())
+            _curr_pct = float(_dts.get("current_pnl_pct", 0))
+            _target_pct = float(_dts.get("target_pct", 0.05))
+            # NOTE: current_pnl_pct se guarda como fraccion (0.04 = 4%) en algunos sitios,
+            # pero como porcentaje (4.0) en otros. Normalizamos.
+            if _curr_pct > 1:
+                _curr_pct = _curr_pct / 100.0
+            if _target_pct > 1:
+                _target_pct = _target_pct / 100.0
+            if _target_pct > 0 and _curr_pct >= _target_pct * 0.8:
+                _near_target = True
+                log.info(f"   🎯 DAILY_TARGET near-limit: daily_pnl {_curr_pct*100:.2f}% >= 80%% del target ({_target_pct*100:.1f}%%) — no abrir nuevas posiciones")
+    except Exception as _e_dt_guard:
+        log.debug(f"daily_target near-check error (non-fatal): {_e_dt_guard}")
+
     if slots_available <= 0:
         log.info(f"📊 Máximo de posiciones alcanzado ({MAX_POSITIONS})")
+    elif _near_target:
+        # Skip opening new positions near daily target (v2.9.6 B2)
+        pass
     else:
         # Paso 1: Filtrar señales válidas (no duplicadas, con confidence, whitelist)
         valid_signals = []
