@@ -589,6 +589,13 @@ def close_positions_emergency(portfolio: dict, symbols: list, market: dict, hist
             # Devolver margen + P&L al portfolio
             returned = max(0, margin + pnl_usd)
             portfolio["capital_usd"] += returned
+            # FIX A (2026-04-18): when margin floor clamps capital to 0, align
+            # the recorded pnl_usd with the actual capital delta (-margin).
+            # Previously the record kept the unclamped (more negative) value,
+            # causing recorded pnl_usd < true capital loss and an accounting gap.
+            if margin + pnl_usd < 0:
+                pos["pnl_usd"] = round(-margin, 4)
+                pos["pnl_pct"] = round(-100.0, 4)
 
             # Agregar al historial
             record = {
