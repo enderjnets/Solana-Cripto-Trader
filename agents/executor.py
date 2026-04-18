@@ -588,13 +588,21 @@ def close_positions_emergency(portfolio: dict, symbols: list, market: dict, hist
                 "direction": pos["direction"],
                 "entry_price": pos["entry_price"],
                 "exit_price": pos["close_price"],
+                "current_price": pos["close_price"],
                 "size_usd": pos["size_usd"],
+                "notional_value": pos.get("notional_value", pos.get("size_usd", 0)),
+                "margin_usd": pos.get("margin_usd", 0),
+                "leverage": pos.get("leverage", 1),
+                "fee_entry": pos.get("fee_entry", 0),
+                "fee_exit": pos.get("fee_exit", 0),
+                "funding_accumulated": pos.get("funding_accumulated", 0),
                 "pnl_usd": pos["pnl_usd"],
                 "pnl_pct": pos["pnl_pct"],
                 "open_time": pos["open_time"],
                 "close_time": pos["close_time"],
                 "close_reason": reason,  # Usar la razón correcta, no hardcodear
                 "strategy": pos.get("strategy", "unknown"),
+                "mode": pos.get("mode", "paper"),
             }
             if ai_reasoning:
                 record["ai_reasoning"] = ai_reasoning
