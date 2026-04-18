@@ -603,6 +603,25 @@ DASHBOARD_HTML = r"""
   .reset-btn-cancel{background:var(--bg3);color:var(--text2);}
   .reset-btn-confirm{background:var(--orange);color:#000;}
   /* ── Version Badge ── */
+  /* v2.10.0-live: banner visual para distinguir del paper */
+  .live-mode-banner {
+    position: fixed; top: 0; left: 0; right: 0;
+    background: linear-gradient(90deg, #b91c1c, #dc2626, #b91c1c);
+    color: white; text-align: center; padding: 8px 16px;
+    font-weight: 700; font-size: 13px; letter-spacing: 2px;
+    z-index: 9999; box-shadow: 0 2px 8px rgba(0,0,0,.4);
+    display: none;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+  .live-mode-banner.active { display: block; }
+  body.live-mode { padding-top: 34px; }
+  .version-badge.is-live {
+    background: #dc2626 !important;
+    color: white !important;
+    border-color: #ef4444 !important;
+    font-weight: 700;
+  }
+
   .version-badge {
     display: inline-block; font-size: 10px; font-weight: 700;
     background: var(--bg3); border: 1px solid var(--border);
@@ -893,6 +912,7 @@ DASHBOARD_HTML = r"""
 <!-- HEADER -->
 <div class="header">
   <div class="header-left">
+    <div class="live-mode-banner" id="liveModeBanner">🔴 LIVE TRADING MODE — REAL MONEY AT RISK (v2.10.0-live, mainnet Solana)</div>
     <div class="logo">◎ Solana <span>Cripto</span> Trader<span class="version-badge" id="versionBadge" onclick="openChangelog()" title="Ver historial de versiones">v—</span></div>
     <div class="status-badge" id="statusBadge">
       <div class="status-dot dot-green" id="statusDot"></div>
@@ -1256,7 +1276,16 @@ async function loadVersionBadge() {
   try {
     const res = await fetch('/api/version');
     const data = await res.json();
-    document.getElementById('versionBadge').textContent = 'v' + data.version;
+    const _verEl = document.getElementById('versionBadge');
+    _verEl.textContent = 'v' + data.version;
+    // v2.10.0-live: detectar live mode y mostrar banner
+    if (data.version && data.version.endsWith('-live')) {
+      _verEl.classList.add('is-live');
+      const _banner = document.getElementById('liveModeBanner');
+      if (_banner) _banner.classList.add('active');
+      document.body.classList.add('live-mode');
+      document.title = '🔴 LIVE — ' + document.title;
+    }
   } catch(e) {}
 }
 
