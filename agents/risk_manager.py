@@ -798,10 +798,21 @@ Responde SOLO en JSON válido:
             action = "TIGHTEN"
         elif "REDUCE" in response.upper():
             action = "REDUCE"
+        # v2.9.1: sanitizar reasoning si la respuesta parece error/log
+        _lower = (response or "").lower()
+        _error_markers = (
+            "error:", "traceback", "unauthorized", "failed to refresh",
+            "codex_login", "401 ", "403 ", "invalid_api_key",
+        )
+        _is_error = any(m in _lower for m in _error_markers)
+        if _is_error:
+            _clean_reason = f"LLM returned error response -- using quant fallback (action: {action})"
+        else:
+            _clean_reason = response[:200]
         return {
             "action": action,
             "confidence": 0.5,
-            "reasoning": response[:200],
+            "reasoning": _clean_reason,
             "lang": _user_lang,
             "source": "llm_text_fallback"
         }
