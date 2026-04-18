@@ -268,6 +268,14 @@ SHORT_REBOUND_FILTER_DRY_RUN = os.environ.get("SHORT_REBOUND_FILTER_DRY_RUN", "f
 
 # ─── Risk Management (ajustado 31-Mar-2026 — orden de Ender) ─────────────────
 MIN_CONFIDENCE      = 0.55     # E1: Lowered from 0.70 for more trades     # Bajado de 0.85 para aprovechar más señales en extremos (2026-03-31)
+
+# ── v2.10.0: Safety nets críticos (post-desastre 2026-04-18 -$57.27) ──
+TRADE_WHITELIST_STRICT: frozenset = frozenset({"SOL", "BTC", "ETH", "XRP", "JUP"})
+# Meme coins EXCLUIDOS: rug pulls frecuentes, liquidez ilusoria, fees 10-12% del margen
+# Hardcoded (NO usar auto-learner.tokens_to_avoid — puede vaciarse al re-aprender)
+
+MIN_SL_DISTANCE_PCT = 2.0      # Rechazar trades con SL a <2% del entry (con 5x lev = -10% max margin)
+MAX_NOTIONAL_PCT_EQUITY = 0.50 # Cap notional <=50% del equity actual por trade (evita concentración)
 BLOCK_LONGS_FG      = 10       # E1: Lowered from 20 — allow longs during F&G recovery bounces
 MAX_TRADES_PER_DAY  = 0        # 0 = sin límite
 
@@ -872,6 +880,23 @@ def paper_open_position(signal: dict, portfolio: dict, market: dict) -> Optional
     # Calcular SL/TP prices
     sl_price = price * (1 - sl_pct) if signal["direction"] == "long" else price * (1 + sl_pct)
     tp_price = price * (1 + tp_pct) if signal["direction"] == "long" else price * (1 - tp_pct)
+
+    # v2.10.0 Fix B: MIN_SL_DISTANCE_PCT - rechazar trades con SL muy ajustado
+    sl_distance_pct = abs(price - sl_price) / price * 100 if price > 0 else 0
+    if sl_distance_pct < MIN_SL_DISTANCE_PCT:
+        log.warning(f"\u26a0\ufe0f {symbol}: SL a {sl_distance_pct:.2f}% del entry < min {MIN_SL_DISTANCE_PCT}%, skip "
+                    f"(evita MOODENG-pattern: SL 0.38% + 10x = -33% en 35min)")
+        return None
+
+    # v2.10.0 Fix C: MAX_NOTIONAL_PCT_EQUITY - cap notional a 50% del equity
+    current_equity = float(portfolio.get("capital_usd", 0))
+    if current_equity > 0:
+        max_notional_allowed = current_equity * MAX_NOTIONAL_PCT_EQUITY
+        if notional_value > max_notional_allowed:
+            log.warning(f"\u26a0\ufe0f {symbol}: notional ${notional_value:.2f} > {MAX_NOTIONAL_PCT_EQUITY*100:.0f}% equity "
+                        f"(${max_notional_allowed:.2f}), skip "
+                        f"(MOODENG-pattern: notional 160% equity)")
+            return None
 
     # FIX: Validate sizing - reject if margin or notional is zero/negative
     if notional_value <= 0 or margin_usd <= 0:
@@ -1619,20 +1644,29 @@ def run(safe: bool = True, debug: bool = False) -> dict:
     if slots_available <= 0:
         log.info(f"📊 Máximo de posiciones alcanzado ({MAX_POSITIONS})")
     else:
-        # Paso 1: Filtrar señales válidas (no duplicadas, con confidence)
+        # Paso 1: Filtrar señales válidas (no duplicadas, con confidence, whitelist)
         valid_signals = []
         open_symbols = {p["symbol"] for p in portfolio["positions"] if p.get("status") == "open"}
+        skipped_whitelist = []
         for signal in signals:
             sym = signal["symbol"]
+            # v2.10.0: Whitelist estricta - solo majors (fix post-desastre 2026-04-18)
+            if sym not in TRADE_WHITELIST_STRICT:
+                skipped_whitelist.append(sym)
+                if debug:
+                    log.info(f"  skip {sym}: fuera de TRADE_WHITELIST_STRICT")
+                continue
             if sym in open_symbols:
                 if debug:
-                    log.info(f"  ⏭️  {sym}: posición ya abierta, skip")
+                    log.info(f"  skip {sym}: posicion ya abierta")
                 continue
             if signal.get("confidence", 0) < MIN_CONFIDENCE:
                 continue
             valid_signals.append(signal)
             if len(valid_signals) >= slots_available:
                 break
+        if skipped_whitelist:
+            log.info(f"   [WL v2.10] excluidos {len(skipped_whitelist)} tokens fuera de majors: {skipped_whitelist[:6]}")
 
         # Paso 1b: FILTRO AI STRATEGY — excluir tokens que el Auto-Learner dice evitar
         avoid_file = DATA_DIR / "auto_learner_state.json"
