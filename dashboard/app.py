@@ -147,8 +147,20 @@ def estimate_open_position_pnl(pos: dict, current_price: float | None = None) ->
     }
 
 # ── Version & Changelog ──────────────────────────────────────────────────────
-VERSION = "2.9.0"
+VERSION = "2.9.5"
 CHANGELOG = [
+    {
+        "version": "2.9.5",
+        "date": "2026-04-18",
+        "title": "Fix regresion v2.6.0 cache LLM + equity history extendido",
+        "changes": [
+            "FIX _should_call_llm_wild: ahora SIEMPRE llama al LLM si alguna chain esta en loss (anti session_expired)",
+            "Cache v2.6.0 solo aplica a chains ganadoras/neutrales -- previene las perdidas de $-75.91 del 2026-04-17",
+            "FIX equity_history.json: cap 500 puntos (~12.5h) -> 5000 con downsample automatico (~30 dias de historia)",
+            "Contexto: auditoria revelo que cache agresivo de v2.6.0 dejaba chains perdedoras sin supervision por 10 min, acumulando hasta WILD_ABANDON_session_expired_181m",
+            "Backup en capas: v2.9.0 CHAIN_MAX_LOSS_PCT 15% y pre-expiry loss guard siguen activos",
+        ]
+    },
     {
         "version": "2.9.0",
         "date": "2026-04-17",

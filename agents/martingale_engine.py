@@ -64,11 +64,19 @@ def _llm_is_down() -> bool:
         return False  # Si no puede leer, asumir LLM OK
 
 
-def _should_call_llm_wild(state: dict, market: dict) -> bool:
+def _should_call_llm_wild(state: dict, market: dict, portfolio: dict = None) -> bool:
     """
     Returns True only when calling the LLM adds value in WILD mode.
-    Skip if: no active chain moved >=0.3% in 5min AND <10min since last call.
-    Always call if: first call, cache expired (>10min), any chain is at >=3 levels.
+
+    v2.9.5: SIEMPRE llama si alguna chain esta en loss (necesita supervision activa).
+    El cache v2.6.0 solo aplica a chains ganadoras/neutrales. Esto previene el
+    patron observado 2026-04-17 donde chains perdedoras se mantenian en HOLD por
+    10 min sin ser vigiladas, acumulando perdida hasta session_expired.
+
+    Skip si: todas las chains estan en ganancia/neutral, ningun token movio
+    >=0.3% en 5min, <10min desde ultima llamada.
+    Siempre llama si: cualquier chain en loss, cache expirado, chain escalada (>=3),
+    o precio movio significativamente.
     """
     now = time.time()
     last_ts = float(state.get('_last_llm_ts', 0))
@@ -76,6 +84,15 @@ def _should_call_llm_wild(state: dict, market: dict) -> bool:
         return True  # Cache expired — always call
     chains = state.get('martingale_chains', {})
     for sym, ch in chains.items():
+        # v2.9.5: override — si la chain esta en pérdida, siempre evaluar
+        if portfolio is not None:
+            _chain_pnl = sum(
+                float(p.get('unrealized_pnl_usd', 0) or 0)
+                for p in portfolio.get('positions', [])
+                if p.get('symbol') == sym and p.get('status') == 'open'
+            )
+            if _chain_pnl < 0:
+                return True  # Chain en pérdida — supervisión continua (anti session_expired)
         if ch.get('n_levels', 1) >= 3:
             return True  # Escalated chain — extra vigilance
         tok = market.get('tokens', {}).get(sym, {})
@@ -1274,7 +1291,7 @@ def run_cycle(portfolio: dict, market: dict, history: list, fear_greed: int = 50
             return result
 
     # 4. Decision cycle — skip LLM if no significant market change (efficiency)
-    if not _should_call_llm_wild(state, market):
+    if not _should_call_llm_wild(state, market, portfolio):
         log.debug('WILD MODE: LLM skip (no_significant_change) — implicit HOLD')
         save_state(state)
         return result
