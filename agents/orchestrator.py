@@ -199,6 +199,11 @@ _cycle_global_count = 0
 
 def run_cycle(safe=True, debug=False):
     """Ejecuta un ciclo completo del sistema."""
+    # v2.10.0-live: override safe from LIVE_TRADING_ENABLED env
+    # LIVE=true → safe=False → executor usa real_open_position via Jupiter
+    # LIVE=false (default) → safe=True → executor usa paper_open_position (simulado)
+    if os.environ.get('LIVE_TRADING_ENABLED', 'false').lower() == 'true':
+        safe = False
     global _cycle_global_count
     _cycle_global_count += 1
     run_cycle._cycle_count = _cycle_global_count

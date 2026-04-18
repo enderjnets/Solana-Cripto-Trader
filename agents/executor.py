@@ -1845,6 +1845,7 @@ def run(safe: bool = True, debug: bool = False) -> dict:
         # Paso 1: Filtrar señales válidas (no duplicadas, con confidence, whitelist)
         valid_signals = []
         open_symbols = {p["symbol"] for p in portfolio["positions"] if p.get("status") == "open"}
+        skipped_whitelist = []
 # v2.10.0-live: pre-load safety module for env-driven whitelist layer (fail-safe)
         try:
             import safety as _safety_mod

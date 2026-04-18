@@ -158,8 +158,15 @@ def validate_startup() -> list:
         )
     # Validacion adicional solo si live trading esta habilitado
     if LIVE_TRADING_ENABLED:
-        if not os.environ.get('HOT_WALLET_PRIVATE_KEY'):
-            errors.append('LIVE_TRADING_ENABLED=true pero HOT_WALLET_PRIVATE_KEY ausente')
+        # Acepta priv key via env O archivo wallet.json (generado por tools/solana_wallet.py)
+        _wallet_file = Path.home() / ".config" / "solana-jupiter-bot" / "wallet.json"
+        _has_env_key = bool(os.environ.get('HOT_WALLET_PRIVATE_KEY'))
+        _has_file_key = _wallet_file.exists()
+        if not (_has_env_key or _has_file_key):
+            errors.append(
+                f'LIVE_TRADING_ENABLED=true pero no hay wallet disponible. '
+                f'Set HOT_WALLET_PRIVATE_KEY env O crear {_wallet_file} via tools/solana_wallet.py --generate'
+            )
         if not os.environ.get('SOLANA_RPC_URL'):
             errors.append('LIVE_TRADING_ENABLED=true pero SOLANA_RPC_URL ausente')
         if MAX_DAILY_LOSS_USD <= 0:
