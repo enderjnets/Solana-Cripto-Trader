@@ -11,9 +11,11 @@ Environment:
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import os
+import time
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -230,6 +232,77 @@ class LiveDriftClient:
         log.info(f"open {direction} {size_sol} SOL @ oracle ${oracle.price/PRICE_PRECISION:.2f} "
                  f"auction=[{start/PRICE_PRECISION:.2f}..{end/PRICE_PRECISION:.2f}] tx: {sig}")
         return sig
+
+    async def open_sol_perp_limit(
+        self,
+        direction: str,
+        size_sol: float,
+        limit_price: float,
+        timeout_seconds: int = 60,
+        market_index: int = SOL_PERP_MARKET_INDEX,
+    ) -> tuple[str, bool, float]:
+        """Place a SOL-PERP limit order and wait up to timeout_seconds for a fill.
+
+        On timeout the order auto-expires via max_ts; we also send an explicit
+        cancel as belt-and-suspenders so the user account is clean.
+
+        Returns (tx_sig, filled, filled_size_sol). filled_size_sol is 0 if the
+        order timed out with no partial fill.
+        """
+        assert self._drift_client is not None and self._drift_user is not None
+        dir_enum = (
+            PositionDirection.Long() if direction == "long" else PositionDirection.Short()
+        )
+        price_int = int(limit_price * PRICE_PRECISION)
+        max_ts = int(time.time() + timeout_seconds)
+        size_base = int(size_sol * BASE_PRECISION)
+        params = OrderParams(
+            order_type=OrderType.Limit(),
+            base_asset_amount=size_base,
+            market_index=market_index,
+            direction=dir_enum,
+            market_type=MarketType.Perp(),
+            price=price_int,
+            post_only=PostOnlyParams.NONE(),
+            max_ts=max_ts,
+        )
+        result = await self._drift_client.place_perp_order(params)
+        sig = str(getattr(result, "tx_sig", result))
+        log.info(
+            f"limit {direction} {size_sol} SOL @ ${limit_price:.4f} "
+            f"(ttl {timeout_seconds}s) tx: {sig}"
+        )
+
+        initial_base = 0
+        pos = self._drift_user.get_perp_position(market_index)
+        if pos is not None:
+            initial_base = pos.base_asset_amount
+
+        deadline = time.time() + timeout_seconds + 3
+        poll_interval = 2.0
+        filled_base = 0
+        while time.time() < deadline:
+            await asyncio.sleep(poll_interval)
+            pos = self._drift_user.get_perp_position(market_index)
+            current_base = pos.base_asset_amount if pos is not None else 0
+            delta = current_base - initial_base
+            # For a LONG fill delta > 0; for a SHORT fill delta < 0. Use abs.
+            if (direction == "long" and delta > 0) or (direction == "short" and delta < 0):
+                filled_base = abs(delta)
+                if filled_base >= size_base:
+                    break
+
+        filled = filled_base > 0
+        if not filled:
+            log.info("limit order timed out — cancelling explicitly")
+            try:
+                await self._drift_client.cancel_orders(
+                    market_type=MarketType.Perp(), market_index=market_index
+                )
+            except Exception as e:
+                log.debug(f"cancel after timeout failed (may already be expired): {e}")
+
+        return sig, filled, filled_base / BASE_PRECISION
 
     async def close_sol_perp(
         self,

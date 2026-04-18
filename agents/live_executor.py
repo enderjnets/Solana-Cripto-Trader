@@ -27,6 +27,13 @@ log = logging.getLogger("live_executor")
 
 LIVE_SUPPORTED_SYMBOLS = {"SOL"}
 
+# SOLAA-59: opt into limit orders to eliminate slippage. Default off for now;
+# flip via env var so operators can A/B compare against market execution.
+USE_LIMIT_ORDERS = os.environ.get("LIVE_USE_LIMIT_ORDERS", "false").lower() == "true"
+# Offset from oracle mid — LONG buys 3 bps below mid, SHORT sells 3 bps above.
+LIMIT_OFFSET_BPS = int(os.environ.get("LIVE_LIMIT_OFFSET_BPS", "3"))
+LIMIT_TIMEOUT_SEC = int(os.environ.get("LIVE_LIMIT_TIMEOUT_SEC", "60"))
+
 
 def _rollback(portfolio: dict, pos: dict) -> None:
     """Undo paper_open_position's portfolio mutations (remove position, refund margin)."""
@@ -39,8 +46,13 @@ def _rollback(portfolio: dict, pos: dict) -> None:
     )
 
 
-async def _open_on_drift(pos: dict) -> tuple[Optional[str], float]:
-    """Open pos on Drift. Returns (tx_sig, oracle_entry_price)."""
+async def _open_on_drift(pos: dict) -> tuple[Optional[str], float, bool]:
+    """Open pos on Drift. Returns (tx_sig, oracle_entry_price, filled).
+
+    `filled` is only meaningful when LIVE_USE_LIMIT_ORDERS=true; market orders
+    return True optimistically (Drift's place_and_take either fills in the
+    auction or leaves a standing order — we treat the tx landing as success).
+    """
     client = LiveDriftClient()
     try:
         await client.initialize()
@@ -50,8 +62,20 @@ async def _open_on_drift(pos: dict) -> tuple[Optional[str], float]:
                 f"insufficient Drift collateral: have ${snap.free_collateral_usd:.2f}, "
                 f"need ${pos['margin_usd']:.2f}"
             )
+        if USE_LIMIT_ORDERS:
+            # LONG: bid slightly below mark. SHORT: ask slightly above mark.
+            offset = snap.sol_perp_mark * (LIMIT_OFFSET_BPS / 10_000.0)
+            limit_price = (
+                snap.sol_perp_mark - offset
+                if pos["direction"] == "long"
+                else snap.sol_perp_mark + offset
+            )
+            sig, filled, _ = await client.open_sol_perp_limit(
+                pos["direction"], pos["base_size"], limit_price, LIMIT_TIMEOUT_SEC
+            )
+            return sig, limit_price, filled
         sig = await client.open_sol_perp_market(pos["direction"], pos["base_size"])
-        return sig, snap.sol_perp_mark
+        return sig, snap.sol_perp_mark, True
     finally:
         await client.close()
 
@@ -84,17 +108,24 @@ def live_open_position(signal: dict, portfolio: dict, market: dict) -> Optional[
         return None
 
     try:
-        sig, oracle_price = asyncio.run(_open_on_drift(pos))
+        sig, entry_price, filled = asyncio.run(_open_on_drift(pos))
     except Exception as e:
         log.error(f"live open failed for {symbol}: {e} — rolling back")
+        _rollback(portfolio, pos)
+        return None
+
+    if not filled:
+        log.warning(f"live limit {symbol} timed out unfilled — rolling back")
         _rollback(portfolio, pos)
         return None
 
     pos["mode"] = "live"
     pos["drift_tx_sig"] = sig
     pos["drift_market_index"] = 0
-    pos["live_entry_oracle_price"] = round(oracle_price, 6)
-    log.info(f"✅ LIVE {pos['direction']} {pos['base_size']} {symbol} @ ${oracle_price:.2f} tx={sig[:12]}…")
+    pos["live_entry_oracle_price"] = round(entry_price, 6)
+    pos["live_execution_style"] = "limit" if USE_LIMIT_ORDERS else "market"
+    log.info(f"✅ LIVE {pos['direction']} {pos['base_size']} {symbol} @ ${entry_price:.2f} "
+             f"({'limit' if USE_LIMIT_ORDERS else 'market'}) tx={sig[:12]}…")
     return pos
 
 
