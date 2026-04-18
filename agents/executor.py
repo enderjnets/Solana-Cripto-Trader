@@ -1177,7 +1177,7 @@ def paper_update_positions(portfolio: dict, market: dict, history: list) -> list
                     log.info(f"  \u2702\ufe0f PARTIAL TAKE: {symbol} 50% at halfway to TP, SL->breakeven, returned ${returned:.2f}")
 
                     # Record partial take as a trade in history (fix accounting gap)
-                    from datetime import datetime, timezone
+                    # FIX B (2026-04-18): removed local datetime import that shadowed module-level binding
                     history.append({
                         "id": f"{pos['id']}_partial",
                         "symbol": symbol,
@@ -1320,15 +1320,24 @@ def paper_update_positions(portfolio: dict, market: dict, history: list) -> list
             fee_exit = notional * (TAKER_FEE + get_slippage(symbol))  # FIX 2.4: includes slippage
             pos["fee_exit"] = round(fee_exit, 4)
 
-            # Devolver margen + P&L - fees
-            returned = margin + pnl_usd - fee_exit
-            returned = max(0, returned)  # No puede ser negativo (ya se descontó margen)
-            portfolio["capital_usd"] = round(portfolio["capital_usd"] + returned, 2)
-
-            # Estadísticas
-            # FIX 1.3: Incluir entry fee en PnL registrado
+            # FIX B (2026-04-18): normal close now records net lifetime pnl (gross - fees)
+            # matching emergency close semantics. Capital delta == recorded pnl_usd.
             fee_entry = pos.get("fee_entry", 0)
             net_pnl = pnl_usd - fee_exit - fee_entry
+            pos["pnl_usd"] = round(net_pnl, 4)
+            pos["pnl_pct"] = round((net_pnl / margin * 100) if margin > 0 else 0, 4)
+
+            # Devolver margen + net_pnl al portfolio
+            returned = margin + net_pnl
+            returned = max(0, returned)  # No puede ser negativo (ya se descontó margen)
+            portfolio["capital_usd"] = round(portfolio["capital_usd"] + returned, 2)
+            # FIX B (2026-04-18): if margin floor clamps capital, align record with
+            # actual capital delta (= -margin). Mirrors Fix A in emergency close.
+            if margin + net_pnl < 0:
+                pos["pnl_usd"] = round(-margin, 4)
+                pos["pnl_pct"] = round(-100.0, 4)
+
+            # Estadísticas
             is_win = net_pnl > 0
             portfolio["total_trades"] = portfolio.get("total_trades", 0) + 1
             if is_win:
