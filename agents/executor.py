@@ -1292,13 +1292,9 @@ def paper_update_positions(portfolio: dict, market: dict, history: list) -> list
 # ─── Ejecución Real (Jupiter Swap API) ───────────────────────────────────────
 
 def real_open_position(signal: dict, portfolio: dict) -> Optional[dict]:
-    """
-    Ejecuta trade real via Jupiter Swap API.
-    REQUIERE: keypair configurado en .env (HOT_WALLET_PRIVATE_KEY)
-    """
-    log.warning("⚠️  Modo LIVE no implementado aún — activar manualmente")
-    log.warning("   Para activar trades reales, configura HOT_WALLET_PRIVATE_KEY en .env")
-    log.warning("   y revisa MAINNET_GUIDE.md para el proceso seguro")
+    """Legacy stub for Jupiter live trading — superseded by agents.live_executor.live_open_position
+    (Drift Protocol perps). Kept only so old imports don't break."""
+    log.warning("⚠️  real_open_position is deprecated — use --live flag with Drift integration")
     return None
 
 
@@ -1336,6 +1332,13 @@ def run(safe: bool = True, debug: bool = False) -> dict:
     # Actualizar precios y cerrar posiciones que tocaron SL/TP
     open_before = len([p for p in portfolio["positions"] if p.get("status") == "open"])
     closed_this_cycle = paper_update_positions(portfolio, market, history)
+    # In live mode, ALSO process live positions via Drift (they sit alongside paper
+    # positions in the same portfolio.json). Paper update_positions skips them implicitly
+    # because it reads price from the `market` dict, not from Drift — but liquidation
+    # / SL / TP for live must come from Drift's oracle.
+    if not safe:
+        from agents.live_executor import live_update_positions
+        closed_this_cycle.extend(live_update_positions(portfolio, market, history))
     open_after = len([p for p in portfolio["positions"] if p.get("status") == "open"])
 
     if closed_this_cycle:
@@ -1640,7 +1643,8 @@ def run(safe: bool = True, debug: bool = False) -> dict:
                 if safe:
                     pos = paper_open_position(signal, portfolio, market)
                 else:
-                    pos = real_open_position(signal, portfolio)
+                    from agents.live_executor import live_open_position
+                    pos = live_open_position(signal, portfolio, market)
             except Exception as e:
                 import traceback
                 log.error(f"   💥 Error abriendo posición {signal.get('symbol','?')}: {e}")
