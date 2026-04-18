@@ -147,8 +147,24 @@ def estimate_open_position_pnl(pos: dict, current_price: float | None = None) ->
     }
 
 # ── Version & Changelog ──────────────────────────────────────────────────────
-VERSION = "2.10.1-live"
+VERSION = "2.11.0-live"
 CHANGELOG = [
+    {
+        "version": "2.11.0-live",
+        "date": "2026-04-18",
+        "title": "SOL auto-replenish: bot se compra su propio combustible",
+        "changes": [
+            "NEW agents/sol_topup.py — swap USDC→SOL automático cuando balance < SOL_MIN_BALANCE",
+            "Hook en orchestrator.run_cycle cada 10 ciclos (piggyback con reconcile) — solo si LIVE_TRADING_ENABLED=true",
+            "Defense-in-depth 6 gates: SOL_AUTO_TOPUP_ENABLED, LIVE, !kill_switch, balance<min, usdc_reserve_floor, daily_cap",
+            "Estado diario persistido en agents/data/sol_topup_state.json (spent_usd_today + events)",
+            "NEW endpoint GET /api/sol/fuel → balance actual, días/trades estimados, histórico del día",
+            "NEW tarjeta 🔋 SOL Fuel en header del dashboard — verde/amarillo/rojo según ratio vs SOL_MIN_BALANCE",
+            "Paperclip notification automática por cada top-up exitoso (priority=low, status=done)",
+            "Defaults conservadores: SOL_AUTO_TOPUP_ENABLED=false, $1/evento, max $3/día, reserva USDC $2",
+            "Feature dormant hasta activación manual — rollout en 5 pasos (shadow → dry-run → $0.50 manual → live → 72h validación)",
+        ]
+    },
     {
         "version": "2.10.1-live",
         "date": "2026-04-18",
@@ -509,6 +525,19 @@ DASHBOARD_HTML = r"""
   .btn-bot.off:hover { background: #f85149; color: #fff; }
   .btn-bot.loading { opacity: 0.5; cursor: wait; }
   .btn-bot:disabled { opacity: 0.4; cursor: not-allowed; }
+  /* v2.11.0-live: SOL fuel badge */
+  .fuel-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 6px 10px; margin-left: 8px;
+    border-radius: 6px; font-size: 11px; font-weight: 600;
+    border: 1px solid var(--border); background: var(--bg3);
+    color: var(--text2); font-family: ui-monospace, monospace;
+    cursor: default; user-select: none;
+  }
+  .fuel-badge.ok     { border-color: #3fb950; color: #3fb950; }
+  .fuel-badge.warn   { border-color: #d29922; color: #d29922; }
+  .fuel-badge.low    { border-color: #f85149; color: #f85149; }
+  .fuel-badge.off    { opacity: 0.5; }
   .mode-badge {
     font-size: 11px; padding: 2px 8px; border-radius: 10px;
     background: rgba(188,140,255,0.15); color: var(--purple); border: 1px solid var(--purple);
@@ -961,6 +990,7 @@ DASHBOARD_HTML = r"""
     <button id="langToggle" onclick="toggleLang()" style="font-size:12px;padding:4px 10px;background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:6px;cursor:pointer;font-weight:600;">🇬🇧 EN</button>
     <button class="btn-reset" onclick="resetBot()">🔄 Reset</button>
     <button class="btn-bot" id="botToggleBtn" onclick="toggleBot()" title="Encender/Apagar bot (kill switch)">⏳</button>
+    <span class="fuel-badge" id="solFuelBadge" title="SOL fuel (Jupiter swap fees)">🔋 —</span>
   </div>
 </div>
 
@@ -1330,7 +1360,8 @@ async function refreshAll() {
       loadTrades(),
       loadLog(),
       loadResetHistory(),
-      refreshBotStatus()
+      refreshBotStatus(),
+      refreshFuel()
     ]);
     document.getElementById('lastUpdate').textContent =
       'Actualizado: ' + new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -1353,6 +1384,40 @@ function closeResetModal() {
   document.getElementById('resetModal').classList.remove('open');
 }
 /* ── Bot ON/OFF toggle (v2.10.0-live) ── */
+/* ── SOL Fuel badge (v2.11.0-live) ── */
+async function refreshFuel() {
+  const el = document.getElementById('solFuelBadge');
+  if (!el) return;
+  try {
+    const r = await fetch('/api/sol/fuel');
+    const d = await r.json();
+    if (!d.ok) { el.className = 'fuel-badge off'; el.textContent = '🔋 —'; return; }
+    const f = d.fuel;
+    el.classList.remove('ok', 'warn', 'low', 'off');
+    if (!f.live) {
+      el.classList.add('off');
+      el.textContent = '🔋 paper';
+      el.title = 'Paper mode — SOL fuel no aplica';
+      return;
+    }
+    const bal = f.sol_balance != null ? f.sol_balance.toFixed(4) : '?';
+    const trades = f.trades_remaining_estimate != null ? f.trades_remaining_estimate : '?';
+    const ratio = f.sol_balance != null && f.sol_min_balance > 0 ? f.sol_balance / f.sol_min_balance : 0;
+    let cls = 'ok';
+    if (ratio < 1) cls = 'low';
+    else if (ratio < 3) cls = 'warn';
+    el.classList.add(cls);
+    el.textContent = `🔋 ${bal} SOL · ~${trades} tx`;
+    const autoTxt = f.enabled ? 'ON' : 'OFF';
+    const lastTxt = f.last_event ? ` | último: ${f.last_event.ts.substring(0,10)} +${f.last_event.out_sol.toFixed(4)} SOL` : '';
+    el.title = `SOL balance: ${bal}\nmin threshold: ${f.sol_min_balance}\nUSDC: ${f.usdc_balance != null ? f.usdc_balance.toFixed(2) : '?'} (reserve: ${f.usdc_reserve_floor})\nauto-topup: ${autoTxt} ($${f.topup_amount_usd}/evt, max $${f.max_daily_usd}/día)\nhoy: $${f.spent_today_usd.toFixed(2)} en ${f.events_today} top-up(s)${lastTxt}`;
+  } catch(e) {
+    el.className = 'fuel-badge off';
+    el.textContent = '🔋 err';
+    console.warn('refreshFuel', e);
+  }
+}
+
 async function refreshBotStatus() {
   try {
     const r = await fetch('/api/safety/status');
@@ -4258,6 +4323,23 @@ def api_safety_kill_switch():
             return jsonify({'ok': True, 'status': 'deactivated'})
         else:
             return jsonify({'ok': False, 'error': 'action must be activate|deactivate'}), 400
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+
+@app.route('/api/sol/fuel', methods=['GET'])
+def api_sol_fuel():
+    """v2.11.0-live: SOL fuel status for auto-replenish visibility."""
+    try:
+        import sys as _sys
+        from pathlib import Path as _P
+        _agents = str(_P(__file__).parent.parent / 'agents')
+        if _agents not in _sys.path:
+            _sys.path.insert(0, _agents)
+        import sol_topup as _st, solana_rpc as _srpc, wallet as _wm
+        _rpc = _srpc.get_rpc()
+        _w = _wm.load_wallet()
+        return jsonify({'ok': True, 'fuel': _st.fuel_status(_rpc, _w)})
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e)}), 500
 

@@ -249,6 +249,19 @@ def run_cycle(safe=True, debug=False):
         except Exception as _rec_err:
             log.warning(f"reconcile error (non-fatal): {_rec_err}")
 
+    # v2.11.0-live: SOL auto-replenish fuel check (solo live, cada 10 ciclos)
+    if _cycle_global_count % 10 == 0 and os.environ.get("LIVE_TRADING_ENABLED", "false").lower() == "true":
+        try:
+            import sol_topup, solana_rpc as _srpc, wallet as _wm
+            _tr = sol_topup.maybe_topup(_srpc.get_rpc(), _wm.load_wallet())
+            if _tr and _tr.attempted:
+                if _tr.success:
+                    log.info(f"🔋 sol_topup OK: +{_tr.out_sol:.6f} SOL (tx {_tr.signature})")
+                else:
+                    log.warning(f"🔋 sol_topup attempted but not confirmed: {_tr.reason}")
+        except Exception as _tup_err:
+            log.warning(f"sol_topup error (non-fatal): {_tup_err}")
+
     log.info("=" * 60)
     log.info(f"🔄 CICLO INICIADO — {now}")
     mode_label = "📄 PAPER" if safe else "🔴 LIVE"
