@@ -74,14 +74,94 @@ CLAUDE_BASE_URL = "https://api.anthropic.com/v1/messages"
 CLAUDE_MODEL    = "claude-sonnet-4-6"
 
 
-def _get_claude_key() -> tuple:
-    """Load Anthropic API key + extra headers from openclaw config."""
+# ── v2.9.4: Claude OAuth token sync (primary source = Claude CLI credentials) ──
+_CLAUDE_OAUTH_CLIENT_ID  = "9d1c250a-e61b-44d9-88ed-5944d1962f5e"
+_CLAUDE_OAUTH_TOKEN_URL  = "https://platform.claude.com/v1/oauth/token"
+_CLAUDE_CRED_PATH        = Path.home() / ".claude" / ".credentials.json"
+_CLAUDE_OPENCLAW_PATH    = Path.home() / ".openclaw" / "openclaw.json"
+
+
+def _refresh_claude_token(refresh_token: str):
+    """POST al endpoint OAuth. Retorna dict con {access_token, refresh_token, expires_at_ms} o None."""
     try:
-        import json as _json
-        cfg_path = Path.home() / ".openclaw" / "openclaw.json"
-        if cfg_path.exists():
-            cfg = _json.loads(cfg_path.read_text())
-            # Structure: models.providers.claude
+        r = requests.post(_CLAUDE_OAUTH_TOKEN_URL, json={
+            "grant_type": "refresh_token",
+            "refresh_token": refresh_token,
+            "client_id": _CLAUDE_OAUTH_CLIENT_ID,
+        }, timeout=20)
+        if r.status_code == 200:
+            d = r.json()
+            import time as _t
+            return {
+                "access_token":  d.get("access_token"),
+                "refresh_token": d.get("refresh_token") or refresh_token,
+                "expires_at_ms": int((_t.time() + int(d.get("expires_in", 3600))) * 1000),
+            }
+        print(f"    \u26a0\ufe0f Claude OAuth refresh failed: HTTP {r.status_code}")
+    except Exception as e:
+        print(f"    \u26a0\ufe0f Claude OAuth refresh error: {type(e).__name__}")
+    return None
+
+
+def _save_claude_credentials(access_token: str, refresh_token: str, expires_at_ms: int) -> None:
+    """Escribe tokens de vuelta a .credentials.json (atomic tmp+rename, preserva permisos)."""
+    try:
+        data = {}
+        if _CLAUDE_CRED_PATH.exists():
+            try:
+                data = json.loads(_CLAUDE_CRED_PATH.read_text())
+            except Exception:
+                data = {}
+        oauth = data.setdefault("claudeAiOauth", {})
+        oauth["accessToken"]  = access_token
+        oauth["refreshToken"] = refresh_token
+        oauth["expiresAt"]    = expires_at_ms
+        tmp = _CLAUDE_CRED_PATH.with_suffix(".tmp")
+        tmp.write_text(json.dumps(data, indent=2))
+        try: tmp.chmod(0o600)
+        except Exception: pass
+        tmp.rename(_CLAUDE_CRED_PATH)
+    except Exception as e:
+        print(f"    \u26a0\ufe0f Claude credentials save error: {type(e).__name__}")
+
+
+def _get_claude_key() -> tuple:
+    """Load Anthropic OAuth access token + extra headers.
+
+    v2.9.4: fuente primaria = ~/.claude/.credentials.json (la mantiene el CLI `claude`
+    via auto-refresh interno). Si el token esta por vencer (<60s), se refresca
+    automaticamente via OAuth refresh_token. Fallback: ~/.openclaw/openclaw.json.
+    """
+    import time as _t
+    # 1. Preferir ~/.claude/.credentials.json (lo mantiene el CLI `claude`)
+    try:
+        if _CLAUDE_CRED_PATH.exists():
+            cred = json.loads(_CLAUDE_CRED_PATH.read_text())
+            oauth = cred.get("claudeAiOauth", {}) or {}
+            access  = oauth.get("accessToken", "") or ""
+            refresh = oauth.get("refreshToken", "") or ""
+            exp_ms  = int(oauth.get("expiresAt", 0) or 0)
+            now_ms  = int(_t.time() * 1000)
+            # Si falta <60s para vencer, intentar refresh
+            if refresh and (exp_ms - now_ms) < 60_000:
+                new_tok = _refresh_claude_token(refresh)
+                if new_tok and new_tok.get("access_token"):
+                    _save_claude_credentials(
+                        new_tok["access_token"],
+                        new_tok["refresh_token"],
+                        new_tok["expires_at_ms"],
+                    )
+                    access = new_tok["access_token"]
+                    print("    \U0001f504 Claude OAuth token refreshed")
+            if access:
+                return access, {"anthropic-beta": "oauth-2025-04-20"}
+    except Exception as e:
+        print(f"    \u26a0\ufe0f .credentials.json read error: {type(e).__name__}")
+
+    # 2. Fallback: ~/.openclaw/openclaw.json (setups antiguos, config del openclaw desktop)
+    try:
+        if _CLAUDE_OPENCLAW_PATH.exists():
+            cfg = json.loads(_CLAUDE_OPENCLAW_PATH.read_text())
             provider = cfg.get("models", {}).get("providers", {}).get("claude", {})
             key = provider.get("apiKey", "")
             headers_extra = provider.get("headers", {})
