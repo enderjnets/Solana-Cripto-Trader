@@ -147,8 +147,19 @@ def estimate_open_position_pnl(pos: dict, current_price: float | None = None) ->
     }
 
 # ── Version & Changelog ──────────────────────────────────────────────────────
-VERSION = "2.9.5"
+VERSION = "2.9.6"
 CHANGELOG = [
+    {
+        "version": "2.9.6",
+        "date": "2026-04-18",
+        "title": "B2: no abrir posiciones nuevas cerca del daily target (>=80%)",
+        "changes": [
+            "NEW near-target guard en executor.py: skip nuevas aperturas si daily_pnl >= 80%% del TARGET_MAX_PCT",
+            "Previene el patron 2026-04-18: bot abrio 3 posiciones con daily_pnl ya ~4% -> force-close 1.6h despues en perdida",
+            "Lee current_pnl_pct + target_pct de daily_target_state.json (v2.9.0 auto-reset activo)",
+            "Fallback: si daily_target_state.json falta o esta corrupto, comportamiento v2.9.5 (abrir normalmente)",
+        ]
+    },
     {
         "version": "2.9.5",
         "date": "2026-04-18",
