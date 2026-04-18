@@ -281,6 +281,9 @@ import os as _os_gpt5
 _DEFAULT_GPT5_TOKEN = "eyJhbGciOiJSUzI1NiIsImtpZCI6IjE5MzQ0ZTY1LWJiYzktNDRkMS1hOWQwLWY5NTdiMDc5YmQwZSIsInR5cCI6IkpXVCJ9.eyJhdWQiOlsiaHR0cHM6Ly9hcGkub3BlbmFpLmNvbS92MSJdLCJjbGllbnRfaWQiOiJhcHBfRU1vYW1FRVo3M2YwQ2tYYVhwN2hyYW5uIiwiZXhwIjoxNzc2NDc0MzE2LCJodHRwczovL2FwaS5vcGVuYWkuY29tL2F1dGgiOnsiY2hhdGdwdF9hY2NvdW50X2lkIjoiMDIxZDhmMTMtMjM1Yy00ZDY4LWJkN2MtODhlNmY4MmVlZmNmIiwiY2hhdGdwdF9hY2NvdW50X3VzZXJfaWQiOiJ1c2VyLW11U2F5ZWhqeG1zTzZNR1lRZDhld2dLaF9fMDIxZDhmMTMtMjM1Yy00ZDY4LWJkN2MtODhlNmY4MmVlZmNmIiwiY2hhdGdwdF9jb21wdXRlX3Jlc2lkZW5jeSI6Im5vX2NvbnN0cmFpbnQiLCJjaGF0Z3B0X3BsYW5fdHlwZSI6InBsdXMiLCJjaGF0Z3B0X3VzZXJfaWQiOiJ1c2VyLW11U2F5ZWhqeG1zTzZNR1lRZDhld2dLaCIsImxvY2FsaG9zdCI6dHJ1ZSwidXNlcl9pZCI6InVzZXItbXVTYXllaGp4bXNPNk1HWVFkOGV3Z0toIn0sImh0dHBzOi8vYXBpLm9wZW5haS5jb20vcHJvZmlsZSI6eyJlbWFpbCI6ImVuZGVyam5ldHNAZ21haWwuY29tIiwiZW1haWxfdmVyaWZpZWQiOnRydWV9LCJpYXQiOjE3NzU2MTAzMTYsImlzcyI6Imh0dHBzOi8vYXV0aC5vcGVuYWkuY29tIiwianRpIjoiYWYyZTcyNDAtYzk4MC00NjgwLTg3OTAtOTJhYjkwMGE4YTg5IiwibmJmIjoxNzc1NjEwMzE2LCJwd2RfYXV0aF90aW1lIjoxNzc1NjEwMzE1MzI2LCJzY3AiOlsib3BlbmlkIiwicHJvZmlsZSIsImVtYWlsIiwib2ZmbGluZV9hY2Nlc3MiLCJhcGkuY29ubmVjdG9ycy5yZWFkIiwiYXBpLmNvbm5lY3RvcnMuaW52b2tlIl0sInNlc3Npb25faWQiOiJhdXRoc2Vzc19xcHJCRUZ6b1BmR3AxUUt1Y0U4cW55WXUiLCJzbCI6dHJ1ZSwic3ViIjoiZ29vZ2xlLW9hdXRoMnwxMDM5NzkwMTQ0Njk4ODM5MDczMTMifQ.GvUdegjur8dIjmsIPIPShzmSHiZgi26GjYIHXxFozQ9KVrmwfQBeBEVND0dMEhrZAHGPiihCcaqpanQoa-zoBhtWoWqSfNJgm7a6wMIyVgbQ6nchSjMOOVCds9qoAyahYBsyKjKkM2dMcCCCHGjGRSZrjuBwei22amGssdsF2Fx9hhko2txtVk3UvDboUUA42hOR5zELiWqoGCpWmAHyC08nryET0HpKIaOj2bRaVTK_-qBhmXKlEkkG90XyGHuraD49N4xpm3_7fgvbWn-fAJFgqyR_GVurl7YKK2tobUYfAg4CSlpLhuGEPdM_WEnFibrx0tJn7EbLUa1ILi8apAKLoQF7-oeXLf63logh-dFjqCwoUumaPWQc6ZoMg47gTxvhhtewOWiB6h_sJQh8GufdHylc2DYBVSeeu_YB7vAu3wp-pvl1jUosPNnMaJcYdKYIVJp75MH3TiMHL1alKjiGQwRyTCnafLRKQj__kf0rxUn06zknE-v5uomxflaRolkTzhZlVeDr9krgqBh4srsnR212S9XMzipqk-p1KUYSbjkb5sVuFJNFE42gsKP_sgKdR0d6dvlOqQzB9aXnkGXLLSkjZlHbbNid9OJDerFhi4_X9KLvd8MCg2-UzTcM_mP3qNJkYeSNbzqiw7v4sp7NzxPPMWMqMG3MaEjEEDY"
 
 GPT5_URL = _os_gpt5.environ.get("GPT5_URL", "http://127.0.0.1:18793/v1/chat/completions")
+# v2.9.2: skip GPT-5.4 completely if disabled (Codex subscription cancelled).
+# Set GPT5_ENABLED=false in .env to avoid ~3s timeout per cycle. Default true for backcompat.
+GPT5_ENABLED = _os_llm.environ.get("GPT5_ENABLED", "true").lower() == "true"
 GPT5_TOKEN = _os_gpt5.environ.get("GPT5_TOKEN", _DEFAULT_GPT5_TOKEN)
 GPT5_MODEL = _os_gpt5.environ.get("GPT5_MODEL", "gpt-5.4")
 
@@ -332,7 +335,9 @@ def _is_valid_llm_response(text) -> bool:
 
 
 def call_gpt5(prompt: str, system: str = "", max_tokens: int = 2000) -> str:
-    """Call GPT-5.4 via OpenClaw proxy. Returns None if unavailable or response looks like an error."""
+    """Call GPT-5.4 via OpenClaw proxy. Returns None if disabled, unavailable, or response looks like an error."""
+    if not GPT5_ENABLED:
+        return None  # v2.9.2: bypass rapido cuando Codex subscription no esta disponible
     try:
         messages = []
         if system:
@@ -374,14 +379,18 @@ def call_gpt5(prompt: str, system: str = "", max_tokens: int = 2000) -> str:
 
 def call_llm(prompt: str, system: str = "", max_tokens: int = 2000) -> str:
     """
-    LLM chain: GPT-5.4 → MiniMax M2.7 → Claude Sonnet 4.6 (tertiary).
-    GPT-5.4 via OpenClaw proxy (localhost:18793).
-    MiniMax M2.7 as reliable 2nd fallback, Claude Sonnet 4.6 as last resort.
+    LLM chain: GPT-5.4 (opcional) → Claude Sonnet 4.6 → MiniMax M2.7 → Qwen 2.5 local.
+
+    v2.9.3: Claude Sonnet 4.6 es primary de facto (gratis via Max plan OAuth,
+    mejor razonamiento estructurado para trading). MiniMax queda como 2do fallback
+    (rapido y barato). Qwen como ultimo colchon local.
+    GPT-5.4 slot preservado (skipeado cuando GPT5_ENABLED=false).
     """
     if _cb_is_open():
         return None
 
-    # Try GPT-5.4 first (best reasoning for trading decisions)
+    # v2.9.3: GPT-5.4 slot preservado — se skipea automaticamente si GPT5_ENABLED=false
+    # (lo dejamos por si vuelven a activar Codex; actualmente off por cancelacion)
     result = call_gpt5(prompt, system, max_tokens)
     if result and _is_valid_llm_response(result):
         _cb_record_success()
@@ -390,7 +399,17 @@ def call_llm(prompt: str, system: str = "", max_tokens: int = 2000) -> str:
     if result:
         print("    ⚠️ GPT-5.4: returned error-like content -- skipping to next provider")
 
-    # Fallback to MiniMax M2.7 (always available)
+    # v2.9.3: Claude Sonnet 4.6 = primary de facto (gratis via Max plan OAuth,
+    # mejor razonamiento estructurado para reglas condicionales de trading).
+    result = call_claude_sonnet(prompt, system, max_tokens)
+    if result and _is_valid_llm_response(result):
+        _cb_record_success()
+        print("    🧠 LLM: Claude Sonnet 4.6 (primary)")
+        return result
+    if result:
+        print("    ⚠️ Claude Sonnet: returned error-like content -- skipping to next provider")
+
+    # v2.9.3: MiniMax M2.7 = 2do fallback (rapido y barato si Claude rate-limita)
     result = call_minimax(prompt, system, max_tokens)
     if result and _is_valid_llm_response(result):
         _cb_record_success()
@@ -399,26 +418,17 @@ def call_llm(prompt: str, system: str = "", max_tokens: int = 2000) -> str:
     if result:
         print("    ⚠️ MiniMax: returned error-like content -- skipping to next provider")
 
-    # Last resort: Claude Sonnet 4.6 via direct Anthropic API
-    result = call_claude_sonnet(prompt, system, max_tokens)
-    if result and _is_valid_llm_response(result):
-        _cb_record_success()
-        print("    🧠 LLM: Claude Sonnet 4.6 (tertiary)")
-        return result
-    if result:
-        print("    ⚠️ Claude Sonnet: returned error-like content -- skipping to next provider")
-
-    # 4to fallback: Qwen 2.5 14B local via Ollama
+    # v2.9.3: Qwen 2.5 14B local = ultimo colchon (sin internet, sin coste)
     result = call_qwen_local(prompt, system, max_tokens)
     if result and _is_valid_llm_response(result):
         _cb_record_success()
-        print("    \U0001f9e0 LLM: Qwen 2.5 14B local (4to fallback)")
+        print("    \U0001f9e0 LLM: Qwen 2.5 14B local (last resort)")
         return result
     if result:
         print("    ⚠️ Qwen local: returned error-like content -- skipping")
 
     _cb_record_failure()
-    print("    \u274c GPT-5.4 + MiniMax + Claude + Qwen all failed")
+    print("    \u274c All 4 LLM providers failed (GPT-5.4 skipped/Claude/MiniMax/Qwen)")
     return None
 
 
