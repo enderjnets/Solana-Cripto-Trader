@@ -147,8 +147,18 @@ def estimate_open_position_pnl(pos: dict, current_price: float | None = None) ->
     }
 
 # ── Version & Changelog ──────────────────────────────────────────────────────
-VERSION = "2.12.3-live"
+VERSION = "2.12.4-live"
 CHANGELOG = [
+    {
+        "version": "2.12.4-live",
+        "date": "2026-04-19",
+        "title": "UI: display 4 decimales en pnl_usd < $1 (trades pequeños ya no muestran $0.00)",
+        "changes": [
+            "fmt$ y _fmtUsd ahora usan 4 decimales cuando |pnl| < $1 (antes siempre 2 → pnls subcentavo como $0.0016 mostraban $0.00).",
+            "Ejemplo: trade de $2 margen con +0.08% movimiento ahora muestra +$0.0016 en vez de +$0.00, consistente con el % mostrado.",
+            "Sin cambios en storage ni cálculos, solo formato de display.",
+        ]
+    },
     {
         "version": "2.12.3-live",
         "date": "2026-04-19",
@@ -2246,7 +2256,12 @@ function _actionBadge(action) {
 }
 
 function _pnlColor(v) { return v > 0 ? '#3fb950' : v < 0 ? '#f85149' : 'var(--text2)'; }
-function _fmtUsd(v) { const s = v >= 0 ? '+' : ''; return s + '$' + Math.abs(v).toFixed(2); }
+function _fmtUsd(v) {
+  const s = v >= 0 ? '+' : '';
+  const abs = Math.abs(v);
+  const dec = (abs > 0 && abs < 1) ? 4 : 2;
+  return s + '$' + abs.toFixed(dec);
+}
 function _fmtPct(v) { const s = v >= 0 ? '+' : ''; return s + v.toFixed(2) + '%'; }
 
 function renderAIThinking(d) {
@@ -2762,7 +2777,13 @@ function setEquityRange(range, btn) {
 function resetZoom() { equityChart.resetZoom(); }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
-function fmt$(v) { return '$' + (v || 0).toFixed(2); }
+function fmt$(v) {
+  // v2.12.4-live fmt$: show higher precision for small pnls (< $1 abs uses 4 decimals)
+  const n = v || 0;
+  const abs = Math.abs(n);
+  if (abs > 0 && abs < 1) return '$' + n.toFixed(4);
+  return '$' + n.toFixed(2);
+}
 function fmtNum(v, d=2) { return (v || 0).toFixed(d); }
 function fmtPct(v, sign=false) {
   const n = (v || 0).toFixed(2);
