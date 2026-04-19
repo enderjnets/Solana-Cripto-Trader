@@ -561,6 +561,25 @@ def close_positions_emergency(portfolio: dict, symbols: list, market: dict, hist
                 if _cr is None:
                     log.error(f"🛑 LIVE EMERGENCY CLOSE FAILED {pos['symbol']} — position sigue on-chain, intervención manual requerida")
                     continue  # skip this position; stays 'open' in portfolio
+                # v2.12.3-live: orphan detected by pre-flight — quarantine vs blocking bot
+                if isinstance(_cr, dict) and _cr.get("orphan"):
+                    log.error(f"🛑 ORPHAN {pos['symbol']}: portfolio expects {_cr.get('expected_tokens'):.6f} SOL but wallet has {_cr.get('wallet_sol'):.6f}. Marking needs_manual_reconcile, NOT activating kill switch.")
+                    pos["status"] = "needs_manual_reconcile"
+                    pos["close_reason"] = "orphan_needs_manual_reconcile_v2.12.3"
+                    pos["orphan_detected_at"] = now
+                    # Paperclip notification (non-blocking)
+                    try:
+                        if _PAPERCLIP:
+                            from paperclip_client import _create_issue
+                            _create_issue(
+                                title=f"URGENT: orphan position {pos['symbol']} needs manual reconcile",
+                                description=(f"portfolio expects {_cr.get('expected_tokens'):.6f} SOL but wallet has {_cr.get('wallet_sol'):.6f}. "
+                                             f"Position id {pos['id']}. Use tools/reconcile_orphan.py to resolve."),
+                                priority="urgent", status="todo",
+                            )
+                    except Exception as _pc_err:
+                        log.debug(f"paperclip notify failed: {_pc_err}")
+                    continue
                 pos["status"] = "closed"
                 pos["close_time"] = now
                 pos["close_reason"] = reason
@@ -1134,6 +1153,32 @@ def paper_update_positions(portfolio: dict, market: dict, history: list) -> list
                 hit_liquidation = current_price >= liq_price
 
         if hit_liquidation:
+            # v2.12.3-live: liquidation path for live — route to real_close_position
+            # (defense: spot SOL has liq_price=0 so this shouldn't trigger, but be safe)
+            if pos.get("mode") == "live":
+                _cr = real_close_position(pos, portfolio)
+                if _cr is None:
+                    log.error(f"🛑 LIVE LIQUIDATION close failed for {symbol} — position sigue on-chain")
+                    remaining.append(pos)
+                    continue
+                if isinstance(_cr, dict) and _cr.get("orphan"):
+                    log.error(f"🛑 ORPHAN on liquidation: {symbol}")
+                    pos["status"] = "needs_manual_reconcile"
+                    pos["close_reason"] = "orphan_on_liquidation_v2.12.3"
+                    remaining.append(pos)
+                    continue
+                pos["status"] = "closed"
+                pos["close_time"] = datetime.now(timezone.utc).isoformat()
+                pos["close_reason"] = "LIQUIDATED_LIVE"
+                pos["close_price"] = _cr["exit_price"]
+                pos["current_price"] = _cr["exit_price"]
+                pos["pnl_usd"] = round(_cr["pnl_real_usd"], 4)
+                pos["pnl_pct"] = round(_cr["pnl_real_usd"] / margin * 100, 4) if margin > 0 else -100.0
+                pos["fee_exit"] = 0
+                pos["tx_signature_close"] = _cr["signature"]
+                closed.append(pos)
+                continue
+
             pos["status"] = "closed"
             pos["close_time"] = datetime.now(timezone.utc).isoformat()
             pos["close_reason"] = "LIQUIDATED"
@@ -1383,6 +1428,13 @@ def paper_update_positions(portfolio: dict, market: dict, history: list) -> list
                 if _cr is None:
                     log.error(f"🛑 LIVE {close_reason} FAILED {symbol} — position sigue on-chain, reintentar próximo ciclo")
                     continue  # mantener open; retry
+                # v2.12.3-live: orphan detected by pre-flight
+                if isinstance(_cr, dict) and _cr.get("orphan"):
+                    log.error(f"🛑 ORPHAN {symbol}: portfolio expects {_cr.get('expected_tokens'):.6f} SOL but wallet has {_cr.get('wallet_sol'):.6f}. Marking needs_manual_reconcile.")
+                    pos["status"] = "needs_manual_reconcile"
+                    pos["close_reason"] = "orphan_needs_manual_reconcile_v2.12.3"
+                    pos["orphan_detected_at"] = datetime.now(timezone.utc).isoformat()
+                    continue
                 pos["status"] = "closed"
                 pos["close_time"] = datetime.now(timezone.utc).isoformat()
                 pos["close_reason"] = close_reason
@@ -1720,6 +1772,23 @@ def real_close_position(pos: dict, portfolio: dict) -> Optional[dict]:
     if not getattr(w, "is_live", False):
         log.error("real_close_position: wallet is MockWallet — LIVE_TRADING_ENABLED=false?")
         return None
+
+    # v2.12.3-live: pre-flight wallet balance check — avoid wasted broadcasts
+    # and detect orphan positions (portfolio thinks X tokens open but wallet has less).
+    try:
+        rpc_pre = _srpc.get_rpc()
+        wallet_sol = rpc_pre.get_balance_sol(w.pubkey)
+        FEE_RESERVE_SOL = 0.005
+        if symbol == "SOL":
+            available = max(0, wallet_sol - FEE_RESERVE_SOL)
+            if tokens > available:
+                log.error(f"🛑 pre-flight: wallet has {wallet_sol:.6f} SOL (avail {available:.6f} after fee reserve), need {tokens:.6f} — orphan position on-chain")
+                return {"orphan": True, "reason": "insufficient_onchain_balance",
+                        "expected_tokens": tokens, "wallet_sol": wallet_sol,
+                        "available_sol": available}
+    except Exception as _pf_err:
+        log.warning(f"real_close_position pre-flight check failed (non-fatal, continuing): {_pf_err}")
+
     try:
         rpc = _srpc.get_rpc()
         swap = _jswap.JupiterSwap(wallet=w, rpc=rpc)

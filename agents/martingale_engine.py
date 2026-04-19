@@ -174,6 +174,10 @@ def save_state(state: dict) -> None:
             json.dump(state, f, indent=2, default=str)
 
 def is_active() -> bool:
+    # v2.12.3-live: master feature flag (opt-in). Default false.
+    import os as _os
+    if _os.environ.get('WILD_MODE_ENABLED', 'false').lower() != 'true':
+        return False
     return bool(load_state().get('active', False))
 
 # ── Helpers ──────────────────────────────────────────────────────────────────

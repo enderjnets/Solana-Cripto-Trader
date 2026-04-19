@@ -523,7 +523,18 @@ def run(daily: bool = False, alert_only: bool = False) -> dict:
         eq_data = {"equity": [], "dates": []}
         if EQUITY_HISTORY_FILE.exists():
             with open(EQUITY_HISTORY_FILE) as f:
-                eq_data = json.load(f)
+                _raw = json.load(f)
+            # v2.12.3-live: equity_history format migration — old format was list of dicts
+            if isinstance(_raw, list):
+                eq_data = {"equity": [], "dates": []}
+                for item in _raw:
+                    if isinstance(item, dict):
+                        eq_data["equity"].append(item.get("equity", item.get("total_value", 0)))
+                        eq_data["dates"].append(item.get("timestamp", item.get("date", "")))
+            elif isinstance(_raw, dict):
+                eq_data = _raw
+                eq_data.setdefault("equity", [])
+                eq_data.setdefault("dates", [])
         eq_data["equity"].append(round(metrics.get("total_value", metrics.get("capital_usd", 0)), 2))
         eq_data["dates"].append(datetime.now(timezone.utc).isoformat())
         # Downsample cuando pase del cap: mantener full-res tail, downsample older

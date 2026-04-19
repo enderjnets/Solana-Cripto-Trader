@@ -197,13 +197,40 @@ def close_all_live_positions(dry_run: bool = False) -> dict:
 
         result['positions'].append(entry)
 
-    # Después de intentar cerrar → activar kill switch (bot no reabre)
+    # v2.12.3-live: kill switch tolerance — require 3 consecutive failures before blocking bot.
+    # Transient RPC issues shouldn't permanently block. Orphan reconcile is not counted as fail.
+    MAX_CONSECUTIVE_FAILS = 3
+    close_failures_path = Path('/tmp/solana_live_close_failures')
     try:
         import safety
-        safety.activate_kill_switch(f"emergency_close: closed={result['closed']} failed={result['failed']}")
-        log.warning("Kill switch activado post-emergency close")
+        # Count orphans vs real fails
+        orphan_count = sum(1 for p in result.get('positions', []) if 'orphan' in str(p.get('status', '')))
+        real_fails = result['failed'] - orphan_count
+        if result['closed'] > 0 or result['failed'] == 0:
+            # Success path — reset counter
+            if close_failures_path.exists():
+                close_failures_path.unlink()
+        elif real_fails > 0:
+            # Transient fail — increment counter
+            prior = 0
+            try:
+                if close_failures_path.exists():
+                    prior = int(close_failures_path.read_text().strip() or 0)
+            except Exception:
+                prior = 0
+            new_count = prior + 1
+            close_failures_path.write_text(str(new_count))
+            log.warning(f"emergency_close consecutive fails: {new_count}/{MAX_CONSECUTIVE_FAILS}")
+            if new_count >= MAX_CONSECUTIVE_FAILS:
+                safety.activate_kill_switch(f"emergency_close: {new_count} consecutive fails — closed={result['closed']} failed={result['failed']}")
+                log.warning(f"Kill switch activado tras {new_count} fallos consecutivos")
+                close_failures_path.unlink()  # reset
+            else:
+                log.info(f"Kill switch NOT activated — tolerating transient fail ({new_count}/{MAX_CONSECUTIVE_FAILS})")
+        elif orphan_count > 0:
+            log.warning(f"emergency_close: {orphan_count} orphan(s) detected — NOT counting as fail, NOT activating kill switch")
     except Exception as e:
-        log.error(f"kill switch activation failed: {e}")
+        log.error(f"tolerance/kill-switch logic failed: {e}")
 
     return result
 

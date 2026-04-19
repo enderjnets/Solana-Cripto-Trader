@@ -147,8 +147,25 @@ def estimate_open_position_pnl(pos: dict, current_price: float | None = None) ->
     }
 
 # ── Version & Changelog ──────────────────────────────────────────────────────
-VERSION = "2.12.2-live"
+VERSION = "2.12.3-live"
 CHANGELOG = [
+    {
+        "version": "2.12.3-live",
+        "date": "2026-04-19",
+        "title": "Hardening post-incident: pre-flight balance check + WILD_MODE flag + emergency tolerance + 5 fixes",
+        "changes": [
+            "INCIDENT RECAP: entre 02:26-02:40 UTC position legitima abrio y cerro on-chain correctamente (pnl +0.0016 USD), pero el portfolio no persistio el close. Orchestrator murio, emergency_close cron trato de cerrar la posicion fantasma y activo kill switch permanente. Bot 15h offline.",
+            "FIX P3a: real_close_position pre-flight check — si wallet SOL < position tokens, retorna orphan sin hacer broadcast. Evita gas wasted en swaps que iban a fallar con 'insufficient lamports'.",
+            "FIX P3b: close paths (emergency + normal) manejan orphan gracefully — marcan needs_manual_reconcile y notifican Paperclip, NO activan kill switch automatico.",
+            "FIX P3c: emergency_close.py tolerance — 3 consecutive fails antes de activar kill switch (antes: 1 fail = bloqueo permanente). Transient RPC issues ya no bloquean bot.",
+            "FIX P3d: LIQUIDATED close path tambien detecta mode=live y rutea a real_close_position (era solo path unpatched despues de B2).",
+            "FIX P3e: Wild Mode feature flag WILD_MODE_ENABLED (default false). Previene auto-activacion que causaba false daily_target_hit al abrir positions.",
+            "FIX P3f: equity_history.json format migration (list legacy → dict) — elimina los 68 warnings/sesion 'list indices must be integers or slices'.",
+            "NEW tools/reconcile_orphan.py — one-shot recovery para sincronizar portfolio con on-chain truth. Uso: python3 tools/reconcile_orphan.py cuando hay position huerfana.",
+            "State recovery aplicado: moved SOL_live_1776565594 to trade_history (pnl +0.0016, tx_close 3etBpV4J...), capital_usd $8.02 → $10.02, daily_target + wild_mode reset, kill switch cleared.",
+            "Defense in depth resultante: 3 safeguards escalados (pre-flight check al abrir/cerrar + fail tolerance + manual reconcile quarantine) que detectan desync antes de bloquear bot.",
+        ]
+    },
     {
         "version": "2.12.2-live",
         "date": "2026-04-18",
