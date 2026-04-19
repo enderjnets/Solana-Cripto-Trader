@@ -1541,7 +1541,7 @@ def real_open_position(signal: dict, portfolio: dict, market: dict = None) -> Op
                 log.warning(f"real_open_position: drift open failed — {_pr.reason}")
                 return None
             # Portfolio-compatible position dict with mode="drift"
-            from datetime import datetime, timezone
+            # (datetime/timezone already imported at module level — no local re-import)
             return {
                 "symbol": symbol,
                 "direction": _pr.direction,

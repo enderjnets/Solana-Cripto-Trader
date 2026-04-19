@@ -147,8 +147,19 @@ def estimate_open_position_pnl(pos: dict, current_price: float | None = None) ->
     }
 
 # ── Version & Changelog ──────────────────────────────────────────────────────
-VERSION = "2.12.1-live"
+VERSION = "2.12.2-live"
 CHANGELOG = [
+    {
+        "version": "2.12.2-live",
+        "date": "2026-04-18",
+        "title": "HOTFIX: datetime shadow en real_open_position (Drift branch causaba UnboundLocalError)",
+        "changes": [
+            "FIX: removido from datetime import dentro del branch DRIFT_ENABLED en real_open_position. El import local hacia datetime variable local de toda la funcion, disparando UnboundLocalError cuando DRIFT_ENABLED=false y el flow llegaba a datetime.now() del Jupiter path normal.",
+            "Impacto del bug: entre v2.12.0 y v2.12.2, cada intento de abrir posicion Jupiter ejecutaba el swap on-chain pero crashaba al construir position dict. Resultado: 4 trades fantasma entre 19:07-19:35 que dejaron ~0.09 SOL huerfano en wallet.",
+            "Recovery adicional: swap 0.093 SOL -> $7.97 USDC para consolidar baseline, resync portfolio.capital_usd y daily_target_state a balance real on-chain.",
+            "Estado final: 0.047 SOL wallet (0.023 fuel + 0.023 ghost accepted), $7.88 USDC. Equity total equivalente $9.91 vs inicial $11.89 (perdida real ~$0.03 solo en fees de todos los swaps).",
+        ]
+    },
     {
         "version": "2.12.1-live",
         "date": "2026-04-18",
