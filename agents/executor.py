@@ -555,7 +555,48 @@ def close_positions_emergency(portfolio: dict, symbols: list, market: dict, hist
             continue
 
         if pos["symbol"] in symbols:
-            # Actualizar precio actual
+            # v2.12.1-live: live positions require real Jupiter swap para cerrar
+            if pos.get("mode") == "live":
+                _cr = real_close_position(pos, portfolio)
+                if _cr is None:
+                    log.error(f"🛑 LIVE EMERGENCY CLOSE FAILED {pos['symbol']} — position sigue on-chain, intervención manual requerida")
+                    continue  # skip this position; stays 'open' in portfolio
+                pos["status"] = "closed"
+                pos["close_time"] = now
+                pos["close_reason"] = reason
+                pos["close_price"] = _cr["exit_price"]
+                pos["current_price"] = _cr["exit_price"]
+                pos["pnl_usd"] = round(_cr["pnl_real_usd"], 4)
+                pos["pnl_pct"] = round(_cr["pnl_real_usd"] / pos["margin_usd"] * 100, 4) if pos.get("margin_usd", 0) > 0 else 0
+                pos["fee_exit"] = 0
+                pos["tx_signature_close"] = _cr["signature"]
+                portfolio["total_trades"] = portfolio.get("total_trades", 0) + 1
+                if _cr["pnl_real_usd"] > 0:
+                    portfolio["wins"] = portfolio.get("wins", 0) + 1
+                else:
+                    portfolio["losses"] = portfolio.get("losses", 0) + 1
+                _live_record = {
+                    "id": pos["id"], "symbol": pos["symbol"], "direction": pos["direction"],
+                    "entry_price": pos["entry_price"], "exit_price": pos["close_price"],
+                    "current_price": pos["close_price"], "size_usd": pos["size_usd"],
+                    "notional_value": pos.get("notional_value", pos.get("size_usd", 0)),
+                    "margin_usd": pos.get("margin_usd", 0), "leverage": pos.get("leverage", 1),
+                    "fee_entry": pos.get("fee_entry", 0), "fee_exit": 0,
+                    "funding_accumulated": pos.get("funding_accumulated", 0),
+                    "pnl_usd": pos["pnl_usd"], "pnl_pct": pos["pnl_pct"],
+                    "open_time": pos["open_time"], "close_time": pos["close_time"],
+                    "close_reason": reason, "strategy": pos.get("strategy", "unknown"),
+                    "mode": "live", "tx_signature": pos.get("tx_signature"),
+                    "tx_signature_close": _cr["signature"],
+                }
+                if ai_reasoning:
+                    _live_record["ai_reasoning"] = ai_reasoning
+                history.append(_live_record)
+                closed.append(pos)
+                log.error(f"🚨 EMERGENCY CLOSE LIVE: {pos['symbol']} | P&L: ${pos['pnl_usd']:+.4f}")
+                continue  # skip paper accounting below
+
+            # Actualizar precio actual (paper path)
             pos["current_price"] = get_current_price(pos["symbol"], market)
 
             pos["status"] = "closed"
@@ -1336,6 +1377,30 @@ def paper_update_positions(portfolio: dict, market: dict, history: list) -> list
                 close_reason = "TP"
             else:
                 close_reason = "SL"
+            # v2.12.1-live: live positions cierran via Jupiter swap reverso
+            if pos.get("mode") == "live":
+                _cr = real_close_position(pos, portfolio)
+                if _cr is None:
+                    log.error(f"🛑 LIVE {close_reason} FAILED {symbol} — position sigue on-chain, reintentar próximo ciclo")
+                    continue  # mantener open; retry
+                pos["status"] = "closed"
+                pos["close_time"] = datetime.now(timezone.utc).isoformat()
+                pos["close_reason"] = close_reason
+                pos["close_price"] = _cr["exit_price"]
+                pos["current_price"] = _cr["exit_price"]
+                pos["pnl_usd"] = round(_cr["pnl_real_usd"], 4)
+                pos["pnl_pct"] = round(_cr["pnl_real_usd"] / margin * 100, 4) if margin > 0 else 0
+                pos["fee_exit"] = 0
+                pos["tx_signature_close"] = _cr["signature"]
+                _is_win = _cr["pnl_real_usd"] > 0
+                portfolio["total_trades"] = portfolio.get("total_trades", 0) + 1
+                if _is_win:
+                    portfolio["wins"] = portfolio.get("wins", 0) + 1
+                else:
+                    portfolio["losses"] = portfolio.get("losses", 0) + 1
+                _emoji = "✅" if _is_win else "❌"
+                log.info(f"  {_emoji} [{close_reason}] {symbol} LIVE | P&L: ${_cr['pnl_real_usd']:+.4f}")
+                continue  # skip paper accounting below
             pos["status"] = "closed"
             pos["close_time"] = datetime.now(timezone.utc).isoformat()
             pos["close_reason"] = close_reason
@@ -1604,10 +1669,90 @@ def real_open_position(signal: dict, portfolio: dict, market: dict = None) -> Op
 
     portfolio.setdefault("positions", []).append(position)
 
+    # v2.12.1-live: fix capital_usd tracking en live — gastamos USDC real al swap
+    _new_cap = round(portfolio.get("capital_usd", 0) - size_usd, 2)
+    if _new_cap < 0:
+        log.error(f"🛑 post-swap capital tracking error: ${portfolio.get('capital_usd',0):.2f} - ${size_usd:.2f} < 0 (swap ya ejecutado, ajustando a 0)")
+    portfolio["capital_usd"] = max(0.0, _new_cap)
+
     log.info(f"✅ LIVE TRADE OPENED: {symbol} ${size_usd:.2f} @ ${real_entry_price:.6f}")
     log.info(f"   tx: {result.signature}")
     log.info(f"   tokens: {tokens_received:.6f} | impact: {result.price_impact_pct:.4f}%")
     return position
+
+
+def real_close_position(pos: dict, portfolio: dict) -> Optional[dict]:
+    """v2.12.1-live: ejecuta swap reverso TOKEN→USDC via Jupiter para cerrar position live.
+
+    Retorna dict con usdc_received, pnl_real_usd, exit_price, signature, price_impact_pct.
+    None si falla (caller decide: reintentar, activar kill switch, alertar).
+
+    El pos NO se marca como closed aquí — el caller debe hacerlo tras éxito.
+    """
+    import os as _os
+    if pos.get("mode") != "live":
+        return None
+    symbol = pos.get("symbol", "?")
+    tokens = float(pos.get("tokens", 0) or 0)
+    if tokens <= 0:
+        log.warning(f"real_close_position: {symbol} tokens={tokens}, nothing to swap")
+        return None
+    mint = MINT_MAP.get(symbol)
+    if not mint:
+        log.error(f"real_close_position: {symbol} no MINT_MAP entry")
+        return None
+    decimals = DECIMALS_MAP.get(symbol, 9)
+    tokens_lamports = int(tokens * (10 ** decimals))
+    if tokens_lamports <= 0:
+        return None
+    try:
+        import solana_rpc as _srpc
+        import wallet as _wallet_mod
+        import jupiter_swap as _jswap
+    except Exception as _e:
+        log.error(f"real_close_position: deps import failed: {_e}")
+        return None
+    try:
+        w = _wallet_mod.load_wallet()
+    except Exception as _e:
+        log.error(f"real_close_position: wallet load failed: {_e}")
+        return None
+    if not getattr(w, "is_live", False):
+        log.error("real_close_position: wallet is MockWallet — LIVE_TRADING_ENABLED=false?")
+        return None
+    try:
+        rpc = _srpc.get_rpc()
+        swap = _jswap.JupiterSwap(wallet=w, rpc=rpc)
+        max_slippage = int(_os.environ.get("MAX_SLIPPAGE_BPS", 100))
+        log.info(f"🔴 LIVE CLOSE SWAP: {symbol} {tokens:.6f} → USDC (slippage max {max_slippage}bps)")
+        result = swap.execute_swap(
+            input_mint=mint,
+            output_mint=_srpc.MINT_USDC,
+            amount_lamports=tokens_lamports,
+            slippage_bps=max_slippage,
+            priority_fee_level="medium",
+            dry_run=False,
+        )
+    except Exception as _e:
+        log.error(f"real_close_position: swap exception: {_e}")
+        return None
+    if not result.success or not result.confirmed:
+        log.error(f"❌ LIVE CLOSE SWAP failed {symbol} — {result.error or 'not_confirmed'}")
+        return None
+    usdc_received = result.out_amount / 1_000_000
+    margin = float(pos.get("margin_usd", pos.get("size_usd", 0)))
+    pnl_real_usd = usdc_received - margin
+    exit_price = usdc_received / tokens if tokens else 0.0
+    portfolio["capital_usd"] = round(portfolio.get("capital_usd", 0) + usdc_received, 4)
+    log.info(f"✅ LIVE CLOSE OK: {symbol} → ${usdc_received:.4f} USDC | P&L ${pnl_real_usd:+.4f}")
+    log.info(f"   tx: {result.signature}")
+    return {
+        "usdc_received": usdc_received,
+        "pnl_real_usd": pnl_real_usd,
+        "exit_price": exit_price,
+        "signature": result.signature,
+        "price_impact_pct": result.price_impact_pct,
+    }
 
 
 # ─── Entry Point ─────────────────────────────────────────────────────────────

@@ -147,8 +147,20 @@ def estimate_open_position_pnl(pos: dict, current_price: float | None = None) ->
     }
 
 # ── Version & Changelog ──────────────────────────────────────────────────────
-VERSION = "2.12.0-live"
+VERSION = "2.12.1-live"
 CHANGELOG = [
+    {
+        "version": "2.12.1-live",
+        "date": "2026-04-18",
+        "title": "FIX: 3 bugs live mode — capital_usd, real_close_position, emergency close swap",
+        "changes": [
+            "FIX B1: real_open_position ahora decrementa portfolio.capital_usd post-swap (matches paper_open_position:971 pattern). Sin esto, _equity doble-contaba cash+margin → disparo falso de daily_target_hit 20% al instante de abrir cualquier live trade.",
+            "FIX B2: NEW agents/executor.py::real_close_position() — ejecuta swap reverso TOKEN→USDC via Jupiter. Ambos paths close ahora detectan mode=live: close_positions_emergency (emergency_close, daily_target, smart_rotation, portfolio_tp) y normal close (SL/TP/TRAILING_SL/TIME_EXIT).",
+            "FIX B3: live close path ya no llega al capital_usd += (margin + pnl) que inflaba fantasma; el nuevo path usa USDC real recibido del swap. Paper path intacto sin cambios de comportamiento.",
+            "Incident recovery: portfolio.capital_usd 11.99 → 8.00 (USDC real en wallet tras el trade fantasma), daily_target_state reset (starting_capital=8, target_reached=false), wild_mode_state clear. Los 0.023 SOL huérfanos quedan como fuel extra (~400 tx runway adicional).",
+            "Root cause: primer live trade SOL $2 @ $86.12 (tx miLhJRHj...QWW) disparó el chain: open sin decrement → 20% falso daily target → wild mode abandon → emergency close paper-only → SOL quedó en wallet sin registrar. Daño real: $0.01 en fees.",
+        ]
+    },
     {
         "version": "2.12.0-live",
         "date": "2026-04-18",
