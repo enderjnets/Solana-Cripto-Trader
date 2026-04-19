@@ -206,6 +206,46 @@ def check_reconciliation(portfolio_path: Optional[Path] = None,
     if result.discrepancies and result.ok:
         result.ok = False
 
+    # v2.12.0-live: Drift positions reconcile (solo si DRIFT_ENABLED)
+    if os.environ.get('DRIFT_ENABLED', 'false').lower() == 'true':
+        try:
+            import drift_adapter
+            snap = drift_adapter.get_account_snapshot()
+            if snap and snap.get('live') and not snap.get('error'):
+                drift_positions = [
+                    p for p in portfolio.get('positions', [])
+                    if p.get('status') == 'open' and p.get('mode') == 'drift'
+                ]
+                expected_base = sum(
+                    float(p.get('tokens', 0)) * (1 if p.get('direction') == 'long' else -1)
+                    for p in drift_positions
+                )
+                actual_base = snap.get('sol_perp_base', 0.0)
+                diff_base = abs(actual_base - expected_base)
+                # tolerance: 0.001 SOL absolute
+                if diff_base > 0.001:
+                    log.warning(
+                        f"reconcile drift: SOL-PERP expected={expected_base:.4f} "
+                        f"actual={actual_base:.4f} diff={diff_base:.4f} SOL"
+                    )
+                    result.discrepancies.append(Discrepancy(
+                        symbol='SOL-PERP',
+                        expected=expected_base,
+                        actual=actual_base,
+                        diff_pct=100.0 if expected_base == 0 else diff_base / abs(expected_base) * 100,
+                        severity='warning' if diff_base < 0.01 else 'critical',
+                    ))
+                else:
+                    log.debug(f"reconcile drift OK: SOL-PERP base={actual_base:.4f}")
+                # Log fuel/collateral visibility
+                log.info(
+                    f"reconcile drift: collateral_free=${snap.get('collateral_free_usd',0):.2f} "
+                    f"leverage={snap.get('current_leverage',0):.2f}x "
+                    f"funding={snap.get('funding_hourly',0)*100:.4f}%/h"
+                )
+        except Exception as _dr_err:
+            log.warning(f"reconcile drift error (non-fatal): {_dr_err}")
+
     return result
 
 

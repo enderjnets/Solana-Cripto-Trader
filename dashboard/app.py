@@ -147,8 +147,27 @@ def estimate_open_position_pnl(pos: dict, current_price: float | None = None) ->
     }
 
 # ── Version & Changelog ──────────────────────────────────────────────────────
-VERSION = "2.11.0-live"
+VERSION = "2.12.0-live"
 CHANGELOG = [
+    {
+        "version": "2.12.0-live",
+        "date": "2026-04-18",
+        "title": "Drift Protocol perps — longs+shorts con leverage 1-2x (dormant hasta validación)",
+        "changes": [
+            "PORT agents/drift_client.py desde origin/drift-integration — driftpy wrapper SOL-PERP",
+            "NEW agents/drift_adapter.py — 8 safety gates: DRIFT_ENABLED + LIVE + !kill_switch + daily_loss + whitelist + confidence + leverage_cap + collateral",
+            "Hook en executor.real_open_position — si DRIFT_ENABLED=true, ruta a drift_adapter; Jupiter queda como fallback y para sol_topup",
+            "SHORTS HABILITADOS — bypass del Jupiter direction-must-be-long guard cuando Drift activo",
+            "safety.validate_drift_startup() — chequea driftpy, env vars, drift_state.json",
+            "reconcile.py extendido — compara SOL-PERP base on-chain vs portfolio.json positions mode=drift cada 10 ciclos",
+            "NEW endpoint GET /api/drift/status — collateral, leverage, funding, posición actual",
+            "NEW tarjeta 🎯 Drift en header del dashboard",
+            "NEW tools/drift_setup.py — CLI init subaccount + deposit USDC",
+            "NEW tools/drift_devnet_smoke.py — validación long+short round-trip",
+            "Defaults conservadores: DRIFT_ENABLED=false (dormant), MAX_LEVERAGE=2, DEFAULT=1, MAX_COLLATERAL=$3, MIN_USDC_RESERVE=$5",
+            "Rollout: devnet smoke 1 día → mainnet $3 colateral → primer trade → escalar a leverage 2x",
+        ]
+    },
     {
         "version": "2.11.0-live",
         "date": "2026-04-18",
@@ -538,6 +557,20 @@ DASHBOARD_HTML = r"""
   .fuel-badge.warn   { border-color: #d29922; color: #d29922; }
   .fuel-badge.low    { border-color: #f85149; color: #f85149; }
   .fuel-badge.off    { opacity: 0.5; }
+  /* v2.12.0-live: Drift perps badge */
+  .drift-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 6px 10px; margin-left: 8px;
+    border-radius: 6px; font-size: 11px; font-weight: 600;
+    border: 1px solid var(--border); background: var(--bg3);
+    color: var(--text2); font-family: ui-monospace, monospace;
+    cursor: default; user-select: none;
+  }
+  .drift-badge.active  { border-color: #8957e5; color: #d2a8ff; }
+  .drift-badge.long    { border-color: #3fb950; color: #3fb950; }
+  .drift-badge.short   { border-color: #f85149; color: #f85149; }
+  .drift-badge.dormant { opacity: 0.5; }
+  .drift-badge.err     { border-color: #d29922; color: #d29922; }
   .mode-badge {
     font-size: 11px; padding: 2px 8px; border-radius: 10px;
     background: rgba(188,140,255,0.15); color: var(--purple); border: 1px solid var(--purple);
@@ -991,6 +1024,7 @@ DASHBOARD_HTML = r"""
     <button class="btn-reset" onclick="resetBot()">🔄 Reset</button>
     <button class="btn-bot" id="botToggleBtn" onclick="toggleBot()" title="Encender/Apagar bot (kill switch)">⏳</button>
     <span class="fuel-badge" id="solFuelBadge" title="SOL fuel (Jupiter swap fees)">🔋 —</span>
+    <span class="drift-badge dormant" id="driftBadge" title="Drift perps status">🎯 Drift: —</span>
   </div>
 </div>
 
@@ -1361,7 +1395,8 @@ async function refreshAll() {
       loadLog(),
       loadResetHistory(),
       refreshBotStatus(),
-      refreshFuel()
+      refreshFuel(),
+      refreshDrift()
     ]);
     document.getElementById('lastUpdate').textContent =
       'Actualizado: ' + new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -1384,6 +1419,61 @@ function closeResetModal() {
   document.getElementById('resetModal').classList.remove('open');
 }
 /* ── Bot ON/OFF toggle (v2.10.0-live) ── */
+/* ── Drift Perps badge (v2.12.0-live) ── */
+async function refreshDrift() {
+  const el = document.getElementById('driftBadge');
+  if (!el) return;
+  try {
+    const r = await fetch('/api/drift/status');
+    const d = await r.json();
+    if (!d.ok) { el.className = 'drift-badge err'; el.textContent = '🎯 Drift: err'; return; }
+    const s = d.status;
+    el.classList.remove('active','long','short','dormant','err');
+    if (!s.enabled) {
+      el.classList.add('dormant');
+      el.textContent = '🎯 Drift: off';
+      el.title = 'DRIFT_ENABLED=false — feature dormant';
+      return;
+    }
+    if (s.error) {
+      el.classList.add('err');
+      el.textContent = '🎯 Drift: err';
+      el.title = 'Drift error: ' + s.error;
+      return;
+    }
+    if (!s.live) {
+      el.classList.add('dormant');
+      el.textContent = '🎯 Drift: paper';
+      return;
+    }
+    const base = s.sol_perp_base || 0;
+    const hasPos = Math.abs(base) > 0.001;
+    if (!hasPos) {
+      el.classList.add('active');
+      el.textContent = `🎯 Drift: flat · $${(s.collateral_free_usd||0).toFixed(2)}`;
+    } else if (base > 0) {
+      el.classList.add('long');
+      el.textContent = `🎯 LONG ${base.toFixed(3)} @ $${(s.sol_perp_mark||0).toFixed(2)} · ${(s.current_leverage||0).toFixed(1)}x`;
+    } else {
+      el.classList.add('short');
+      el.textContent = `🎯 SHORT ${Math.abs(base).toFixed(3)} @ $${(s.sol_perp_mark||0).toFixed(2)} · ${(s.current_leverage||0).toFixed(1)}x`;
+    }
+    el.title = [
+      `collateral total: $${(s.collateral_total_usd||0).toFixed(2)} (cap $${s.max_collateral_cap})`,
+      `collateral free:  $${(s.collateral_free_usd||0).toFixed(2)}`,
+      `leverage:         ${(s.current_leverage||0).toFixed(2)}x (cap ${s.max_leverage_cap}x)`,
+      `SOL-PERP base:    ${base.toFixed(4)}`,
+      `mark price:       $${(s.sol_perp_mark||0).toFixed(2)}`,
+      `funding/hr:       ${((s.funding_hourly||0)*100).toFixed(4)}%`,
+      `whitelist:        ${(s.whitelist||[]).join(', ')}`,
+    ].join('\n');
+  } catch(e) {
+    el.className = 'drift-badge err';
+    el.textContent = '🎯 Drift: err';
+    console.warn('refreshDrift', e);
+  }
+}
+
 /* ── SOL Fuel badge (v2.11.0-live) ── */
 async function refreshFuel() {
   const el = document.getElementById('solFuelBadge');
@@ -4340,6 +4430,21 @@ def api_sol_fuel():
         _rpc = _srpc.get_rpc()
         _w = _wm.load_wallet()
         return jsonify({'ok': True, 'fuel': _st.fuel_status(_rpc, _w)})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+
+@app.route('/api/drift/status', methods=['GET'])
+def api_drift_status():
+    """v2.12.0-live: Drift Protocol perps status (collateral, leverage, funding, posición)."""
+    try:
+        import sys as _sys
+        from pathlib import Path as _P
+        _ag = str(_P(__file__).parent.parent / 'agents')
+        if _ag not in _sys.path:
+            _sys.path.insert(0, _ag)
+        import drift_adapter as _da
+        return jsonify({'ok': True, 'status': _da.get_account_snapshot() or {}})
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e)}), 500
 

@@ -179,6 +179,47 @@ def validate_startup() -> list:
 
 
 # ══════════════════════════════════════════════════════════════════
+# Drift Protocol startup validation (v2.12.0-live)
+# ══════════════════════════════════════════════════════════════════
+def validate_drift_startup() -> list:
+    """Validate Drift prerequisites. Returns list of error strings (empty if all OK).
+    Only validates if DRIFT_ENABLED=true. Safe to call always."""
+    errors = []
+    if os.environ.get('DRIFT_ENABLED', 'false').lower() != 'true':
+        return errors
+    try:
+        import driftpy  # noqa: F401
+    except ImportError:
+        errors.append('DRIFT_ENABLED=true pero driftpy no instalado (pip install driftpy>=0.8.89)')
+        return errors
+    env = os.environ.get('DRIFT_ENV', '')
+    if env not in ('devnet', 'mainnet'):
+        errors.append(f"DRIFT_ENV debe ser devnet|mainnet, got '{env}'")
+    try:
+        max_lev = float(os.environ.get('DRIFT_MAX_LEVERAGE', 2))
+        if not 1.0 <= max_lev <= 10.0:
+            errors.append(f'DRIFT_MAX_LEVERAGE={max_lev} fuera de rango sano 1-10')
+    except (ValueError, TypeError):
+        errors.append('DRIFT_MAX_LEVERAGE debe ser numérico')
+    try:
+        max_col = float(os.environ.get('DRIFT_MAX_COLLATERAL_USD', 3))
+        if max_col <= 0:
+            errors.append('DRIFT_MAX_COLLATERAL_USD debe ser > 0')
+    except (ValueError, TypeError):
+        errors.append('DRIFT_MAX_COLLATERAL_USD debe ser numérico')
+    if not os.environ.get('DRIFT_MARKET_WHITELIST', '').strip():
+        errors.append('DRIFT_MARKET_WHITELIST vacío — al menos SOL requerido')
+    # Drift state file must exist (subaccount initialized via tools/drift_setup.py)
+    from pathlib import Path
+    state_file = Path(__file__).parent / 'data' / 'drift_state.json'
+    if not state_file.exists():
+        errors.append(
+            'drift_state.json no existe — run `python3 tools/drift_setup.py --env mainnet --deposit 3.0` primero'
+        )
+    return errors
+
+
+# ══════════════════════════════════════════════════════════════════
 # Status snapshot — para dashboard/API
 # ══════════════════════════════════════════════════════════════════
 def status_snapshot() -> dict:

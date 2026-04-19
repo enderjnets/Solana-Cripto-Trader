@@ -1464,7 +1464,40 @@ def real_open_position(signal: dict, portfolio: dict, market: dict = None) -> Op
         log.debug(f"real_open_position: LIVE_TRADING_ENABLED=false — {symbol} skip")
         return None
 
-    # Gate 2: direction
+    # v2.12.0-live: Drift routing — reemplaza Jupiter spot cuando activo.
+    # drift_adapter tiene sus propios 8 gates (feature flag, leverage cap, colateral, etc).
+    if _os.environ.get("DRIFT_ENABLED", "false").lower() == "true":
+        try:
+            import drift_adapter as _da
+            _pr = _da.open_perp_position(signal)
+            if _pr is None:
+                return None  # gate blocked, not a failure
+            if not _pr.success:
+                log.warning(f"real_open_position: drift open failed — {_pr.reason}")
+                return None
+            # Portfolio-compatible position dict with mode="drift"
+            from datetime import datetime, timezone
+            return {
+                "symbol": symbol,
+                "direction": _pr.direction,
+                "entry_price": _pr.entry_price,
+                "size_usd": _pr.size_sol * _pr.entry_price,
+                "tokens": _pr.size_sol,
+                "mode": "drift",
+                "leverage": _pr.leverage,
+                "signature": _pr.signature,
+                "status": "open",
+                "opened_at": datetime.now(timezone.utc).isoformat(),
+                "sl_price": signal.get("sl_price"),
+                "tp_price": signal.get("tp_price"),
+                "strategy": signal.get("strategy"),
+                "confidence": signal.get("confidence"),
+            }
+        except Exception as _e:
+            log.error(f"real_open_position: drift routing error: {_e}")
+            return None
+
+    # Gate 2: direction (Jupiter spot path — solo long)
     direction = signal.get("direction", "long")
     if direction != "long":
         log.warning(f"real_open_position: {symbol} direction={direction} — Jupiter solo long (spot)")
