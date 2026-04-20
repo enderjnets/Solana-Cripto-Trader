@@ -147,8 +147,21 @@ def estimate_open_position_pnl(pos: dict, current_price: float | None = None) ->
     }
 
 # ── Version & Changelog ──────────────────────────────────────────────────────
-VERSION = "2.12.6-live"
+VERSION = "2.12.7-live"
 CHANGELOG = [
+    {
+        "version": "2.12.7-live",
+        "date": "2026-04-19",
+        "title": "Phase A: whitelist expandida a JUP + ETH (3x superficie de oportunidad)",
+        "changes": [
+            "MINT_MAP expandido: JUP (JUPyiwrYJFsk...) + ETH Wormhole (7vfCXTUXx5WJ...). DECIMALS_MAP ya tenia entries (JUP=6, ETH=8).",
+            "TRADE_WHITELIST env: SOL → SOL,JUP,ETH. Ahora el bot puede ejecutar las 3 majors que el LLM recomienda con alta conviction.",
+            "Pre-deploy verify_mints.py: SOL 0.009% impact, JUP 0.000%, ETH 0.003% — todos con reverse routes OK. Promovido a tools/ como script permanente.",
+            "LIVE_MAX_POSITIONS=1 y LIVE_MAX_POSITION_USD=2 sin cambios — solo 1 posicion activa a la vez, bot escoge best signal entre SOL/JUP/ETH.",
+            "Motivacion: audit mostro que LLM generaba 4 long signals oversold_bounce (JUP 0.83/RSI 15.2, ETH 0.82/RSI 19.6, SOL 0.81/RSI 20.1, FARTCOIN 0.80/RSI 16.8) pero solo SOL ejecutaba. JUP tenia mayor conviction que SOL.",
+            "Phase B (Drift perps) deferido — se activa post-validacion 1 semana Phase A con criterios: 5+ trades completos, 0 orphans, 0 kill switches, P&L neutral/positivo.",
+        ]
+    },
     {
         "version": "2.12.6-live",
         "date": "2026-04-19",

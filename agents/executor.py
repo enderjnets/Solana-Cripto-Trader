@@ -1542,13 +1542,12 @@ def paper_update_positions(portfolio: dict, market: dict, history: list) -> list
 # Para paridad con paper (perps + leverage + shorts) ver branch drift-integration.
 
 MINT_MAP = {
-    # Majors líquidos en Solana — MINT addresses verificados mainnet
-    "SOL":  "So11111111111111111111111111111111111111112",   # wrapped SOL
-    # BTC/ETH/XRP requieren wrapped tokens (Wormhole/Portal) — agregar cuando
-    # se extienda TRADE_WHITELIST_STRICT más allá de SOL. Por ahora solo SOL.
-    # "BTC":  "<wBTC mint>",
-    # "ETH":  "<wETH mint>",
-    # "JUP":  "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
+    # v2.12.7-live: majors con route Jupiter verificado (0.00% impact en $2 trades)
+    "SOL":  "So11111111111111111111111111111111111111112",   # wrapped SOL, 9 decimals
+    "JUP":  "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",   # Jupiter, 6 decimals
+    "ETH":  "7vfCXTUXx5WJV5JADk17DUJ4ksgau7utNKj4b963voxs",   # Wormhole wETH (Portal), 8 decimals
+    # "BTC":  "3NZ9JMVBmGAqocybic2c7LQCJScmgsAZ6vQqTDzcqmJh",   # Wormhole wBTC — agregar post-validación JUP/ETH
+    # "XRP":  no tiene route en Jupiter Solana (liquidez insuficiente)
 }
 
 DECIMALS_MAP = {
