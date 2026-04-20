@@ -147,8 +147,21 @@ def estimate_open_position_pnl(pos: dict, current_price: float | None = None) ->
     }
 
 # ── Version & Changelog ──────────────────────────────────────────────────────
-VERSION = "2.12.4-live"
+VERSION = "2.12.5-live"
 CHANGELOG = [
+    {
+        "version": "2.12.5-live",
+        "date": "2026-04-19",
+        "title": "LLM optimization: reorder chain + strategy cache + position throttle",
+        "changes": [
+            "REMOVED GPT-5.4 from call_llm chain (port 18793 muerto, generaba 25 errors/30min). Sigue disponible via LLM_ALLOW_GPT5=true env var si lo reviven.",
+            "REORDERED chain: Claude Sonnet 4.6 (primary, OAuth Max) → MiniMax M2.7 (secondary) → Qwen 2.5 14B local (tertiary).",
+            "NEW ai_strategy cache: 3min + invalidacion por movimiento precio >=0.3%. Reuse signals_latest.json. Esperado: ~50% reduccion de strategy LLM calls en mercado rangebound.",
+            "NEW risk_manager throttle: skip LLM position_decisions si pnl_pct <0.5% AND distSL>3% AND distTP>3% AND lastEval<3min. Reuse cached decision. Esperado: ~60-70% reduccion cuando position calm.",
+            "Logs limpios: 0 GPT-5.4 errors por ciclo (vs 25+ antes). Latencia ~200ms menos por ciclo.",
+            "Estado actual al deploy: Claude 429 (rate limit) y MiniMax 529 (peak surge) intermitentes — Qwen local queda como respaldo. Chain recuperara primary cuando rate limits pasen.",
+        ]
+    },
     {
         "version": "2.12.4-live",
         "date": "2026-04-19",

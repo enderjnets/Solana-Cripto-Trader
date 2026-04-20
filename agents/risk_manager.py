@@ -818,6 +818,50 @@ Responde SOLO en JSON válido:
         }
 
 
+# v2.12.5-live position throttle: skip LLM eval si posición calm + última eval <3min
+_POSITION_EVAL_THROTTLE_SEC = 180    # 3 min
+_POSITION_CALM_PNL_BAND     = 0.005  # ±0.5% de pnl_pct fraccional
+_POSITION_CALM_SLTP_DIST    = 0.03   # 3% de distancia a SL o TP
+
+
+def _should_throttle_position_eval(pos: dict) -> tuple:
+    """Returns (throttle: bool, cached_decision: dict|None).
+    Skip LLM si: pnl_pct <0.5% AND distSL>3% AND distTP>3% AND lastDecision<180s."""
+    try:
+        import time as _t
+        pnl_pct_frac = abs(float(pos.get('pnl_pct', 0) or 0) / 100.0)
+        if pnl_pct_frac >= _POSITION_CALM_PNL_BAND:
+            return (False, None)
+        cp = float(pos.get('current_price', 0) or 0)
+        sl = float(pos.get('sl_price', 0) or 0)
+        tp = float(pos.get('tp_price', 0) or 0)
+        if cp > 0 and sl > 0 and tp > 0:
+            dist_sl = abs(cp - sl) / cp
+            dist_tp = abs(cp - tp) / cp
+            if dist_sl < _POSITION_CALM_SLTP_DIST or dist_tp < _POSITION_CALM_SLTP_DIST:
+                return (False, None)
+        # Check last decision age
+        if not DECISIONS_FILE.exists():
+            return (False, None)
+        data = json.loads(DECISIONS_FILE.read_text())
+        decisions = data.get('decisions', []) if isinstance(data, dict) else []
+        pos_id = pos.get('id')
+        from datetime import datetime
+        for d in reversed(decisions):
+            if d.get('position_id') != pos_id:
+                continue
+            ts = d.get('ts') or d.get('timestamp')
+            if not ts:
+                continue
+            age = _t.time() - datetime.fromisoformat(str(ts).replace('Z','+00:00')).timestamp()
+            if age < _POSITION_EVAL_THROTTLE_SEC:
+                return (True, d)
+            break
+    except Exception:
+        pass
+    return (False, None)
+
+
 def evaluate_position_decision(portfolio: dict, market: dict, research: dict) -> list:
     """
     Evalúa CADA posición abierta y genera una recomendación de acción.
@@ -843,6 +887,23 @@ def evaluate_position_decision(portfolio: dict, market: dict, research: dict) ->
 
     for pos in open_positions:
         symbol = pos["symbol"]
+
+        # v2.12.5-live: throttle — skip LLM si posición calm y reciente
+        _throttle, _cached = _should_throttle_position_eval(pos)
+        if _throttle and _cached:
+            log.info(f"   💾 {symbol}: throttled (calm, last eval <{_POSITION_EVAL_THROTTLE_SEC}s) — reuse: {_cached.get('action','HOLD')}")
+            decisions.append({
+                'symbol': symbol,
+                'action': _cached.get('action', 'HOLD'),
+                'confidence': float(_cached.get('confidence', 0.6)),
+                'score': _cached.get('score', 0),
+                'reasoning': 'Throttled (position calm + recent eval): ' + str(_cached.get('reasoning', ''))[:100],
+                'llm_reasoning': _cached.get('llm_reasoning', ''),
+                'llm_reasoning_lang': _cached.get('llm_reasoning_lang', 'es'),
+                'position_id': pos.get('id'),
+                'source': 'throttle_cache',
+            })
+            continue
         log.info(f"   🧠 Evaluando {symbol}...")
 
         # Step 1: Quantitative analysis

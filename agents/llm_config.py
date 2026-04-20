@@ -446,54 +446,52 @@ def call_gpt5(prompt: str, system: str = "", max_tokens: int = 2000) -> str:
 
 
 def call_llm(prompt: str, system: str = "", max_tokens: int = 2000) -> str:
-    """
-    LLM chain: GPT-5.4 → MiniMax M2.7 → Claude Sonnet 4.6 (tertiary).
-    GPT-5.4 via OpenClaw proxy (localhost:18793).
-    MiniMax M2.7 as reliable 2nd fallback, Claude Sonnet 4.6 as last resort.
+    """v2.12.5-live chain: Claude Sonnet 4.6 -> MiniMax M2.7 -> Qwen 2.5 14B local.
+
+    Removed GPT-5.4 from chain (port 18793 dead, generaba 25 errors/30min).
+    Optional: set LLM_ALLOW_GPT5=true env var to re-enable GPT-5.4 as pre-primary hedge.
     """
     if _cb_is_open():
         return None
 
-    # Try GPT-5.4 first (best reasoning for trading decisions)
-    result = call_gpt5(prompt, system, max_tokens)
-    if result and _is_valid_llm_response(result):
-        _cb_record_success()
-        print("    🧠 LLM: GPT-5.4 (primary)")
-        return result
-    if result:
-        print("    ⚠️ GPT-5.4: returned error-like content -- skipping to next provider")
+    # v2.12.5: optional GPT-5.4 hedge (off by default)
+    if _os_llm.environ.get('LLM_ALLOW_GPT5', 'false').lower() == 'true':
+        result = call_gpt5(prompt, system, max_tokens)
+        if result and _is_valid_llm_response(result):
+            _cb_record_success()
+            print("    LLM: GPT-5.4 (optional pre-primary)")
+            return result
 
-    # Fallback to MiniMax M2.7 (always available)
-    result = call_minimax(prompt, system, max_tokens)
-    if result and _is_valid_llm_response(result):
-        _cb_record_success()
-        print("    🧠 LLM: MiniMax M2.7 (fallback)")
-        return result
-    if result:
-        print("    ⚠️ MiniMax: returned error-like content -- skipping to next provider")
-
-    # Last resort: Claude Sonnet 4.6 via direct Anthropic API
+    # Primary: Claude Sonnet 4.6 via OAuth Max plan
     result = call_claude_sonnet(prompt, system, max_tokens)
     if result and _is_valid_llm_response(result):
         _cb_record_success()
-        print("    🧠 LLM: Claude Sonnet 4.6 (tertiary)")
+        print("    LLM: Claude Sonnet 4.6 (primary)")
         return result
     if result:
-        print("    ⚠️ Claude Sonnet: returned error-like content -- skipping to next provider")
+        print("    WARN Claude Sonnet: error-like content -- next provider")
 
-    # 4to fallback: Qwen 2.5 14B local via Ollama
+    # Secondary: MiniMax M2.7 via sk-cp- API
+    result = call_minimax(prompt, system, max_tokens)
+    if result and _is_valid_llm_response(result):
+        _cb_record_success()
+        print("    LLM: MiniMax M2.7 (secondary)")
+        return result
+    if result:
+        print("    WARN MiniMax: error-like content -- next provider")
+
+    # Tertiary: Qwen 2.5 14B local via Ollama
     result = call_qwen_local(prompt, system, max_tokens)
     if result and _is_valid_llm_response(result):
         _cb_record_success()
-        print("    \U0001f9e0 LLM: Qwen 2.5 14B local (4to fallback)")
+        print("    LLM: Qwen 2.5 14B local (tertiary)")
         return result
     if result:
-        print("    ⚠️ Qwen local: returned error-like content -- skipping")
+        print("    WARN Qwen local: error-like content -- skipping")
 
     _cb_record_failure()
-    print("    \u274c GPT-5.4 + MiniMax + Claude + Qwen all failed")
+    print("    ERR all 3 LLM providers failed (Claude + MiniMax + Qwen)")
     return None
-
 
 if __name__ == "__main__":
     print("🧪 Test: Claude Sonnet 4.6...")

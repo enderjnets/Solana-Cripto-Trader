@@ -165,9 +165,49 @@ def calculate_volatility(prices: list) -> Optional[float]:
 
 # ─── Generación de Señales con LLM ────────────────────────────────────────
 
+# v2.12.5-live strategy cache: evita re-llamar LLM si precio estable y cache <3min
+_SIGNAL_CACHE_SEC = int(_os_ai := 180)  # 3 min
+_SIGNAL_PRICE_THRESHOLD = 0.003          # 0.3% en 5min
+
+
+def _signals_cache_valid(signals_file, market) -> Optional[list]:
+    """Return cached signals list si cache fresh y ningún token movió >=0.3%."""
+    try:
+        import time as _t
+        if not signals_file.exists():
+            return None
+        age = _t.time() - signals_file.stat().st_mtime
+        if age >= _SIGNAL_CACHE_SEC:
+            return None
+        # Check price movement across tracked tokens
+        for tok_data in (market.get('tokens') or {}).values():
+            if not isinstance(tok_data, dict):
+                continue
+            chg = abs(float(tok_data.get('price_5min_change_pct', 0) or 0))
+            if chg >= _SIGNAL_PRICE_THRESHOLD:
+                return None  # significant move → re-evaluate
+        data = json.loads(signals_file.read_text())
+        sigs = data.get('signals', [])
+        if isinstance(sigs, list):
+            return sigs
+    except Exception:
+        pass
+    return None
+
+
 def generate_signals_with_llm(market: dict, research: dict, portfolio: dict) -> list:
     """Usa LLM para generar señales de trading."""
-    
+
+    # v2.12.5-live: cache hit — evita LLM call si precio estable y <3 min
+    _cached = _signals_cache_valid(SIGNALS_FILE, market)
+    if _cached is not None:
+        try:
+            import logging as _lg
+            _lg.getLogger(__name__).info(f"    💾 strategy cache hit ({len(_cached)} signals, <{_SIGNAL_CACHE_SEC}s, no price move ≥0.3%)")
+        except Exception:
+            pass
+        return _cached
+
     # Obtener tokens disponibles
     tokens_data = market.get("tokens", {})
     
