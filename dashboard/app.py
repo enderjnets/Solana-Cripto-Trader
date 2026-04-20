@@ -147,8 +147,19 @@ def estimate_open_position_pnl(pos: dict, current_price: float | None = None) ->
     }
 
 # ── Version & Changelog ──────────────────────────────────────────────────────
-VERSION = "2.12.5-live"
+VERSION = "2.12.6-live"
 CHANGELOG = [
+    {
+        "version": "2.12.6-live",
+        "date": "2026-04-19",
+        "title": "HOTFIX: emergency_close.py pre-flight check (orphan detection gap)",
+        "changes": [
+            "FIX: tools/emergency_close.py ahora hace pre-flight balance check antes del Jupiter swap. Antes llamaba Jupiter directo sin usar real_close_position, por lo que mi P3a fix (v2.12.3) no aplicaba — orphans disparaban 3 fails → kill switch.",
+            "Ahora: si wallet_sol - 0.005 reserve < position.tokens, marca entry como orphan y continue (NO cuenta como broadcast fail, NO activa kill switch).",
+            "Incident recovery: 2 positions reconciled (pnl +$0.0008 + +$0.0007 = +$0.0015 total).",
+            "Post-fix ambos flows (orchestrator executor + cron emergency_close) protegidos uniformemente.",
+        ]
+    },
     {
         "version": "2.12.5-live",
         "date": "2026-04-19",

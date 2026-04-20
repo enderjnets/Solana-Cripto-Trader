@@ -171,6 +171,19 @@ def close_all_live_positions(dry_run: bool = False) -> dict:
         max_slippage = int(os.environ.get('MAX_SLIPPAGE_BPS', 200))   # wider on emergency
 
         log.warning(f"Emergency close: {sym} {tokens:.6f} → USDC (slippage {max_slippage}bps)")
+        # v2.12.6 pre-flight: skip orphan (position claims more tokens than wallet holds)
+        try:
+            _wallet_sol = rpc.get_balance_sol(w.pubkey) if sym == "SOL" else None
+            _FEE_RESERVE = 0.005
+            if _wallet_sol is not None and tokens > (_wallet_sol - _FEE_RESERVE):
+                log.error(f"🛑 ORPHAN {sym}: wallet has {_wallet_sol:.6f} SOL but position claims {tokens:.6f} — skipping broadcast")
+                entry['status'] = 'orphan_insufficient_onchain_balance'
+                entry['wallet_sol'] = _wallet_sol
+                entry['expected_tokens'] = tokens
+                result['positions'].append(entry)
+                continue  # orphan handled: NOT counted as broadcast failure
+        except Exception as _pf_err:
+            log.warning(f"pre-flight check {sym} failed (non-fatal): {_pf_err}")
         try:
             res = swap.execute_swap(
                 input_mint=mint,
