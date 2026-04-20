@@ -1452,6 +1452,15 @@ def paper_update_positions(portfolio: dict, market: dict, history: list) -> list
                     portfolio["losses"] = portfolio.get("losses", 0) + 1
                 _emoji = "✅" if _is_win else "❌"
                 log.info(f"  {_emoji} [{close_reason}] {symbol} LIVE | P&L: ${_cr['pnl_real_usd']:+.4f}")
+                # v2.12.9 fix: append to history so trade_history.json refleja SL/TP closes
+                history.append({**pos})
+                closed.append(pos)
+                # Paperclip: track trade close (fire-and-forget)
+                if _PAPERCLIP:
+                    try:
+                        on_trade_closed(pos)
+                    except Exception:
+                        pass
                 continue  # skip paper accounting below
             pos["status"] = "closed"
             pos["close_time"] = datetime.now(timezone.utc).isoformat()

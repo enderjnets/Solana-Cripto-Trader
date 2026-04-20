@@ -608,7 +608,8 @@ def _quant_score(pos: dict, market: dict, research: dict) -> dict:
             reasons.append(f"RR_BUENO ({rr_remaining:.2f}x)")
 
     # ── Factor 3: Horas abierto ───────────────────────────────────────────
-    opened_at_str = pos.get("opened_at", "")
+    # v2.12.9 fix: positions usan campo "open_time", no "opened_at"
+    opened_at_str = pos.get("open_time") or pos.get("opened_at", "")
     hours_open = 0
     if opened_at_str:
         try:

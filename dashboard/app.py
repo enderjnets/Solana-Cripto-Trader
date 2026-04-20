@@ -147,8 +147,20 @@ def estimate_open_position_pnl(pos: dict, current_price: float | None = None) ->
     }
 
 # ── Version & Changelog ──────────────────────────────────────────────────────
-VERSION = "2.12.8-live"
+VERSION = "2.12.9-live"
 CHANGELOG = [
+    {
+        "version": "2.12.9-live",
+        "date": "2026-04-20",
+        "title": "FIX: hours_open=0 bug + missing trade_history append on live normal close",
+        "changes": [
+            "FIX 1 (risk_manager.py:611): _quant_score buscaba pos.get(opened_at) pero portfolio usa open_time. Consecuencia: hours_open siempre 0 → LLM prompt decia Horas abierta: 0.0h → LLM decidia HOLD creyendo posicion recien abierta aunque llevaba 10h. Ahora fallback a open_time.",
+            "FIX 2 (executor.py B2c): mi patch v2.12.1 live normal close (SL/TP/trailing/time) hacia continue ANTES del history.append paper. Consecuencia: trades cerrados por SL/TP no aparecian en trade_history.json ni en el dashboard. Capital_usd portfolio diverge de wallet real. Ahora append({**pos}) + closed.append(pos) + on_trade_closed Paperclip.",
+            "Impact del bug de horas: quant score factor MUY_ANTIGUA/ANTIGUA nunca disparaba. SL_PELIGRO logic (SL cerca + pos vieja) nunca activaba. LLM subestimaba decay de posicion -> HOLD excesivo.",
+            "Impact del history bug: usuario veia posiciones cerradas pero dashboard y total_trades desync. Reconcile state sincronizado (capital_usd $4.03 -> $8.04 post-fix).",
+            "Defense-in-depth cerrada v2.12.3 + v2.12.6 + v2.12.8 + v2.12.9 cubren ahora: open tracking, pre-flight, orphan detection, reconcile nativo, persist inmediato, history append, hours_open fix.",
+        ]
+    },
     {
         "version": "2.12.8-live",
         "date": "2026-04-19",
