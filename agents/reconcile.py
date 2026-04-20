@@ -155,9 +155,16 @@ def check_reconciliation(portfolio_path: Optional[Path] = None,
             continue
 
         try:
-            actual_tokens = rpc.get_token_balance(wallet_pubkey, mint)
+            # v2.12.8 native SOL fix: Jupiter entrega SOL NATIVO (no wSOL SPL).
+            # Para positions SOL, comparar contra native balance menos fuel reserve.
+            if sym == 'SOL':
+                _native_sol = rpc.get_balance_sol(wallet_pubkey)
+                _FUEL_RESERVE = 0.010  # reserve for fees, not counted as position backing
+                actual_tokens = max(0, _native_sol - _FUEL_RESERVE)
+            else:
+                actual_tokens = rpc.get_token_balance(wallet_pubkey, mint)
         except Exception as e:
-            log.warning(f"reconcile: {sym} get_token_balance failed: {e}")
+            log.warning(f"reconcile: {sym} balance check failed: {e}")
             continue
 
         # Comparar

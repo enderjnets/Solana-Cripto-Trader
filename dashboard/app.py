@@ -147,8 +147,20 @@ def estimate_open_position_pnl(pos: dict, current_price: float | None = None) ->
     }
 
 # ── Version & Changelog ──────────────────────────────────────────────────────
-VERSION = "2.12.7-live"
+VERSION = "2.12.8-live"
 CHANGELOG = [
+    {
+        "version": "2.12.8-live",
+        "date": "2026-04-19",
+        "title": "HOTFIX: reconcile false 100% + immediate portfolio persist post-swap",
+        "changes": [
+            "FIX reconcile.py: para positions SOL ahora compara native SOL balance (- fuel reserve 0.01) vs position.tokens, no el SPL wSOL balance. Jupiter swap entrega SOL NATIVO al unwrap, no wrapped SOL — comparar SPL siempre daba 0 → 100% discrepancy FALSA → kill switch on every legit SOL position.",
+            "FIX real_open_position + real_close_position: persist inmediato de portfolio.json tras swap on-chain exitoso (atomic write via .tmp + replace). Previene state loss si orchestrator muere entre swap y reporter stage 6 save.",
+            "Root cause de 3 orphans detectados hoy: close on-chain ejecutaba OK pero portfolio no persistía hasta stage 6 (reporter). Si el proceso moría entre stage 4 (executor close) y stage 6, state se perdía — resultando en position ghost que reconcile interpretaba como orphan.",
+            "Recovery aplicado: 3rd orphan del día (SOL_live_1776654770, pnl +$0.0021) movido a history via tools/reconcile_both_orphans.py. Capital $10.03 USDC sincronizado con wallet on-chain.",
+            "Fixes compuestos v2.12.3 + v2.12.6 + v2.12.8: defense-in-depth completa — pre-flight check evita wasted broadcasts + orphan detection gracefully quarantine + persist inmediato post-swap + reconcile correcto.",
+        ]
+    },
     {
         "version": "2.12.7-live",
         "date": "2026-04-19",

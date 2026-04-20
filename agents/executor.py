@@ -1726,6 +1726,16 @@ def real_open_position(signal: dict, portfolio: dict, market: dict = None) -> Op
         log.error(f"🛑 post-swap capital tracking error: ${portfolio.get('capital_usd',0):.2f} - ${size_usd:.2f} < 0 (swap ya ejecutado, ajustando a 0)")
     portfolio["capital_usd"] = max(0.0, _new_cap)
 
+    # v2.12.8 immediate persist en open también (mismo motivo que close)
+    try:
+        from pathlib import Path as _P
+        _pf_path = _P(__file__).parent / "data" / "portfolio.json"
+        _tmp_path = _pf_path.with_suffix(".json.tmp")
+        _tmp_path.write_text(json.dumps(portfolio, indent=2))
+        _tmp_path.replace(_pf_path)
+    except Exception as _ps_err:
+        log.warning(f"    immediate persist (open) failed: {_ps_err}")
+
     log.info(f"✅ LIVE TRADE OPENED: {symbol} ${size_usd:.2f} @ ${real_entry_price:.6f}")
     log.info(f"   tx: {result.signature}")
     log.info(f"   tokens: {tokens_received:.6f} | impact: {result.price_impact_pct:.4f}%")
@@ -1812,6 +1822,17 @@ def real_close_position(pos: dict, portfolio: dict) -> Optional[dict]:
     pnl_real_usd = usdc_received - margin
     exit_price = usdc_received / tokens if tokens else 0.0
     portfolio["capital_usd"] = round(portfolio.get("capital_usd", 0) + usdc_received, 4)
+    # v2.12.8 immediate persist: save portfolio inmediatamente tras swap on-chain exitoso.
+    # Previene state loss si orchestrator muere entre close swap y reporter save al final del cycle.
+    try:
+        from pathlib import Path as _P
+        _pf_path = _P(__file__).parent / "data" / "portfolio.json"
+        _tmp_path = _pf_path.with_suffix(".json.tmp")
+        _tmp_path.write_text(json.dumps(portfolio, indent=2))
+        _tmp_path.replace(_pf_path)  # atomic swap
+        log.info(f"    💾 portfolio persisted immediately post-close")
+    except Exception as _ps_err:
+        log.error(f"    ⚠️ immediate persist failed (cycle save will retry): {_ps_err}")
     log.info(f"✅ LIVE CLOSE OK: {symbol} → ${usdc_received:.4f} USDC | P&L ${pnl_real_usd:+.4f}")
     log.info(f"   tx: {result.signature}")
     return {
