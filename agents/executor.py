@@ -388,6 +388,25 @@ def get_slippage(symbol: str) -> float:
         return SLIPPAGE_MEME
     return SLIPPAGE_TIERS.get(symbol, SLIPPAGE_DEFAULT)
 
+
+def get_max_slippage_bps(symbol: str, default: int | None = None) -> int:
+    """Per-symbol max slippage override for Jupiter swaps (v2.12.17).
+
+    Reads SLIPPAGE_BPS_<SYMBOL> env var (e.g. SLIPPAGE_BPS_ETH=800) first,
+    falls back to MAX_SLIPPAGE_BPS global (default 100bps). Decoupled from
+    get_slippage() which is for fee estimation only.
+    """
+    import os as _os
+    sym_override = _os.environ.get(f"SLIPPAGE_BPS_{symbol.upper()}")
+    if sym_override:
+        try:
+            return int(sym_override)
+        except ValueError:
+            pass
+    if default is not None:
+        return default
+    return int(_os.environ.get("MAX_SLIPPAGE_BPS", 100))
+
 # ─── Carga / Guardado de Estado ──────────────────────────────────────────────
 
 def load_portfolio() -> dict:
@@ -1683,7 +1702,7 @@ def real_open_position(signal: dict, portfolio: dict, market: dict = None) -> Op
     # Execute swap USDC → symbol_token
     rpc = _srpc.get_rpc()
     swap = _jswap.JupiterSwap(wallet=w, rpc=rpc)
-    max_slippage = int(_os.environ.get("MAX_SLIPPAGE_BPS", 100))
+    max_slippage = get_max_slippage_bps(symbol)  # v2.12.17: per-symbol override
 
     log.info(f"🔴 LIVE SWAP iniciando: {symbol} ${size_usd:.2f} USDC → {symbol} (slippage max {max_slippage}bps)")
     result = swap.execute_swap(
@@ -1823,7 +1842,7 @@ def real_close_position(pos: dict, portfolio: dict) -> Optional[dict]:
     try:
         rpc = _srpc.get_rpc()
         swap = _jswap.JupiterSwap(wallet=w, rpc=rpc)
-        max_slippage = int(_os.environ.get("MAX_SLIPPAGE_BPS", 100))
+        max_slippage = get_max_slippage_bps(symbol)  # v2.12.17: per-symbol override
         # v2.12.10: closes son time-critical (position on-chain abierta) — priority veryHigh
         log.info(f"🔴 LIVE CLOSE SWAP: {symbol} {tokens:.6f} → USDC (slippage max {max_slippage}bps, priority=veryHigh)")
         result = swap.execute_swap(

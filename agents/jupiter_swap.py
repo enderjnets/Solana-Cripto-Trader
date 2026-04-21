@@ -284,15 +284,27 @@ class JupiterSwap:
         if not confirmed:
             result.error = "tx_not_confirmed" if sig else "broadcast_failed"
 
-        # v2.12.10 A2: fresh-quote retry on slippage error (6024)
+        # v2.12.10 A2 / v2.12.17: fresh-quote retry on slippage error (6024) with escalating ladder
         _broadcast_err = getattr(self, "_last_broadcast_error", "") or ""
         if (not confirmed and not sig
                 and ("Custom(6024)" in _broadcast_err or "0x1788" in _broadcast_err
                      or "slippage" in _broadcast_err.lower())):
-            # v2.12.11: fresh-quote retry 500bps (Wormhole wETH en vol alta necesita más)
-            log.warning(f"🔄 fresh-quote retry after slippage fail (500bps, {priority_fee_level})")
-            fresh_quote = self.get_quote(input_mint, output_mint, amount_lamports, slippage_bps=500)
-            if fresh_quote:
+            # v2.12.17: escalating retry ladder (caps at 2000bps = 20% safety)
+            # ETH Wormhole thin liquidity → needs bigger range than SOL/JUP
+            retry_bps_ladder = [
+                max(500, min(slippage_bps * 2, 2000)),
+                min(max(slippage_bps * 8, 1500), 2000),
+            ]
+            # Dedup + skip values not above initial
+            seen = set()
+            retry_bps_ladder = [b for b in retry_bps_ladder
+                                if b > slippage_bps and not (b in seen or seen.add(b))]
+
+            for retry_bps in retry_bps_ladder:
+                log.warning(f"🔄 fresh-quote retry ({retry_bps}bps, {priority_fee_level})")
+                fresh_quote = self.get_quote(input_mint, output_mint, amount_lamports, slippage_bps=retry_bps)
+                if not fresh_quote:
+                    continue
                 result.raw_quote = fresh_quote
                 result.in_amount = int(fresh_quote.get("inAmount", 0))
                 result.out_amount = int(fresh_quote.get("outAmount", 0))
@@ -300,16 +312,21 @@ class JupiterSwap:
                 swap_tx_b64_2 = self.build_swap_transaction(fresh_quote,
                                                              priority_fee_microlamports=priority_fee,
                                                              priority_level=_jup_level)
-                if swap_tx_b64_2:
-                    signed_tx_b64_2 = self.sign_transaction(swap_tx_b64_2)
-                    if signed_tx_b64_2:
-                        sig2, confirmed2 = self.broadcast_and_confirm(signed_tx_b64_2)
-                        if confirmed2:
-                            log.info(f"    ✅ fresh-quote retry succeeded (sig {str(sig2)[:16]}...)")
-                            result.signature = sig2
-                            result.confirmed = True
-                            result.error = None
-                        else:
-                            log.error(f"    ❌ fresh-quote retry also failed: {getattr(self,'_last_broadcast_error','')[:200]}")
+                if not swap_tx_b64_2:
+                    continue
+                signed_tx_b64_2 = self.sign_transaction(swap_tx_b64_2)
+                if not signed_tx_b64_2:
+                    continue
+                sig2, confirmed2 = self.broadcast_and_confirm(signed_tx_b64_2)
+                if confirmed2:
+                    log.info(f"    ✅ fresh-quote retry succeeded at {retry_bps}bps (sig {str(sig2)[:16]}...)")
+                    result.signature = sig2
+                    result.confirmed = True
+                    result.error = None
+                    break
+                else:
+                    log.warning(f"    ❌ retry at {retry_bps}bps failed: {getattr(self,'_last_broadcast_error','')[:150]}")
+            else:
+                log.error(f"    ❌ all {len(retry_bps_ladder)} fresh-quote retries exhausted")
 
         return result

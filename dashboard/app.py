@@ -147,8 +147,21 @@ def estimate_open_position_pnl(pos: dict, current_price: float | None = None) ->
     }
 
 # ── Version & Changelog ──────────────────────────────────────────────────────
-VERSION = "2.12.16-live"
+VERSION = "2.12.17-live"
 CHANGELOG = [
+    {
+        "version": "2.12.17-live",
+        "date": "2026-04-21",
+        "title": "Per-symbol slippage config + escalating retry ladder — fix ETH close-loop",
+        "changes": [
+            "ROOT CAUSE v2.12.16 post-audit: ETH Wormhole (bridged token, thin liquidity) fallaba Jupiter close con error 6024 (slippage exceeded) usando MAX_SLIPPAGE_BPS=100 global. Fresh-quote retry hardcoded 500bps tampoco pasaba. 3 fails consecutivos habrian disparado kill switch.",
+            "FIX sistemico: agents/executor.py nuevo helper get_max_slippage_bps(symbol) lee SLIPPAGE_BPS_<SYMBOL> env var (ej SLIPPAGE_BPS_ETH=800) con fallback a MAX_SLIPPAGE_BPS global. Aplica a entry y close swaps.",
+            "FIX retry ladder: agents/jupiter_swap.py fresh-quote retry ahora escala progresivamente max(500, slippage_bps*2) -> min(max(1500, slippage_bps*8), 2000bps). Cap absoluto 2000bps por seguridad.",
+            ".env: SLIPPAGE_BPS_ETH=800 agregado. ETH close ahora usa ladder 800 -> 1600 -> 2000bps. SOL/JUP mantienen ladder 100 -> 500 -> 1500bps.",
+            "CLEANUP: sweep JUP residue 0.107 tokens ($0.018) on-chain via tools/sweep_token.py. Wallet libre de dust.",
+            "Audit confirmado: bot estable post-deploy, LLM decide HOLD ETH con R/R 2.82x, close_failures=1 (lejos del kill switch threshold=3), HB fresh, no error spam. Close de ETH usara 800bps al proximo trigger natural (LLM sell o SL/TP).",
+        ]
+    },
     {
         "version": "2.12.16-live",
         "date": "2026-04-21",
