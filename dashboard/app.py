@@ -147,8 +147,20 @@ def estimate_open_position_pnl(pos: dict, current_price: float | None = None) ->
     }
 
 # ── Version & Changelog ──────────────────────────────────────────────────────
-VERSION = "2.12.15-live"
+VERSION = "2.12.16-live"
 CHANGELOG = [
+    {
+        "version": "2.12.16-live",
+        "date": "2026-04-21",
+        "title": "Multi-orphan reconcile tool + recovery de SOL+JUP del kill switch loop",
+        "changes": [
+            "Bot se detuvo 08:45 MDT por kill switch auto-disparado tras 3 posiciones abiertas (SOL+JUP+ETH) con discrepancias vs wallet. Causa raiz: DNS flap de token.jup.ag impidio persistir los close-tx al portfolio.json tras trailing SL.",
+            "NEW: tools/reconcile_all_orphans.py (v2.12.16) — generaliza reconcile_both_orphans.py para manejar N orphans. Flags --dry-run (audit sin escribir) y --limit N (default 100, antes 30) para ventana de getSignaturesForAddress. Token-mint verification por posicion evita matchear el mismo close tx a multiples orphans.",
+            "FIX: bug de total_trades counter que no incrementaba tras reconcile.",
+            "FIX: auto-backup de portfolio.json y trade_history.json a .bak_<epoch> antes de escribir en modo live.",
+            "RECOVERY: 2 orphans reconciliadas (SOL +$0.0072, JUP +$0.0048); ETH correctamente identificada como no-orphan (0.00086215 on-chain match portfolio). Bot relanzado, nueva posicion SOL abierta en primer ciclo post-recovery.",
+        ]
+    },
     {
         "version": "2.12.15-live",
         "date": "2026-04-21",
