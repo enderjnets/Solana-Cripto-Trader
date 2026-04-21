@@ -147,8 +147,19 @@ def estimate_open_position_pnl(pos: dict, current_price: float | None = None) ->
     }
 
 # ── Version & Changelog ──────────────────────────────────────────────────────
-VERSION = "2.12.10-live"
+VERSION = "2.12.11-live"
 CHANGELOG = [
+    {
+        "version": "2.12.11-live",
+        "date": "2026-04-21",
+        "title": "Tune fresh-quote retry slippage 200→500bps (Wormhole wETH needs more)",
+        "changes": [
+            "First v2.12.10 live test: ETH close fresh-quote retry at 200bps STILL failed Jupiter 6024. Manual sweep at 500bps succeeded immediately (pnl +$0.008).",
+            "Raise retry slippage 200→500bps en jupiter_swap.execute_swap fresh-quote path. Wormhole wETH spread puede ser >2% en volatilidad.",
+            "Infra v2.12.10 works as designed — this is just parameter tuning.",
+            "Recovery aplicado: ETH position manual-swept (tx 2MdfvghndaTE...) + marked closed in trade_history.",
+        ]
+    },
     {
         "version": "2.12.10-live",
         "date": "2026-04-20",

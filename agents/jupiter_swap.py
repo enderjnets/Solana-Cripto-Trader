@@ -289,8 +289,9 @@ class JupiterSwap:
         if (not confirmed and not sig
                 and ("Custom(6024)" in _broadcast_err or "0x1788" in _broadcast_err
                      or "slippage" in _broadcast_err.lower())):
-            log.warning(f"🔄 fresh-quote retry after slippage fail (200bps, {priority_fee_level})")
-            fresh_quote = self.get_quote(input_mint, output_mint, amount_lamports, slippage_bps=200)
+            # v2.12.11: fresh-quote retry 500bps (Wormhole wETH en vol alta necesita más)
+            log.warning(f"🔄 fresh-quote retry after slippage fail (500bps, {priority_fee_level})")
+            fresh_quote = self.get_quote(input_mint, output_mint, amount_lamports, slippage_bps=500)
             if fresh_quote:
                 result.raw_quote = fresh_quote
                 result.in_amount = int(fresh_quote.get("inAmount", 0))
