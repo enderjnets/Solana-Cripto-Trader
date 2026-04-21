@@ -147,8 +147,20 @@ def estimate_open_position_pnl(pos: dict, current_price: float | None = None) ->
     }
 
 # ── Version & Changelog ──────────────────────────────────────────────────────
-VERSION = "2.12.14-live"
+VERSION = "2.12.15-live"
 CHANGELOG = [
+    {
+        "version": "2.12.15-live",
+        "date": "2026-04-21",
+        "title": "UX: surface LLM eval timestamp + pnl at eval — elimina confusion dashboard vs LLM",
+        "changes": [
+            "User reporto: dashboard JUP header -0.34% (losing) vs LLM text 'ganadora +0.49%'. Investigacion: ambos NET correctos, pero calculados con precio de momentos distintos (live vs cycle-cached, ~60s gap).",
+            "Fix UX: /api/ai-thinking ahora incluye llm_evaluated_at + llm_pnl_pct_at_eval + llm_pnl_usd_at_eval por posicion (leidos de position_decisions.json, ya poblados por v2.12.12 fix).",
+            "Frontend AI panel: nueva linea meta 'Evaluado hace Xm · LLM vio pnl Y%' debajo del RAZONAMIENTO DEL LLM. Si delta live vs eval > 0.2%: warning 'precio movio Z% desde analisis'. Si eval > 5min: warning 'eval antigua'.",
+            "Sin cambios backend/trading. LLM prompt sigue recibiendo pnl correct del ciclo (v2.12.12 NET). Dashboard header sigue fresh con live price (user sabe valor actual).",
+            "User ahora entiende por que los dos numeros pueden diferir: tiempo transcurrido + movimiento de precio intercycle.",
+        ]
+    },
     {
         "version": "2.12.14-live",
         "date": "2026-04-21",
@@ -971,6 +983,11 @@ DASHBOARD_HTML = r"""
   /* LLM reasoning block */
   .ait-llm-block { grid-column:1/-1; background:rgba(88,166,255,0.04); border:1px solid rgba(88,166,255,0.15); border-radius:8px; padding:12px 14px; }
   .ait-llm-title { font-size:10px; font-weight:700; color:var(--blue); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px; display:flex; align-items:center; gap:6px; }
+  /* v2.12.15: LLM eval metadata */
+  .ait-eval-meta { font-size:11px; color:var(--text2); margin-bottom:8px; padding:6px 10px; background:var(--bg3); border-radius:6px; border-left:2px solid #8957e5; }
+  .ait-eval-meta .ait-stale { color:#d29922; font-weight:600; }
+  .ait-eval-meta .ait-drift { color:#f0883e; font-weight:600; }
+
   .ait-llm-text { font-size:12px; color:var(--text); line-height:1.7; white-space:pre-wrap; }
   /* guardrails */
   .ait-guardrail { font-size:11px; color:#f85149; background:rgba(248,81,73,0.08); border:1px solid rgba(248,81,73,0.2); border-radius:6px; padding:4px 10px; display:flex; align-items:center; gap:6px; }
@@ -2503,6 +2520,20 @@ function renderAIThinking(d) {
         })()}
         <div class="ait-llm-block">
           <div class="ait-llm-title">${T('aitLlmTitle')}${(p.llm_reasoning_lang||'es')!==currentLang?' ('+(p.llm_reasoning_lang||'es').toUpperCase()+')':''} <span style="color:var(--text2);font-weight:400;text-transform:none;">${p.llm_source ? '· ' + p.llm_source : ''}</span></div>
+          ${(function(){
+              // v2.12.15: LLM eval metadata — explica delta entre header (live) y LLM text (cycle-stale)
+              if (!p.llm_evaluated_at) return '';
+              const evalTs = Date.parse(p.llm_evaluated_at);
+              if (isNaN(evalTs)) return '';
+              const ageSec = Math.max(0, Math.floor((Date.now() - evalTs) / 1000));
+              const ageStr = ageSec < 60 ? ageSec+'s' : (ageSec<3600 ? Math.floor(ageSec/60)+'m'+(ageSec%60)+'s' : Math.floor(ageSec/3600)+'h');
+              const llmPnl = (p.llm_pnl_pct_at_eval || 0);
+              const livePnl = (p.pnl_pct || 0);
+              const delta = Math.abs(livePnl - llmPnl);
+              const staleWarn = ageSec > 300 ? ' <span class="ait-stale">· ⚠ eval antigua</span>' : '';
+              const driftWarn = delta > 0.2 ? ' <span class="ait-drift">· precio movió '+(livePnl - llmPnl >= 0 ? '+' : '')+(livePnl - llmPnl).toFixed(2)+'% desde análisis</span>' : '';
+              return '<div class="ait-eval-meta">Evaluado hace '+ageStr+' · LLM vio pnl '+(llmPnl>=0?'+':'')+llmPnl.toFixed(2)+'%'+staleWarn+driftWarn+'</div>';
+          })()}
           <div class="ait-llm-text">${p.llm_reasoning && p.llm_reasoning.length > 15 && !p.llm_reasoning.includes('workdir:') ? escHtml(p.llm_reasoning) : '<span style="color:var(--text2);font-style:italic;">' + T('aitLlmAnalyzing') + '</span>'}</div>
         </div>
       </div>
@@ -4111,6 +4142,10 @@ def api_ai_thinking():
             'dist_tp_pct':  safe_float(dec.get('dist_tp_pct', 0)),
             'rr_remaining': safe_float(dec.get('rr_remaining', 0)),
             'hours_open':   safe_float(dec.get('hours_open', 0)),
+            # v2.12.15: surface LLM eval freshness — explica por qué pnl mostrado puede diferir del header
+            'llm_evaluated_at':    dec.get('evaluated_at') or dec.get('ts') or '',
+            'llm_pnl_pct_at_eval': safe_float(dec.get('pnl_pct', 0)),
+            'llm_pnl_usd_at_eval': safe_float(dec.get('pnl_usd', 0)),
         })
 
     # Wild mode chains with last decision
