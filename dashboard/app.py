@@ -147,8 +147,21 @@ def estimate_open_position_pnl(pos: dict, current_price: float | None = None) ->
     }
 
 # ── Version & Changelog ──────────────────────────────────────────────────────
-VERSION = "2.12.11-live"
+VERSION = "2.12.12-live"
 CHANGELOG = [
+    {
+        "version": "2.12.12-live",
+        "date": "2026-04-21",
+        "title": "FIX: unificar pos.pnl_usd a NET (post-fees) — elimina discrepancia dashboard vs LLM",
+        "changes": [
+            "User reporto: dashboard JUP header muestra -1.14% (losing) pero LLM razonamiento dice +0.39% (ganadora). Mismo fenomeno con ETH.",
+            "Root cause: paper_update_positions guardaba GROSS pnl_usd en portfolio (solo price delta). Dashboard /api/positions calculaba NET aparte (gross - fee_entry - fee_exit_est). LLM leia pos.pnl_usd directo = GROSS.",
+            "Fix executor.py paper_update_positions: deducir fee_entry + fee_exit_est al escribir pos.pnl_usd. Mantiene pos.gross_pnl_usd para audit.",
+            "Impact: LLM, quant_score, reporter, dashboard ahora leen el mismo NET pnl — single source of truth. Decisiones HOLD/CLOSE se basan en P&L realizable (lo que el user recuperaría si cierra ahora).",
+            "Ejemplo con JUP: entry 0.1696, current 0.1702, notional $2. Gross +$0.0077 (+0.39%). Fee_entry $0.002, fee_exit_est $0.004 → Net pnl = -$0.001 (-0.05% sobre margen).",
+            "Los SL/TP thresholds (pnl_pct > 12%, < -8%) siguen funcionando — solo el numero es mas preciso ahora.",
+        ]
+    },
     {
         "version": "2.12.11-live",
         "date": "2026-04-21",

@@ -1134,13 +1134,26 @@ def paper_update_positions(portfolio: dict, market: dict, history: list) -> list
         # P&L = movimiento de precio * notional + funding acumulado
         pnl_from_price = notional * price_pnl_pct
         funding_total = pos.get("funding_accumulated", 0)
-        pnl_usd = pnl_from_price + funding_total
+        gross_pnl_usd = pnl_from_price + funding_total
+
+        # v2.12.12 net pnl: descontar fees entry + exit_est para consistency con dashboard.
+        # Antes: pos.pnl_usd era GROSS (solo price delta). Dashboard /api/positions calculaba
+        # NET aparte → discrepancia: LLM veía +0.39% "ganadora" cuando dashboard mostraba -1.14%.
+        # Ahora todos los consumidores (LLM, dashboard, quant, reporter) leen el mismo NET.
+        fee_entry = float(pos.get("fee_entry", 0))
+        try:
+            fee_exit_est = notional * (TAKER_FEE + get_slippage(pos["symbol"]))
+        except Exception:
+            fee_exit_est = notional * 0.001  # fallback conservador
+        pnl_usd = gross_pnl_usd - fee_entry - fee_exit_est
 
         # P&L % relativo al MARGEN (no al notional) — refleja retorno real del trader
         pnl_pct_on_margin = (pnl_usd / margin * 100) if margin > 0 else 0
 
         pos["pnl_usd"] = round(pnl_usd, 4)
         pos["pnl_pct"] = round(pnl_pct_on_margin, 4)
+        pos["gross_pnl_usd"] = round(gross_pnl_usd, 4)   # keep gross for audit/debug
+        pos["fee_exit_est"] = round(fee_exit_est, 4)
 
         # ─── Verificar LIQUIDACIÓN (Drift Protocol) ─────────────────────
         liq_price = pos.get("liquidation_price", 0)
