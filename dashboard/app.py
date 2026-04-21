@@ -3351,7 +3351,7 @@ def api_stats():
     # Streaks + best/worst
     max_win_streak = max_loss_streak = cur_win = cur_loss = 0
     best = worst = 0.0
-    closed_sorted = sorted(closed, key=lambda t: t.get("open_time", ""))
+    closed_sorted = sorted(closed, key=lambda t: (t.get("open_time") or ""))
     for t in closed_sorted:
         p = safe_float(t.get("pnl_usd", 0))
         best = max(best, p)
