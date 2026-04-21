@@ -147,8 +147,19 @@ def estimate_open_position_pnl(pos: dict, current_price: float | None = None) ->
     }
 
 # ── Version & Changelog ──────────────────────────────────────────────────────
-VERSION = "2.12.12-live"
+VERSION = "2.12.13-live"
 CHANGELOG = [
+    {
+        "version": "2.12.13-live",
+        "date": "2026-04-21",
+        "title": "FIX ROOT CAUSE: emergency_close.py now persists portfolio after on-chain close",
+        "changes": [
+            "Root cause orphan pattern identificado: tools/emergency_close.py (cron every min) cerraba positions via Jupiter OK on-chain pero NO actualizaba portfolio.json. Next orchestrator cycle veia position todavia 'open', reconcile detectaba mismatch wallet vs position.tokens → 100% discrepancy → kill switch.",
+            "Fix: emergency_close.py ahora on Jupiter swap success: (1) marca pos closed en portfolio.json, (2) credita usdc_received a capital_usd, (3) mueve pos a trade_history con tx_signature_close, (4) incrementa total_trades/wins/losses.",
+            "Manual recovery: 2 orphan positions (JUP + SOL del cycle 00:22 UTC) movidas a history con pnl $0 estimado (tx close irrecoverable). capital_usd resynced con wallet $8.06.",
+            "Bot ahora capaz de cerrar positions JUP/ETH via emergency cron sin crear orphans. Combined con v2.12.10 retry y v2.12.12 net pnl = close reliability completa.",
+        ]
+    },
     {
         "version": "2.12.12-live",
         "date": "2026-04-21",

@@ -199,6 +199,53 @@ def close_all_live_positions(dry_run: bool = False) -> dict:
                 entry['usdc_received'] = res.out_amount / 1_000_000
                 result['closed'] += 1
                 log.info(f"✅ {sym} cerrado: tx={res.signature[:16]}... USDC={entry['usdc_received']:.2f}")
+                # v2.12.13 persist portfolio: update portfolio.json inmediatamente
+                # para que orchestrator next cycle no vea position stale → orphan → kill switch
+                try:
+                    from pathlib import Path as _P
+                    import json as _j
+                    from datetime import datetime as _dt, timezone as _tz
+                    _pf_path = _P(BOT_ROOT) / "agents/data/portfolio.json"
+                    _pf = _j.loads(_pf_path.read_text())
+                    _hist_path = _P(BOT_ROOT) / "agents/data/trade_history.json"
+                    _hist_raw = _j.loads(_hist_path.read_text()) if _hist_path.exists() else []
+                    _history = _hist_raw['trades'] if isinstance(_hist_raw, dict) else _hist_raw
+                    _wrap = isinstance(_hist_raw, dict)
+                    _margin = float(pos.get('margin_usd', 2.0))
+                    _pnl_usd = float(entry['usdc_received']) - _margin
+                    _tokens = float(pos.get('tokens', 0))
+                    _exit_price = entry['usdc_received'] / _tokens if _tokens else 0
+                    _new_pos_list = []
+                    for _p in _pf.get('positions', []):
+                        if _p.get('id') == pos.get('id'):
+                            _p['status'] = 'closed'
+                            _p['close_time'] = _dt.now(_tz.utc).isoformat()
+                            _p['close_reason'] = 'emergency_close_v2.12.13'
+                            _p['close_price'] = round(_exit_price, 8)
+                            _p['pnl_usd'] = round(_pnl_usd, 4)
+                            _p['pnl_pct'] = round(_pnl_usd / _margin * 100, 4) if _margin else 0
+                            _p['fee_exit'] = 0
+                            _p['tx_signature_close'] = res.signature
+                            _history.append(dict(_p))
+                        else:
+                            _new_pos_list.append(_p)
+                    _pf['positions'] = _new_pos_list
+                    _pf['capital_usd'] = round(_pf.get('capital_usd', 0) + entry['usdc_received'], 4)
+                    _pf['total_trades'] = _pf.get('total_trades', 0) + 1
+                    if _pnl_usd > 0:
+                        _pf['wins'] = _pf.get('wins', 0) + 1
+                    else:
+                        _pf['losses'] = _pf.get('losses', 0) + 1
+                    _pf_path.write_text(_j.dumps(_pf, indent=2))
+                    if _wrap:
+                        _hist_raw['trades'] = _history
+                        _hist_raw['last_updated'] = _dt.now(_tz.utc).isoformat()
+                        _hist_path.write_text(_j.dumps(_hist_raw, indent=2))
+                    else:
+                        _hist_path.write_text(_j.dumps(_history, indent=2))
+                    log.info(f"    💾 persisted portfolio: capital_usd=${_pf['capital_usd']} pnl={_pnl_usd:+.4f}")
+                except Exception as _ps_err:
+                    log.error(f"    ⚠️ portfolio persist failed (manual reconcile needed): {_ps_err}")
             else:
                 entry['status'] = f'failed: {res.error}'
                 result['failed'] += 1
