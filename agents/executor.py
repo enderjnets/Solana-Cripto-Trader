@@ -1811,13 +1811,14 @@ def real_close_position(pos: dict, portfolio: dict) -> Optional[dict]:
         rpc = _srpc.get_rpc()
         swap = _jswap.JupiterSwap(wallet=w, rpc=rpc)
         max_slippage = int(_os.environ.get("MAX_SLIPPAGE_BPS", 100))
-        log.info(f"🔴 LIVE CLOSE SWAP: {symbol} {tokens:.6f} → USDC (slippage max {max_slippage}bps)")
+        # v2.12.10: closes son time-critical (position on-chain abierta) — priority veryHigh
+        log.info(f"🔴 LIVE CLOSE SWAP: {symbol} {tokens:.6f} → USDC (slippage max {max_slippage}bps, priority=veryHigh)")
         result = swap.execute_swap(
             input_mint=mint,
             output_mint=_srpc.MINT_USDC,
             amount_lamports=tokens_lamports,
             slippage_bps=max_slippage,
-            priority_fee_level="medium",
+            priority_fee_level="veryHigh",
             dry_run=False,
         )
     except Exception as _e:

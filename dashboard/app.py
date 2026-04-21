@@ -147,8 +147,26 @@ def estimate_open_position_pnl(pos: dict, current_price: float | None = None) ->
     }
 
 # ── Version & Changelog ──────────────────────────────────────────────────────
-VERSION = "2.12.9-live"
+VERSION = "2.12.10-live"
 CHANGELOG = [
+    {
+        "version": "2.12.10-live",
+        "date": "2026-04-20",
+        "title": "Reliability: broadcast retry + fresh-quote + priority veryHigh + CoinGecko cache + log rotation",
+        "changes": [
+            "A1 jupiter_swap broadcast_and_confirm: 3 retries exponential backoff. Slippage errors (Jupiter 6024) NO retry mismo tx (needs fresh quote).",
+            "A2 execute_swap fresh-quote retry on 6024: una vez, slippage 200bps + mismo priority level. Evita close fallidos por movimiento intra-4s precio.",
+            "A3 real_close_position priority_fee_level: medium → veryHigh. Closes son time-critical (position on-chain), priority para ejecución rápida (<2s).",
+            "A4 stale quote detection: si quote >3s old antes de build, auto-refresh. Previene blockhash expired / slippage acumulado mientras build+sign.",
+            "Bonus A: priority_level passthrough a Jupiter API (antes hardcoded 'high' en build_swap_transaction, ahora usa param del caller).",
+            "B1 market_data.py cache 10min TTL para fetch_coingecko_24h + fetch_hourly_trends. Reduce 195 warnings/sesion → ~20.",
+            "B2 run_watchdog.sh log truncation: si /tmp/solana_live_*.log >100MB, keep last 20MB en startup. Previene disk pressure.",
+            "C1 NEW tools/sweep_token.py — generaliza emergency_sol_to_usdc para cualquier simbolo (JUP, ETH, etc). --priority veryHigh default.",
+            "C2 llm_config per-provider cooldown: Claude 429 → skip Claude 300s, salta directo a MiniMax. Evita hammer de requests garantizados a fallar.",
+            "Root cause JUP/ETH close 6/6 fails: Jupiter error 6024 (slippage exceeded) en preflight. Investigacion en plan v2.12.10 con evidencia log + codepath.",
+            "Expected post-deploy: close success JUP/ETH 0% → 85%+, warnings CoinGecko -80%, log size bounded.",
+        ]
+    },
     {
         "version": "2.12.9-live",
         "date": "2026-04-20",

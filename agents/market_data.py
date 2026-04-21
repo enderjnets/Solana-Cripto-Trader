@@ -54,6 +54,22 @@ class _RateLimiter:
 _jupiter_limiter = _RateLimiter(calls_per_minute=30)
 _coingecko_limiter = _RateLimiter(calls_per_minute=10)
 
+# v2.12.10 coingecko cache: TTL 10 min — reduces 195 warnings/session to ~20
+_CG_CACHE = {}  # {key: (ts, data)}
+_CG_CACHE_TTL = 600  # seconds
+
+def _cg_cache_get(key):
+    import time as _t
+    entry = _CG_CACHE.get(key)
+    if entry and (_t.time() - entry[0]) < _CG_CACHE_TTL:
+        return entry[1]
+    return None
+
+def _cg_cache_set(key, data):
+    import time as _t
+    if data is not None and (isinstance(data, dict) and data or isinstance(data, list)):
+        _CG_CACHE[key] = (_t.time(), data)
+
 
 # Tokens a monitorear — mint addresses en Solana
 TOKEN_MINTS = {
@@ -249,7 +265,11 @@ def fetch_coingecko_24h() -> dict:
     """
     Obtiene cambio 24h, volumen y market cap de CoinGecko (gratis).
     Solo para tokens principales (SOL, BTC, ETH, etc.)
+    v2.12.10: cache 10min TTL
     """
+    _cached = _cg_cache_get("cg_24h")
+    if _cached is not None:
+        return _cached
     CG_IDS = {
         "SOL":      "solana",
         "BTC":      "bitcoin",
@@ -291,6 +311,7 @@ def fetch_coingecko_24h() -> dict:
                     "volume_24h": coin.get("total_volume", 0),
                     "market_cap": coin.get("market_cap", 0),
                 }
+        _cg_cache_set("cg_24h", result)
         return result
     except Exception as e:
         log.warning(f"⚠️  CoinGecko 24h error: {e}")
@@ -302,7 +323,11 @@ def fetch_coingecko_24h() -> dict:
 HOURLY_TOKENS = {"SOL": "solana", "BTC": "bitcoin", "ETH": "ethereum", "JUP": "jupiter-exchange-solana"}
 
 def fetch_hourly_trends() -> dict:
-    """Fetch 24h hourly candle data from CoinGecko for trend analysis."""
+    """Fetch 24h hourly candle data from CoinGecko for trend analysis.
+    v2.12.10: cache 10min TTL"""
+    _cached = _cg_cache_get("hourly_trends")
+    if _cached is not None:
+        return _cached
     trends = {}
     for symbol, cg_id in HOURLY_TOKENS.items():
         try:
@@ -333,6 +358,7 @@ def fetch_hourly_trends() -> dict:
         except Exception as e:
             log.warning(f"⚠️ Hourly trend failed for {symbol}: {e}")
             trends[symbol] = {"price_1h_trend": "unknown", "trend_change_pct": 0}
+    _cg_cache_set("hourly_trends", trends)
     return trends
 
 

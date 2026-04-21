@@ -94,7 +94,9 @@ class JupiterSwap:
                     log.info(f"Jupiter: no route for {input_mint[:8]}→{output_mint[:8]} amount={amount_lamports}")
                     return None
                 r.raise_for_status()
-                return r.json()
+                data = r.json()
+                data["_fetched_at"] = time.time()  # v2.12.10: stale detection
+                return data
             except Exception as e:
                 last_err = e
                 if attempt < DEFAULT_RETRIES - 1:
@@ -104,7 +106,8 @@ class JupiterSwap:
 
     # ── Step 2: POST /swap to build signed transaction skeleton ──
     def build_swap_transaction(self, quote: dict, priority_fee_microlamports: Optional[int] = None,
-                                 wrap_unwrap_sol: bool = True) -> Optional[str]:
+                                 wrap_unwrap_sol: bool = True,
+                                 priority_level: str = "high") -> Optional[str]:  # v2.12.10 passthrough
         """POST /swap with the quote + our pubkey → returns base64-encoded unsigned tx.
         Returns None on failure."""
         if self.wallet.pubkey in (None, "", "MOCK_NO_PUBKEY"):
@@ -120,10 +123,11 @@ class JupiterSwap:
             # Jupiter expects prioritizationFeeLamports in LAMPORTS (not microlamports)
             # Convert: total_fee_lamports = (microlamports_per_CU * CU_used) / 1e6
             # Without knowing CU, approximate with a cap (Jupiter will cap internally)
+            # v2.12.10: use caller-provided priority_level (was hardcoded "high")
             body["prioritizationFeeLamports"] = {
                 "priorityLevelWithMaxLamports": {
                     "maxLamports": 1_000_000,   # 0.001 SOL cap
-                    "priorityLevel": "high",
+                    "priorityLevel": priority_level,
                 }
             }
 
@@ -163,15 +167,33 @@ class JupiterSwap:
 
     # ── Step 4+5: Broadcast + Confirm (via solana_rpc) ──
     def broadcast_and_confirm(self, signed_tx_b64: str, timeout_sec: int = 30) -> tuple[Optional[str], bool]:
-        """Broadcasts signed tx and waits for confirmation. Returns (signature, confirmed)."""
-        try:
-            sig = self.rpc.send_transaction(signed_tx_b64, skip_preflight=False,
-                                            preflight_commitment="confirmed")
-            confirmed = self.rpc.confirm_transaction(sig, timeout_sec=timeout_sec)
-            return sig, confirmed
-        except Exception as e:
-            log.error(f"broadcast_and_confirm failed: {e}")
-            return None, False
+        """v2.12.10 broadcast retry: 3 attempts with backoff. Slippage errors (6024) skip retry."""
+        last_exc = None
+        last_err_str = ""
+        for attempt in range(3):
+            try:
+                sig = self.rpc.send_transaction(signed_tx_b64, skip_preflight=False,
+                                                preflight_commitment="confirmed")
+                confirmed = self.rpc.confirm_transaction(sig, timeout_sec=timeout_sec)
+                return sig, confirmed
+            except Exception as e:
+                last_exc = e
+                last_err_str = str(e)
+                # Slippage / output errors need a fresh quote, not a retry of same signed tx
+                if ("Custom(6024)" in last_err_str or "0x1788" in last_err_str
+                        or "slippage" in last_err_str.lower()
+                        or "insufficient" in last_err_str.lower()):
+                    log.warning(f"broadcast slippage/output error — no retry (needs fresh quote): {last_err_str[:200]}")
+                    break
+                if attempt < 2:
+                    backoff = min(2 ** attempt, 4)
+                    log.info(f"broadcast retry {attempt+1}/3 after {backoff}s: {last_err_str[:120]}")
+                    time.sleep(backoff)
+                    continue
+        # Propagate detailed error so caller can decide on fresh-quote retry
+        self._last_broadcast_error = last_err_str
+        log.error(f"broadcast_and_confirm failed after retries: {last_exc}")
+        return None, False
 
     # ── High-level flow: execute_swap ──
     def execute_swap(self, input_mint: str, output_mint: str,
@@ -220,14 +242,31 @@ class JupiterSwap:
             log.info(f"DRY RUN: quote OK (out={result.out_amount}, impact={result.price_impact_pct:.4f}%)")
             return result
 
-        # Step 3: Priority fee (microlamports/CU via Helius)
+        # v2.12.10: stale quote detection — refresh if >3s old
+        quote_age = time.time() - float(quote.get("_fetched_at", time.time()))
+        if quote_age > 3.0:
+            log.info(f"    quote age {quote_age:.1f}s > 3s — refreshing before build")
+            quote = self.get_quote(input_mint, output_mint, amount_lamports, slippage_bps)
+            if not quote:
+                result.error = "no_route_on_refresh"
+                return result
+            result.raw_quote = quote
+            result.in_amount = int(quote.get("inAmount", 0))
+            result.out_amount = int(quote.get("outAmount", 0))
+
+        # Step 3: Priority fee (microlamports/CU via Helius — informational)
         try:
             priority_fee = self.rpc.get_priority_fee_estimate(level=priority_fee_level)
         except Exception:
             priority_fee = None
 
+        # v2.12.10: map caller priority_fee_level to Jupiter priorityLevel
+        # valid Jupiter values: "min", "low", "medium", "high", "veryHigh"
+        _jup_level = priority_fee_level if priority_fee_level in ("min","low","medium","high","veryHigh") else "high"
+
         # Step 4: Build swap tx
-        swap_tx_b64 = self.build_swap_transaction(quote, priority_fee_microlamports=priority_fee)
+        swap_tx_b64 = self.build_swap_transaction(quote, priority_fee_microlamports=priority_fee,
+                                                   priority_level=_jup_level)
         if not swap_tx_b64:
             result.error = "build_swap_tx_failed"
             return result
@@ -238,11 +277,38 @@ class JupiterSwap:
             result.error = "sign_tx_failed"
             return result
 
-        # Step 6: Broadcast + confirm
+        # Step 6: Broadcast + confirm (broadcast_and_confirm has internal retry for transient)
         sig, confirmed = self.broadcast_and_confirm(signed_tx_b64)
         result.signature = sig
         result.confirmed = confirmed
         if not confirmed:
             result.error = "tx_not_confirmed" if sig else "broadcast_failed"
+
+        # v2.12.10 A2: fresh-quote retry on slippage error (6024)
+        _broadcast_err = getattr(self, "_last_broadcast_error", "") or ""
+        if (not confirmed and not sig
+                and ("Custom(6024)" in _broadcast_err or "0x1788" in _broadcast_err
+                     or "slippage" in _broadcast_err.lower())):
+            log.warning(f"🔄 fresh-quote retry after slippage fail (200bps, {priority_fee_level})")
+            fresh_quote = self.get_quote(input_mint, output_mint, amount_lamports, slippage_bps=200)
+            if fresh_quote:
+                result.raw_quote = fresh_quote
+                result.in_amount = int(fresh_quote.get("inAmount", 0))
+                result.out_amount = int(fresh_quote.get("outAmount", 0))
+                result.price_impact_pct = float(fresh_quote.get("priceImpactPct", 0))
+                swap_tx_b64_2 = self.build_swap_transaction(fresh_quote,
+                                                             priority_fee_microlamports=priority_fee,
+                                                             priority_level=_jup_level)
+                if swap_tx_b64_2:
+                    signed_tx_b64_2 = self.sign_transaction(swap_tx_b64_2)
+                    if signed_tx_b64_2:
+                        sig2, confirmed2 = self.broadcast_and_confirm(signed_tx_b64_2)
+                        if confirmed2:
+                            log.info(f"    ✅ fresh-quote retry succeeded (sig {str(sig2)[:16]}...)")
+                            result.signature = sig2
+                            result.confirmed = True
+                            result.error = None
+                        else:
+                            log.error(f"    ❌ fresh-quote retry also failed: {getattr(self,'_last_broadcast_error','')[:200]}")
 
         return result

@@ -1,5 +1,16 @@
 #!/bin/bash
 # Env vars para correr paper + live en paralelo (WATCHDOG_PREFIX distingue instancias)
+# v2.12.10 log truncation — keep /tmp/solana_live_*.log <100MB
+for _log in /tmp/solana_live_dashboard.log /tmp/solana_live_watchdog.log; do
+    if [ -f "$_log" ]; then
+        _size=$(stat -c %s "$_log" 2>/dev/null || echo 0)
+        if [ "$_size" -gt 104857600 ]; then
+            echo "[watchdog] truncating $_log ($_size bytes → last 20MB)"
+            tail -c 20971520 "$_log" > "$_log.trunc" 2>/dev/null && mv "$_log.trunc" "$_log" || true
+        fi
+    fi
+done
+
 WATCHDOG_PREFIX="${WATCHDOG_PREFIX:-solana_jupiter}"
 LOCKFILE="${WATCHDOG_LOCKFILE:-/tmp/${WATCHDOG_PREFIX}_modular_orchestrator.lock}"
 HANDOVER_FLAG="${WATCHDOG_HANDOVER:-/tmp/${WATCHDOG_PREFIX}_watchdog_handover.lock}"

@@ -70,6 +70,20 @@ def _cb_record_failure():
 #                 Now using api.anthropic.com directly with key from config
 # ══════════════════════════════════════════════════════════════════════
 
+
+# v2.12.10 per-provider cooldown — skip Claude (or other) if 429'd recently.
+# Separate from circuit breaker: breaker is global ALL-fail, cooldown is per-provider.
+_PROVIDER_COOLDOWN: dict = {}  # {"claude": expire_epoch_seconds}
+
+def _provider_in_cooldown(provider: str) -> bool:
+    import time as _t
+    return _PROVIDER_COOLDOWN.get(provider, 0) > _t.time()
+
+def _set_provider_cooldown(provider: str, seconds: int = 300):
+    import time as _t
+    _PROVIDER_COOLDOWN[provider] = _t.time() + seconds
+
+
 CLAUDE_BASE_URL = "https://api.anthropic.com/v1/messages"
 CLAUDE_MODEL    = "claude-sonnet-4-6"
 
@@ -191,7 +205,12 @@ def call_claude_sonnet(prompt: str, system: str = "", max_tokens: int = 2000) ->
                 return "\n".join(texts)
         return None
     except Exception as e:
-        print(f"    ⚠️ Claude Sonnet error: {e}")
+        _err = str(e)
+        print(f"    ⚠️ Claude Sonnet error: {_err}")
+        # v2.12.10 per-provider cooldown: 429 → skip Claude for 5 min
+        if '429' in _err or 'Too Many Requests' in _err or 'rate_limit' in _err.lower():
+            _set_provider_cooldown('claude', 300)
+            print(f"    ⏸️ Claude cooldown 300s (429 rate limit)")
         return None
 
 
@@ -463,7 +482,11 @@ def call_llm(prompt: str, system: str = "", max_tokens: int = 2000) -> str:
             return result
 
     # Primary: Claude Sonnet 4.6 via OAuth Max plan
-    result = call_claude_sonnet(prompt, system, max_tokens)
+    # v2.12.10: skip if in cooldown (429 rate-limited recently)
+    if _provider_in_cooldown('claude'):
+        result = None
+    else:
+        result = call_claude_sonnet(prompt, system, max_tokens)
     if result and _is_valid_llm_response(result):
         _cb_record_success()
         print("    LLM: Claude Sonnet 4.6 (primary)")
