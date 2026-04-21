@@ -147,8 +147,20 @@ def estimate_open_position_pnl(pos: dict, current_price: float | None = None) ->
     }
 
 # ── Version & Changelog ──────────────────────────────────────────────────────
-VERSION = "2.12.13-live"
+VERSION = "2.12.14-live"
 CHANGELOG = [
+    {
+        "version": "2.12.14-live",
+        "date": "2026-04-21",
+        "title": "Maintenance: sweep residue 0.000863 ETH → USDC, resync portfolio state",
+        "changes": [
+            "Accounting audit revelo que los ~$2 aparentemente faltantes (wallet 8.06 vs 10.0 esperado) estaban en realidad como 0.000863 ETH SPL (~$1.99) on-chain — residue del manual_reconcile v2.12.12 que solo actualizo state sin ejecutar swap reverso.",
+            "Sweep ejecutado via tools/sweep_token.py --symbol ETH --amount 0.000863 --slippage-bps 500 --priority veryHigh. Tx 67ni6n36Zn... → +$1.998 USDC.",
+            "State sync: portfolio.capital_usd 8.063 → 10.0612 (wallet real), daily_target_state reset a nuevo baseline, trade_history +1 entry maintenance_sweep (audit trail).",
+            "Wallet final: $10.06 USDC + 0.016 SOL = baseline ~idéntico al inicial de Yonathan ($10 + 0.022 SOL).",
+            "Real net loss acumulado del día: -$0.43 (fees Solana por retries y priority veryHigh × multiple cycles). Dentro del rango esperado para un día con tantos deploys + manual interventions.",
+        ]
+    },
     {
         "version": "2.12.13-live",
         "date": "2026-04-21",
