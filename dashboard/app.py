@@ -25,7 +25,7 @@ DATA = BASE / "agents" / "data"
 RESET_ATTACHMENTS_DIR = DATA / "reset_attachments"
 RESET_ATTACHMENTS_DIR.mkdir(parents=True, exist_ok=True)
 ALLOWED_ATTACH_EXT = {'png', 'jpg', 'jpeg', 'gif', 'webp', 'pdf', 'txt', 'csv'}
-WATCHDOG_LOG = Path("/home/enderj/.config/solana-jupiter-bot/modular.log")
+WATCHDOG_LOG = Path("/home/enderj/.config/solana-jupiter-bot/modular.live.log")
 
 def load_json(path):
     try:
@@ -147,8 +147,19 @@ def estimate_open_position_pnl(pos: dict, current_price: float | None = None) ->
     }
 
 # ── Version & Changelog ──────────────────────────────────────────────────────
-VERSION = "2.12.17-live"
+VERSION = "2.12.18-live"
 CHANGELOG = [
+    {
+        "version": "2.12.18-live",
+        "date": "2026-04-21",
+        "title": "Fix Paperclip routing — SOLAA (paper) -> SOLAAA (Solana Cripto Trading Live)",
+        "changes": [
+            "FIX: agents/paperclip_client.py COMPANY_ID hardcoded apuntaba a SOLAA (paper, UUID 782b926b...) en lugar de SOLAAA (live, UUID 2b0a3d7d-4929-42ef-9602-86324c0a202a). Issues v2.12.16 y v2.12.17 fueron posteados a la company equivocada.",
+            "FIX: .env PAPERCLIP_API_KEY cambiado de agent key de SOLAA (scoped) a board key (acceso a todas las companies).",
+            "MIGRATION: SOLAA-115 (v2.12.16) -> SOLAAA-19, SOLAA-116 (v2.12.17) -> SOLAAA-18. SOLAA originals marcadas cancelled con redirect note.",
+            "NOTA: memoria de 6 dias decia SOLAAA=live, SOLAA=paper — confirmado correcto. Mi audit anterior infirio mal que solo existia una company. Listado de 5 companies verificado: SOL/SOLA (archived), SOLAA (paper), SOLAAA (live), BIT (BitTrader YouTube).",
+        ]
+    },
     {
         "version": "2.12.17-live",
         "date": "2026-04-21",
