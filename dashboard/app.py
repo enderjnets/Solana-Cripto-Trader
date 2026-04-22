@@ -147,8 +147,20 @@ def estimate_open_position_pnl(pos: dict, current_price: float | None = None) ->
     }
 
 # ── Version & Changelog ──────────────────────────────────────────────────────
-VERSION = "2.12.20-live"
+VERSION = "2.12.21-live"
 CHANGELOG = [
+    {
+        "version": "2.12.21-live",
+        "date": "2026-04-22",
+        "title": "Drift devnet smoke test — infra validada (Phase 1.5 parallel)",
+        "changes": [
+            "FIX agents/drift_client.py:_load_keypair — soporta el formato custom del Jupiter bot (dict con private_key como JSON-array-string) ademas del formato standard de Solana CLI (list of 64 ints). Backward-compatible.",
+            "NEW tools/drift_devnet_mint_usdc.py — portado de origin/drift-integration. Mintea devnet USDC via Drift token_faucet program (V4v1mQiAdLz4qwckEb45WqHYceYizoib39cDBHSWfaB). Idempotente: crea ATA si falta + mint. Usa DRIFT_WALLET_PATH del .env.",
+            "Devnet smoke EXECUTED: Drift user PDA creada, USDC ATA creada, 100 USDC devnet minted, $0.5 depositado como collateral, 2 market orders (long+short) broadcast + aceptadas por Drift.",
+            "GAP identificado: Pyth oracle de SOL-PERP en devnet esta STALE (~52 dias lag), AMM rechaza fills con oracle not valid. NO es bug del codigo — es issue del ambiente devnet. Mainnet oracles actualizan ~400ms, no deberia repetirse.",
+            "Conclusion: infra Drift validada end-to-end excepto fill (bloqueado por oracle stale). Siguiente paso NO es mainnet inmediato — esperar Phase 2 gate (5-7 dias estabilidad Jupiter spot a $100) antes de $20 walk-forward en Drift mainnet.",
+        ]
+    },
     {
         "version": "2.12.20-live",
         "date": "2026-04-22",

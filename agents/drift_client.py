@@ -59,8 +59,29 @@ _DEFAULT_WALLET = Path.home() / ".config" / "solana-jupiter-bot" / "wallet.json"
 
 
 def _load_keypair(path: Path) -> Keypair:
-    secret = json.loads(path.read_text())
-    return Keypair.from_bytes(bytes(secret))
+    """Load Solana keypair from file. Supports two formats:
+    1. Standard Solana CLI: JSON array of 64 ints, e.g. [12, 34, ..., 99]
+    2. Jupiter-bot custom: dict {address, private_key, network} where
+       private_key can be a list of ints or a JSON-array-as-string "[12,34,...]"
+       or a base58-encoded string.
+    """
+    data = json.loads(path.read_text())
+    if isinstance(data, list):
+        return Keypair.from_bytes(bytes(data))
+    if isinstance(data, dict) and "private_key" in data:
+        pk = data["private_key"]
+        if isinstance(pk, list):
+            return Keypair.from_bytes(bytes(pk))
+        if isinstance(pk, str):
+            pk_str = pk.strip()
+            if pk_str.startswith("["):
+                return Keypair.from_bytes(bytes(json.loads(pk_str)))
+            try:
+                import base58
+                return Keypair.from_bytes(base58.b58decode(pk_str))
+            except Exception as e:
+                raise ValueError(f"private_key string not JSON array or base58: {e}")
+    raise ValueError(f"unsupported wallet format in {path}")
 
 
 @dataclass
