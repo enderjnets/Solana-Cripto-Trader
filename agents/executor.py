@@ -1056,6 +1056,12 @@ def paper_open_position(signal: dict, portfolio: dict, market: dict) -> Optional
                 position['paperclip_issue_id'] = _pc_id
         except Exception:
             pass
+    # v2.12.22: Telegram signals (parallel broadcast, no-op if TELEGRAM_ENABLED=false)
+    try:
+        from telegram_signals import on_trade_opened as _tg_open
+        _tg_open(position)
+    except Exception:
+        pass
     if _OPENCLAW_WH:
         try: _ocwh.on_trade_opened(position)
         except Exception: pass
@@ -1493,6 +1499,12 @@ def paper_update_positions(portfolio: dict, market: dict, history: list) -> list
                         on_trade_closed(pos)
                     except Exception:
                         pass
+                # v2.12.22: Telegram signals parallel
+                try:
+                    from telegram_signals import on_trade_closed as _tg_close
+                    _tg_close(pos)
+                except Exception:
+                    pass
                 continue  # skip paper accounting below
             pos["status"] = "closed"
             pos["close_time"] = datetime.now(timezone.utc).isoformat()
@@ -1558,6 +1570,12 @@ def paper_update_positions(portfolio: dict, market: dict, history: list) -> list
                     on_trade_closed(pos)
                 except Exception:
                     pass
+            # v2.12.22: Telegram signals parallel
+            try:
+                from telegram_signals import on_trade_closed as _tg_close
+                _tg_close(pos)
+            except Exception:
+                pass
             if _OPENCLAW_WH:
                 try: _ocwh.on_trade_closed(pos)
                 except Exception: pass

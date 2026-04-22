@@ -147,8 +147,22 @@ def estimate_open_position_pnl(pos: dict, current_price: float | None = None) ->
     }
 
 # ── Version & Changelog ──────────────────────────────────────────────────────
-VERSION = "2.12.21-live"
+VERSION = "2.12.22-live"
 CHANGELOG = [
+    {
+        "version": "2.12.22-live",
+        "date": "2026-04-22",
+        "title": "Phase 1 prep — Telegram signals module + health badge + runbook + auto-learner reset",
+        "changes": [
+            "NEW agents/telegram_signals.py — signal broadcaster pattern paperclip_client.py. Hooks on_trade_opened + on_trade_closed + on_daily_report. DISABLED por defecto (TELEGRAM_ENABLED=false). Activacion Phase 2: crear bot via BotFather + canal + set tokens + flip flag.",
+            "WIRE executor.py — telegram hooks en 3 sitios (line 1054 open + 1493 + 1558 close) en paralelo a paperclip. try/except wrapper: si telegram falla, trading sigue normal.",
+            ".env / .env.example — added TELEGRAM_ENABLED + TELEGRAM_SIGNALS_BOT_TOKEN + TELEGRAM_SIGNALS_CHANNEL.",
+            "NEW dashboard health badge — verde/rojo/gris dot + live info (HB age, positions, capital) en header. Poll /api/health cada 30s. CSS + HTML + JS additive, no altera layout existente.",
+            "NEW docs/RUNBOOK.md (250 lines) — incident response procedures: kill switch, orphan, close fail 6024, HB stale, watchdog+orch dead, dust on-chain, capital scale. Includes quick-status links, rollback procedure, Paperclip company UUID map.",
+            "NEW tools/auto_learner_soft_reset.py + APPLIED — reseteo counters de auto_learner post capital-scale v2.12.20 ($8 → $100). Total_trades_learned 19→0, adaptation_count 5→0, last_trade_count frozen a 22 como baseline. Params (SL/TP/leverage/risk_per_trade) preservados — son % scale-invariant. Tokens_to_avoid/prefer preservados.",
+            "CERO cambios en trading logic — todos los items son capa observability + comunicacion + higiene.",
+        ]
+    },
     {
         "version": "2.12.21-live",
         "date": "2026-04-22",
@@ -832,6 +846,19 @@ DASHBOARD_HTML = r"""
   .drift-badge.short   { border-color: #f85149; color: #f85149; }
   .drift-badge.dormant { opacity: 0.5; }
   .drift-badge.err     { border-color: #d29922; color: #d29922; }
+
+  /* v2.12.22 health badge */
+  .health-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 10px; border-radius: 12px; font-size: 12px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--border); font-weight: 500;
+  }
+  .health-dot { font-size: 14px; line-height: 1; transition: color 0.3s; }
+  .health-dot.healthy { color: #10b981; }
+  .health-dot.unhealthy { color: #ef4444; animation: health-pulse 1s infinite; }
+  .health-dot.unknown { color: #6b7280; }
+  @keyframes health-pulse { 0%,100%{opacity:1;} 50%{opacity:0.35;} }
   .mode-badge {
     font-size: 11px; padding: 2px 8px; border-radius: 10px;
     background: rgba(188,140,255,0.15); color: var(--purple); border: 1px solid var(--purple);
@@ -1291,6 +1318,10 @@ DASHBOARD_HTML = r"""
     <button class="btn-bot" id="botToggleBtn" onclick="toggleBot()" title="Encender/Apagar bot (kill switch)">⏳</button>
     <span class="fuel-badge" id="solFuelBadge" title="SOL fuel (Jupiter swap fees)">🔋 —</span>
     <span class="drift-badge dormant" id="driftBadge" title="Drift perps status">🎯 Drift: —</span>
+    <span class="health-badge" id="healthBadge" title="Bot infra health (/api/health)">
+      <span class="health-dot unknown" id="healthDot">●</span>
+      <span id="healthLabel">health: —</span>
+    </span>
   </div>
 </div>
 
@@ -1650,6 +1681,40 @@ async function loadVersionBadge() {
     }
   } catch(e) {}
 }
+
+async function updateHealthBadge() {
+  try {
+    const r = await fetch('/api/health');
+    const h = await r.json();
+    const dot = document.getElementById('healthDot');
+    const label = document.getElementById('healthLabel');
+    if (!dot || !label) return;
+    if (h.healthy) {
+      dot.className = 'health-dot healthy';
+      const age = h.heartbeat && h.heartbeat.age_s != null ? Math.round(h.heartbeat.age_s) + 's' : '—';
+      const pos = h.portfolio ? h.portfolio.open_positions : 0;
+      const cap = h.portfolio ? h.portfolio.capital_usd : 0;
+      label.textContent = `HB ${age} · ${pos}pos · $${(cap||0).toFixed(2)}`;
+    } else {
+      dot.className = 'health-dot unhealthy';
+      const r = [];
+      if (h.orch && !h.orch.alive) r.push('orch dead');
+      if (h.watchdog && !h.watchdog.alive) r.push('watchdog dead');
+      if (h.kill_switch && h.kill_switch.active) r.push('kill switch');
+      if (h.close_failures && h.close_failures.count >= h.close_failures.threshold) r.push('close fails');
+      if (!h.heartbeat || h.heartbeat.age_s == null || h.heartbeat.age_s > 300) r.push('HB stale');
+      label.textContent = 'UNHEALTHY: ' + (r.join(', ') || 'check /api/health');
+    }
+  } catch (e) {
+    const dot = document.getElementById('healthDot');
+    const label = document.getElementById('healthLabel');
+    if (dot) dot.className = 'health-dot unknown';
+    if (label) label.textContent = 'health: unreachable';
+  }
+}
+// v2.12.22: poll /api/health every 30s
+updateHealthBadge();
+setInterval(updateHealthBadge, 30000);
 
 async function refreshAll() {
   try {
