@@ -147,8 +147,20 @@ def estimate_open_position_pnl(pos: dict, current_price: float | None = None) ->
     }
 
 # ── Version & Changelog ──────────────────────────────────────────────────────
-VERSION = "2.12.23-live"
+VERSION = "2.12.24-live"
 CHANGELOG = [
+    {
+        "version": "2.12.24-live",
+        "date": "2026-04-22",
+        "title": "Phase 1 prep cleanup — .env.example sync + backtester fix & enrich",
+        "changes": [
+            "FIX agents/backtester.py load_trade_history — manejaba solo formato list, ahora soporta dict con trades key (actual formato post-v2.12.16).",
+            "FIX agents/backtester.py by_token — usaba campo token pero trade_history guarda symbol. Ahora por-token breakdown funciona correctamente.",
+            "ENRICH backtester: argparse con --mode (live/paper/paper_drift) + --days N window. Formato $ 4 decimales (vs 2 que round a zero valores pequenos).",
+            ".env.example sync v2.12.24: documentados 3 advanced config vars faltantes (ORCH_LOCK_FILE, ORCH_PGREP_PATTERN, WATCHDOG_PREFIX). PAPERCLIP_API_KEY sigue hardcoded como fallback en paperclip_client.py pero documentado como override opcional.",
+            "Live trading STATS baseline (backtester run): 23 trades / WR 69.6% (16W-7L) / PF 8.94 / payoff 3.91x / max DD $0.0023. Por token: SOL WR 71% (14t), ETH WR 75% (4t), JUP WR 60% (5t). Edge matematicamente validado pre-Phase-1-gate.",
+        ]
+    },
     {
         "version": "2.12.23-live",
         "date": "2026-04-22",
@@ -2573,7 +2585,7 @@ function renderAIThinking(d) {
       <div style="font-size:10px;color:${fgColor};margin-top:2px;">${fg.label || ''}</div>
     </div>
     <div class="ait-kpi">
-      <div class="ait-kpi-val">\$${(d.equity||0).toFixed(2)}</div>
+      <div class="ait-kpi-val">$${(d.equity||0).toFixed(2)}</div>
       <div class="ait-kpi-lbl">Equity</div>
     </div>
     <div class="ait-kpi">

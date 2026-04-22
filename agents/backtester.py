@@ -7,13 +7,43 @@ from datetime import datetime
 DATA_DIR = Path(__file__).parent / "data"
 
 
-def load_trade_history():
-    """Load closed trades from trade_history.json."""
+def load_trade_history(mode_filter: str | None = None, days: int | None = None) -> list:
+    """Load closed trades from trade_history.json.
+
+    v2.12.24: handles both formats (plain list OR dict with 'trades' key).
+    Optional filters: mode ('live'/'paper'/'paper_drift'), days (last N days).
+    """
+    from datetime import datetime, timezone, timedelta
     f = DATA_DIR / "trade_history.json"
     if not f.exists():
         return []
     data = json.loads(f.read_text())
-    return data if isinstance(data, list) else []
+    if isinstance(data, list):
+        trades = data
+    elif isinstance(data, dict):
+        trades = data.get("trades", [])
+    else:
+        return []
+
+    if mode_filter:
+        trades = [t for t in trades if t.get("mode") == mode_filter]
+
+    if days:
+        cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+        filtered = []
+        for t in trades:
+            ts_str = t.get("close_time") or t.get("open_time")
+            if not ts_str:
+                continue
+            try:
+                ts = datetime.fromisoformat(str(ts_str).replace("Z", "+00:00"))
+                if ts >= cutoff:
+                    filtered.append(t)
+            except (ValueError, TypeError):
+                pass
+        trades = filtered
+
+    return trades
 
 
 def analyze_performance(trades):
@@ -54,7 +84,7 @@ def analyze_performance(trades):
     # By token
     by_token = {}
     for t in trades:
-        tk = t.get("token", "?")
+        tk = t.get("symbol", "?")
         if tk not in by_token:
             by_token[tk] = {"trades": 0, "wins": 0, "pnl": 0.0}
         by_token[tk]["trades"] += 1
@@ -89,12 +119,12 @@ def analyze_performance(trades):
         "wins": len(wins),
         "losses": len(losses),
         "win_rate_pct": round(win_rate, 1),
-        "total_pnl_usd": round(total_pnl, 2),
-        "avg_win_usd": round(avg_win, 2),
-        "avg_loss_usd": round(avg_loss, 2),
+        "total_pnl_usd": round(total_pnl, 4),
+        "avg_win_usd": round(avg_win, 4),
+        "avg_loss_usd": round(avg_loss, 4),
         "profit_factor": round(profit_factor, 2),
         "payoff_ratio": round(payoff, 2),
-        "max_drawdown_usd": round(max_dd, 2),
+        "max_drawdown_usd": round(max_dd, 4),
         "by_token": by_token,
         "by_source": by_source,
         "by_direction": by_direction,
@@ -111,10 +141,17 @@ def compare_strategies(trades):
     }
 
 
-def run():
-    """Run backtest analysis and save report."""
-    trades = load_trade_history()
-    print(f"📊 Loaded {len(trades)} trades")
+def run(mode_filter: str | None = None, days: int | None = None):
+    """Run backtest analysis and save report.
+
+    v2.12.24: supports --mode live/paper/paper_drift filter + --days N window.
+    """
+    trades = load_trade_history(mode_filter=mode_filter, days=days)
+    filter_desc = []
+    if mode_filter: filter_desc.append(f"mode={mode_filter}")
+    if days: filter_desc.append(f"last {days}d")
+    filter_str = f" ({', '.join(filter_desc)})" if filter_desc else ""
+    print(f"📊 Loaded {len(trades)} trades{filter_str}")
 
     if not trades:
         print("No trades to analyze.")
@@ -156,4 +193,10 @@ def run():
 
 
 if __name__ == "__main__":
-    run()
+    import argparse
+    ap = argparse.ArgumentParser(description="Backtester analysis on trade_history.json")
+    ap.add_argument("--mode", choices=["live", "paper", "paper_drift", None], default=None,
+                    help="Filter trades by mode (default: all)")
+    ap.add_argument("--days", type=int, default=None, help="Last N days (default: all-time)")
+    args = ap.parse_args()
+    run(mode_filter=args.mode, days=args.days)
