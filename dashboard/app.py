@@ -147,8 +147,20 @@ def estimate_open_position_pnl(pos: dict, current_price: float | None = None) ->
     }
 
 # ── Version & Changelog ──────────────────────────────────────────────────────
-VERSION = "2.12.24-live"
+VERSION = "2.12.25-live"
 CHANGELOG = [
+    {
+        "version": "2.12.25-live",
+        "date": "2026-04-22",
+        "title": "Config bump: LIVE_MAX_POSITIONS 1 -> 3 (aliga con observed behavior)",
+        "changes": [
+            "OBSERVED: durante monitoreo autonomo (iter 7, 15:34-15:39 UTC) bot abrio 3 posiciones simultaneas (SOL+ETH+JUP) pese a LIVE_MAX_POSITIONS=1 en .env. Probable: wild_mode o daily_target logic bypassea el cap, o el var es suggestion no hard cap.",
+            "USER DECISION: 3 concurrent positions es aceptable (max exposure $30 con $10 position size y $90 capital = 33% exposure max).",
+            ".env + .env.example: LIVE_MAX_POSITIONS 1 -> 3 para alinear config con intent/reality.",
+            "NO restart orch necesario — bot ya operando con 3 pos. Cambio se activara oficialmente en proximo watchdog respawn.",
+            "Impacto: mas diversificacion (SOL + ETH + JUP simultaneos), menos USDC libre para switching, pero matchea behavior del LLM cuando detecta multiples senales.",
+        ]
+    },
     {
         "version": "2.12.24-live",
         "date": "2026-04-22",
