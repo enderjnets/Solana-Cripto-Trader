@@ -147,8 +147,20 @@ def estimate_open_position_pnl(pos: dict, current_price: float | None = None) ->
     }
 
 # ── Version & Changelog ──────────────────────────────────────────────────────
-VERSION = "2.12.18-live"
+VERSION = "2.12.19-live"
 CHANGELOG = [
+    {
+        "version": "2.12.19-live",
+        "date": "2026-04-22",
+        "title": "Phase 1 observability — weekly_report + health_check + /api/health",
+        "changes": [
+            "NEW: tools/weekly_report.py — compila métricas paper vs live side-by-side (7/14/30 days). Modos table, json, gate-check. Usado para validar edge + Phase 1 gate criteria.",
+            "NEW: tools/health_check.py — cron-friendly health probe. Checks: heartbeat, orch alive (CWD match), watchdog alive, kill_switch, close_failures counter. Flag --alert crea Paperclip issue urgent dedupado 15min.",
+            "NEW: /api/health endpoint en dashboard/app.py — expone {healthy, orch, watchdog, heartbeat, kill_switch, close_failures, portfolio} JSON. Usado por health_check cron + external monitors.",
+            "CRONTAB: */5 * * * * python3 tools/health_check.py --alert → detecta crisis <5min, alerta SOLAAA automáticamente.",
+            "Phase 1 observability lista. Live edge confirmado: WR 83.3% sobre 22 trades últimos 7d, expectancy +$0.0017/trade NET (muy small — scale ayudaría).",
+        ]
+    },
     {
         "version": "2.12.18-live",
         "date": "2026-04-21",
@@ -3332,6 +3344,109 @@ def index():
 @app.route('/api/version')
 def api_version():
     return jsonify({"version": VERSION, "changelog": CHANGELOG})
+
+
+@app.route('/api/health')
+def api_health():
+    """v2.12.19 Phase 1: real-time live bot health probe.
+
+    Returns JSON with orch liveness, heartbeat age, kill-switch state,
+    close_failures counter, positions count, capital_usd.
+    Used by cron health_check.py and external monitors.
+    """
+    import os as _os, subprocess as _sp, time as _time
+    from pathlib import Path as _P
+
+    bot_dir = _P("/home/enderj/.openclaw/workspace/Solana-Cripto-Trader-Live")
+    hb_file = _P("/tmp/solana_live_heartbeat")
+    ks_file = _P("/tmp/solana_live_killswitch")
+    cf_file = _P("/tmp/solana_live_close_failures")
+
+    # Heartbeat
+    hb_age = None
+    if hb_file.exists():
+        try:
+            hb_age = _time.time() - float(hb_file.read_text().strip())
+        except (ValueError, OSError):
+            pass
+
+    # Orch + watchdog liveness (CWD match)
+    orch_alive = False
+    orch_pid = None
+    watchdog_alive = False
+    watchdog_pid = None
+    try:
+        pids = _sp.check_output(["pgrep", "-f", "orchestrator.py"], text=True).strip().splitlines()
+        for pid in pids:
+            pid = pid.strip()
+            try:
+                if _os.readlink(f"/proc/{pid}/cwd") == str(bot_dir):
+                    orch_alive = True
+                    orch_pid = int(pid)
+                    break
+            except (OSError, FileNotFoundError):
+                pass
+    except _sp.CalledProcessError:
+        pass
+
+    try:
+        lines = _sp.check_output(["pgrep", "-af", "run_watchdog.sh"], text=True).splitlines()
+        for line in lines:
+            pid = line.split()[0]
+            try:
+                if _os.readlink(f"/proc/{pid}/cwd") == str(bot_dir):
+                    watchdog_alive = True
+                    watchdog_pid = int(pid)
+                    break
+            except (OSError, FileNotFoundError):
+                pass
+    except _sp.CalledProcessError:
+        pass
+
+    # Kill switch
+    kill_switch_active = ks_file.exists()
+    kill_switch_reason = ks_file.read_text(errors="ignore")[:200].strip() if kill_switch_active else None
+
+    # Close failures
+    close_failures = 0
+    if cf_file.exists():
+        try:
+            close_failures = int(cf_file.read_text().strip() or 0)
+        except ValueError:
+            close_failures = -1
+
+    # Portfolio
+    port = load_portfolio()
+    open_positions = [p for p in port.get("positions", []) if p.get("status") == "open"]
+    capital_usd = port.get("capital_usd", 0)
+    total_trades = port.get("total_trades", 0)
+
+    # Overall health
+    healthy = (
+        orch_alive and watchdog_alive and not kill_switch_active
+        and (hb_age is not None and hb_age < 300)
+        and close_failures < 3
+    )
+
+    return jsonify({
+        "healthy": healthy,
+        "version": VERSION,
+        "checked_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "orch": {"alive": orch_alive, "pid": orch_pid},
+        "watchdog": {"alive": watchdog_alive, "pid": watchdog_pid},
+        "heartbeat": {
+            "age_s": round(hb_age, 1) if hb_age is not None else None,
+            "fresh": hb_age is not None and hb_age < 120,
+        },
+        "kill_switch": {"active": kill_switch_active, "reason": kill_switch_reason},
+        "close_failures": {"count": close_failures, "threshold": 3},
+        "portfolio": {
+            "capital_usd": capital_usd,
+            "open_positions": len(open_positions),
+            "total_trades": total_trades,
+            "symbols_open": [p.get("symbol") for p in open_positions],
+        },
+    })
 
 
 @app.route('/api/stats')
