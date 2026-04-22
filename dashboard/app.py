@@ -147,8 +147,21 @@ def estimate_open_position_pnl(pos: dict, current_price: float | None = None) ->
     }
 
 # ── Version & Changelog ──────────────────────────────────────────────────────
-VERSION = "2.12.22-live"
+VERSION = "2.12.23-live"
 CHANGELOG = [
+    {
+        "version": "2.12.23-live",
+        "date": "2026-04-22",
+        "title": "FIX reconcile_critical false-positives — asymmetric check (root cause del patron de crisis 2-3/dia)",
+        "changes": [
+            "ROOT CAUSE: agents/reconcile.py usaba abs() para comparar wallet balance vs position.tokens, flagging excess (wallet > position) como critical, no solo shortage. User fuel real ~0.048 SOL vs hardcoded 0.010 FUEL_RESERVE causaba false-positives 25-33% cada vez que se abria posicion SOL.",
+            "EVIDENCIA: v2.12.16 SOL(25.4%) = false positive (wallet 0.039 SOL, fuel 0.029 excess post-0.01-reserve). v2.12.22 05:08 SOL(33.4%) = mismo bug (wallet 0.163 SOL, 0.048 fuel excess). JUP(100.9%) del v2.12.16 era real orphan (wallet=0, correcto).",
+            "FIX agents/reconcile.py: asymmetric check. Solo flag SHORTAGE (actual < expected) como warning/critical. Excess (actual > expected) = info severity, benign (user fuel, residue, airdrops, other positions).",
+            "Discrepancy dataclass: nuevo campo is_shortage=True para log differentiation (SHORTAGE vs excess).",
+            "NEW tools/test_reconcile_asymmetric.py — 6 unit tests cubren: SOL excess false-positive, JUP orphan real, ETH partial close, ETH exact match, JUP tiny excess benign, JUP 1% shortage warning. ALL PASSED.",
+            "Impacto esperado: crisis reconcile_critical 2-3/dia → <0.5/dia. Downtime bot 4h/dia → <1h/dia. Cero riesgo aditivo — solo reduce falsos positivos.",
+        ]
+    },
     {
         "version": "2.12.22-live",
         "date": "2026-04-22",

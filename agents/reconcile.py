@@ -42,8 +42,9 @@ class Discrepancy:
     symbol: str
     expected: float        # tokens según portfolio.json
     actual: float          # tokens según on-chain
-    diff_pct: float        # abs((actual-expected)/expected) * 100
+    diff_pct: float        # (expected-actual)/expected * 100 if shortage, else (actual-expected)/expected
     severity: str          # 'info' | 'warning' | 'critical'
+    is_shortage: bool = True  # v2.12.23: True=real orphan (wallet < expected), False=benign excess
 
 
 @dataclass
@@ -170,13 +171,27 @@ def check_reconciliation(portfolio_path: Optional[Path] = None,
         # Comparar
         if expected_tokens <= 0:
             continue   # posición malformada en portfolio, skip
-        diff_pct = abs(actual_tokens - expected_tokens) / expected_tokens * 100
 
-        severity = (
-            'critical' if diff_pct > tolerance_pct * 10  # >5% = crítico
-            else 'warning' if diff_pct > tolerance_pct   # >0.5% = warning
-            else 'info'
-        )
+        # v2.12.23: asymmetric check — only flag SHORTAGES (actual < expected).
+        # Excess (wallet > position) is benign: user fuel, pre-existing residue,
+        # airdrops, other positions. Real orphan = wallet dropped below position.
+        if actual_tokens < expected_tokens:
+            diff_pct = (expected_tokens - actual_tokens) / expected_tokens * 100
+            is_shortage = True
+        else:
+            diff_pct = (actual_tokens - expected_tokens) / expected_tokens * 100
+            is_shortage = False
+
+        # Severity: excess is always info (log only, never kill switch).
+        # Shortage uses original tolerance thresholds.
+        if not is_shortage:
+            severity = 'info'
+        elif diff_pct > tolerance_pct * 10:
+            severity = 'critical'
+        elif diff_pct > tolerance_pct:
+            severity = 'warning'
+        else:
+            severity = 'info'
 
         if severity != 'info':
             d = Discrepancy(
@@ -185,12 +200,20 @@ def check_reconciliation(portfolio_path: Optional[Path] = None,
                 actual=actual_tokens,
                 diff_pct=diff_pct,
                 severity=severity,
+                is_shortage=is_shortage,
             )
             result.discrepancies.append(d)
             log_fn = log.error if severity == 'critical' else log.warning
+            direction = "SHORTAGE" if is_shortage else "excess"
             log_fn(
-                f"reconcile [{severity}]: {sym} expected={expected_tokens:.6f} "
+                f"reconcile [{severity}] {direction}: {sym} expected={expected_tokens:.6f} "
                 f"actual={actual_tokens:.6f} diff={diff_pct:.2f}%"
+            )
+        elif not is_shortage and diff_pct > tolerance_pct * 10:
+            # Log excess >5% at INFO for visibility, but no discrepancy recorded.
+            log.info(
+                f"reconcile [info] excess: {sym} expected={expected_tokens:.6f} "
+                f"actual={actual_tokens:.6f} diff=+{diff_pct:.2f}% (benign)"
             )
 
     # Cualquier crítico → kill switch
