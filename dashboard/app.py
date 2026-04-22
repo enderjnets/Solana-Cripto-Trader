@@ -147,8 +147,21 @@ def estimate_open_position_pnl(pos: dict, current_price: float | None = None) ->
     }
 
 # ── Version & Changelog ──────────────────────────────────────────────────────
-VERSION = "2.12.19-live"
+VERSION = "2.12.20-live"
 CHANGELOG = [
+    {
+        "version": "2.12.20-live",
+        "date": "2026-04-22",
+        "title": "Capital scale $8 -> $100 + position size $2 -> $10 (Phase 1 acelerada)",
+        "changes": [
+            "USER deposit: +$92 USDC (wallet $8.10 -> $100.10) + 0.033 SOL fuel (0.015 -> 0.049).",
+            "ENV: LIVE_MAX_POSITION_USD $2 -> $10 (5x scaling proporcional al capital). LIVE_MAX_POSITIONS mantenido en 1 hasta Phase 2 gate.",
+            "STATE: portfolio.json capital_usd $8.09 -> $100.10, initial_capital reset para fresh baseline Phase 1. daily_target_state + wild_mode_state reset a $100 baseline.",
+            "Ratio fee/position mejorado: $0.12 fee sobre $10 posicion = 1.2% (antes era 6% con $2). Break-even alcanzable con edge actual (expectancy +$0.0017/trade NET con $2, escalara ~5x a +$0.008/trade con $10).",
+            "Backups .bak_<epoch> creados para portfolio, trade_history, daily_target, wild_mode, .env (rollback si necesario).",
+            "Phase 1 acelerada: 5-7 dias observacion con cron health_check monitoreando. Gate a Phase 2: 0 crises auto-detectadas + edge positivo sobre 30+ trades a capital escalado.",
+        ]
+    },
     {
         "version": "2.12.19-live",
         "date": "2026-04-22",
