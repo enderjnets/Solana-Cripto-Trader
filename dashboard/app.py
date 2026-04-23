@@ -106,6 +106,30 @@ def safe_parse_dt(s):
     except (ValueError, TypeError):
         return None
 
+def _load_reset_baseline():
+    """Resolve the current reset baseline from reset_history.json[-1].
+
+    v2.12.29: single source of truth for all post-reset filtering.
+    The legacy reset_log_20260326.json (paper-era, 2026-04-05) is NO LONGER
+    consulted — it misleadingly pulled in 20 pre-scale trades.
+
+    Returns (reset_dt, reset_capital, reset_date_str) or (None, None, None).
+    """
+    rh = load_json(DATA / "reset_history.json")
+    if not (isinstance(rh, list) and rh):
+        return None, None, None
+    latest = rh[-1]
+    reset_date_str = latest.get("reset_date")
+    if not reset_date_str:
+        return None, None, None
+    reset_dt = safe_parse_dt(reset_date_str)
+    if reset_dt is None:
+        return None, None, None
+    # Prefer new_capital (post-scale amount), fall back to capital_after
+    reset_capital = safe_float(latest.get("new_capital") or latest.get("capital_after") or 0.0)
+    return reset_dt, reset_capital, reset_date_str
+
+
 def estimate_open_position_pnl(pos: dict, current_price: float | None = None) -> dict:
     """Estimate net PnL if the open position were closed now."""
     symbol = str(pos.get('symbol', ''))
@@ -147,8 +171,20 @@ def estimate_open_position_pnl(pos: dict, current_price: float | None = None) ->
     }
 
 # ── Version & Changelog ──────────────────────────────────────────────────────
-VERSION = "2.12.28-live"
+VERSION = "2.12.29-live"
 CHANGELOG = [
+    {
+        "version": "2.12.29-live",
+        "date": "2026-04-23",
+        "title": "Unificar dashboard reset baseline a reset_history.json[-1]",
+        "changes": [
+            "BUG: api_stats leia reset_log_20260326.json (archivo de era paper, reset_date 2026-04-05) directamente. Mezclaba 20 trades pre-scale (era $8 capital) con 11 post-scale (era $100). User veia PF 0.181 vs realidad 0.118, WR 58% vs real 45%.",
+            "FIX: nuevo helper _load_reset_baseline() como fuente unica — consume reset_history.json[-1] (scale 2026-04-22 $8->$100).",
+            "FIX: api_stats, api_stats_post_reset, api_equity usan helper. Legacy reset_log_20260326.json NO se consulta mas.",
+            "FIX: api_trades filtra por reset_dt por default (antes retornaba 31 mezclados). Query ?all=1 para historia completa (audit/debug).",
+            "RESULTADO: dashboard muestra 11 trades / 5W-6L-0F / Net -$0.56 / PF 0.118 / WR 45.5% (realidad post-scale, consistente con gráficas que ya estaban correctas).",
+        ]
+    },
     {
         "version": "2.12.28-live",
         "date": "2026-04-23",
@@ -3734,17 +3770,11 @@ def api_stats():
     port = load_portfolio()
     comp = load_json(DATA / "compound_state.json")
 
-    # --- Determine reset baseline ---
-    reset_log = load_json(DATA / "reset_log_20260326.json")
-    has_reset = bool(reset_log and reset_log.get("reset_date"))
-    reset_dt = None
-    if has_reset:
-        try:
-            reset_dt = safe_parse_dt(reset_log["reset_date"])
-        except (ValueError, TypeError):
-            has_reset = False
-
-    reset_capital = safe_float(reset_log.get("capital_after", 500.0)) if has_reset else 500.0
+    # --- Determine reset baseline (v2.12.29: reset_history.json[-1]) ---
+    reset_dt, reset_capital, _reset_date_str = _load_reset_baseline()
+    has_reset = reset_dt is not None
+    if not has_reset:
+        reset_capital = 500.0
     # Read initial_capital directly from portfolio (set correctly by reset endpoint)
     initial_capital = safe_float(port.get("initial_capital", 500.0))
 
@@ -3916,23 +3946,10 @@ def api_stats_post_reset():
     Used for visualization only — auto_learner always uses full history."""
     from datetime import datetime as dt
 
-    # Load reset log — try latest from reset_history first, then fallback
-    reset_log = {}
-    reset_history = load_json(DATA / "reset_history.json")
-    if isinstance(reset_history, list) and reset_history:
-        reset_log = reset_history[-1]  # latest reset
-    if not reset_log or not reset_log.get("reset_date"):
-        reset_log = load_json(DATA / "reset_log_20260326.json")
-    if not reset_log or not reset_log.get("reset_date"):
+    # v2.12.29: single source via helper, no legacy fallback
+    reset_dt, reset_capital, reset_date_str = _load_reset_baseline()
+    if reset_dt is None:
         return jsonify({"has_reset": False})
-
-    reset_date_str = reset_log["reset_date"]
-    try:
-        reset_dt = safe_parse_dt(reset_date_str)
-    except (ValueError, TypeError):
-        return jsonify({"has_reset": False})
-
-    reset_capital = safe_float(reset_log.get("capital_after", 500.0))
 
     # Filter closed trades after reset
     trades_raw = load_trade_history()
@@ -4002,13 +4019,9 @@ def api_equity():
     closed_all = [t for t in trades_raw if t.get("status") in ("closed", None, "")]
 
     # Filter to post-reset trades if reset exists
-    # Try reset_history.json (latest) first, then fallback to legacy file
-    reset_log = {}
-    _rh = load_json(DATA / "reset_history.json")
-    if isinstance(_rh, list) and _rh:
-        reset_log = _rh[-1]
-    if not reset_log or not reset_log.get("reset_date"):
-        reset_log = load_json(DATA / "reset_log_20260326.json")
+    # v2.12.29: single source via helper, no legacy fallback
+    _reset_dt_helper, _reset_cap_helper, _reset_date_helper = _load_reset_baseline()
+    reset_log = {"reset_date": _reset_date_helper, "capital_after": _reset_cap_helper, "new_capital": _reset_cap_helper} if _reset_dt_helper else {}
     has_reset = bool(reset_log and reset_log.get("reset_date"))
     reset_dt = None
     if has_reset:
@@ -4102,8 +4115,22 @@ def api_equity():
 @app.route('/api/trades')
 def api_trades():
     limit = int(request.args.get("limit", 50))
+    show_all = request.args.get("all", "").lower() in ("1", "true", "yes")
     trades_raw = load_trade_history()
     closed = [t for t in trades_raw if t.get("status") in ("closed", None, "")]
+
+    # v2.12.29: filter to post-reset by default (consistency with /api/stats).
+    # Use ?all=1 for full history (audit/debug).
+    if not show_all:
+        _reset_dt, _, _ = _load_reset_baseline()
+        if _reset_dt is not None:
+            _filtered = []
+            for _t in closed:
+                _ct = safe_parse_dt(_t.get("close_time", ""))
+                if _ct is not None and _ct >= _reset_dt:
+                    _filtered.append(_t)
+            closed = _filtered
+
     # sort newest first
     closed.sort(key=lambda t: t.get("close_time", ""), reverse=True)
     result = []
