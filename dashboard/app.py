@@ -147,8 +147,22 @@ def estimate_open_position_pnl(pos: dict, current_price: float | None = None) ->
     }
 
 # ── Version & Changelog ──────────────────────────────────────────────────────
-VERSION = "2.12.25-live"
+VERSION = "2.12.26-live"
 CHANGELOG = [
+    {
+        "version": "2.12.26-live",
+        "date": "2026-04-23",
+        "title": "FIX daily_target reset usa equity (no solo capital_usd) + safety >20% skip",
+        "changes": [
+            "ROOT CAUSE: orchestrator.py:273 day-reset guardaba starting_capital = capital_usd (solo USDC libre). Cuando hay positions abiertas al day-rollover 00:00 UTC, capital_usd es artificialmente bajo (invested locked). El siguiente calculo daily_pnl_pct aparenta +30% ganancia falsa - dispara DAILY_TARGET_MAX_REACHED - force-close positions que suelen ser en losses.",
+            "EVIDENCIA: 2026-04-23 00:05 UTC, 3 positions cerraron con loss total -$0.58 reportando DAILY_TARGET_MAX_REACHED: 32.52% >= 5.0%. Pero 32.52% era falso (starting_capital=62.17 vs equity real 92.17).",
+            "FIX orchestrator.py: day-reset ahora calcula equity = capital_usd + sum(position.margin_usd) + sum(position.pnl_usd). Matchea la logica de daily_target.py:69-78 que ya tenia correcto pero no corria por timing.",
+            "FIX daily_target.py: safety check defensivo - si daily_pnl_pct > 20% (claramente bug), log warning y skip trigger. Defensa en profundidad por si otra fuente escribe starting_capital malo.",
+            "STATE fix manual: daily_target_state.json starting_capital 62.17 -> 91.59 (equity real), target_reached true -> false, closed_at null.",
+            "NEW tools/test_daily_target_reset.py - 4 unit tests (no positions, positions+unrealized, legit 5%, absurd 30% safety). ALL PASSED.",
+            "Impacto: bug causaba perdidas directamente atribuibles de ~$0.50-1/dia cuando positions abiertas al rollover. Backtester 14d net P&L -$0.50 incluye estas forced-close losses.",
+        ]
+    },
     {
         "version": "2.12.25-live",
         "date": "2026-04-22",

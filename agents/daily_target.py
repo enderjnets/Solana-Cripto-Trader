@@ -163,13 +163,35 @@ def evaluate_daily_target(portfolio: dict, signals: dict) -> dict:
     should_close_all = False
     close_reason = ""
     
+    # v2.12.26 safety check: daily_pnl_pct > 20% en un solo día es casi imposible
+    # con 3-5 trades de $10 cada uno. Si aparece, es casi seguro que starting_capital
+    # está stale (positions abiertas al day-rollover). NO disparar close en ese caso.
+    _SAFETY_MAX_PNL_PCT = 0.20
+    _suspicious = daily_pnl_pct > _SAFETY_MAX_PNL_PCT
+
     if target_reached and market["overbought"]:
-        should_close_all = True
-        close_reason = f"DAILY_TARGET_REACHED: {daily_pnl_pct*100:.2f}% >= {target_pct*100:.1f}% + OVERBOUGHT (RSI {market['avg_rsi']:.1f})"
+        if _suspicious:
+            import logging as _log
+            _log.getLogger(__name__).warning(
+                f"⚠️ DAILY_TARGET_REACHED skipped — daily_pnl_pct={daily_pnl_pct*100:.1f}% "
+                f">{_SAFETY_MAX_PNL_PCT*100:.0f}% parece irreal (posible starting_capital stale "
+                f"${daily['daily_start']:.2f}). v2.12.26 safety."
+            )
+        else:
+            should_close_all = True
+            close_reason = f"DAILY_TARGET_REACHED: {daily_pnl_pct*100:.2f}% >= {target_pct*100:.1f}% + OVERBOUGHT (RSI {market['avg_rsi']:.1f})"
     elif target_reached and daily_pnl_pct >= TARGET_MAX_PCT:
-        # Si llegó al 5% o más, cerrar sin importar overbought
-        should_close_all = True
-        close_reason = f"DAILY_TARGET_MAX_REACHED: {daily_pnl_pct*100:.2f}% >= {TARGET_MAX_PCT*100:.1f}%"
+        if _suspicious:
+            import logging as _log
+            _log.getLogger(__name__).warning(
+                f"⚠️ DAILY_TARGET_MAX_REACHED skipped — daily_pnl_pct={daily_pnl_pct*100:.1f}% "
+                f">{_SAFETY_MAX_PNL_PCT*100:.0f}% parece irreal (posible starting_capital stale "
+                f"${daily['daily_start']:.2f}). v2.12.26 safety."
+            )
+        else:
+            # Si llegó al 5% o más, cerrar sin importar overbought
+            should_close_all = True
+            close_reason = f"DAILY_TARGET_MAX_REACHED: {daily_pnl_pct*100:.2f}% >= {TARGET_MAX_PCT*100:.1f}%"
     
     # Actualizar estado
     state["current_pnl_pct"] = daily_pnl_pct

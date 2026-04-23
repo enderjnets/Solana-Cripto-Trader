@@ -102,7 +102,7 @@ def _save_trade_history(trades: list):
 
 import logging
 
-LOG_FILE = Path.home() / ".config" / "solana-jupiter-bot" / "modular.log"
+LOG_FILE = Path.home() / ".config" / "solana-jupiter-bot" / "modular.live.log"
 LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
 
 # ── Rotación de logs (si > 50MB) ─────────────────────────────────────────────
@@ -276,21 +276,31 @@ def run_cycle(safe=True, debug=False):
             _today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
             if _dts.get("date") != _today:
                 _pf_file = DATA_DIR / "portfolio.json"
-                _cap = 0.0
-                if _pf_file.exists():
-                    try:
-                        _cap = float(json.loads(_pf_file.read_text()).get("capital_usd", 0))
-                    except Exception:
-                        _cap = 0.0
+                _equity = 0.0
+                try:
+                    if _pf_file.exists():
+                        _pf_data = json.loads(_pf_file.read_text())
+                        _cap = float(_pf_data.get("capital_usd", 0) or 0)
+                        _open_pos = [p for p in _pf_data.get("positions", [])
+                                     if p.get("status") == "open"]
+                        _invested = sum(float(p.get("margin_usd", 0) or 0) for p in _open_pos)
+                        _unrealized = sum(float(p.get("pnl_usd", 0) or 0) for p in _open_pos)
+                        # v2.12.26: starting_capital must be EQUITY (cap + invested + unrealized),
+                        # not just capital_usd. If positions are open at rollover, using capital_usd
+                        # alone makes daily_pnl_pct appear falsely large (the "locked" margin shows
+                        # as profit when positions settle). Fixes DAILY_TARGET_MAX_REACHED false trigger.
+                        _equity = _cap + _invested + _unrealized
+                except Exception:
+                    _equity = 0.0
                 _prev_date = _dts.get("date")
                 _dts.update({
                     "date": _today,
-                    "starting_capital": _cap,
+                    "starting_capital": _equity,
                     "current_pnl_pct": 0.0,
                     "target_reached": False,
                 })
                 _dt_state_file.write_text(json.dumps(_dts, indent=2))
-                log.info(f"🗓️  daily_target_state reseteado: {_prev_date} → {_today} (capital: ${_cap:.2f})")
+                log.info(f"🗓️  daily_target_state reseteado: {_prev_date} → {_today} (equity: ${_equity:.2f})")
     except Exception as _e_dt:
         log.warning(f"daily_target reset error (non-fatal): {_e_dt}")
     
