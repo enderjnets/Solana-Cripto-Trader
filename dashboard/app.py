@@ -171,8 +171,18 @@ def estimate_open_position_pnl(pos: dict, current_price: float | None = None) ->
     }
 
 # ── Version & Changelog ──────────────────────────────────────────────────────
-VERSION = "2.12.30-live"
+VERSION = "2.12.30.1-live"
 CHANGELOG = [
+    {
+        "version": "2.12.30.1-live",
+        "date": "2026-04-23",
+        "title": "HOTFIX reporter: total_value + return_pct usan wallet-total",
+        "changes": [
+            "HOTFIX: agents/reporter.py computaba su propia total_value y return_pct usando solo capital_usd + invested + unrealized (ignoraba SOL fuel + dust). Reportaba return_pct -20% cuando wallet real estaba +1.5%.",
+            "FIX: reporter ahora delega a wallet_equity.fetch_wallet_equity() (fallback a bot-equity si RPC falla). total_value y return_pct ahora reflejan wallet on-chain consistente con v2.12.30 drawdown fix.",
+            "VALIDACION standalone: total_value=\$104.53 (antes \$81.36), return_pct=+1.58% (antes -20.94%), drawdown=0.0% (antes 20.94%).",
+        ]
+    },
     {
         "version": "2.12.30-live",
         "date": "2026-04-23",

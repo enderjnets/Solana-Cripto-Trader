@@ -142,9 +142,28 @@ def calculate_metrics(portfolio: dict, history: list) -> dict:
     gross_loss   = sum(abs(t["pnl_usd"]) for t in losing_trades)
     profit_factor = (gross_profit / gross_loss) if gross_loss > 0 else (gross_profit if gross_profit > 0 else 0)
 
-    # Equity total = capital libre + invertido en posiciones + P&L no realizado
-    total_value = capital + invested_in_positions + unrealized_pnl
-    drawdown = max(0.0, (initial - total_value) / initial * 100) if initial > 0 else 0.0
+    # Equity total = capital libre + invertido en posiciones + P&L no realizado (legacy/fallback)
+    _bot_total_value = capital + invested_in_positions + unrealized_pnl
+
+    # v2.12.30/30.1: total_value + drawdown + return_pct usan wallet-total
+    # on-chain (USDC + SOL fuel + dust tokens × prices) cuando disponible.
+    # Antes el reporter usaba solo capital_usd y reportaba return_pct -20% falso
+    # cuando el wallet real estaba +1.5%.
+    total_value = _bot_total_value
+    try:
+        from wallet_equity import fetch_wallet_equity as _fwe
+        _we = _fwe()
+        if _we and _we.get("wallet_total") is not None:
+            total_value = float(_we["wallet_total"])
+    except Exception:
+        pass
+
+    try:
+        from risk_manager import calculate_drawdown as _calc_dd_rm
+        _dd_frac = _calc_dd_rm(portfolio)
+        drawdown = _dd_frac * 100
+    except Exception:
+        drawdown = max(0.0, (initial - total_value) / initial * 100) if initial > 0 else 0.0
 
     # Sharpe básico (si hay trades suficientes)
     sharpe = 0.0
