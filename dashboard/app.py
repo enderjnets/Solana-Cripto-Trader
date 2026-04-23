@@ -147,8 +147,21 @@ def estimate_open_position_pnl(pos: dict, current_price: float | None = None) ->
     }
 
 # ── Version & Changelog ──────────────────────────────────────────────────────
-VERSION = "2.12.26-live"
+VERSION = "2.12.27-live"
 CHANGELOG = [
+    {
+        "version": "2.12.27-live",
+        "date": "2026-04-23",
+        "title": "Fix dashboard equity curve baseline (reset_history stale desde paper era)",
+        "changes": [
+            "BUG: dashboard /api/equity usaba reset_history.json[-1] como baseline de equity curve. Latest entry era 2026-04-13 con new_capital=500 (era paper bot). Dashboard mostraba equity en rango $500 cuando live bot esta en $100.",
+            "EVIDENCIA: user screenshot mostro equity curve desde $500 bajando a $500 (extraño zoom) con discrepancias notorias vs trades reales (que son $10 positions con $0.05-0.30 pnl cada uno).",
+            "FIX: agregado entry a reset_history.json reflejando v2.12.20 scale ($8 -> $100). Baseline ahora $100.10 correcto, equity curve $99-100 range matchea reality.",
+            "VERIFICADO via /api/equity: first=$100.10, last=$99.59, max=$100.17, min=$99.59. Refleja pnl real del día (-$0.51 net).",
+            "Otras charts afectadas positivamente: wins/losses donut ahora solo cuenta trades post-reset (3W/3L = 50/50), symbol_pnl refleja reality (ETH -$0.027, JUP -$0.32, SOL -$0.16), distribution histogram muestra 6 trades post-scale real range.",
+            "NO code change — solo state fix en agents/data/reset_history.json (archivo gitignored). Versión bumped para documentar el fix.",
+        ]
+    },
     {
         "version": "2.12.26-live",
         "date": "2026-04-23",
