@@ -171,8 +171,23 @@ def estimate_open_position_pnl(pos: dict, current_price: float | None = None) ->
     }
 
 # ── Version & Changelog ──────────────────────────────────────────────────────
-VERSION = "2.12.30.1-live"
+VERSION = "2.12.31-live"
 CHANGELOG = [
+    {
+        "version": "2.12.31-live",
+        "date": "2026-04-23",
+        "title": "Fix boton reset (3 bugs) + /api/soft-reset + reset_history enriquecido",
+        "changes": [
+            "BUG A (reset): /api/reset hardcodeaba mode=paper_drift - reseteo silenciosamente cambiaba bot live a paper. FIX: preserva mode del portfolio actual o acepta override via body.mode.",
+            "BUG B (reset): /api/reset hacia positions=[] en todos los casos - orphanaba positions live on-chain (tokens ya swapped, portfolio perdia track). FIX: nuevo flag preserve_positions (default True si mode=live). capital_usd se ajusta restando margin_locked para no double-contar.",
+            "BUG C (reset): /api/reset no auto-detectaba capital, requeria input manual. FIX: si capital=None/<=0, consulta wallet_equity.fetch_wallet_equity() y usa wallet_total como default. capital_source se registra en entry.",
+            "NUEVO: /api/soft-reset - wrapper convenience con defaults safe (preserve_positions=True, capital=wallet_total, mode preservado). Ideal para 'empezar a medir desde hoy' sin romper live trading.",
+            "BACKUP AUTO: antes de cualquier mutation, /api/reset hace copia de portfolio.json / trade_history.json / reset_history.json / daily_target_state.json / auto_learner_state.json con sufijo .bak_v2_12_31_reset_<epoch>.",
+            "RESET_HISTORY ENRIQUECIDO: nuevos campos por entry - wallet_snapshot (USDC+SOL+tokens on-chain), auto_learner_snapshot (params + counters al momento del reset), preserved_positions (lista completa con margin+entry+pnl), mode_pre_reset, mode_post_reset, capital_source, backups_created, version.",
+            "AUTO-LEARNER: trades siguen exportandose a auto_learner.db ANTES de truncate (comportamiento existente preservado). DB sobrevive todos los resets acumulando conocimiento permanente.",
+            "EJECUCION HOY: reset aplicado via /api/soft-reset post-fixes v2.12.30 - baseline fresh $104.57 para medir strategy limpia sin noise del bug emergency_close historico.",
+        ]
+    },
     {
         "version": "2.12.30.1-live",
         "date": "2026-04-23",
@@ -4629,19 +4644,90 @@ def api_log():
     return jsonify({"lines": lines})
 
 
+@app.route('/api/soft-reset', methods=['POST'])
+def api_soft_reset():
+    """v2.12.31: convenience wrapper over /api/reset with safe defaults for live.
+
+    No body required. Auto-detects capital from wallet_equity, preserves positions
+    and current mode, preserves auto_learner params. Use when you want "start
+    measuring from today" without losing in-flight live positions or paper state.
+    """
+    body = request.get_json() or {}
+    # Build safe defaults — caller can override via body
+    # v2.12.31: strip None values so they fall through to defaults in /api/reset
+    payload = {}
+    if body.get("capital") is not None:
+        payload["capital"] = body["capital"]
+    payload["preserve_positions"] = body.get("preserve_positions", True)
+    if body.get("mode"):
+        payload["mode"] = body["mode"]
+    payload["reason"] = body.get("reason", "Soft reset — baseline refresh, positions + auto_learner preserved")
+    payload["notes"] = body.get("notes", "")
+    payload["attachments"] = body.get("attachments", [])
+    # Replay as if POST /api/reset with our merged payload
+    with app.test_request_context(
+        '/api/reset', method='POST', json=payload
+    ):
+        return api_reset()
+
+
 @app.route('/api/reset', methods=['POST'])
 def api_reset():
     """Reset all bot state to initial values."""
     try:
         data = request.get_json() or {}
-        capital = float(data.get("capital", 500.0))
-        
+        import shutil as _shutil
+        import time as _time_mod
+
         now = datetime.now(timezone.utc).isoformat()
         today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-        
+
         # === GUARDAR SNAPSHOT ANTES DEL RESET ===
         old_portfolio = load_portfolio()
         old_history = load_trade_history()
+        old_mode = old_portfolio.get("mode", "live")  # v2.12.31 Bug A fix
+
+        # v2.12.31 Bug C fix: auto-detect capital from wallet_equity when not specified
+        _req_capital = data.get("capital")
+        _capital_source = "user_input"
+        if _req_capital is None or float(_req_capital) <= 0:
+            _capital_source = "fallback_portfolio"
+            capital = safe_float(old_portfolio.get("capital_usd", 500))
+            try:
+                import sys as _sys
+                from pathlib import Path as _Path
+                _agents_path = str(_Path(__file__).resolve().parent.parent / "agents")
+                if _agents_path not in _sys.path:
+                    _sys.path.insert(0, _agents_path)
+                from wallet_equity import fetch_wallet_equity as _fwe
+                _we_snap = _fwe()
+                if _we_snap and _we_snap.get("wallet_total"):
+                    capital = float(_we_snap["wallet_total"])
+                    _capital_source = "wallet_equity"
+            except Exception as _ce:
+                log.warning(f"api_reset: wallet_equity auto-detect failed: {_ce}")
+        else:
+            capital = float(_req_capital)
+
+        # v2.12.31 Bug B fix: preserve_positions flag (default True for live mode)
+        _preserve_positions = data.get("preserve_positions",
+                                       old_mode == "live")
+        _preserve_positions = bool(_preserve_positions)
+
+        # v2.12.31 Backup all state files before mutation
+        _epoch = int(_time_mod.time())
+        _backups_created = []
+        for _name in ("portfolio.json", "trade_history.json", "reset_history.json",
+                      "daily_target_state.json", "auto_learner_state.json"):
+            _src = DATA / _name
+            if _src.exists():
+                _dst = DATA / f"{_name}.bak_v2_12_31_reset_{_epoch}"
+                try:
+                    _shutil.copy2(_src, _dst)
+                    _backups_created.append(_dst.name)
+                except Exception as _be:
+                    log.warning(f"api_reset: backup failed for {_name}: {_be}")
+        log.info(f"api_reset: {len(_backups_created)} backups created (suffix bak_v2_12_31_reset_{_epoch})")
         
         # Calcular estadísticas del período que termina
         # Fix: trades en history no tienen campo status — identificar por close_time/close_reason
@@ -4670,7 +4756,46 @@ def api_reset():
         best_trade  = max(pnls) if pnls else 0
         worst_trade = min(pnls) if pnls else 0
         
-        # Crear entrada de historial
+        # v2.12.31: snapshot wallet + auto_learner params + preserved positions
+        _wallet_snap = None
+        try:
+            import sys as _sys2
+            from pathlib import Path as _P2
+            _ap2 = str(_P2(__file__).resolve().parent.parent / "agents")
+            if _ap2 not in _sys2.path:
+                _sys2.path.insert(0, _ap2)
+            from wallet_equity import fetch_wallet_equity as _fwe2
+            _wallet_snap = _fwe2()
+        except Exception:
+            pass
+
+        _al_snapshot = {}
+        _al_file = DATA / "auto_learner_state.json"
+        if _al_file.exists():
+            try:
+                _al_data = json.load(open(_al_file))
+                _al_snapshot = {
+                    "params": _al_data.get("params", {}),
+                    "total_trades_learned_pre_reset": _al_data.get("total_trades_learned", 0),
+                    "adaptation_count_pre_reset": _al_data.get("adaptation_count", 0),
+                }
+            except Exception:
+                pass
+
+        _preserved_pos_summary = []
+        if _preserve_positions:
+            for _pos in old_portfolio.get("positions", []):
+                if _pos.get("status") == "open":
+                    _preserved_pos_summary.append({
+                        "symbol": _pos.get("symbol"),
+                        "direction": _pos.get("direction"),
+                        "margin_usd": _pos.get("margin_usd"),
+                        "entry_price": _pos.get("entry_price"),
+                        "current_pnl_usd": _pos.get("pnl_usd"),
+                        "open_time": _pos.get("open_time"),
+                    })
+
+        # Crear entrada de historial (v2.12.31 enriched)
         reset_entry = {
             "reset_date": now,
             "period_start": old_portfolio.get("created_at", "unknown"),
@@ -4689,7 +4814,17 @@ def api_reset():
             "new_capital": capital,
             "reason": data.get("reason", "Manual reset"),
             "notes": data.get("notes", "").strip(),
-            "attachments": data.get("attachments", [])
+            "attachments": data.get("attachments", []),
+            # v2.12.31 enriched metadata
+            "mode_pre_reset": old_mode,
+            "mode_post_reset": data.get("mode") or old_mode,
+            "wallet_snapshot": _wallet_snap,
+            "auto_learner_snapshot": _al_snapshot,
+            "preserved_positions": _preserved_pos_summary,
+            "preserve_positions_flag": _preserve_positions,
+            "backups_created": _backups_created,
+            "capital_source": _capital_source,
+            "version": "2.12.31-live",
         }
         
         # Cargar historial existente y agregar
@@ -4709,13 +4844,19 @@ def api_reset():
         
         # === CONTINUAR CON EL RESET NORMAL ===
         
-        # 1. Portfolio
+        # 1. Portfolio (v2.12.31 — preserve mode + positions when flagged)
+        _new_positions = old_portfolio.get("positions", []) if _preserve_positions else []
+        # For preserve_positions=True, capital_usd should exclude locked margins
+        # (otherwise we double-count). Subtract margins of open positions.
+        _open_margin_locked = sum(safe_float(p.get("margin_usd", 0))
+                                   for p in _new_positions if p.get("status") == "open")
+        _free_capital = max(0.0, capital - _open_margin_locked)
         portfolio = {
-            "capital_usd": capital,
-            "initial_capital": capital,
-            "positions": [],
+            "capital_usd": round(_free_capital, 4) if _preserve_positions else capital,
+            "initial_capital": capital,  # new baseline = total equity at reset
+            "positions": _new_positions,
             "status": "ACTIVE",
-            "mode": "paper_drift",
+            "mode": data.get("mode") or old_mode,  # v2.12.31 Bug A fix (None-safe)
             "created_at": now,
             "last_updated": now,
             "total_trades": 0,
