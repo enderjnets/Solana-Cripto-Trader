@@ -613,19 +613,29 @@ def close_positions_emergency(portfolio: dict, symbols: list, market: dict, hist
                     portfolio["wins"] = portfolio.get("wins", 0) + 1
                 else:
                     portfolio["losses"] = portfolio.get("losses", 0) + 1
+                # v2.12.30: use real fee_exit from Jupiter swap (was hardcoded 0).
+                # Apply fee to pnl_usd/pnl_pct for accurate net accounting.
+                _fee_exit = float(_cr.get("fee_exit", 0) or 0)
+                _margin_for_pct = pos.get("margin_usd", pos.get("size_usd", 1)) or 1
+                _net_pnl = pos["pnl_usd"] - _fee_exit
+                _net_pnl_pct = (_net_pnl / _margin_for_pct) if _margin_for_pct else 0
+                pos["pnl_usd"] = round(_net_pnl, 4)
+                pos["pnl_pct"] = round(_net_pnl_pct, 4)
                 _live_record = {
                     "id": pos["id"], "symbol": pos["symbol"], "direction": pos["direction"],
                     "entry_price": pos["entry_price"], "exit_price": pos["close_price"],
                     "current_price": pos["close_price"], "size_usd": pos["size_usd"],
                     "notional_value": pos.get("notional_value", pos.get("size_usd", 0)),
                     "margin_usd": pos.get("margin_usd", 0), "leverage": pos.get("leverage", 1),
-                    "fee_entry": pos.get("fee_entry", 0), "fee_exit": 0,
+                    "fee_entry": pos.get("fee_entry", 0),
+                    "fee_exit": round(_fee_exit, 6),
                     "funding_accumulated": pos.get("funding_accumulated", 0),
                     "pnl_usd": pos["pnl_usd"], "pnl_pct": pos["pnl_pct"],
                     "open_time": pos["open_time"], "close_time": pos["close_time"],
                     "close_reason": reason, "strategy": pos.get("strategy", "unknown"),
                     "mode": "live", "tx_signature": pos.get("tx_signature"),
                     "tx_signature_close": _cr["signature"],
+                    "price_impact_exit": round(float(_cr.get("price_impact_pct", 0) or 0), 6),
                 }
                 if ai_reasoning:
                     _live_record["ai_reasoning"] = ai_reasoning
@@ -1893,7 +1903,16 @@ def real_close_position(pos: dict, portfolio: dict) -> Optional[dict]:
         log.info(f"    💾 portfolio persisted immediately post-close")
     except Exception as _ps_err:
         log.error(f"    ⚠️ immediate persist failed (cycle save will retry): {_ps_err}")
-    log.info(f"✅ LIVE CLOSE OK: {symbol} → ${usdc_received:.4f} USDC | P&L ${pnl_real_usd:+.4f}")
+    # v2.12.30: compute fee_exit using same model as paper closes
+    # (TAKER_FEE 0.1% + per-symbol slippage). Previously hardcoded to 0 in
+    # trade_history records → pnl_usd visibility was overstated.
+    try:
+        notional = float(pos.get("notional_value", pos.get("size_usd", 0)) or 0)
+        fee_exit = notional * (TAKER_FEE + get_slippage(symbol))
+    except Exception:
+        fee_exit = 0.0
+
+    log.info(f"✅ LIVE CLOSE OK: {symbol} → ${usdc_received:.4f} USDC | P&L ${pnl_real_usd:+.4f} | fee_exit ${fee_exit:.4f}")
     log.info(f"   tx: {result.signature}")
     return {
         "usdc_received": usdc_received,
@@ -1901,6 +1920,7 @@ def real_close_position(pos: dict, portfolio: dict) -> Optional[dict]:
         "exit_price": exit_price,
         "signature": result.signature,
         "price_impact_pct": result.price_impact_pct,
+        "fee_exit": fee_exit,
     }
 
 

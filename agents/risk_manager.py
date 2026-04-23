@@ -185,28 +185,41 @@ def load_research() -> dict:
 # ─── Cálculos de Riesgo ──────────────────────────────────────────────────────
 
 def calculate_drawdown(portfolio: dict) -> float:
-    """Calcula el drawdown actual como porcentaje del capital inicial.
-    IMPORTANTE: capital_usd es solo el capital LIBRE (no invertido).
-    El equity real = capital_libre + invertido_en_posiciones + P&L_abierto.
+    """Calcula el drawdown basado en equity TOTAL del wallet on-chain.
+
+    v2.12.30 FIX: anteriormente usaba portfolio.capital_usd + invested + unrealized,
+    que EXCLUÍA SOL fuel (~$14) y dust JUP/ETH (~$3). Consecuencia: reportaba
+    drawdown 20.87% cuando el wallet real estaba en +1.5% (ganancia). Ese DD falso
+    disparaba evaluate_emergency_close Cause #4 en cada trade → 95% emergency closes.
+
+    Fuente primaria: wallet_equity.fetch_wallet_equity() — query on-chain
+    (USDC + SOL + JUP + ETH × Jupiter prices, 60s cache).
+    Fallback: cálculo bot-equity legacy si wallet no disponible (paper mode, RPC fail).
     """
-    initial  = portfolio.get("initial_capital", 500.0)
-    free_cap = portfolio.get("capital_usd", 500.0)
-
-    # Sumar margen invertido en posiciones abiertas + P&L no realizado
-    # IMPORTANTE: usar margin_usd (capital real del trader), NO size_usd (notional = margen × leverage)
-    invested    = 0.0
-    unrealized  = 0.0
-    for pos in portfolio.get("positions", []):
-        if pos.get("status") == "open":
-            invested   += pos.get("margin_usd", 0)  # margen real, no notional
-            unrealized += pos.get("pnl_usd", 0)
-
-    # Equity real = lo que tenemos libre + margen invertido ± P&L (con leverage)
-    total_value = free_cap + invested + unrealized
+    initial = portfolio.get("initial_capital", 500.0)
     if initial <= 0:
         return 0.0
-    drawdown = (initial - total_value) / initial
-    return max(0.0, drawdown)
+
+    # v2.12.30: primary source — on-chain wallet total equity
+    try:
+        from wallet_equity import fetch_wallet_equity
+        we = fetch_wallet_equity()
+        if we and we.get("wallet_total") is not None:
+            wallet_total = float(we["wallet_total"])
+            return max(0.0, (initial - wallet_total) / initial)
+    except Exception as _e:
+        log.warning(f"calculate_drawdown: wallet_equity unavailable, falling back to bot equity ({_e})")
+
+    # Fallback (paper mode or RPC failure): legacy bot-equity calculation
+    free_cap = portfolio.get("capital_usd", 500.0)
+    invested = 0.0
+    unrealized = 0.0
+    for pos in portfolio.get("positions", []):
+        if pos.get("status") == "open":
+            invested += pos.get("margin_usd", 0)
+            unrealized += pos.get("pnl_usd", 0)
+    total_value = free_cap + invested + unrealized
+    return max(0.0, (initial - total_value) / initial)
 
 
 def evaluate_emergency_close(portfolio: dict, research: dict, market: dict) -> dict:
@@ -287,13 +300,54 @@ def evaluate_emergency_close(portfolio: dict, research: dict, market: dict) -> d
         }
 
     # Causa 4: Drawdown alto + todas posiciones negativas
+    # v2.12.30: defensive guards to prevent spurious closes on micro-dips.
+    # Previously fired on ANY negative position when stale DD >= 8% (Bug #1).
+    # Today (2026-04-23): 73 of 77 trades (95%) closed here with 1.6min median hold.
     drawdown = calculate_drawdown(portfolio)
     if drawdown >= 0.08 and all_negative:
-        return {
-            "emergency_close": True,
-            "reason": f"Drawdown {int(drawdown*100)}% con todas las posiciones perdiendo",
-            "symbols": [p["symbol"] for p in open_positions]
-        }
+        # Guard A: min position age >= 5min (same pattern as Cause #2)
+        now = datetime.now(timezone.utc)
+        min_age_ok = True
+        for pos in open_positions:
+            try:
+                opened_at = datetime.fromisoformat(
+                    str(pos.get("open_time", pos.get("opened_at", ""))).replace("Z", "+00:00")
+                )
+                if opened_at.tzinfo is None:
+                    opened_at = opened_at.replace(tzinfo=timezone.utc)
+                age_min = (now - opened_at).total_seconds() / 60
+                if age_min < 5:
+                    min_age_ok = False
+                    log.info(
+                        f"   🛡️ Emergency close SKIPPED (age): {pos.get('symbol','?')} "
+                        f"abierto hace {age_min:.1f}min < 5min protection"
+                    )
+                    break
+            except Exception:
+                # If open_time unparseable, don't block — conservative default
+                pass
+
+        # Guard B: min loss threshold — need >= 1% loss to count (ignore entry slippage)
+        MIN_LOSS_PCT = 0.01
+        try:
+            max_loss = max(
+                abs(float(p.get("pnl_pct", 0) or 0)) for p in open_positions
+            )
+        except Exception:
+            max_loss = 0.0
+        min_loss_ok = max_loss >= MIN_LOSS_PCT
+        if not min_loss_ok:
+            log.info(
+                f"   🛡️ Emergency close SKIPPED (loss): max_loss={max_loss*100:.2f}% "
+                f"< {MIN_LOSS_PCT*100:.0f}% — within normal entry slippage"
+            )
+
+        if min_age_ok and min_loss_ok:
+            return {
+                "emergency_close": True,
+                "reason": f"Drawdown {int(drawdown*100)}% con todas las posiciones perdiendo >=1% por >=5min",
+                "symbols": [p["symbol"] for p in open_positions]
+            }
 
     return {"emergency_close": False, "reason": "", "symbols": []}
 

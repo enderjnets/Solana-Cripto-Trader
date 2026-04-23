@@ -171,8 +171,22 @@ def estimate_open_position_pnl(pos: dict, current_price: float | None = None) ->
     }
 
 # ── Version & Changelog ──────────────────────────────────────────────────────
-VERSION = "2.12.29-live"
+VERSION = "2.12.30-live"
 CHANGELOG = [
+    {
+        "version": "2.12.30-live",
+        "date": "2026-04-23",
+        "title": "Fix 4 bugs operativos: drawdown real, emergency guards, fee tracking, R:R natural",
+        "changes": [
+            "BUG #1 FIX (RAIZ): calculate_drawdown ahora usa wallet-total equity (on-chain USDC+SOL+tokens x prices). Antes solo usaba portfolio.capital_usd excluyendo SOL fuel ($14) + dust ($3) -> reportaba DD 20.87% falso cuando wallet real estaba +1.5%. Disparaba emergency_close Cause #4 en cada trade (73 de 77 hoy con 1.6 min holding mediana).",
+            "BUG #2 FIX: evaluate_emergency_close Cause #4 (drawdown >=8% + all_negative) ahora requiere position_age >=5min AND pnl_pct >=1%. Guard defensivo impide cerrar por micro-dips de 0.05% slippage de entrada. Cause #1/#2/#3 sin cambios (regression tests cubren).",
+            "BUG #3 FIX: fee_exit ya NO hardcoded a 0 en live closes. real_close_position computa fee con mismo modelo que paper (TAKER_FEE 0.1% + slippage por simbolo). pnl_usd/pnl_pct ahora netos de fee_exit. Nuevo campo price_impact_exit en trade records para telemetria Jupiter.",
+            "RESULTADO ESPERADO: R:R natural se respeta (SL 3.5% dispara antes que emergency), fee visibility completa, drawdown refleja realidad on-chain, emergency_closes caen de 73/dia esperados a 0-1/dia.",
+            "NUEVO: agents/wallet_equity.py - shared helper promoted from dashboard v2.12.28. Dashboard refactor para usar shared module (elimina duplicacion ~100 lineas).",
+            "NUEVO: tools/test_v2_12_30.py - suite de 13 tests unitarios (drawdown wallet + emergency guards + fee tracking). TODOS PASAN.",
+            "OPS: user paro el bot manualmente 2026-04-23T13:45Z tras detectar sangrado ~$1.50/dia en fees+slippage. Deploy incluye reset portfolio.status ACTIVE + delete kill switch + delete STOP_TRADING.",
+        ]
+    },
     {
         "version": "2.12.29-live",
         "date": "2026-04-23",
@@ -3653,98 +3667,27 @@ def api_health():
     })
 
 
-# v2.12.28: wallet-total equity helper (on-chain USDC + SOL + tokens × prices).
-# Caches for 60s to avoid spamming RPC on every dashboard refresh.
-_WALLET_EQUITY_CACHE = {"ts": 0, "data": None}
+# v2.12.30: wallet equity helper moved to agents/wallet_equity.py (shared with
+# risk_manager.py::calculate_drawdown). Dashboard keeps local shim name for
+# backward compat.
+try:
+    import sys as _sys_we
+    from pathlib import Path as _Path_we
+    _sys_we.path.insert(0, str(_Path_we(__file__).resolve().parent.parent / "agents"))
+    from wallet_equity import fetch_wallet_equity as _shared_fetch_wallet_equity
+except Exception as _we_err:
+    _shared_fetch_wallet_equity = None
+    import logging as _logging_we
+    _logging_we.getLogger(__name__).warning(f"wallet_equity import failed: {_we_err}")
+
 
 def _fetch_wallet_equity():
-    """Query on-chain wallet balances × prices. Returns dict with wallet_total,
-    balances, prices, or None if unavailable (paper bot, RPC fail, etc.)."""
-    import time as _time
-    import os as _os
-    try:
-        import requests as _rq
-    except ImportError:
+    """Dashboard shim — delegates to agents/wallet_equity.py shared module."""
+    if _shared_fetch_wallet_equity is None:
         return None
-
-    now = _time.time()
-    if _WALLET_EQUITY_CACHE["data"] and (now - _WALLET_EQUITY_CACHE["ts"] < 60):
-        return _WALLET_EQUITY_CACHE["data"]
-
-    wallet = _os.environ.get("HOT_WALLET_ADDRESS", "").strip()
-    if not wallet or wallet == "MOCK_NO_PUBKEY":
-        return None
-
-    rpc = _os.environ.get("SOLANA_RPC_URL", "https://api.mainnet-beta.solana.com")
-    mints = {
-        "USDC": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
-        "JUP":  "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
-        "ETH":  "7vfCXTUXx5WJV5JADk17DUJ4ksgau7utNKj4b963voxs",
-    }
-    sol_mint = "So11111111111111111111111111111111111111112"
-
     try:
-        balances = {}
-        # Native SOL
-        r = _rq.post(rpc, json={"jsonrpc": "2.0", "id": 1, "method": "getBalance",
-                                "params": [wallet]}, timeout=5).json()
-        balances["SOL"] = r["result"]["value"] / 1e9
-
-        # SPL tokens
-        for sym, mint in mints.items():
-            r = _rq.post(rpc, json={
-                "jsonrpc": "2.0", "id": 2, "method": "getTokenAccountsByOwner",
-                "params": [wallet, {"mint": mint}, {"encoding": "jsonParsed"}],
-            }, timeout=5).json()
-            total = sum(float(a["account"]["data"]["parsed"]["info"]["tokenAmount"]["uiAmount"] or 0)
-                        for a in r.get("result", {}).get("value", []))
-            balances[sym] = total
-
-        # Prices from Jupiter (primary) with market_latest.json fallback
-        sol_px = jup_px = eth_px = 0.0
-        try:
-            ids = f"{sol_mint},{mints['JUP']},{mints['ETH']}"
-            px_r = _rq.get(f"https://price.jup.ag/v6/price?ids={ids}", timeout=5).json()
-            px_data = px_r.get("data", {})
-            sol_px = float(px_data.get(sol_mint, {}).get("price", 0) or 0)
-            jup_px = float(px_data.get(mints["JUP"], {}).get("price", 0) or 0)
-            eth_px = float(px_data.get(mints["ETH"], {}).get("price", 0) or 0)
-        except Exception:
-            pass
-        # v2.12.28 fallback: if any price is 0 (Jupiter API down, stale, etc.),
-        # use market_latest.json which bot updates every cycle.
-        if sol_px == 0 or jup_px == 0 or eth_px == 0:
-            try:
-                _ml = load_json(DATA / "market_latest.json") or {}
-                _tokens = _ml.get("tokens", {}) if isinstance(_ml, dict) else {}
-                if sol_px == 0 and "SOL" in _tokens:
-                    sol_px = float(_tokens["SOL"].get("price", 0) or 0)
-                if jup_px == 0 and "JUP" in _tokens:
-                    jup_px = float(_tokens["JUP"].get("price", 0) or 0)
-                if eth_px == 0 and "ETH" in _tokens:
-                    eth_px = float(_tokens["ETH"].get("price", 0) or 0)
-            except Exception:
-                pass
-
-        prices = {"SOL": sol_px, "JUP": jup_px, "ETH": eth_px}
-
-        wallet_total = (
-            balances["USDC"]
-            + balances["SOL"] * sol_px
-            + balances["JUP"] * jup_px
-            + balances["ETH"] * eth_px
-        )
-        result = {
-            "wallet_total": round(wallet_total, 4),
-            "balances": {k: round(v, 6) for k, v in balances.items()},
-            "prices": {k: round(v, 6) for k, v in prices.items()},
-            "ts": now,
-        }
-        _WALLET_EQUITY_CACHE["ts"] = now
-        _WALLET_EQUITY_CACHE["data"] = result
-        return result
-    except Exception as _e:
-        # Silent fail — fallback to bot equity
+        return _shared_fetch_wallet_equity()
+    except Exception:
         return None
 
 
