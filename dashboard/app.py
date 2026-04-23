@@ -147,8 +147,22 @@ def estimate_open_position_pnl(pos: dict, current_price: float | None = None) ->
     }
 
 # ── Version & Changelog ──────────────────────────────────────────────────────
-VERSION = "2.12.27-live"
+VERSION = "2.12.28-live"
 CHANGELOG = [
+    {
+        "version": "2.12.28-live",
+        "date": "2026-04-23",
+        "title": "Wallet-total equity + initial_capital inmutable (dashboard muestra realidad on-chain)",
+        "changes": [
+            "PROBLEMA: user reporto dashboard Equity \$91.48 vs user expected \$102. Root causes: (1) initial_capital fue resetado a \$90.10 por tools/reconcile_all_orphans.py (bug: cada reconcile sobrescribia baseline), (2) bot equity excluye SOL fuel + dust residues que el user SI tiene on-chain.",
+            "FIX A: tools/reconcile_all_orphans.py ya NO sobrescribe initial_capital. Solo lo establece si falta (nuevo portfolio). Preserva baseline permanente.",
+            "FIX B: dashboard/app.py nuevo helper _fetch_wallet_equity() (cache 60s) query on-chain USDC + SOL + JUP + ETH x Jupiter prices (fallback a market_latest.json si Jupiter API down). Nuevo endpoint /api/wallet-equity.",
+            "INTEGRATION: api_stats usa wallet_total como equity cuando disponible, fallback a bot_equity si RPC fails. Resto de metricas (return_pct, drawdown) flowean naturalmente.",
+            "STATE FIX: portfolio.initial_capital \$90.10 -> \$102.90 (real deposit value = USDC \$100.10 + SOL fuel ~\$2.80).",
+            "VERIFICACION: /api/wallet-equity reporta wallet_total=\$105.62, /api/stats return_pct=+2.64% (ganancia real). Dashboard ahora muestra realidad on-chain inclusive SOL fuel + dust.",
+            "Nota: endpoint original cachea 60s para no spammear RPC. Paper bot falla silencioso y cae a bot_equity, compatible.",
+        ]
+    },
     {
         "version": "2.12.27-live",
         "date": "2026-04-23",
@@ -3603,6 +3617,110 @@ def api_health():
     })
 
 
+# v2.12.28: wallet-total equity helper (on-chain USDC + SOL + tokens × prices).
+# Caches for 60s to avoid spamming RPC on every dashboard refresh.
+_WALLET_EQUITY_CACHE = {"ts": 0, "data": None}
+
+def _fetch_wallet_equity():
+    """Query on-chain wallet balances × prices. Returns dict with wallet_total,
+    balances, prices, or None if unavailable (paper bot, RPC fail, etc.)."""
+    import time as _time
+    import os as _os
+    try:
+        import requests as _rq
+    except ImportError:
+        return None
+
+    now = _time.time()
+    if _WALLET_EQUITY_CACHE["data"] and (now - _WALLET_EQUITY_CACHE["ts"] < 60):
+        return _WALLET_EQUITY_CACHE["data"]
+
+    wallet = _os.environ.get("HOT_WALLET_ADDRESS", "").strip()
+    if not wallet or wallet == "MOCK_NO_PUBKEY":
+        return None
+
+    rpc = _os.environ.get("SOLANA_RPC_URL", "https://api.mainnet-beta.solana.com")
+    mints = {
+        "USDC": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+        "JUP":  "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
+        "ETH":  "7vfCXTUXx5WJV5JADk17DUJ4ksgau7utNKj4b963voxs",
+    }
+    sol_mint = "So11111111111111111111111111111111111111112"
+
+    try:
+        balances = {}
+        # Native SOL
+        r = _rq.post(rpc, json={"jsonrpc": "2.0", "id": 1, "method": "getBalance",
+                                "params": [wallet]}, timeout=5).json()
+        balances["SOL"] = r["result"]["value"] / 1e9
+
+        # SPL tokens
+        for sym, mint in mints.items():
+            r = _rq.post(rpc, json={
+                "jsonrpc": "2.0", "id": 2, "method": "getTokenAccountsByOwner",
+                "params": [wallet, {"mint": mint}, {"encoding": "jsonParsed"}],
+            }, timeout=5).json()
+            total = sum(float(a["account"]["data"]["parsed"]["info"]["tokenAmount"]["uiAmount"] or 0)
+                        for a in r.get("result", {}).get("value", []))
+            balances[sym] = total
+
+        # Prices from Jupiter (primary) with market_latest.json fallback
+        sol_px = jup_px = eth_px = 0.0
+        try:
+            ids = f"{sol_mint},{mints['JUP']},{mints['ETH']}"
+            px_r = _rq.get(f"https://price.jup.ag/v6/price?ids={ids}", timeout=5).json()
+            px_data = px_r.get("data", {})
+            sol_px = float(px_data.get(sol_mint, {}).get("price", 0) or 0)
+            jup_px = float(px_data.get(mints["JUP"], {}).get("price", 0) or 0)
+            eth_px = float(px_data.get(mints["ETH"], {}).get("price", 0) or 0)
+        except Exception:
+            pass
+        # v2.12.28 fallback: if any price is 0 (Jupiter API down, stale, etc.),
+        # use market_latest.json which bot updates every cycle.
+        if sol_px == 0 or jup_px == 0 or eth_px == 0:
+            try:
+                _ml = load_json(DATA / "market_latest.json") or {}
+                _tokens = _ml.get("tokens", {}) if isinstance(_ml, dict) else {}
+                if sol_px == 0 and "SOL" in _tokens:
+                    sol_px = float(_tokens["SOL"].get("price", 0) or 0)
+                if jup_px == 0 and "JUP" in _tokens:
+                    jup_px = float(_tokens["JUP"].get("price", 0) or 0)
+                if eth_px == 0 and "ETH" in _tokens:
+                    eth_px = float(_tokens["ETH"].get("price", 0) or 0)
+            except Exception:
+                pass
+
+        prices = {"SOL": sol_px, "JUP": jup_px, "ETH": eth_px}
+
+        wallet_total = (
+            balances["USDC"]
+            + balances["SOL"] * sol_px
+            + balances["JUP"] * jup_px
+            + balances["ETH"] * eth_px
+        )
+        result = {
+            "wallet_total": round(wallet_total, 4),
+            "balances": {k: round(v, 6) for k, v in balances.items()},
+            "prices": {k: round(v, 6) for k, v in prices.items()},
+            "ts": now,
+        }
+        _WALLET_EQUITY_CACHE["ts"] = now
+        _WALLET_EQUITY_CACHE["data"] = result
+        return result
+    except Exception as _e:
+        # Silent fail — fallback to bot equity
+        return None
+
+
+@app.route('/api/wallet-equity')
+def api_wallet_equity():
+    """Expose wallet_total equity (on-chain USDC + SOL + tokens × prices)."""
+    data = _fetch_wallet_equity()
+    if data is None:
+        return jsonify({"error": "wallet equity unavailable", "wallet_total": None}), 200
+    return jsonify(data)
+
+
 @app.route('/api/stats')
 def api_stats():
     """
@@ -3714,7 +3832,16 @@ def api_stats():
     margin_locked = sum(safe_float(p.get("margin_usd", 0)) for p in open_pos)
     invested = sum(safe_float(p.get("margin_usd", p.get("size_usd", 0))) for p in open_pos)
     # True equity includes free capital + margin locked in positions + unrealized PnL
-    equity = capital_usd + margin_locked + unrealized
+    bot_equity = capital_usd + margin_locked + unrealized
+
+    # v2.12.28: prefer wallet-total equity (on-chain) when available.
+    # Includes SOL fuel + dust residues that bot equity ignores.
+    # Falls back to bot_equity if RPC fails (paper bot, network issue).
+    _wallet_data = _fetch_wallet_equity()
+    if _wallet_data and _wallet_data.get("wallet_total") is not None:
+        equity = _wallet_data["wallet_total"]
+    else:
+        equity = bot_equity
 
     return_pct = ((equity - initial_capital) / initial_capital * 100) \
                  if initial_capital > 0 else 0.0

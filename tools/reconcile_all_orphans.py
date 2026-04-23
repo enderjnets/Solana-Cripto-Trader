@@ -294,7 +294,10 @@ def main():
     # Remove reconciled from portfolio, sync capital
     pf['positions'] = [p for p in pf['positions'] if p['id'] not in reconciled_ids]
     pf['capital_usd'] = round(usdc_balance, 4)
-    pf['initial_capital'] = round(usdc_balance, 4)
+    # v2.12.28: NO sobrescribir initial_capital — es baseline inmutable del primer deposit.
+    # Si no existe (nuevo portfolio), establecer; si existe, preservar.
+    if not pf.get('initial_capital'):
+        pf['initial_capital'] = round(usdc_balance, 4)
     pf['total_trades'] = pf.get('total_trades', 0) + len(reconciled_ids)
     pf['last_updated'] = datetime.now(timezone.utc).isoformat()
     pf_path.write_text(json.dumps(pf, indent=2))
