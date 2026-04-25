@@ -171,8 +171,18 @@ def estimate_open_position_pnl(pos: dict, current_price: float | None = None) ->
     }
 
 # ── Version & Changelog ──────────────────────────────────────────────────────
-VERSION = "2.12.32.2-live"
+VERSION = "2.12.32.3-live"
 CHANGELOG = [
+    {
+        "version": "2.12.32.3-live",
+        "date": "2026-04-25",
+        "title": "Gate-check fix: exclude operational reconciles from PF/WR metrics",
+        "changes": [
+            "FIX (tools/weekly_report.py): metricas Phase 1->2 gate-check incluian ORPHAN_RECONCILE_* + reconcile_orphan_* + MANUAL_CLOSE como trades, sesgando PF/WR. Estos son recovery actions, NO decisiones del bot. Ahora se filtran via _filter_strategy_only() antes de compute_metrics(). Las 6 reconciles benignas que se contaban como wins ya no inflan el PF artificialmente.",
+            "RESULTADO: gate-check ahora reporta 3 trades reales (todos losers post-v2.12.30) vs 9 que reportaba antes (3 reales + 6 reconciles). Sample sigue siendo chico - se necesitan ≥50 trades del gate antes de Phase 2.",
+            "OBSERVABILIDAD: identificacion de 3 strategy trades all-losers post-fix es una señal IMPORTANTE para validacion - aunque aun no concluyente con n=3, si el patron continua sobre 30+ trades indicaria que hay otro bug operativo o que la estrategia no es rentable en este regimen de mercado.",
+        ]
+    },
     {
         "version": "2.12.32.2-live",
         "date": "2026-04-25",

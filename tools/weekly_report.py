@@ -51,6 +51,23 @@ def _filter_window(trades: list[dict], days: int) -> list[dict]:
     return out
 
 
+# v2.12.32.2: exclude operational ops (orphan reconciles, manual closes) from metric calc.
+# These are NOT trade decisions of the bot, they're recovery actions that should not skew
+# gate-check stats. Real strategy trades close with reasons: SL, TP, TRAILING_SL, TIME_EXIT,
+# EMERGENCY_CLOSE, BREAKEVEN. Operational closes start with "ORPHAN_RECONCILE" or
+# "reconcile_orphan" or "MANUAL_CLOSE".
+_OP_REASON_PREFIXES = ("ORPHAN_RECONCILE", "reconcile_orphan", "MANUAL_CLOSE", "orphan_needs_manual_reconcile")
+
+
+def _is_strategy_trade(t: dict) -> bool:
+    reason = str(t.get("close_reason", "") or "")
+    return not any(reason.startswith(p) for p in _OP_REASON_PREFIXES)
+
+
+def _filter_strategy_only(trades: list[dict]) -> list[dict]:
+    return [t for t in trades if _is_strategy_trade(t)]
+
+
 def compute_metrics(trades: list[dict]) -> dict:
     if not trades:
         return {
@@ -198,8 +215,13 @@ def main() -> int:
     paper_w = _filter_window(paper_all, args.days)
     live_w = _filter_window(live_all, args.days)
 
-    paper_m = compute_metrics(paper_w)
-    live_m = compute_metrics(live_w)
+    # v2.12.32.2: exclude operational ops (orphan reconciles, manual closes) from metrics.
+    # Reconciles are recovery actions, not strategy decisions — counting them skews PF/WR.
+    paper_strategy = _filter_strategy_only(paper_w)
+    live_strategy = _filter_strategy_only(live_w)
+
+    paper_m = compute_metrics(paper_strategy)
+    live_m = compute_metrics(live_strategy)
     paper_p = _load_portfolio(PAPER_DIR)
     live_p = _load_portfolio(LIVE_DIR)
 
