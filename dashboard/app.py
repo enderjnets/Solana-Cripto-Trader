@@ -171,8 +171,21 @@ def estimate_open_position_pnl(pos: dict, current_price: float | None = None) ->
     }
 
 # ── Version & Changelog ──────────────────────────────────────────────────────
-VERSION = "2.12.32.3-live"
+VERSION = "2.12.32.4-live"
 CHANGELOG = [
+    {
+        "version": "2.12.32.4-live",
+        "date": "2026-04-25",
+        "title": "Drift mainnet write op also blocked - integration on hold pending driftpy 0.8.90+",
+        "changes": [
+            "TEST mainnet (autorizado por user): tools/drift_setup.py --env mainnet --deposit 2.0 fallo en preflight con InstructionFallbackNotFound 101 (Anchor error). Discriminator de la ix initialize_user no reconocido por programa Drift mainnet. Cero costo financiero - tx no se sometio.",
+            "DESCUBRIMIENTO: driftpy 0.8.89 esta stale en AMBOS networks (no solo devnet como se pensaba). Last release 2026-02-18, 2+ meses sin update. Drift Labs upgrado el programa on-chain en ambos environments sin lanzar SDK Python compatible.",
+            "Read paths siguen funcionando (snapshot, oracle, funding) por deserializacion tolerante. Pero TODO write op (initialize_user, deposit_usdc, place_perp_order) bloqueado.",
+            "PLAN REVISADO: Drift integration en hold hasta driftpy 0.8.90+. Sin ETA upstream. Spot bot v2.12.32.x sigue intacto - drift code 100% gated detras de DRIFT_ENABLED=false.",
+            "DRIFT_DEVNET_STATUS_2026_04_25.md actualizado con tercera iteracion (mainnet attempt + bloqueo confirmado). project_solana_drift_devnet_2026_04_25.md memory actualizada.",
+            "Spot validation continua: 3 posiciones simultaneas (JUP+SOL+ETH) post-cleanup auto-learner v2.12.32.2 acelera llenado de sample del gate-check.",
+        ]
+    },
     {
         "version": "2.12.32.3-live",
         "date": "2026-04-25",

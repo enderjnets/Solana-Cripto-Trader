@@ -1,9 +1,17 @@
 # Drift Devnet Smoke Test — Estado 2026-04-25
 
-## TL;DR (UPDATED 2026-04-25 14:00 UTC)
-**Root cause confirmado**: Drift Labs upgradó el programa Drift en **devnet** sin lanzar driftpy compatible. driftpy 0.8.89 (último released) **funciona en mainnet pero falla en devnet** con `PerpMarketNotFound 6078`. Bloqueo es **externo**, no resoluble del lado client sin upgrade de driftpy upstream.
+## TL;DR (UPDATED 2026-04-25 14:30 UTC — TERCERA ITERACIÓN)
+**Drift integration BLOQUEADA en ambos networks (devnet + mainnet)**. Driftpy 0.8.89 (último released hace 2+ meses) tiene IDL/discriminadores desactualizados respecto al programa Drift on-chain en ambos environments:
+- **Devnet**: `PerpMarketNotFound 6078` en account discrimination
+- **Mainnet**: `InstructionFallbackNotFound 101` (Anchor error) en `initialize_user` — discriminator de la ix no reconocido
 
-**Ramificación práctica**: smoke test devnet **bloqueado indefinidamente** hasta release de driftpy 0.8.90+. Pero driftpy 0.8.89 + Drift mainnet **es plenamente funcional** — podemos saltar devnet y validar directamente en mainnet con monto pequeño ($2-5 test).
+**Lo que sí funciona**: read-only paths (snapshot, oracle price, funding rate) — esos usan deserialización tolerante.
+
+**Lo que NO funciona**: cualquier write op (initialize_user, deposit_usdc, place_perp_order, etc.) en MAINNET o DEVNET.
+
+**Bloqueo es 100% externo**: depende de release de driftpy 0.8.90+ por Drift Labs (último release 2026-02-18, 2+ meses sin update). Sin ETA público.
+
+**Cero costo financiero**: Tests fallaron en preflight (simulación), no se sometieron txs. SOL fees mínimos por simulación (~$0.001). Wallet intacta.
 
 ## Lo que está listo (95% wired en `live` branch)
 - `agents/drift_client.py` (17.7KB) — full async wrapper de driftpy con `open_sol_perp_market`, `open_sol_perp_limit`, `close_sol_perp`, `deposit_usdc`, `initialize_user`, `snapshot`.
@@ -40,7 +48,17 @@
 - driftpy 0.8.89 = último release publicado (master HEAD del repo aún en 0.8.89)
 - Devnet program = bleeding edge, mainnet program = estable/older
 
-## Plan alternativo recomendado: skip devnet, mainnet $2-5 test
+## ❌ Mainnet $2-5 test ATTEMPTED — también falló (2026-04-25 14:30 UTC)
+
+User autorizó proceder con mainnet. Ejecuté `tools/drift_setup.py --env mainnet --deposit 2.0`:
+- Step 1 (initialize_user): falló con `InstructionFallbackNotFound 101` en simulación
+- Tx NO sometida (preflight fail)
+- Cero costo: $0.00 perdidos (solo CPU de simulación local)
+- Wallet intacta: $90.20 USDC + 0.038 SOL + 3 spot positions OK
+
+Esto confirma que driftpy 0.8.89 está **stale en ambos networks**, no solo devnet. La hipótesis previa de "mainnet OK" era falsa — el read path funcionaba pero el write path nunca fue testeado en mainnet hasta hoy.
+
+## Plan alternativo recomendado original (DESCARTADO ahora):
 
 **Justificación**: devnet bloqueo es externo y no tiene ETA. Mainnet es nuestro target real y funciona con driftpy 0.8.89.
 
@@ -66,14 +84,25 @@
 - Mientras tanto: spot bot v2.12.32.x corre intacto, validación 7 días sigue su curso
 
 ## Estado del bot live (intacto)
-- v2.12.32.1 corriendo en mainnet spot
+- v2.12.32.3 corriendo en mainnet spot
 - Drift code 100% gated detrás de `DRIFT_ENABLED=false` — cero impacto del trabajo de Drift en operación spot
 - 3 trades simultaneos activos (JUP+SOL+ETH) post-cleanup auto-learner
 
-## Recomendación
-**No habilitar DRIFT_ENABLED=true automáticamente.** Esperar autorización explícita del user para mainnet $2-5 test.
+## Recomendación FINAL
+**Drift integration está bloqueada hasta nuevo aviso por upstream**. No hay forma de desbloquear desde nuestro lado.
 
-Mientras user no llega, pivotar a:
-1. Monitor del bot spot (3 trades activos = oportunidad de validar v2.12.32.1)
-2. Cleanup pendientes (.env duplicates, weekly_report.py si no existe)
-3. Reboot ROG cuando todos los trades cierren (TIME_EXIT >24h)
+### Acciones a hacer cuando driftpy 0.8.90+ release:
+1. `pip install --upgrade driftpy` en `.venv-drift`
+2. Re-test devnet first (segundo, gratis): `tools/drift_devnet_smoke.py --env devnet --size 0.01`
+3. Si devnet pasa → mainnet $2-5 test con autorización fresca
+4. Si mainnet $2-5 pasa → activar DRIFT_ENABLED en branch separado
+
+### Mientras tanto:
+1. **Spot validation continúa**: 3 trades simultaneos llenan sample para gate-check (~6-9 trades/día esperado, gate=50)
+2. **Monitorear** `https://github.com/drift-labs/driftpy/releases` para nuevas versiones
+3. **Considerar TypeScript SDK**: drift-labs/protocol-v2 (TS) está más activamente mantenido que driftpy. Si Drift es prioridad, podríamos prototipar bridge Python→TS via subprocess. Alta complejidad pero viable.
+
+### Costo total de la sesión 2026-04-25
+- Tiempo invertido: ~3 horas (audit + investigación + 2 attempts mainnet)
+- Costo financiero: **$0.00** (todos los failures fueron en preflight/simulación)
+- Aprendizaje: mapa completo del estado Drift, plan claro para cuando upstream esté listo
