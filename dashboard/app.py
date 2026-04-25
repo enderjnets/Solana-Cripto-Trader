@@ -171,8 +171,21 @@ def estimate_open_position_pnl(pos: dict, current_price: float | None = None) ->
     }
 
 # ── Version & Changelog ──────────────────────────────────────────────────────
-VERSION = "2.12.32-live"
+VERSION = "2.12.32.1-live"
 CHANGELOG = [
+    {
+        "version": "2.12.32.1-live",
+        "date": "2026-04-25",
+        "title": "Drift devnet audit (read path validated, write op blocker documented)",
+        "changes": [
+            "AUDIT: Drift Protocol perps esta 95% wired en `live` — agents/drift_client.py (open/close/deposit/init/snapshot async wrapper), agents/drift_adapter.py (sync wrapper + 8 safety gates), tools/drift_setup.py + drift_devnet_smoke.py + drift_devnet_mint_usdc.py. requirements.txt y .env tienen DRIFT_*. NO empezar desde cero — solo desbloquear write op.",
+            "SETUP: .venv-drift con driftpy 0.8.89 + deps creado en LIVE workspace, aislado del .venv del bot. No conflicta.",
+            "VALIDATE devnet: wallet EEmtky...2fMH ya inicializado en Drift, $0.50 USDC collateral, 2.46 SOL para fees, drift_user_exists=True. Read path (drift_setup.py --status) pasa end-to-end.",
+            "BLOCKER: tools/drift_devnet_smoke.py falla en open_sol_perp_market con `PerpMarketNotFound 6078` (Drift program error). Diagnostico: get_perp_market_account(0)+remaining_accounts retornan datos validos en driftpy, pero el programa Drift on-chain rechaza el ix. Hipotesis: driftpy 0.8.89 incompatible con upgrade del programa devnet. NO es bug del bot.",
+            "DOC: DRIFT_DEVNET_STATUS_2026_04_25.md con plan de accion mañana (verificar SOL-PERP pubkey, buscar issue en driftpy GitHub, patch open_sol_perp_market con readable_perp_market_indexes, fork main HEAD). Memory: project_solana_drift_devnet_2026_04_25.md.",
+            "REGLA: NO habilitar DRIFT_ENABLED=true en mainnet sin validar smoke devnet primero. Spot bot v2.12.32 corre sin tocar drift code (todo gated).",
+        ]
+    },
     {
         "version": "2.12.32-live",
         "date": "2026-04-25",
