@@ -1,33 +1,29 @@
 {
-    "params": {
-        "sl_pct": 0.025,
-        "tp_pct": 0.08,
-        "leverage_tier": 1,
-        "risk_per_trade": 0.015,
-        "max_positions": 6,
-        "trailing_stop_pct": 8.0,
-        "tokens_to_avoid": [
-            "BONK"
-        ],
-        "trailing_pct": 5.0
-    },
-    "total_trades_learned": 0,
-    "last_adaptation": "2026-04-04T05:37:35.911493+00:00",
-    "adaptation_count": 1,
-    "last_trade_count": 0,
-    "notes": "Reset capital $100.0 - conocimiento preservado",
-    "tokens_to_avoid": [
-        "BONK"
-    ],
-    "tokens_to_prefer": [
-        "RAY",
-        "FARTCOIN",
-        "WIF",
-        "PENGU",
-        "POPCAT"
-    ],
-    "last_updated": "2026-04-10T00:49:36.566132+00:00",
-    "last_analysis": "The strategy shows recovery with recent 50 trades posting +$6.69 and an improved 1.79 R:R ratio, though overall 524-trade stats remain negative at -$43.50 with a concerning 0.78 R:R. JUP is clearly the worst performer with 25% WR and -$2.34 losses across 4 short trades, while FARTCOIN emerged as the top profit contributor at +$4.56 despite previous avoid recommendations.",
-    "last_insight": "The close reason 'unknown' for all 50 recent trades (versus 96% EMERGENCY_CLOSE previously) suggests the trailing stop adjustment from 3.75% to 2.0% may have improved close reasons, but we now lack visibility into WHY trades close - this tracking needs attention.",
-    "confidence": 0.72
+  "params": {
+    "sl_pct": 0.04,
+    "tp_pct": 0.056,
+    "leverage_tier": 1,
+    "risk_per_trade": 0.012,
+    "max_positions": 3,
+    "trailing_stop_pct": 0.9375
+  },
+  "total_trades_learned": 9,
+  "last_adaptation": "2026-04-25T14:02:56.854402+00:00",
+  "adaptation_count": 1,
+  "last_trade_count": 9,
+  "notes": "v2.12.32.1 cleanup: avoid list cleared + counters reset. Pre-fix data (6 trades, 16.7% WR) was contaminated by bugs fixed in v2.12.30. SL/TP params (4.4%/5.6%) preserved. Re-learning from scratch post-fix.",
+  "tokens_to_avoid": [
+    "SOL",
+    "ETH"
+  ],
+  "tokens_to_prefer": [
+    "JUP",
+    "POPCAT",
+    "FARTCOIN",
+    "WIF"
+  ],
+  "last_updated": "2026-04-25T14:02:56.854414+00:00",
+  "last_analysis": "The bot is in a severe losing state with 33.3% WR and -$0.05 PnL across 9 trades. TIME_EXIT is the worst performer (0% WR, -$0.0497) while system-generated ORPHAN_RECONCILE_v2.12.31 without #2 shows 50% WR. SOL is the worst token (25% WR, -$0.0439) followed by ETH (33.3% WR, -$0.0148). JUP is the only profitable token (50% WR, +$0.0060) despite prior cycles marking it as broken\u2014this suggests the entry logic may have been updated. The 0.9375% trailing stop appears well-calibrated but needs evaluation against the recent 2.0% change mentioned in knowledge base.",
+  "last_insight": "TIME_EXIT is a guaranteed loser (0% WR, -$0.0497) that should be immediately disabled, while system-generated ORPHAN_RECONCILE closes consistently outperform manual timing. The bot is only trading losing tokens (SOL 25% WR, ETH 33.3% WR) when JUP is the only profitable performer at 50% WR.",
+  "confidence": 0.68
 }

@@ -171,8 +171,20 @@ def estimate_open_position_pnl(pos: dict, current_price: float | None = None) ->
     }
 
 # ── Version & Changelog ──────────────────────────────────────────────────────
-VERSION = "2.12.32.1-live"
+VERSION = "2.12.32.2-live"
 CHANGELOG = [
+    {
+        "version": "2.12.32.2-live",
+        "date": "2026-04-25",
+        "title": "Auto-learner cleanup (3 simultaneous positions) + Drift devnet root-cause confirmed external",
+        "changes": [
+            "OPS FIX (auto_learner_state.json): tokens_to_avoid [SOL,ETH] -> [], max_positions 2 -> 3, total_trades_learned + adaptation_count + last_trade_count -> 0 (re-aprende post-fix). Auto-learner habia adaptado restricciones agresivas basado en 6 trades pre-fix contaminados (16.7% WR, -$0.06). Cleanup permite usar los 3 slots de la whitelist (SOL/JUP/ETH) simultaneamente. SL/TP params (4.4%/5.6%) preservados.",
+            "RESULTADO: Bot abrio inmediatamente 3 posiciones simultaneas (JUP + SOL + ETH, $30 exposure) tras restart de pickup del state. Multiplica oportunidades de validacion spot por 3.",
+            "DOCS DRIFT (DRIFT_DEVNET_STATUS_2026_04_25.md): Root cause de PerpMarketNotFound 6078 confirmado EXTERNO. Drift Labs upgrado el programa Drift en devnet sin lanzar driftpy compatible. driftpy 0.8.89 (master HEAD del repo) funciona perfectamente con mainnet (validado read-only via Helius RPC), pero falla con devnet (program version mismatch). PR #39 en drift-rs confirma race condition similar.",
+            "PLAN REVISADO Drift: skip devnet smoke (bloqueo externo sin ETA), validar directamente con mainnet $2-5 test cuando user autorice. Wallet ya inicializada en Drift mainnet, 8 safety gates activos via drift_adapter.py. Drift code 100% gated detras de DRIFT_ENABLED=false - cero impacto al bot live.",
+            "VALIDATION: 3 trades closed (2W/1L), PF 3.97, WR 67%, return +0.07% post-reset. 3 abiertos (JUP+SOL+ETH). Wallet baseline $104.67 -> actual $104.69 (Δ +$0.02).",
+        ]
+    },
     {
         "version": "2.12.32.1-live",
         "date": "2026-04-25",

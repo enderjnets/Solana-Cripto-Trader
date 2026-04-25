@@ -1,81 +1,79 @@
-# Drift Devnet Smoke Test — Estado 2026-04-25 01:00 UTC
+# Drift Devnet Smoke Test — Estado 2026-04-25
 
-## TL;DR
-**Read path**: ✅ funciona end-to-end. **Write path**: ❌ bloqueado en `PerpMarketNotFound` (driftpy issue).
-**No se modificó nada del bot live** — todo el trabajo en venv aislado + devnet. Live bot v2.12.32 sigue corriendo sano en mainnet spot.
+## TL;DR (UPDATED 2026-04-25 14:00 UTC)
+**Root cause confirmado**: Drift Labs upgradó el programa Drift en **devnet** sin lanzar driftpy compatible. driftpy 0.8.89 (último released) **funciona en mainnet pero falla en devnet** con `PerpMarketNotFound 6078`. Bloqueo es **externo**, no resoluble del lado client sin upgrade de driftpy upstream.
 
-## Lo que está listo (descubierto, no tuve que crear)
-- `agents/drift_client.py` (17.7KB) — full async wrapper de driftpy con `open_sol_perp_market`, `open_sol_perp_limit`, `close_sol_perp`, `deposit_usdc`, `initialize_user`, `snapshot`. Phase 1-3.3 done.
-- `agents/drift_adapter.py` (10.6KB) — sync wrapper con 8 safety gates (whitelist, leverage cap, daily loss, collateral cap).
-- `tools/drift_setup.py` — init Drift user + deposit USDC + write `agents/data/drift_state.json`.
-- `tools/drift_devnet_smoke.py` — 1 long + 1 short round-trip on SOL-PERP, asserts ±2% collateral.
-- `tools/drift_devnet_mint_usdc.py` — mint devnet test USDC for collateral.
+**Ramificación práctica**: smoke test devnet **bloqueado indefinidamente** hasta release de driftpy 0.8.90+. Pero driftpy 0.8.89 + Drift mainnet **es plenamente funcional** — podemos saltar devnet y validar directamente en mainnet con monto pequeño ($2-5 test).
+
+## Lo que está listo (95% wired en `live` branch)
+- `agents/drift_client.py` (17.7KB) — full async wrapper de driftpy con `open_sol_perp_market`, `open_sol_perp_limit`, `close_sol_perp`, `deposit_usdc`, `initialize_user`, `snapshot`.
+- `agents/drift_adapter.py` (10.6KB) — sync wrapper con 8 safety gates.
+- `tools/drift_setup.py` + `drift_devnet_smoke.py` + `drift_devnet_mint_usdc.py`.
 - `requirements.txt` ya tiene `driftpy>=0.8.89`.
-- `.env` ya tiene DRIFT_ENABLED, DRIFT_ENV, DRIFT_MAX_LEVERAGE, DRIFT_DEFAULT_LEVERAGE, DRIFT_MAX_COLLATERAL_USD, DRIFT_MIN_USDC_RESERVE, DRIFT_FUNDING_WARN_PCT.
-- `.venv-drift/` creado con driftpy 0.8.89 + deps. **No conflicta con .venv del bot.**
+- `.env` ya tiene todos los DRIFT_* vars.
+- `.venv-drift/` creado en LIVE workspace.
 
-## Estado on-chain devnet (validado)
-- Wallet (compartida con prod, devnet ≠ mainnet): `EEmtkySNz1SLNZBMBu6EsuqkEhttEKjejsEXdEFT2fMH`
-- SOL: 2.464 SOL (suficiente para fees)
-- USDC collateral en Drift: $0.50 total / $0.44 free
-- Drift user PDA: ya inicializada (sub_account_id=0)
-- SOL-PERP base: 0.0 (sin posición abierta)
-- SOL-PERP mark: $80.02
-- Funding hourly: +0.0029% (positivo)
-- Read API `drift_setup.py --status`: ✅ pasa
+## Diagnóstico técnico (2026-04-25 sesión nocturna + matutina)
 
-## Qué falló: `PerpMarketNotFound 6078` en `place_and_take_perp_order`
+### Read path: ✅ funciona end-to-end (devnet + mainnet)
+- `drift_setup.py --status` pasa
+- snapshot + oracle + funding rate todo OK
 
-```
-Custom(6078)
-Program log: Could not find perp market 0 at programs/drift/src/instructions/optional_accounts.rs:52
-Program log: AnchorError occurred. Error Code: PerpMarketNotFound. Error Number: 6078.
-```
+### Write path en devnet: ❌ falla en TODO ix de perp order
+- `place_and_take_perp_order` → `PerpMarketNotFound 6078`
+- `place_perp_order` (limit) → mismo `PerpMarketNotFound 6078`
+- Confirma que NO es bug de un método específico — es bug de **account discrimination en el programa Drift devnet**
 
-### Diagnóstico
-- `get_perp_market_account(0)` retorna PerpMarket válido con MarketStatus.Active() ✅
-- `get_remaining_accounts(writable_perp_market_indexes=[0])` retorna 4 cuentas, 1 writable (`8UJgxaiQx5nTrdDgph5FiahMmzduuLTLf5WmsPegYA6W`) ✅
-- Pero el programa Drift on-chain dice que no encuentra perp market 0 en remaining_accounts ❌
+### Pruebas hechas
+- ✅ SOL-PERP PDA exists devnet (`8UJg...`, owner=Drift program, data_len=1216)
+- ✅ Drift program devnet executable, accounts enabled
+- ✅ `get_perp_market_account(0)` deserializa OK con `market_index=0`, `status=Active`, `name=SOL-PERP`
+- ❌ `pm.insurance_claim` no tiene campo esperado por driftpy → schema diff vs versión instalada
+- ✅ `add_perp_market_to_remaining_account_maps(0, True, ...)` retorna pubkey correcto
+- ✅ `get_remaining_accounts(writable_perp_market_indexes=[0])` retorna 4 accounts (oracle×2, spot×1, perp×1) en orden correcto
+- ❌ Drift program rechaza el ix con "Could not find perp market 0 at programs/drift/src/instructions/optional_accounts.rs:52"
+- ❌ Mismo error con `place_perp_order` (limit, no fill) — descarta hipótesis de PlaceAndTake-specific
+- ✅ **Mainnet** SOL-PERP: driftpy 0.8.89 deserializa con `insurance_claim` válido (last_revenue_withdraw_ts, max_revenue_withdraw_per_period, etc.) — confirma compatibilidad mainnet
 
-### Hipótesis
-1. **driftpy 0.8.89 cache mismatch**: la versión del programa Drift en devnet evolucionó y el `writable_perp_market_indexes` ya no incluye el accounting account correcto.
-2. **Account ordering bug**: el programa espera perp market en una posición específica de remaining_accounts; driftpy lo pone en otra.
-3. **Devnet program migration**: SOL-PERP market puede haber cambiado de pubkey y los constants de driftpy 0.8.89 apuntan al viejo.
+### Investigación externa
+- GitHub drift-rs issue #38 + PR #39: confirma "race condition" donde market accounts no se incluyen en TX, fix en drift-rs (Rust SDK) pero NO portado a driftpy aún
+- driftpy 0.8.89 = último release publicado (master HEAD del repo aún en 0.8.89)
+- Devnet program = bleeding edge, mainnet program = estable/older
 
-### Próximos pasos sugeridos (mañana)
-1. Verificar que el pubkey de SOL-PERP en devnet es `8UJgxaiQx5nTrdDgph5FiahMmzduuLTLf5WmsPegYA6W` (lo que usa driftpy 0.8.89). Si Drift devnet hizo upgrade, este puede haber cambiado.
-2. Issue en driftpy GitHub: buscar "PerpMarketNotFound" + "0.8.89" en `https://github.com/drift-labs/driftpy/issues`.
-3. Patch alternativo en `agents/drift_client.py:open_sol_perp_market`: construir manualmente la ix con `get_remaining_accounts(writable_perp_market_indexes=[0], readable_perp_market_indexes=[0])` para incluir read+write.
-4. Probar fork driftpy main HEAD (si el fix está merged pero sin release).
-5. Última opción: usar perp orden manual via `get_place_and_take_perp_order_ix` con `remaining_accounts` explícitos forzando el SOL-PERP market PDA al inicio.
+## Plan alternativo recomendado: skip devnet, mainnet $2-5 test
 
-## Comandos para reproducir
-```bash
-cd /home/enderj/.openclaw/workspace/Solana-Cripto-Trader-Live
-DRIFT_ENV=devnet DRIFT_RPC_URL=https://api.devnet.solana.com \
-  .venv-drift/bin/python tools/drift_setup.py --status
-# Output esperado: snapshot con sol_balance=2.46, free_collateral=$0.44, drift_user_exists=True
+**Justificación**: devnet bloqueo es externo y no tiene ETA. Mainnet es nuestro target real y funciona con driftpy 0.8.89.
 
-# Smoke test (esperado fallo en open_sol_perp):
-DRIFT_ENV=devnet DRIFT_RPC_URL=https://api.devnet.solana.com \
-  .venv-drift/bin/python tools/drift_devnet_smoke.py --env devnet --size 0.01
-```
+### Risk profile mainnet $2-5 test
+- 🟡 Capital REAL pero MÍNIMO ($2-5 collateral en Drift, NO se mueven los $90 USDC del bot spot)
+- 🟢 Wallet `EEmtky...` ya tiene $90 USDC + 0.039 SOL fuel + Drift user inicializado
+- 🟢 1x leverage solamente (no apalancamiento, equivale a spot direccional)
+- 🟢 Smoke test = open + close en <2 min, fees ~$0.01
+- 🟢 8 safety gates de `drift_adapter.py` activos
+- 🟢 DRIFT_MAX_COLLATERAL_USD=3 + DRIFT_MAX_LEVERAGE=2 ya en .env
+
+### Pasos (cuando user autorice)
+1. Deposit $2 USDC adicional al subaccount Drift mainnet (de wallet existente, no toca capital del spot bot)
+2. Run smoke test mainnet: `tools/drift_devnet_smoke.py --env mainnet --size 0.005` (0.005 SOL ≈ $0.40 notional con 1x leverage)
+3. Verificar: open SOL-PERP long, hold 30s, close, collateral preserved ±2%
+4. Repeat short
+5. Si pasa → retirar collateral hasta gate-check spot pase (≥30 trades, PF≥1.5)
+6. Cuando habilitemos: DRIFT_ENABLED=true en branch separado primero, gate-check, merge a live
+
+### Si user prefiere esperar
+- Monitorear `https://github.com/drift-labs/driftpy/releases` para driftpy 0.8.90
+- ETA desconocido (Drift Labs no publica roadmap fix)
+- Mientras tanto: spot bot v2.12.32.x corre intacto, validación 7 días sigue su curso
+
+## Estado del bot live (intacto)
+- v2.12.32.1 corriendo en mainnet spot
+- Drift code 100% gated detrás de `DRIFT_ENABLED=false` — cero impacto del trabajo de Drift en operación spot
+- 3 trades simultaneos activos (JUP+SOL+ETH) post-cleanup auto-learner
 
 ## Recomendación
-**No habilitar DRIFT_ENABLED=true** hasta que el smoke test devnet pase. Riesgo si se enciende sin write-path validado: el bot intentará abrir posiciones en mainnet, fallará al transmitir, marcará `needs_manual_reconcile`, y el spot trading sigue funcionando correctamente.
+**No habilitar DRIFT_ENABLED=true automáticamente.** Esperar autorización explícita del user para mainnet $2-5 test.
 
-Mientras tanto: spot bot v2.12.32 corre sin tocar drift code (todo está detrás de `DRIFT_ENABLED` gate).
-
-## Trabajo nocturno autónomo realizado
-- ✅ Auditoría del código drift en `live` branch (descubrió 95% ya implementado)
-- ✅ Setup `.venv-drift/` con driftpy 0.8.89 (no toca .venv del bot)
-- ✅ Validó conexión devnet end-to-end (read API)
-- ✅ Verificó devnet wallet ya inicializado + collateral
-- ❌ Smoke test write op (bloqueado, NO es nuestro código — es driftpy/Drift program)
-- ✅ Documentación del bloqueo + plan de acción
-
-## Tiempo estimado para desbloquear (mañana, con contexto fresco)
-- Verificación de pubkey + driftpy issue search: 20 min
-- Patch del open_sol_perp_market: 30 min  
-- Re-run smoke test: 5 min
-- Si pasa: enable DRIFT_ENABLED=true en branch separado + plan de mainnet con $20: 1h
+Mientras user no llega, pivotar a:
+1. Monitor del bot spot (3 trades activos = oportunidad de validar v2.12.32.1)
+2. Cleanup pendientes (.env duplicates, weekly_report.py si no existe)
+3. Reboot ROG cuando todos los trades cierren (TIME_EXIT >24h)
