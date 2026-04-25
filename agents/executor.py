@@ -1488,18 +1488,25 @@ def paper_update_positions(portfolio: dict, market: dict, history: list) -> list
                 pos["close_reason"] = close_reason
                 pos["close_price"] = _cr["exit_price"]
                 pos["current_price"] = _cr["exit_price"]
-                pos["pnl_usd"] = round(_cr["pnl_real_usd"], 4)
-                pos["pnl_pct"] = round(_cr["pnl_real_usd"] / margin * 100, 4) if margin > 0 else 0
-                pos["fee_exit"] = 0
+                # v2.12.32: apply real fee_exit from Jupiter swap to TIME_EXIT/SL/TP/TRAILING_SL.
+                # Previously hardcoded to 0 → trade_history overstated net pnl on normal closes.
+                # Mirrors v2.12.30 emergency_close fix.
+                _fee_exit = float(_cr.get("fee_exit", 0) or 0)
+                _gross_pnl = float(_cr["pnl_real_usd"])
+                _net_pnl = _gross_pnl - _fee_exit
+                pos["pnl_usd"] = round(_net_pnl, 4)
+                pos["pnl_pct"] = round((_net_pnl / margin * 100) if margin > 0 else 0, 4)
+                pos["fee_exit"] = round(_fee_exit, 6)
+                pos["price_impact_exit"] = round(float(_cr.get("price_impact_pct", 0) or 0), 6)
                 pos["tx_signature_close"] = _cr["signature"]
-                _is_win = _cr["pnl_real_usd"] > 0
+                _is_win = _net_pnl > 0
                 portfolio["total_trades"] = portfolio.get("total_trades", 0) + 1
                 if _is_win:
                     portfolio["wins"] = portfolio.get("wins", 0) + 1
                 else:
                     portfolio["losses"] = portfolio.get("losses", 0) + 1
                 _emoji = "✅" if _is_win else "❌"
-                log.info(f"  {_emoji} [{close_reason}] {symbol} LIVE | P&L: ${_cr['pnl_real_usd']:+.4f}")
+                log.info(f"  {_emoji} [{close_reason}] {symbol} LIVE | gross ${_gross_pnl:+.4f} − fee ${_fee_exit:.4f} = net ${_net_pnl:+.4f}")
                 # v2.12.9 fix: append to history so trade_history.json refleja SL/TP closes
                 history.append({**pos})
                 closed.append(pos)

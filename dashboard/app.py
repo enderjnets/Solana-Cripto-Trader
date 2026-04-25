@@ -171,8 +171,19 @@ def estimate_open_position_pnl(pos: dict, current_price: float | None = None) ->
     }
 
 # ── Version & Changelog ──────────────────────────────────────────────────────
-VERSION = "2.12.31.1-live"
+VERSION = "2.12.32-live"
 CHANGELOG = [
+    {
+        "version": "2.12.32-live",
+        "date": "2026-04-25",
+        "title": "fee_exit gap closed in TIME_EXIT/SL/TP/TRAILING_SL + openclaw-gateway memory cap",
+        "changes": [
+            "FIX (executor.py:1491): TIME_EXIT/SL/TP/TRAILING_SL live close path hardcodeaba pos['fee_exit']=0 — trade_history y dashboard sobrestimaban net pnl en cada close normal. Ahora aplica fee_exit del Jupiter swap (TAKER_FEE + slippage) sobre pnl_real_usd, mismo modelo que v2.12.30 emergency_close. Tambien registra price_impact_exit para telemetry.",
+            "FIX log: linea de cierre LIVE ahora muestra gross / fee / net en lugar de solo gross — visibilidad real del costo de salida en logs.",
+            "OPS: openclaw-gateway.service systemd drop-in en ROG (~/.config/systemd/user/openclaw-gateway.service.d/memory-limits.conf) con MemoryHigh=2G, MemoryMax=3G, OOMScoreAdjust=500. Cierra TODO de incidente 2026-04-24T01:14 UTC (host OOM cascade que mato live orch). Drop-in survive openclaw upgrades.",
+            "AUDIT: VERSION post-reset baseline=$104.67, win-rate post-fix=67% PF=3.97 sobre 3 trades — necesita >=30 trades para gate-check.",
+        ]
+    },
     {
         "version": "2.12.31.1-live",
         "date": "2026-04-24",
