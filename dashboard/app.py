@@ -171,8 +171,22 @@ def estimate_open_position_pnl(pos: dict, current_price: float | None = None) ->
     }
 
 # ── Version & Changelog ──────────────────────────────────────────────────────
-VERSION = "2.12.31-live"
+VERSION = "2.12.31.1-live"
 CHANGELOG = [
+    {
+        "version": "2.12.31.1-live",
+        "date": "2026-04-24",
+        "title": "OPS day-1 retrospective: systemd service in repo + 3 orphan reconciles + kill loop documented",
+        "changes": [
+            "DEPLOY: systemd unit file checked in deploy/systemd/solana-live-bot.service (was solo en /etc/systemd/system/, ahora en git para deployment reproducible). Incluye MemoryMax=1.5G/MemoryHigh=1.2G + Restart=always RestartSec=30 + journald logging.",
+            "DEPLOY: ExecStopPost diagnostic hook deploy/systemd/solana-live-bot.diag.conf para captura de estado al kill (drop-in conf).",
+            "OPS DAY-1: 3 orphan reconciles ejecutados via mismo broadcast_race pattern (emergency_close.py timeout pero tx confirmada on-chain). Reconcile #1 manual via decoded txs, #2 manual post-host-OOM, #3 via tools/reconcile_all_orphans.py auto (heuristica funciono esa vez).",
+            "OPS INCIDENT: host OOM cascade 2026-04-24T01:14 UTC — openclaw-gateway memory leak 26GB virt killed cascadingly el live orch. Recovery via reconcile #2 + systemd migration. user TODO: aplicar MemoryMax=4G a openclaw-gateway.service.",
+            "OPS GAP-CLOSED: solana-live-bot.service systemd unit creado — auto-respawn substituye relanzamiento manual. Validado en produccion (auto-respawn trabajo correctamente al primer signal kill).",
+            "INVESTIGATION: kill loop SIGKILL ~6/h en solana-live-bot.service investigado 2h via bpftrace v1+v2. Killer es bash efimero spawn-die en ms; descartado: emergency_close cron, health_check cron, OOM, memory cap, system cron, systemd timers, bittrader scripts. Root cause exacto NO capturado (bpftrace exec map overflow por host load). Documentado como ruido no fatal — systemd respawn lo absorbe; pivot monitoring a wallet/capital primary, ignore NRestarts.",
+            "MEMORIA: feedback_solana_live_kill_loop.md guardado para futuras sesiones — explica patron + decision plan B.",
+        ]
+    },
     {
         "version": "2.12.31-live",
         "date": "2026-04-23",

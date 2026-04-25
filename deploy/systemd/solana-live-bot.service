@@ -1,0 +1,33 @@
+[Unit]
+Description=Solana Live Bot Watchdog (v2.12.31)
+Documentation=https://github.com/enderjnets/Solana-Cripto-Trader
+After=network.target solana-jupiter-bot.service
+Wants=network.target
+StartLimitBurst=5
+StartLimitIntervalSec=300
+
+[Service]
+Type=simple
+User=enderj
+Group=enderj
+WorkingDirectory=/home/enderj/.openclaw/workspace/Solana-Cripto-Trader-Live
+EnvironmentFile=/home/enderj/.openclaw/workspace/Solana-Cripto-Trader-Live/.env
+ExecStart=/bin/bash /home/enderj/.openclaw/workspace/Solana-Cripto-Trader-Live/run_watchdog.sh
+Restart=always
+RestartSec=30
+
+# Memory safety — v2.12.31 addition after host OOM cascade
+MemoryMax=1500M
+MemoryHigh=1200M
+OOMPolicy=continue
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+
+# Kill behavior
+KillMode=mixed
+TimeoutStopSec=30
+
+[Install]
+WantedBy=multi-user.target
