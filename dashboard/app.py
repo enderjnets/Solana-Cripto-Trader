@@ -171,8 +171,21 @@ def estimate_open_position_pnl(pos: dict, current_price: float | None = None) ->
     }
 
 # ── Version & Changelog ──────────────────────────────────────────────────────
-VERSION = "2.12.32.4-live"
+VERSION = "2.12.32.5-live"
 CHANGELOG = [
+    {
+        "version": "2.12.32.5-live",
+        "date": "2026-04-25",
+        "title": "Drift integration PAUSADA INDEFINIDAMENTE post-hack 285M + Jupiter Perps elegido como alternativa",
+        "changes": [
+            "DECISION: Drift Protocol integration PAUSADA INDEFINIDAMENTE. Hack confirmado 2026-04-01: pérdida 285M USD, >50% TVL, atacantes DPRK, vector durable_nonces + token CVT falso usado como collateral. Riesgo de seguridad demasiado alto incluso post-fix de driftpy. Source Chainalysis blog.",
+            "ALTERNATIVA elegida: Jupiter Perpetuals (mismo Jupiter SDK ya usado para spot, JLP pool 2.5B USD, mismo wallet, hasta 100x leverage). Backups Pacifica (5-50x, fees 0.04%) y Raydium Perps (80+ pairs, fees 0.025% beta).",
+            "INVESTIGACION: Wild mode actual del bot = martingala con LLM controlando size doubling. NO confundir con grid trading. Estado en agents/data/wild_mode_state.json, código en agents/wild_mode_learner.py + agents/wild_mode_backtest/. Auto-learning activo via wild_mode_knowledge.jsonl. Last session 2026-04-24, JUP solo nivel 0 (no se escaló).",
+            "Drift code en live branch (drift_client.py + drift_adapter.py + tools/drift_*.py) NO se elimina - útil como template para futuro agents/jupiter_perp_client.py. Pero DRIFT_ENABLED=false permanente.",
+            "DRIFT_DEVNET_STATUS_2026_04_25.md actualizado con info hack y plan revisado.",
+            "OBSERVABILIDAD: bot con 3 trades open (JUP +3% recovering, SOL/ETH ~-1%), wallet 104.85 vs baseline 104.67 (delta +0.18). Stats post-fix: 4 closed (2W/2L, PF 0.14, return +0.20%).",
+        ]
+    },
     {
         "version": "2.12.32.4-live",
         "date": "2026-04-25",
