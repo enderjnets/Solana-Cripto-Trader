@@ -171,8 +171,25 @@ def estimate_open_position_pnl(pos: dict, current_price: float | None = None) ->
     }
 
 # ── Version & Changelog ──────────────────────────────────────────────────────
-VERSION = "2.12.32.5-live"
+VERSION = "2.13.0-alpha-live"
 CHANGELOG = [
+    {
+        "version": "2.13.0-alpha-live",
+        "date": "2026-04-25",
+        "title": "Sprint 1: Jupiter Perpetuals skeleton + research foundation (Drift replaced)",
+        "changes": [
+            "FOUNDATION: Sprint 1 del plan v2.13.x completo. 4 archivos nuevos creados como skeleton para Jupiter Perpetuals integration (drop-in replacement de Drift post-hack 285M).",
+            "NUEVO agents/jupiter_perp_client.py (~250 LOC, async): mirror API de drift_client.py. Phase 1 implementado (initialize, get_native_sol_balance, snapshot stub). Phase 2 (write ops) raise NotImplementedError pending IDL parse.",
+            "NUEVO agents/jupiter_perp_adapter.py (~170 LOC, sync): mirror exacto de drift_adapter con 8 safety gates iguales (JUP_PERP_ENABLED, LIVE_TRADING_ENABLED, kill_switch, daily_loss, market whitelist, confidence, leverage cap, free collateral).",
+            "NUEVO tools/jupiter_perp_setup.py: --status (read-only snapshot) + --verify-program (chequea program ID on-chain). Programa Jupiter Perps verificado en mainnet: PERPHjGBqRHArX4DySjwM6UJHiR3sWAatqfdBS2qQJu (owner BPFLoaderUpgradeable, executable).",
+            "NUEVO tools/jupiter_perp_smoke.py: smoke test stub Phase 1. Phase 2 implementara round-trip mainnet $2 (autorizado por user).",
+            ".env.example actualizado con 9 vars JUP_PERP_* (todos defaults safe, ENABLED=false).",
+            "JUPITER_PERPS_STATUS.md doc completa con plan Phase 2 (parse IDL desde julianfssen/jupiter-perps-anchor-idl-parsing, derivar PDAs position+custody, build instantIncreasePosition + instantDecreasePosition ix en Python).",
+            "RESEARCH key findings: (1) NO existe SDK Python oficial para Jupiter Perps (jupiter-python-sdk solo soporta swap/limit/DCA, perps en TODO). (2) NO existe REST API pública para perps. (3) Solucion = manual ix building con anchorpy + IDL parse del community repo. (4) Solnet.JupiterPerps (C#) descartado como bridge.",
+            "Drift code (agents/drift_*.py + tools/drift_*.py) PRESERVADO como template — NO eliminar. Todo gateado JUP_PERP_ENABLED=false, cero impacto al spot bot live.",
+            "TODO PROXIMO: Sprint 1 Phase 2 = parse IDL + ix building (3-5 dias dev). Bloqueador para Sprint 2 (Wild+Perps) y consideracion para Sprint 3-4 (Smart Grid AI Agent).",
+        ]
+    },
     {
         "version": "2.12.32.5-live",
         "date": "2026-04-25",
