@@ -294,35 +294,68 @@ def _is_wild_mode_active() -> bool:
     except Exception:
         return False
 
-# Wild Mode: smaller positions → martingale 2 chains × $37.50 × 2.3x = $172 (34% cap) ✅
+# v2.13.3: Capital-Tier Auto-Sizing — on-chain equity drives risk/leverage/positions.
+# Tiers auto-detected from wallet_total. Jupiter Perps $10 min collateral enforced as floor.
+
+def _get_capital_tier(capital: float):
+    """Return (risk_pct, leverage, max_positions, tier_name) based on on-chain equity.
+
+    Insufficient (<$50)  : block trading entirely.
+    Micro    ($50–$149)  : 10% risk, 1.5x lev, 1 pos max.
+    Small    ($150–$299) : 6%  risk, 2.0x lev, 2 pos max.
+    Medium   ($300–$999) : 3%  risk, 2.5x lev, 3 pos max.
+    Large    ($1000+)    : 1.2% risk, 3.0x lev, 3 pos max (current defaults).
+    """
+    if capital < 50:
+        return (0.0, 1.0, 0, "insufficient")
+    if capital < 150:
+        return (0.10, 1.5, 1, "micro")
+    if capital < 300:
+        return (0.06, 2.0, 2, "small")
+    if capital < 1000:
+        return (0.03, 2.5, 3, "medium")
+    return (0.012, 3.0, 3, "large")
+
+
+# Deprecated: kept for backward compat in any external scripts that import them.
 _WILD_TIERS = [
-    (0.85, 0.015, 10),   # conf ≥ 0.85: 1.5% capital, 10x lev → ~$37.50 margin at $500
-    (0.75, 0.012,  7),   # conf ≥ 0.75: 1.2% capital, 7x lev
-    (0.65, 0.010,  5),   # conf ≥ 0.65: 1.0% capital, 5x lev
-    (0.00, 0.008,  3),   # else:         0.8% capital, 3x lev
+    (0.85, 0.015, 10),
+    (0.75, 0.012,  7),
+    (0.65, 0.010,  5),
+    (0.00, 0.008,  3),
 ]
-# Pure Mode: swing sizes, no martingale → 2 positions × $100 = $200 (40% cap) ✅
 _PURE_TIERS = [
-    (0.85, 0.020,  5),   # conf ≥ 0.85: 2.0% capital, 5x lev → ~$100 margin at $500
-    (0.75, 0.015,  4),   # conf ≥ 0.75: 1.5% capital, 4x lev
-    (0.65, 0.010,  3),   # conf ≥ 0.65: 1.0% capital, 3x lev
-    (0.00, 0.008,  2),   # else:         0.8% capital, 2x lev
+    (0.85, 0.020,  5),
+    (0.75, 0.015,  4),
+    (0.65, 0.010,  3),
+    (0.00, 0.008,  2),
 ]
+
 
 def _get_risk_for_capital(capital: float, confidence: float = 0.7,
                           wild_mode: "Optional[bool]" = None) -> tuple:
-    """Returns (max_risk_usd, leverage) based on capital, confidence and mode.
-    Wild Mode: smaller initial sizes to leave room for martingale.
-    Pure Mode: moderate swing sizes, lower leverage.
+    """Returns (max_risk_usd, leverage, max_positions) based on capital, confidence and mode.
+
+    v2.13.3: Jupiter Perps requires $10 minimum collateral. We enforce this as a
+    hard floor: risk_usd = max(capital * tier_risk_pct, min_collateral * leverage).
+    This guarantees the executor never sends an undersized margin to the adapter.
     """
     if wild_mode is None:
         wild_mode = _is_wild_mode_active()
-    tiers = _WILD_TIERS if wild_mode else _PURE_TIERS
-    for min_conf, risk_pct, lev in tiers:
-        if confidence >= min_conf:
-            risk = max(0.50, round(capital * risk_pct, 2))
-            return risk, lev
-    return max(0.50, round(capital * 0.008, 2)), 2
+
+    risk_pct, lev, max_pos, tier_name = _get_capital_tier(capital)
+
+    if risk_pct == 0.0:
+        log.warning(f"Capital tier INSUFFICIENT (${capital:.2f} < $50) — blocking all trades.")
+        return 0.0, 1.0, 0
+
+    # Protocol floor: Jupiter Perps CLI requires $10 collateral minimum.
+    min_collateral = 10.0
+    min_risk_usd = min_collateral * lev  # e.g. $15 for 1.5x, $20 for 2x, $25 for 2.5x
+
+    risk = max(min_risk_usd, round(capital * risk_pct, 2))
+    log.info(f"   🏠 Capital tier={tier_name} capital=${capital:.2f} risk_pct={risk_pct*100:.1f}% lev={lev}x max_pos={max_pos} | risk=${risk:.2f} (floor=${min_risk_usd:.2f})")
+    return risk, lev, max_pos
 
 # Legacy compatibility
 MAX_RISK_USD        = 5.00     # Overridden by _get_risk_for_capital() at runtime     # Máximo $3 de riesgo por POSICIÓN individual (ajustado 2026-03-31 para mercado lento)
@@ -854,13 +887,23 @@ def paper_open_position(signal: dict, portfolio: dict, market: dict) -> Optional
 
     # Determinar leverage (signal puede sugerirlo, si no, default)
     # Capital-proportional confidence-based sizing
+    # v2.13.3: Capital-proportional confidence-based sizing with on-chain equity
     _capital = portfolio.get("capital_usd", 500) + sum(
         p.get("margin_usd", 0) for p in portfolio.get("positions", []) if p.get("status") == "open"
     )
+    # Prefer on-chain wallet_total for sizing (falls back to bookkeeping capital)
+    try:
+        from agents.wallet_equity import fetch_wallet_equity
+        _we = fetch_wallet_equity()
+        if _we and _we.get("wallet_total"):
+            _capital = float(_we["wallet_total"])
+    except Exception as _e_we:
+        log.debug(f"wallet_equity fallback: {_e_we}")
+
     _wm = _is_wild_mode_active()
-    _dyn_risk, leverage = _get_risk_for_capital(_capital, confidence, wild_mode=_wm)
+    _dyn_risk, leverage, _tier_max_pos = _get_risk_for_capital(_capital, confidence, wild_mode=_wm)
     signal["_coordinated_risk"] = _dyn_risk
-    log.info(f"   \U0001f4b0 Sizing: capital=${_capital:.0f} conf={confidence:.2f} -> risk=${_dyn_risk:.2f} lev={leverage}x")
+    log.info(f"   💰 Sizing: capital=${_capital:.0f} conf={confidence:.2f} -> risk=${_dyn_risk:.2f} lev={leverage}x max_pos={_tier_max_pos}")
     leverage = max(1, min(leverage, MAX_LEVERAGE))
     # WILD MODE: signal may force leverage (inherited from chain base position)
     if signal.get("_force_leverage"):
@@ -2294,6 +2337,19 @@ def run(safe: bool = True, debug: bool = False) -> dict:
     opened = []
     open_count = len([p for p in portfolio["positions"] if p.get("status") == "open"])
 
+    # v2.13.3: Tier-aware MAX_POSITIONS — auto-learner cap crossed with capital tier.
+    _capital_for_tier = portfolio.get("capital_usd", 500) + sum(
+        p.get("margin_usd", 0) for p in portfolio.get("positions", []) if p.get("status") == "open"
+    )
+    try:
+        from agents.wallet_equity import fetch_wallet_equity
+        _we = fetch_wallet_equity()
+        if _we and _we.get("wallet_total"):
+            _capital_for_tier = float(_we["wallet_total"])
+    except Exception:
+        pass
+    _tier_risk_pct, _tier_lev, _tier_max_pos, _tier_name = _get_capital_tier(_capital_for_tier)
+
     # Leer MAX_POSITIONS desde auto_learner si disponible
     try:
         import json as _json
@@ -2303,20 +2359,17 @@ def run(safe: bool = True, debug: bool = False) -> dict:
             _adata = _json.loads(_af.read_text())
             _params = _adata.get("params", {})
             if _params and "max_positions" in _params:
-                MAX_POSITIONS = _params["max_positions"]
-                log.info(f"   🧠 Auto-Learner: MAX_POSITIONS={MAX_POSITIONS}")
+                _al_max = _params["max_positions"]
+                MAX_POSITIONS = min(_al_max, _tier_max_pos)
+                log.info(f"   🧠 Auto-Learner: MAX_POSITIONS={_al_max}, tier={_tier_name} → effective={MAX_POSITIONS}")
             else:
-                MAX_POSITIONS = 2
+                MAX_POSITIONS = _tier_max_pos
         else:
-            MAX_POSITIONS = 2
+            MAX_POSITIONS = _tier_max_pos
     except Exception:
-        MAX_POSITIONS = 2
+        MAX_POSITIONS = _tier_max_pos
 
     slots_available = MAX_POSITIONS - open_count
-
-    # v2.9.6 B2: no abrir posiciones nuevas si ya estamos cerca del daily target
-    # (>=80% del TARGET_MAX_PCT). Esas posiciones no tienen tiempo de desarrollar
-    # antes del force-close por DAILY_TARGET_MAX_REACHED -> cierran en pérdida.
     _near_target = False
     try:
         _dt_state_file = DATA_DIR / "daily_target_state.json"

@@ -130,6 +130,20 @@ def _load_reset_baseline():
     return reset_dt, reset_capital, reset_date_str
 
 
+
+# v2.13.3: Capital-tier helper (mirror of executor.py logic)
+def _get_capital_tier(capital: float):
+    """Return (risk_pct, leverage, max_positions, tier_name) based on on-chain equity."""
+    if capital < 50:
+        return (0.0, 1.0, 0, "insufficient")
+    if capital < 150:
+        return (0.10, 1.5, 1, "micro")
+    if capital < 300:
+        return (0.06, 2.0, 2, "small")
+    if capital < 1000:
+        return (0.03, 2.5, 3, "medium")
+    return (0.012, 3.0, 3, "large")
+
 def estimate_open_position_pnl(pos: dict, current_price: float | None = None) -> dict:
     """Estimate net PnL if the open position were closed now."""
     symbol = str(pos.get('symbol', ''))
@@ -171,8 +185,33 @@ def estimate_open_position_pnl(pos: dict, current_price: float | None = None) ->
     }
 
 # ── Version & Changelog ──────────────────────────────────────────────────────
-VERSION = "2.13.1-live"
+VERSION = "2.13.3-live"
 CHANGELOG = [
+    {
+        "version": "2.13.3-live",
+        "date": "2026-04-28",
+        "title": "Capital-Tier Auto-Sizing: dynamic risk/leverage/positions based on on-chain equity",
+        "changes": [
+            "NEW executor.py _get_capital_tier(): auto-detects account tier from wallet_total (insufficient/micro/small/medium/large).",
+            "NEW executor.py _get_risk_for_capital() v2.13.3: enforces Jupiter Perps $10 min collateral as hard floor. risk_usd = max(capital * tier_risk_pct, $10 * leverage). With $100 → Micro tier → 1.5x lev → $15 risk (was $1.20, causing silent $10 override).",
+            "NEW executor.py paper_open_position(): uses fetch_wallet_equity() wallet_total as primary capital source for sizing (falls back to bookkeeping capital).",
+            "NEW executor.py MAX_POSITIONS: tier-aware. Auto-learner max_positions is crossed with tier max. Micro ($50-149) → 1 pos max, Small ($150-299) → 2, Medium/Large → 3.",
+            "HARDEN jupiter_perp_adapter.py: removed silent $10 collateral override. Now returns PerpResult with reason=undersized_margin, forcing executor to size correctly upstream.",
+            "NEW dashboard/app.py: /api/stats exposes capital_tier + max_positions_tier. Header shows tier badge (color-coded: micro=amber, small=blue, medium=green, large=purple, insufficient=red).",
+        ]
+    },
+    {
+        "version": "2.13.2-live",
+        "date": "2026-04-28",
+        "title": "Expand perps universe to BTC,ETH + close test position",
+        "changes": [
+            "EXPAND: JUP_PERP_MARKET_WHITELIST=SOL,BTC,ETH (was SOL only).",
+            "EXPAND: TRADE_WHITELIST=SOL,JUP,ETH,BTC for spot consistency.",
+            "EXPAND: MINT_MAP uncommented BTC (Wormhole wBTC).",
+            "CLOSE: Manual SOL 2x long test position closed. Tx: 4qiudDKA..., received 9.93 USDC, PnL -0.43%.",
+            "RESET: Soft-reset to $100.00 baseline post-position-close.",
+        ]
+    },
     {
         "version": "2.13.1-live",
         "date": "2026-04-28",
@@ -1129,6 +1168,19 @@ DASHBOARD_HTML = r"""
   .health-dot.unhealthy { color: #ef4444; animation: health-pulse 1s infinite; }
   .health-dot.unknown { color: #6b7280; }
   @keyframes health-pulse { 0%,100%{opacity:1;} 50%{opacity:0.35;} }
+  /* v2.13.3 tier badge */
+  .tier-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 10px; border-radius: 12px; font-size: 12px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--border); font-weight: 500;
+    color: var(--text2);
+  }
+  .tier-badge.micro    { border-color: #f59e0b; color: #f59e0b; }
+  .tier-badge.small    { border-color: #3b82f6; color: #3b82f6; }
+  .tier-badge.medium   { border-color: #10b981; color: #10b981; }
+  .tier-badge.large    { border-color: #a855f7; color: #a855f7; }
+  .tier-badge.insufficient { border-color: #ef4444; color: #ef4444; }
   .mode-badge {
     font-size: 11px; padding: 2px 8px; border-radius: 10px;
     background: rgba(188,140,255,0.15); color: var(--purple); border: 1px solid var(--purple);
@@ -1591,6 +1643,9 @@ DASHBOARD_HTML = r"""
     <span class="health-badge" id="healthBadge" title="Bot infra health (/api/health)">
       <span class="health-dot unknown" id="healthDot">●</span>
       <span id="healthLabel">health: —</span>
+    </span>
+    <span class="tier-badge" id="tierBadge" title="Capital tier (auto-sized risk/leverage/positions)">
+      <span id="tierLabel">tier: —</span>
     </span>
   </div>
 </div>
@@ -2278,6 +2333,16 @@ async function loadStats() {
     modeLabel = 'JUPITER PERPS';
   }
   document.getElementById('modeBadge').textContent = modeLabel;
+
+  // v2.13.3: Capital tier badge
+  const tierBadge = document.getElementById('tierBadge');
+  const tierLabel = document.getElementById('tierLabel');
+  if (tierBadge && tierLabel) {
+    const tier = d.capital_tier || 'unknown';
+    const tierMaxPos = d.max_positions_tier || 0;
+    tierBadge.className = 'tier-badge ' + tier;
+    tierLabel.textContent = tier.toUpperCase() + (tierMaxPos > 0 ? ' · ' + tierMaxPos + 'pos' : ' · BLOCKED');
+  }
 
   // Status
   const status = d.portfolio_status || 'ACTIVE';
@@ -4029,6 +4094,8 @@ def api_stats():
         "jup_perp_enabled":   os.environ.get("JUP_PERP_ENABLED", "").lower() in ("true", "1", "yes"),
         "accounting_gap":     round(accounting_gap, 2),
         "real_capital_change":round(real_capital_change, 2),
+        "capital_tier":       _get_capital_tier(equity)[3],
+        "max_positions_tier": _get_capital_tier(equity)[2],
     })
 
 

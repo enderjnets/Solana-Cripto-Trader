@@ -156,9 +156,11 @@ def open_perp_position(signal: dict, leverage_override: Optional[float] = None) 
     min_collateral = 10.0  # Jupiter CLI minimum
     collateral_usd = size_usd / leverage
     if collateral_usd < min_collateral:
-        log.warning(f"jupiter_perp_adapter: collateral {collateral_usd:.2f} below Jupiter min {min_collateral}, adjusting")
-        collateral_usd = min_collateral
-        size_usd = collateral_usd * leverage
+        # v2.13.3: hard guard — executor should NEVER send undersized margin.
+        # If this fires, the capital-tier sizing logic in executor.py is broken.
+        log.error(f"jupiter_perp_adapter: EXECUTOR SIZING BUG — collateral ${collateral_usd:.2f} < Jupiter min ${min_collateral}. "
+                  f"The executor should never send undersized margin. Blocking trade.")
+        return PerpResult(reason=f"undersized_margin:{collateral_usd:.2f}<{min_collateral}")
 
     # Extract SL/TP from signal for on-chain protection
     sl_price = signal.get("sl_price")
