@@ -171,8 +171,22 @@ def estimate_open_position_pnl(pos: dict, current_price: float | None = None) ->
     }
 
 # ── Version & Changelog ──────────────────────────────────────────────────────
-VERSION = "2.13.0-alpha-live"
+VERSION = "2.13.1-live"
 CHANGELOG = [
+    {
+        "version": "2.13.1-live",
+        "date": "2026-04-28",
+        "title": "Jupiter Perps safety hardening: on-chain SL/TP + real liq_price + RPC resilience",
+        "changes": [
+            "FIX agents/jupiter_perp_cli_wrapper.py: open_position() now passes --sl and --tp to Jupiter CLI for on-chain stop-loss/take-profit protection. Previously positions opened with zero on-chain TPSL, leaving them unprotected if the bot died.",
+            "FIX agents/jupiter_perp_cli_wrapper.py: captures liquidationPriceUsd and positionPubkey from CLI open response. OpenResult now includes liq_price and position_pubkey.",
+            "FIX agents/jupiter_perp_adapter.py: PerpResult extended with liq_price and position_pubkey. open_perp_position() extracts sl_price/tp_price from signal and forwards to wrapper.",
+            "FIX agents/executor.py: real_open_position() Jupiter Perps branch now uses adapter-returned liq_price instead of local approximation (was off by ~$0.44 / 1%). Falls back to local formula only if CLI returns 0 for backward compat.",
+            "FIX agents/executor.py: stores position_pubkey in portfolio.json for precise future close via --position (avoids symbol-based lookup ambiguity).",
+            "FIX agents/wallet_equity.py: per-token RPC error handling with retry (3 attempts, 1s backoff). getTokenAccountsByOwner failures (e.g., 429 rate-limit) no longer silently report balance=0. Falls back to cached balance if <5min stale. Prevents JUP/ETH/USDC from disappearing intermittently and triggering false accounting gaps / emergency closes.",
+            "AUDIT: Granular audit of open SOL 2x long position confirmed entry/size/leverage match on-chain. Discrepancy in liq_price ($41.72 bot vs $42.16 Jupiter) resolved by using CLI value. TPSL gap documented and fixed for future opens.",
+        ]
+    },
     {
         "version": "2.13.0-alpha-live",
         "date": "2026-04-25",
@@ -2259,7 +2273,11 @@ async function loadStats() {
   const chgEl = document.getElementById('headerChg');
   chgEl.textContent = fmtPct(d.return_pct, true);
   chgEl.className = 'chg ' + (d.return_pct >= 0 ? 'pos' : 'neg');
-  document.getElementById('modeBadge').textContent = (d.mode || 'PAPER').toUpperCase().replace('_', ' ');
+  let modeLabel = (d.mode || 'PAPER').toUpperCase().replace(/_/g, ' ');
+  if (d.mode === 'live' && d.jup_perp_enabled) {
+    modeLabel = 'JUPITER PERPS';
+  }
+  document.getElementById('modeBadge').textContent = modeLabel;
 
   // Status
   const status = d.portfolio_status || 'ACTIVE';
@@ -2570,7 +2588,7 @@ function renderPositions(d) {
   let html = `<table><thead><tr>
     <th>Símbolo</th><th>Dirección</th><th>Entrada</th><th>Precio Act.</th>
     <th>Ganancia real estimada</th><th>% neto est.</th><th>Margin</th><th>Tamaño</th>
-    <th>SL</th><th>TP</th><th>Tiempo</th><th>Estrategia</th>
+    <th>Apalanc.</th><th>Liq. Price</th><th>SL</th><th>TP</th><th>Tiempo</th><th>Estrategia</th>
     <th>Acción</th>
   </tr></thead><tbody>`;
   for (const p of d.positions) {
@@ -2598,6 +2616,8 @@ function renderPositions(d) {
       <td class="${pnlCls}">${fmtPct(p.pnl_pct, true)}</td>
       <td>${fmt$(p.margin_usd)}</td>
       <td>${fmt$(p.size_usd)}</td>
+      <td>${p.leverage ? p.leverage.toFixed(1) + 'x' : '—'}</td>
+      <td class="neg" style="font-size:10px;">${fmtPrice(p.liquidation_price)}</td>
       <td class="neg">${fmtPrice(p.sl_price)}</td>
       <td class="pos">${fmtPrice(p.tp_price)}</td>
       <td>${p.time_open || '—'}</td>
@@ -4006,6 +4026,7 @@ def api_stats():
         "max_loss_streak":    max_loss_streak,
         "portfolio_status":   risk.get("portfolio_status", "ACTIVE"),
         "mode":               port.get("mode", "paper"),
+        "jup_perp_enabled":   os.environ.get("JUP_PERP_ENABLED", "").lower() in ("true", "1", "yes"),
         "accounting_gap":     round(accounting_gap, 2),
         "real_capital_change":round(real_capital_change, 2),
     })
@@ -4588,20 +4609,22 @@ def api_positions():
             })
 
         result.append({
-            "symbol":        symbol,
-            "direction":     direction,
-            "entry_price":   entry_price,
-            "current_price": round(current_price, 8),
-            "pnl_usd":       round(pnl_usd, 4),
-            "pnl_pct":       round(pnl_pct, 4),
-            "margin_usd":    margin,
-            "size_usd":      round(size_usd, 2),
-            "sl_price":      safe_float(t.get("sl_price", 0)),
-            "tp_price":      safe_float(t.get("tp_price", 0)),
-            "strategy":      t.get("strategy", ""),
-            "time_open":     time_open_str,
-            "in_chain":      bool(chain_info),
-            "chain_levels":  chain_levels_out,
+            "symbol":            symbol,
+            "direction":         direction,
+            "entry_price":       entry_price,
+            "current_price":     round(current_price, 8),
+            "pnl_usd":           round(pnl_usd, 4),
+            "pnl_pct":           round(pnl_pct, 4),
+            "margin_usd":        margin,
+            "size_usd":          round(size_usd, 2),
+            "leverage":          safe_float(t.get("leverage", 0)),
+            "liquidation_price": safe_float(t.get("liquidation_price", 0)),
+            "sl_price":          safe_float(t.get("sl_price", 0)),
+            "tp_price":          safe_float(t.get("tp_price", 0)),
+            "strategy":          t.get("strategy", ""),
+            "time_open":         time_open_str,
+            "in_chain":          bool(chain_info),
+            "chain_levels":      chain_levels_out,
         })
 
     return jsonify({"positions": result})

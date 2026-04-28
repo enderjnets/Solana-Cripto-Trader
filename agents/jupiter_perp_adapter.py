@@ -1,24 +1,32 @@
-"""jupiter_perp_adapter.py — Safety-wrapped sync API for Jupiter Perpetuals.
+"""jupiter_perp_adapter.py — Safety-wrapped entry point for Jupiter Perpetuals.
 
-Mirror of agents/drift_adapter.py — same 8 safety gates, same public API
-shape so risk_manager / orchestrator / martingale_engine can swap call sites
-based on JUP_PERP_ENABLED flag.
+Drop-in replacement for drift_adapter.py. Uses the official @jup-ag/cli via
+agents/jupiter_perp_cli_wrapper.py.
 
-Public API (sync — bridges async via asyncio.run_until_complete):
-
+Public API (sync):
     open_perp_position(signal, leverage_override=None) -> Optional[PerpResult]
-    close_perp_position(market) -> Optional[PerpResult]
+    close_perp_position(symbol="SOL") -> Optional[PerpResult]
     get_account_snapshot() -> Optional[dict]
 
 All errors surfaced via PerpResult.reason; never raises in the gating path.
+
+v2.13.1: Added sl_price/tp_price passthrough to CLI. Added liq_price and
+position_pubkey to PerpResult for on-chain alignment.
 """
 from __future__ import annotations
 
-import asyncio
 import logging
 import os
+import time
 from dataclasses import dataclass
 from typing import Optional
+
+from agents.jupiter_perp_cli_wrapper import (
+    close_position,
+    get_positions,
+    open_position,
+    ensure_configured,
+)
 
 log = logging.getLogger("jupiter_perp_adapter")
 
@@ -26,25 +34,25 @@ log = logging.getLogger("jupiter_perp_adapter")
 @dataclass
 class PerpResult:
     """Same shape as drift_adapter.PerpResult for caller compatibility."""
-    success: bool
-    reason: str
-    market: str = ""
+    success: bool = False
+    symbol: str = ""
     direction: str = ""
-    size_usd: float = 0.0
-    leverage: float = 1.0
-    tx_signature: str = ""
+    size_sol: float = 0.0
+    leverage: float = 0.0
+    signature: Optional[str] = None
+    reason: str = ""
+    filled: bool = False
     entry_price: float = 0.0
+    liq_price: float = 0.0
+    position_pubkey: Optional[str] = None
 
 
-# ── Env helpers ──────────────────────────────────────────────────────────────
-
+# ── env helpers ──
 def _env_bool(name: str, default: bool = False) -> bool:
-    v = os.environ.get(name, "").lower().strip()
-    if v in ("true", "1", "yes", "on"):
-        return True
-    if v in ("false", "0", "no", "off"):
-        return False
-    return default
+    v = os.environ.get(name, "").strip().lower()
+    if not v:
+        return default
+    return v in ("1", "true", "yes", "on")
 
 
 def _env_float(name: str, default: float) -> float:
@@ -56,178 +64,231 @@ def _env_float(name: str, default: float) -> float:
 
 def _env_whitelist(name: str, default: str = "SOL") -> set[str]:
     raw = os.environ.get(name, default)
-    return {sym.strip().upper() for sym in raw.split(",") if sym.strip()}
+    return {s.strip().upper() for s in raw.split(",") if s.strip()}
 
 
-# ── Async client lifecycle ───────────────────────────────────────────────────
-
-_loop: Optional[asyncio.AbstractEventLoop] = None
-_client = None
-
-
-def _get_loop():
-    global _loop
-    if _loop is None or _loop.is_closed():
-        _loop = asyncio.new_event_loop()
-    return _loop
-
-
-def _get_or_init_client():
-    """Lazy-init JupiterPerpClient on first use."""
-    global _client
-    if _client is None:
-        from jupiter_perp_client import JupiterPerpClient
-        _client = JupiterPerpClient()
-        _get_loop().run_until_complete(_client.initialize())
-    return _client
-
-
-def close_client():
-    """Tear down — call on shutdown."""
-    global _client, _loop
-    if _client and _loop:
-        _loop.run_until_complete(_client.close())
-        _client = None
-
-
-# ── 8 Safety Gates (mirror drift_adapter) ────────────────────────────────────
-
+# ── gate helpers ──
 def _check_common_gates() -> Optional[str]:
-    """Returns rejection reason or None if all gates pass."""
+    """Return None if all gates pass, else a reason string."""
     # Gate 1: feature flag
     if not _env_bool("JUP_PERP_ENABLED", False):
-        return "JUP_PERP_ENABLED=false"
-    # Gate 2: master live trading switch
+        return "jup_perp_disabled"
+    # Gate 2: live trading
     if not _env_bool("LIVE_TRADING_ENABLED", False):
-        return "LIVE_TRADING_ENABLED=false"
+        return "live_trading_disabled"
     # Gate 3: kill switch
     try:
-        from safety import is_kill_switch_active
-        if is_kill_switch_active():
-            return "kill_switch_active"
-    except ImportError:
-        pass
-    # Gate 4: daily loss cap
-    daily_loss_status = _check_daily_loss()
-    if daily_loss_status:
-        return daily_loss_status
+        import safety
+        ks, reason = safety.is_kill_switch_active()
+        if ks:
+            return f"kill_switch_active:{reason}"
+    except Exception as e:
+        log.warning(f"safety import failed: {e}")
+        return f"safety_import_error:{e}"
     return None
 
 
 def _check_daily_loss() -> Optional[str]:
-    """Check MAX_DAILY_LOSS_USD vs today's realized PnL."""
+    """Gate 4: daily loss cap."""
     try:
-        from safety import check_daily_loss  # noqa
-        # TODO: integrate with safety.check_daily_loss() once we have a wrapper
-        return None
-    except ImportError:
-        return None
+        import safety, json
+        from pathlib import Path
+        pf_file = Path(__file__).parent / "data" / "portfolio.json"
+        pf_data = json.loads(pf_file.read_text()) if pf_file.exists() else None
+        hit, todays_pnl = safety.check_daily_loss(pf_data)
+        if hit:
+            return f"daily_loss_exceeded:{todays_pnl:.2f}"
+    except Exception as e:
+        log.warning(f"daily loss check failed: {e}")
+    return None
 
 
-# ── Public API ───────────────────────────────────────────────────────────────
+# ── public API ──
+def open_perp_position(signal: dict, leverage_override: Optional[float] = None) -> Optional[PerpResult]:
+    """Open a Jupiter perp position from a bot signal.
 
-def open_perp_position(
-    signal: dict,
-    leverage_override: Optional[float] = None,
-) -> Optional[PerpResult]:
-    """Open a Jupiter perp position with safety gates.
-
-    signal dict expected keys: symbol, direction (long|short), size_usd, confidence
+    signal: {"symbol": "SOL", "direction": "long"|"short", "confidence": 0.8, "suggested_size_usd": 2.0}
+    leverage_override: if given, overrides JUP_PERP_DEFAULT_LEVERAGE for this trade.
+    Returns None if any gate blocks, PerpResult otherwise.
     """
-    # Gate 1-4: common gates
+    # Common gates 1-3
     reason = _check_common_gates()
     if reason:
-        return PerpResult(success=False, reason=reason)
+        log.info(f"jupiter_perp_adapter: skip — {reason}")
+        return None
+    # Gate 4: daily loss
+    reason = _check_daily_loss()
+    if reason:
+        log.warning(f"jupiter_perp_adapter: {reason}")
+        return PerpResult(reason=reason)
 
     # Gate 5: market whitelist
-    market = signal.get("symbol", "").upper()
+    symbol = str(signal.get("symbol", "")).upper()
     whitelist = _env_whitelist("JUP_PERP_MARKET_WHITELIST", "SOL")
-    if market not in whitelist:
-        return PerpResult(success=False, reason=f"market_not_whitelisted: {market} not in {whitelist}")
+    if symbol not in whitelist:
+        log.info(f"jupiter_perp_adapter: skip {symbol} — not in JUP_PERP_MARKET_WHITELIST ({whitelist})")
+        return None
 
-    # Gate 6: confidence threshold
+    # Gate 6: confidence
     confidence = float(signal.get("confidence", 0))
     min_conf = _env_float("MIN_CONFIDENCE", 0.55)
     if confidence < min_conf:
-        return PerpResult(success=False, reason=f"low_confidence: {confidence} < {min_conf}")
+        log.info(f"jupiter_perp_adapter: skip {symbol} — confidence {confidence:.2f} < {min_conf:.2f}")
+        return None
 
     # Gate 7: leverage cap
-    leverage = leverage_override if leverage_override is not None else _env_float("JUP_PERP_DEFAULT_LEVERAGE", 1.0)
     max_lev = _env_float("JUP_PERP_MAX_LEVERAGE", 3.0)
+    default_lev = _env_float("JUP_PERP_DEFAULT_LEVERAGE", 2.0)
+    leverage = leverage_override if leverage_override is not None else default_lev
     if leverage > max_lev:
-        log.warning(f"leverage {leverage} exceeds cap {max_lev}, clamping")
+        log.warning(f"jupiter_perp_adapter: leverage {leverage} > cap {max_lev} — clamping")
         leverage = max_lev
+    if leverage < 1.1:
+        leverage = 1.1  # Jupiter CLI minimum
 
-    # Gate 8: free collateral check
-    try:
-        client = _get_or_init_client()
-        snap = _get_loop().run_until_complete(client.snapshot())
-        size_usd = float(signal.get("size_usd", 0))
-        margin_required = size_usd / leverage
-        if snap.free_collateral_usd < margin_required:
-            return PerpResult(success=False, reason=f"insufficient_collateral: free=${snap.free_collateral_usd:.2f} < required=${margin_required:.2f}")
-    except Exception as e:
-        return PerpResult(success=False, reason=f"snapshot_failed: {e}")
-
-    # All gates passed — execute
-    direction = signal.get("direction", "long").lower()
+    # Direction validation
+    direction = str(signal.get("direction", "")).lower()
     if direction not in ("long", "short"):
-        return PerpResult(success=False, reason=f"invalid_direction: {direction}")
+        return PerpResult(reason=f"invalid_direction:{direction}")
 
+    # Size: collateral needed = size_usd / leverage
+    size_usd = float(signal.get("suggested_size_usd", 10.0))
+    min_collateral = 10.0  # Jupiter CLI minimum
+    collateral_usd = size_usd / leverage
+    if collateral_usd < min_collateral:
+        log.warning(f"jupiter_perp_adapter: collateral {collateral_usd:.2f} below Jupiter min {min_collateral}, adjusting")
+        collateral_usd = min_collateral
+        size_usd = collateral_usd * leverage
+
+    # Extract SL/TP from signal for on-chain protection
+    sl_price = signal.get("sl_price")
+    tp_price = signal.get("tp_price")
+
+    # Ensure CLI is configured
     try:
-        tx_sig = _get_loop().run_until_complete(
-            client.open_perp_position(market, direction, size_usd, leverage)
-        )
-        return PerpResult(
-            success=True,
-            reason="opened",
-            market=market,
-            direction=direction,
-            size_usd=size_usd,
-            leverage=leverage,
-            tx_signature=tx_sig,
-        )
-    except NotImplementedError as e:
-        return PerpResult(success=False, reason=f"phase2_pending: {e}")
+        ensure_configured()
     except Exception as e:
-        log.error(f"open_perp_position failed: {e}")
-        return PerpResult(success=False, reason=f"open_failed: {e}")
+        log.error(f"jupiter_perp_adapter: CLI config failed: {e}")
+        return PerpResult(reason=f"cli_config_error:{e}")
+
+    # Execute open
+    log.info(f"🎯 JUPITER PERP OPEN: {symbol} {direction} collateral=${collateral_usd:.2f} leverage={leverage}x sl={sl_price} tp={tp_price}")
+    try:
+        result = open_position(
+            asset=symbol,
+            side=direction,
+            collateral_usd=collateral_usd,
+            leverage=leverage,
+            sl_price=sl_price,
+            tp_price=tp_price,
+            dry_run=False,
+        )
+    except Exception as e:
+        log.error(f"jupiter_perp_adapter: open failed: {e}")
+        return PerpResult(reason=f"open_error:{e}", symbol=symbol, direction=direction, size_sol=0, leverage=leverage)
+
+    if not result.success:
+        return PerpResult(reason=f"open_failed:{result.error}", symbol=symbol, direction=direction, size_sol=0, leverage=leverage)
+
+    # Derive size_sol from size_usd and entry_price for portfolio compatibility
+    entry_price = result.entry_price if result.entry_price > 0 else 1.0
+    size_sol = result.size_usd / entry_price if entry_price > 0 else 0
+
+    return PerpResult(
+        success=True, symbol=symbol, direction=direction,
+        size_sol=size_sol, leverage=result.leverage, signature=result.tx_signature,
+        reason="ok", filled=True, entry_price=entry_price,
+        liq_price=result.liq_price,
+        position_pubkey=result.position_pubkey or None,
+    )
 
 
-def close_perp_position(market: str = "SOL") -> Optional[PerpResult]:
-    """Close a Jupiter perp position (reduce-only)."""
+def close_perp_position(symbol: str = "SOL") -> Optional[PerpResult]:
+    """Close current Jupiter perp position for symbol (reduce-only market order).
+    Closes ALL open positions for the symbol (Jupiter CLI does not support partial close
+    via simple command; we close each position individually)."""
     reason = _check_common_gates()
     if reason:
-        return PerpResult(success=False, reason=reason)
+        log.info(f"jupiter_perp_adapter.close: skip — {reason}")
+        return None
 
     try:
-        client = _get_or_init_client()
-        tx_sig = _get_loop().run_until_complete(client.close_perp_position(market))
-        return PerpResult(success=True, reason="closed", market=market, tx_signature=tx_sig)
-    except NotImplementedError as e:
-        return PerpResult(success=False, reason=f"phase2_pending: {e}")
+        ensure_configured()
     except Exception as e:
-        return PerpResult(success=False, reason=f"close_failed: {e}")
+        return PerpResult(reason=f"cli_config_error:{e}")
+
+    try:
+        positions = get_positions()
+    except Exception as e:
+        log.error(f"jupiter_perp_adapter: get_positions failed: {e}")
+        return PerpResult(reason=f"get_positions_error:{e}")
+
+    symbol_upper = symbol.upper()
+    target_positions = [p for p in positions if p.asset.upper() == symbol_upper]
+
+    if not target_positions:
+        return PerpResult(reason="no_open_position", symbol=symbol)
+
+    closed_any = False
+    last_sig = None
+    total_size_sol = 0.0
+    for p in target_positions:
+        try:
+            result = close_position(position_pubkey=p.pubkey, dry_run=False)
+            if result.success:
+                closed_any = True
+                last_sig = result.tx_signature
+                # size_sol approximation
+                entry = p.entry_price if p.entry_price > 0 else 1.0
+                total_size_sol += p.size_usd / entry
+            else:
+                log.warning(f"jupiter_perp_adapter: close failed for {p.pubkey}: {result.error}")
+        except Exception as e:
+            log.error(f"jupiter_perp_adapter: close exception for {p.pubkey}: {e}")
+
+    if not closed_any:
+        return PerpResult(reason="close_failed", symbol=symbol)
+
+    return PerpResult(
+        success=True, symbol=symbol,
+        direction="short",  # placeholder — direction of the closing action
+        size_sol=total_size_sol,
+        signature=last_sig, reason="ok", filled=True,
+        entry_price=target_positions[0].entry_price if target_positions else 0,
+    )
 
 
 def get_account_snapshot() -> Optional[dict]:
-    """Read-only snapshot — no gates needed for reads."""
+    """Read-only snapshot for dashboard + reconcile. None if Jupiter Perps disabled."""
+    if not _env_bool("JUP_PERP_ENABLED", False):
+        return {"enabled": False}
+    if not _env_bool("LIVE_TRADING_ENABLED", False):
+        return {"enabled": True, "live": False}
     try:
-        client = _get_or_init_client()
-        snap = _get_loop().run_until_complete(client.snapshot())
-        return {
-            "enabled": _env_bool("JUP_PERP_ENABLED", False),
-            "live": _env_bool("LIVE_TRADING_ENABLED", False),
-            "pubkey": snap.pubkey,
-            "sol_balance": snap.sol_balance,
-            "free_collateral_usd": snap.free_collateral_usd,
-            "total_collateral_usd": snap.total_collateral_usd,
-            "leverage": snap.leverage,
-            "sol_perp_base": snap.sol_perp_base,
-            "sol_perp_mark": snap.sol_perp_mark,
-            "sol_perp_funding_hourly": snap.sol_perp_funding_hourly,
-            "perp_account_exists": snap.perp_account_exists,
-        }
+        ensure_configured()
+        positions = get_positions()
     except Exception as e:
-        log.error(f"get_account_snapshot failed: {e}")
-        return None
+        log.warning(f"jupiter_perp_adapter.snapshot error: {e}")
+        return {"enabled": True, "live": True, "error": str(e)}
+
+    total_size = sum(p.size_usd for p in positions)
+    return {
+        "enabled": True,
+        "live": True,
+        "positions_count": len(positions),
+        "total_size_usd": total_size,
+        "positions": [
+            {
+                "pubkey": p.pubkey,
+                "asset": p.asset,
+                "side": p.side,
+                "size_usd": p.size_usd,
+                "entry_price": p.entry_price,
+                "mark_price": p.mark_price,
+                "pnl_pct": p.pnl_pct,
+                "leverage": p.leverage,
+                "liq_price": p.liq_price,
+            }
+            for p in positions
+        ],
+    }

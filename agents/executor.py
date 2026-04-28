@@ -575,6 +575,51 @@ def close_positions_emergency(portfolio: dict, symbols: list, market: dict, hist
 
         if pos["symbol"] in symbols:
             # v2.12.1-live: live positions require real Jupiter swap para cerrar
+            # v2.13.0-live: jupiter_perp positions close via Jupiter Perps adapter
+            if pos.get("mode") == "jupiter_perp":
+                _cr = _close_jupiter_perp(pos, portfolio, reason)
+                if _cr is None:
+                    log.error(f"🛑 JUPITER PERP EMERGENCY CLOSE FAILED {pos['symbol']} — position sigue on-chain, reintentar próximo ciclo")
+                    continue
+                pos["status"] = "closed"
+                pos["close_time"] = now
+                pos["close_reason"] = reason
+                pos["close_price"] = _cr["exit_price"]
+                pos["current_price"] = _cr["exit_price"]
+                _fee_exit = float(_cr.get("fee_exit", 0) or 0)
+                _gross_pnl = float(_cr["pnl_real_usd"])
+                _net_pnl = _gross_pnl - _fee_exit
+                pos["pnl_usd"] = round(_net_pnl, 4)
+                pos["pnl_pct"] = round((_net_pnl / pos.get("margin_usd", 1) * 100) if pos.get("margin_usd", 0) > 0 else 0, 4)
+                pos["fee_exit"] = round(_fee_exit, 6)
+                pos["tx_signature_close"] = _cr["signature"]
+                portfolio["total_trades"] = portfolio.get("total_trades", 0) + 1
+                if _net_pnl > 0:
+                    portfolio["wins"] = portfolio.get("wins", 0) + 1
+                else:
+                    portfolio["losses"] = portfolio.get("losses", 0) + 1
+                _live_record = {
+                    "id": pos["id"], "symbol": pos["symbol"], "direction": pos["direction"],
+                    "entry_price": pos["entry_price"], "exit_price": pos["close_price"],
+                    "current_price": pos["close_price"], "size_usd": pos["size_usd"],
+                    "notional_value": pos.get("notional_value", pos.get("size_usd", 0)),
+                    "margin_usd": pos.get("margin_usd", 0), "leverage": pos.get("leverage", 1),
+                    "fee_entry": pos.get("fee_entry", 0),
+                    "fee_exit": round(_fee_exit, 6),
+                    "funding_accumulated": pos.get("funding_accumulated", 0),
+                    "pnl_usd": pos["pnl_usd"], "pnl_pct": pos["pnl_pct"],
+                    "open_time": pos["open_time"], "close_time": pos["close_time"],
+                    "close_reason": reason, "strategy": pos.get("strategy", "unknown"),
+                    "mode": "jupiter_perp", "tx_signature": pos.get("tx_signature"),
+                    "tx_signature_close": _cr["signature"],
+                }
+                if ai_reasoning:
+                    _live_record["ai_reasoning"] = ai_reasoning
+                history.append(_live_record)
+                closed.append(pos)
+                log.error(f"🚨 EMERGENCY CLOSE JUPITER PERP: {pos['symbol']} | P&L: ${pos['pnl_usd']:+.4f}")
+                continue
+
             if pos.get("mode") == "live":
                 _cr = real_close_position(pos, portfolio)
                 if _cr is None:
@@ -1202,7 +1247,28 @@ def paper_update_positions(portfolio: dict, market: dict, history: list) -> list
 
         if hit_liquidation:
             # v2.12.3-live: liquidation path for live — route to real_close_position
-            # (defense: spot SOL has liq_price=0 so this shouldn't trigger, but be safe)
+            # v2.13.0-live: jupiter_perp positions close via adapter
+            if pos.get("mode") == "jupiter_perp":
+                _cr = _close_jupiter_perp(pos, portfolio, "LIQUIDATED")
+                if _cr is None:
+                    log.error(f"🛑 JUPITER PERP LIQUIDATION close failed for {symbol} — position sigue on-chain")
+                    remaining.append(pos)
+                    continue
+                pos["status"] = "closed"
+                pos["close_time"] = datetime.now(timezone.utc).isoformat()
+                pos["close_reason"] = "LIQUIDATED_JUPITER_PERP"
+                pos["close_price"] = _cr["exit_price"]
+                pos["current_price"] = _cr["exit_price"]
+                _fee_exit = float(_cr.get("fee_exit", 0) or 0)
+                _gross_pnl = float(_cr["pnl_real_usd"])
+                _net_pnl = _gross_pnl - _fee_exit
+                pos["pnl_usd"] = round(_net_pnl, 4)
+                pos["pnl_pct"] = round((_net_pnl / margin * 100) if margin > 0 else -100.0, 4)
+                pos["fee_exit"] = round(_fee_exit, 6)
+                pos["tx_signature_close"] = _cr["signature"]
+                closed.append(pos)
+                continue
+
             if pos.get("mode") == "live":
                 _cr = real_close_position(pos, portfolio)
                 if _cr is None:
@@ -1471,6 +1537,46 @@ def paper_update_positions(portfolio: dict, market: dict, history: list) -> list
             else:
                 close_reason = "SL"
             # v2.12.1-live: live positions cierran via Jupiter swap reverso
+            # v2.13.0-live: jupiter_perp positions close via adapter
+            if pos.get("mode") == "jupiter_perp":
+                _cr = _close_jupiter_perp(pos, portfolio, close_reason)
+                if _cr is None:
+                    log.error(f"🛑 JUPITER PERP {close_reason} FAILED {symbol} — position sigue on-chain, reintentar próximo ciclo")
+                    continue
+                pos["status"] = "closed"
+                pos["close_time"] = datetime.now(timezone.utc).isoformat()
+                pos["close_reason"] = close_reason
+                pos["close_price"] = _cr["exit_price"]
+                pos["current_price"] = _cr["exit_price"]
+                _fee_exit = float(_cr.get("fee_exit", 0) or 0)
+                _gross_pnl = float(_cr["pnl_real_usd"])
+                _net_pnl = _gross_pnl - _fee_exit
+                pos["pnl_usd"] = round(_net_pnl, 4)
+                pos["pnl_pct"] = round((_net_pnl / margin * 100) if margin > 0 else 0, 4)
+                pos["fee_exit"] = round(_fee_exit, 6)
+                pos["tx_signature_close"] = _cr["signature"]
+                _is_win = _net_pnl > 0
+                portfolio["total_trades"] = portfolio.get("total_trades", 0) + 1
+                if _is_win:
+                    portfolio["wins"] = portfolio.get("wins", 0) + 1
+                else:
+                    portfolio["losses"] = portfolio.get("losses", 0) + 1
+                _emoji = "✅" if _is_win else "❌"
+                log.info(f"  {_emoji} [{close_reason}] {symbol} JUPITER PERP | gross ${_gross_pnl:+.4f} − fee ${_fee_exit:.4f} = net ${_net_pnl:+.4f}")
+                history.append({**pos})
+                closed.append(pos)
+                if _PAPERCLIP:
+                    try:
+                        on_trade_closed(pos)
+                    except Exception:
+                        pass
+                try:
+                    from telegram_signals import on_trade_closed as _tg_close
+                    _tg_close(pos)
+                except Exception:
+                    pass
+                continue
+
             if pos.get("mode") == "live":
                 _cr = real_close_position(pos, portfolio)
                 if _cr is None:
@@ -1656,8 +1762,48 @@ def real_open_position(signal: dict, portfolio: dict, market: dict = None) -> Op
         log.debug(f"real_open_position: LIVE_TRADING_ENABLED=false — {symbol} skip")
         return None
 
-    # v2.12.0-live: Drift routing — reemplaza Jupiter spot cuando activo.
-    # drift_adapter tiene sus propios 8 gates (feature flag, leverage cap, colateral, etc).
+    # v2.13.0-live: Jupiter Perps routing — replaces deprecated Drift Protocol.
+    if _os.environ.get("JUP_PERP_ENABLED", "false").lower() == "true":
+        try:
+            import jupiter_perp_adapter as _jpa
+            _pr = _jpa.open_perp_position(signal)
+            if _pr is None:
+                return None  # gate blocked, not a failure
+            if not _pr.success:
+                log.warning(f"real_open_position: jupiter perp open failed — {_pr.reason}")
+                return None
+            # v2.13.1: use on-chain liq_price when available; fallback to local calc
+            _liq_price = getattr(_pr, "liq_price", 0) or 0
+            if _liq_price <= 0:
+                # fallback to local approximation for backward compat
+                _notional = _pr.size_sol * _pr.entry_price
+                _margin = _notional / max(_pr.leverage, 1.1)
+                _fee_entry = _notional * 0.001
+                _liq_price = _pr.entry_price * (1 - (_margin - _fee_entry) / _notional)
+            return {
+                "symbol": symbol,
+                "direction": _pr.direction,
+                "entry_price": _pr.entry_price,
+                "size_usd": _pr.size_sol * _pr.entry_price,
+                "tokens": _pr.size_sol,
+                "mode": "jupiter_perp",
+                "leverage": _pr.leverage,
+                "signature": _pr.signature,
+                "status": "open",
+                "opened_at": datetime.now(timezone.utc).isoformat(),
+                "sl_price": signal.get("sl_price"),
+                "tp_price": signal.get("tp_price"),
+                "strategy": signal.get("strategy"),
+                "confidence": signal.get("confidence"),
+                "liquidation_price": round(_liq_price, 8),
+                "position_pubkey": getattr(_pr, "position_pubkey", None),
+            }
+        except Exception as _e:
+            log.error(f"real_open_position: jupiter perp routing error: {_e}")
+            return None
+
+    # v2.12.0-live: Drift routing — DEPRECATED after April 2026 hack.
+    # drift_adapter kept only for reference; do not enable DRIFT_ENABLED.
     if _os.environ.get("DRIFT_ENABLED", "false").lower() == "true":
         try:
             import drift_adapter as _da
