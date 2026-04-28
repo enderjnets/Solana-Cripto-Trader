@@ -69,11 +69,21 @@ EMA_MID         = 21
 EMA_SLOW        = 50
 ROC_PERIOD      = 10
 
+# Fibonacci Golden Pocket (optimizado via 3.31M simulaciones — 2026-04-10)
+FIB_LOOKBACK        = 80      # ventana de velas para swing high/low
+FIB_GP_LOW          = 61.8    # Golden Pocket inicio (%)
+FIB_GP_HIGH         = 65.0    # Golden Pocket fin (%)
+FIB_GP_TOLERANCE    = 0.8     # ±0.8% tolerancia en la zona
+FIB_OTE_HIGH        = 79.0    # OTE zone límite superior (%)
+FIB_RSI_THRESHOLD   = 50      # RSI máximo para confirmar GP long entry
+FIB_SL_BUFFER       = 0.010   # 1.0% debajo de nivel 78.6% para SL
+FIB_TP_EXTENSION    = 1.272   # extensión 127.2% para TP
+
 # Filtros de entrada — OPTIMIZADO 2026-03-27 (post-drawdown crítico)
-MIN_CONFIDENCE          = 0.75   # Subido de 0.60 — solo señales fuertes
+MIN_CONFIDENCE          = 0.65   # Sim: 0.60 óptimo; 0.65 conservador para robustez
 MIN_INDICATORS_ALIGNED  = 3      # Subido de 2 — requiere más confirmación
-ATR_SL_MULTIPLIER       = 1.2    # Bajado de 2.0 — SL más ajustado, menos pérdida por trade
-ATR_TP_MULTIPLIER       = 2.4    # Bajado de 4.0 — TP más realista (RR 2:1)
+ATR_SL_MULTIPLIER       = 0.8    # Sim: 0.6x óptimo (41.7M sims 2026-04-10); 0.8x para robustez real
+ATR_TP_MULTIPLIER       = 4.0    # Sim: 4.0x óptimo en todas las estrategias (RR 5:1)
 MIN_ATR_PCT             = 0.010  # Subido de 0.008 — filtra más activos planos
 RSI_OVERBOUGHT          = 75     # Subido de 70 — más conservador para shorts
 RSI_OVERSOLD            = 25     # Bajado de 30 — más conservador para longs
@@ -127,12 +137,12 @@ def update_price_history(tokens: dict) -> dict:
         if symbol not in history:
             history[symbol] = []
         history[symbol].append({"price": price, "ts": now})
-        history[symbol] = history[symbol][-300:]  # 5 horas de historia a 60s/ciclo
+        history[symbol] = history[symbol][-500:]  # 5 horas de historia a 60s/ciclo
 
         if symbol not in vol_history:
             vol_history[symbol] = []
         vol_history[symbol].append({"volume": volume, "ts": now})
-        vol_history[symbol] = vol_history[symbol][-300:]
+        vol_history[symbol] = vol_history[symbol][-500:]
 
     save_json(PRICE_HISTORY, history)
     save_json(VOLUME_HISTORY, vol_history)
@@ -382,6 +392,77 @@ def golden_cross(prices: list) -> Optional[str]:
     return None
 
 
+
+# ══════════════════════════════════════════════════════════════════════════════
+# FIBONACCI GOLDEN POCKET — Simulado 3.31M veces, PF 2.88 vs baseline 0.063
+# ══════════════════════════════════════════════════════════════════════════════
+
+def calc_fibonacci_levels(prices: list, lookback: int = FIB_LOOKBACK) -> Optional[dict]:
+    """
+    Calcula niveles Fibonacci Golden Pocket usando los últimos `lookback` precios.
+    
+    Golden Pocket (61.8-65% retracement): zona de mayor probabilidad de reversión
+    según el PDF de estrategias Fibonacci. Optimizado con 3.31M simulaciones.
+    
+    Returns dict con:
+      - retracement_down: % pullback desde swing high (para LONG setup)
+      - retracement_up:   % bounce desde swing low (para SHORT setup)
+      - in_gp_long:       True si precio en zona GP para entrada LONG
+      - in_gp_short:      True si precio en zona GP para entrada SHORT
+      - in_ote_long/short: True si en zona OTE más amplia (61.8-79%)
+      - fib_786, fib_618, fib_1272: niveles absolutos para SL/TP
+    """
+    if len(prices) < lookback:
+        return None
+    window   = prices[-lookback:]
+    swing_hi = max(window)
+    swing_lo = min(window)
+    rng      = swing_hi - swing_lo
+    if rng == 0 or rng / swing_hi < 0.002:  # ignora rangos < 0.2%
+        return None
+    current = prices[-1]
+
+    # % de pullback DESDE el swing high (setup LONG: precio cayó y rebotó)
+    retrace_down = (swing_hi - current) / rng * 100
+    # % de bounce DESDE el swing low (setup SHORT: precio subió desde el mínimo)
+    retrace_up   = (current - swing_lo) / rng * 100
+
+    tol = FIB_GP_TOLERANCE
+    gp_lo = FIB_GP_LOW - tol
+    gp_hi = FIB_GP_HIGH + tol
+    ote_hi = FIB_OTE_HIGH + tol
+
+    in_gp_long    = gp_lo <= retrace_down <= gp_hi
+    in_gp_short   = gp_lo <= retrace_up   <= gp_hi
+    in_ote_long   = gp_lo <= retrace_down <= ote_hi
+    in_ote_short  = gp_lo <= retrace_up   <= ote_hi
+    near_gp_long  = (gp_hi < retrace_down <= gp_hi + 4.0) or (gp_lo - 4.0 <= retrace_down < gp_lo)
+    near_gp_short = (gp_hi < retrace_up   <= gp_hi + 4.0) or (gp_lo - 4.0 <= retrace_up   < gp_lo)
+
+    return {
+        "swing_hi":      round(swing_hi, 8),
+        "swing_lo":      round(swing_lo, 8),
+        "retrace_down":  round(retrace_down, 1),
+        "retrace_up":    round(retrace_up, 1),
+        "in_gp_long":    in_gp_long,
+        "in_gp_short":   in_gp_short,
+        "in_ote_long":   in_ote_long,
+        "in_ote_short":  in_ote_short,
+        "near_gp_long":  near_gp_long,
+        "near_gp_short": near_gp_short,
+        # Niveles absolutos (para SL/TP con Fibonacci)
+        "fib_786":  round(swing_hi - 0.786 * rng, 8),  # 78.6% — SL zona para longs
+        "fib_618":  round(swing_hi - 0.618 * rng, 8),  # 61.8% — inicio Golden Pocket
+        "fib_500":  round(swing_hi - 0.500 * rng, 8),  # 50%   — mitad del rango
+        "fib_382":  round(swing_hi - 0.382 * rng, 8),  # 38.2% — nivel de continuación
+        "fib_1272": round(swing_lo  + 1.272 * rng, 8), # 127.2% ext — TP para LONG
+        "fib_1618": round(swing_lo  + 1.618 * rng, 8), # 161.8% ext — TP agresivo
+        # Equivalentes para SHORT (extensiones hacia abajo)
+        "fib_786_short":  round(swing_lo + 0.786 * rng, 8),
+        "fib_618_short":  round(swing_lo + 0.618 * rng, 8),
+        "fib_1272_short": round(swing_hi - 1.272 * rng, 8),
+    }
+
 # ══════════════════════════════════════════════════════════════════════════════
 # CÁLCULO COMPLETO DE INDICADORES POR TOKEN
 # ══════════════════════════════════════════════════════════════════════════════
@@ -477,6 +558,21 @@ def compute_indicators(symbol: str, token: dict, price_hist: list, vol_hist: lis
         ind["kc_upper"] = ind["kc_lower"] = None
         ind["kc_position"] = "unknown"
 
+    # ── Fibonacci Golden Pocket ── (lb=80, GP 61.8-65%, tol=0.8%)
+    ind["fib"] = calc_fibonacci_levels(prices, FIB_LOOKBACK) if n >= FIB_LOOKBACK else None
+
+    # ── Stochastic K (14 períodos — usando closes como proxy de high/low) ──
+    # Validado: mejor indicador de extremos en sim 357,984 combos (2026-04-12)
+    # Con RSI ≤35: WR=64.5%, PF=38.5x en 30m scalping
+    if n >= 14:
+        low_14  = min(prices[-14:])
+        high_14 = max(prices[-14:])
+        ind["stoch_k"] = round((prices[-1] - low_14) / (high_14 - low_14) * 100, 2) if (high_14 - low_14) > 0 else 50.0
+    else:
+        ind["stoch_k"] = None
+
+    # Pasar price_hist para que las funciones de régimen lo usen en las estrategias
+    ind["_price_hist"] = list(price_hist[-100:]) if price_hist else []
     return ind
 
 
@@ -642,6 +738,24 @@ def score_long(ind: dict) -> tuple[float, list]:
         score += 0.04  # Oversold opportunity
         reasons.append(f"24h {c24:.1f}% — posible rebote")
 
+    # ── 13. Fibonacci Golden Pocket ── (PF 2.88 en 3.31M sims, lb=80 óptimo)
+    fib = ind.get("fib")
+    if fib:
+        ret_down = fib["retrace_down"]
+        rsi_ok   = (rsi_val is None) or (rsi_val <= FIB_RSI_THRESHOLD)
+        if fib["in_gp_long"] and rsi_ok:
+            score += 0.35
+            reasons.append(f"FIB 🎯 Golden Pocket LONG {ret_down:.1f}% retrace RSI≤{FIB_RSI_THRESHOLD} ✅")
+        elif fib["in_gp_long"]:
+            score += 0.20
+            reasons.append(f"FIB Golden Pocket LONG {ret_down:.1f}% retrace ✅")
+        elif fib["in_ote_long"] and rsi_ok:
+            score += 0.15
+            reasons.append(f"FIB OTE Zone LONG {ret_down:.1f}% retrace ✅")
+        elif fib["near_gp_long"]:
+            score += 0.08
+            reasons.append(f"FIB acercándose a GP {ret_down:.1f}% retrace")
+
     return round(min(max(score, 0), 1), 3), reasons
 
 
@@ -663,14 +777,35 @@ def score_short(ind: dict) -> tuple[float, list]:
     # ══════════════════════════════════════════════════════════════════
     # NUEVO: Trend Following SHORT en mercados bajistas
     # ══════════════════════════════════════════════════════════════════
-    
-    # Fear & Greed extremo → mercado en pánico → continuar tendencia bajista
+
+    # Guard: penalizar SHORT si el precio 24h es alcista (mercado recuperándose)
+    c24_guard = ind.get('change_24h', 0)
+    if c24_guard > 8:
+        score -= 0.18
+        reasons.append(f"📈 24h +{c24_guard:.1f}% momentum alcista fuerte — SHORT muy arriesgado ⚠️⚠️⚠️")
+    elif c24_guard > 4:
+        score -= 0.10
+        reasons.append(f"📈 24h +{c24_guard:.1f}% momentum alcista — SHORT arriesgado ⚠️⚠️")
+
+    # Fear & Greed + acción de precio real — NO shortear solo por pánico si el precio sube
+    c24_fg = ind.get('change_24h', 0)
     if fear_greed <= 20:
-        score += 0.20
-        reasons.append(f"😨 Fear & Greed {fear_greed} — Extreme Fear, trend following SHORT ✅✅")
+        if c24_fg < -2 and ind.get('trend') == 'down':
+            score += 0.20
+            reasons.append(f"😨 F&G {fear_greed} + precio {c24_fg:.1f}% + EMA down — trend following SHORT ✅✅")
+        elif c24_fg < 0:
+            score += 0.08
+            reasons.append(f"😨 F&G {fear_greed} Extreme Fear, precio {c24_fg:.1f}% — SHORT parcial ⚠️")
+        else:
+            score -= 0.05
+            reasons.append(f"😨 F&G {fear_greed} pero precio {c24_fg:+.1f}% — mercado rebotando, SHORT arriesgado ⚠️⚠️")
     elif fear_greed <= 35:
-        score += 0.12
-        reasons.append(f"😰 Fear & Greed {fear_greed} — Fear, favorable para SHORT ✅")
+        if c24_fg < 0:
+            score += 0.12
+            reasons.append(f"😰 F&G {fear_greed} Fear + precio {c24_fg:.1f}% — favorable SHORT ✅")
+        else:
+            score += 0.03
+            reasons.append(f"😰 F&G {fear_greed} Fear pero precio {c24_fg:+.1f}% — SHORT con cautela ⚠️")
     elif fear_greed >= 75:
         score -= 0.10
         reasons.append(f"🤑 Fear & Greed {fear_greed} — Greed extremo, SHORT arriesgado ⚠️")
@@ -791,6 +926,21 @@ def score_short(ind: dict) -> tuple[float, list]:
         score += 0.06
         reasons.append("Sobre Keltner Channel — sobreextensión ✅")
 
+    # ── 12. Fibonacci Golden Pocket SHORT ── (bounce a 61.8-65% = short opportunity)
+    fib = ind.get("fib")
+    if fib:
+        ret_up = fib["retrace_up"]
+        rsi_short_ok = (rsi_val is None) or (rsi_val >= 50)
+        if fib["in_gp_short"] and rsi_short_ok:
+            score += 0.25
+            reasons.append(f"FIB 🎯 Golden Pocket SHORT {ret_up:.1f}% bounce RSI≥50 ✅")
+        elif fib["in_gp_short"]:
+            score += 0.15
+            reasons.append(f"FIB Golden Pocket SHORT {ret_up:.1f}% bounce ✅")
+        elif fib["in_ote_short"] and rsi_short_ok:
+            score += 0.10
+            reasons.append(f"FIB OTE Zone SHORT {ret_up:.1f}% bounce ✅")
+
     if not reasons:
         reasons = [f"Score SHORT base {score:.2f}"]
 
@@ -825,6 +975,29 @@ def build_signal(symbol, direction, strategy, ind, score, reasons, risk_eval):
     tp = round(price + effective_tp, 8) if direction == "long" \
          else round(price - effective_tp, 8)
 
+    # Si estamos en Fibonacci Golden Pocket, usar niveles Fibonacci para SL/TP
+    # (PF 2.88 en simulación vs ATR baseline — SL=fib_786×0.99, TP=fib_1272)
+    fib_used = False
+    fib = ind.get("fib")
+    if fib and direction == "long" and fib.get("in_gp_long"):
+        fib_sl = round(fib["fib_786"] * (1 - FIB_SL_BUFFER), 8)
+        fib_tp = fib["fib_1272"]
+        # Solo usar Fibonacci SL/TP si mejoran el RR vs ATR
+        atr_rr = effective_tp / effective_sl if effective_sl > 0 else 0
+        fib_rr_raw = abs(fib_tp - price) / abs(price - fib_sl) if abs(price - fib_sl) > 0 else 0
+        if fib_rr_raw >= 1.5:  # mínimo RR 1.5:1
+            sl = fib_sl
+            tp = fib_tp
+            fib_used = True
+    elif fib and direction == "short" and fib.get("in_gp_short"):
+        fib_sl = round(fib["fib_786_short"] * (1 + FIB_SL_BUFFER), 8)
+        fib_tp = fib["fib_1272_short"]
+        fib_rr_raw = abs(fib_tp - price) / abs(price - fib_sl) if abs(price - fib_sl) > 0 else 0
+        if fib_rr_raw >= 1.5:
+            sl = fib_sl
+            tp = fib_tp
+            fib_used = True
+
     rr = abs(tp - price) / abs(price - sl) if abs(price - sl) > 0 else 0
 
     risk_sizing = risk_eval.get("position_size", {})
@@ -853,6 +1026,8 @@ def build_signal(symbol, direction, strategy, ind, score, reasons, risk_eval):
         "reasons":             reasons[:8],
         "suggested_size_usd":  risk_sizing.get("position_size_usd", 100),
         "timestamp":           datetime.now(timezone.utc).isoformat(),
+        "fib_golden_pocket":   fib_used,
+        "fib_retrace":         fib["retrace_down"] if (fib and direction == "long") else (fib["retrace_up"] if fib else None),
     }
 
 
@@ -904,7 +1079,7 @@ def strategy_breakout(symbol, ind, risk_eval) -> Optional[dict]:
     if obv == "down":
         return None
 
-    # RSI no sobrecomprado extremo
+    # Sim: RSI <= 80 es el filtro óptimo (PF 2.55 en 7.2M sims)
     if rsi_val and rsi_val > 80:
         return None
 
@@ -939,12 +1114,18 @@ def strategy_oversold_bounce(symbol, ind, risk_eval) -> Optional[dict]:
     bb      = ind.get("bb")
     c24     = ind.get("change_24h", 0)
 
-    # Necesita RSI o cambio 24h fuerte negativo
-    oversold_rsi    = rsi_val is not None and rsi_val < RSI_OVERSOLD
+    # Sim: RSI<30 + c24<-8% (condición AND más estricta que OR evita señales falsas)
+    # OR condition daba 44.7% señal rate — demasiado permisivo
+    oversold_rsi    = rsi_val is not None and rsi_val < RSI_OVERSOLD  # default 25
     oversold_price  = c24 < -8.0  # Caída fuerte como proxy
 
+    # Requiere AL MENOS una condición fuerte; si solo c24 aplica, también necesita RSI bajo 40
     if not oversold_rsi and not oversold_price:
         return None
+    if oversold_price and not oversold_rsi:
+        # Solo c24 trigger: exigir RSI < 40 como filtro adicional
+        if rsi_val is not None and rsi_val >= 40:
+            return None
 
     score_base = 0.45
     reasons    = []
@@ -982,6 +1163,101 @@ def strategy_oversold_bounce(symbol, ind, risk_eval) -> Optional[dict]:
     return build_signal(symbol, "long", "oversold_bounce", ind, min(score_base, 0.92), reasons, risk_eval)
 
 
+
+# ── Régimen de Mercado ────────────────────────────────────────────────────────
+def efficiency_ratio(price_hist: list, period: int = 14) -> float:
+    """
+    Kaufman Efficiency Ratio.
+    0 = caótico/mean-reverting → scalping tiene ventaja estadística
+    1 = tendencia pura          → scalping es peligroso
+    Umbral bloqueo: ER > 0.55
+    """
+    if len(price_hist) < period + 1:
+        return 0.5
+    prices = [p["price"] for p in price_hist[-(period + 1):]]
+    net  = abs(prices[-1] - prices[0])
+    path = sum(abs(prices[i] - prices[i - 1]) for i in range(1, len(prices)))
+    return net / path if path > 0 else 0.5
+
+
+def hurst_exponent(price_hist: list, min_len: int = 50) -> float:
+    """
+    Hurst exponent R/S simplificado.
+    H < 0.45 → mean-reverting (rebotes predecibles)
+    H = 0.5  → caminata aleatoria
+    H > 0.55 → trending (memoria positiva)
+    """
+    import math as _math
+    prices = [p["price"] for p in price_hist[-100:]]
+    n = len(prices)
+    if n < min_len:
+        return 0.5
+    try:
+        returns = [_math.log(prices[i] / prices[i - 1]) for i in range(1, n) if prices[i - 1] > 0]
+        rs_pairs = []
+        for lag in [8, 16, 32]:
+            if len(returns) < lag * 2:
+                continue
+            segs = [returns[i:i + lag] for i in range(0, len(returns) - lag + 1, lag)]
+            rs_vals = []
+            for seg in segs:
+                if not seg:
+                    continue
+                m = sum(seg) / len(seg)
+                cum = [sum(seg[:k + 1]) - m * (k + 1) for k in range(len(seg))]
+                R = max(cum) - min(cum)
+                S = (_math.sqrt(sum((x - m) ** 2 for x in seg) / len(seg)))
+                if S > 0:
+                    rs_vals.append(R / S)
+            if rs_vals:
+                rs_pairs.append((_math.log(lag), _math.log(sum(rs_vals) / len(rs_vals))))
+        if len(rs_pairs) < 2:
+            return 0.5
+        xs = [p[0] for p in rs_pairs]
+        ys = [p[1] for p in rs_pairs]
+        xm = sum(xs) / len(xs)
+        ym = sum(ys) / len(ys)
+        num = sum((xs[i] - xm) * (ys[i] - ym) for i in range(len(xs)))
+        den = sum((xs[i] - xm) ** 2 for i in range(len(xs)))
+        H = num / den if den != 0 else 0.5
+        return max(0.0, min(1.0, H))
+    except Exception:
+        return 0.5
+
+
+def market_regime(price_hist: list, symbol: str = "") -> str:
+    """
+    Clasifica el régimen de mercado combinando ER, Hurst y ADX (30m OHLCV).
+    'mean_reverting' → scalping con ventaja estadística
+    'trending'       → scalping peligroso, usar momentum/cross
+    'neutral'        → condición ambigua
+    """
+    er = efficiency_ratio(price_hist, period=14)
+    H  = hurst_exponent(price_hist, min_len=50)
+
+    # ADX real desde velas 30m (más preciso que ER/Hurst solos)
+    adx = None
+    if symbol:
+        try:
+            import candle_aggregator as _ca
+            adx = _ca.get_adx(symbol, period=14)
+        except Exception:
+            pass
+
+    # ADX > 25 confirma tendencia fuerte (más peso que ER/Hurst)
+    if adx is not None:
+        if adx > 28:
+            return "trending"
+        if adx < 18 and (er < 0.50 or H < 0.52):
+            return "mean_reverting"
+
+    # Fallback: ER + Hurst
+    if er > 0.60 or H > 0.58:
+        return "trending"
+    if er < 0.42 and H < 0.48:
+        return "mean_reverting"
+    return "neutral"
+
 def strategy_golden_cross(symbol, ind, risk_eval) -> Optional[dict]:
     """Golden Cross EMA7/EMA21 con volumen y RSI confirmando."""
     if not risk_eval.get("approved"):
@@ -990,15 +1266,28 @@ def strategy_golden_cross(symbol, ind, risk_eval) -> Optional[dict]:
         return None
 
     rsi_val = ind.get("rsi")
-    score_base = 0.55
+    macd_d  = ind.get("macd")
+
+    # Sim: RSI 50-70 + MACD confirmado = PF 3.088 (mejor config en 11.5M sims)
+    # MACD histograma positivo es filtro obligatorio para calidad
+    if not macd_d or macd_d.get("histogram", 0) <= 0:
+        return None  # Golden Cross sin MACD positivo = señal débil
+
+    if rsi_val and (rsi_val < 50 or rsi_val > 75):
+        return None  # RSI fuera de zona óptima 50-75
+
+    score_base = 0.60
     reasons = ["Golden Cross EMA7/EMA21 ✅"]
 
-    if rsi_val and 45 <= rsi_val <= 68:
+    if rsi_val and 50 <= rsi_val <= 70:
         score_base += 0.12
-        reasons.append(f"RSI {rsi_val:.0f} zona saludable ✅")
-    if ind.get("macd", {}) and ind["macd"].get("histogram", 0) > 0:
+        reasons.append(f"RSI {rsi_val:.0f} zona óptima (50-70) ✅")
+    if macd_d.get("histogram", 0) > 0:
         score_base += 0.10
         reasons.append("MACD histograma positivo ✅")
+    if macd_d.get("bullish_cross"):
+        score_base += 0.08
+        reasons.append("MACD cruce alcista confirmado ✅")
     if ind.get("obv_trend") == "up":
         score_base += 0.10
         reasons.append("OBV acumulación ✅")
@@ -1007,6 +1296,45 @@ def strategy_golden_cross(symbol, ind, risk_eval) -> Optional[dict]:
         reasons.append("BB posición favorable ✅")
 
     return build_signal(symbol, "long", "golden_cross", ind, min(score_base, 0.92), reasons, risk_eval)
+
+
+def strategy_death_cross(symbol, ind, risk_eval) -> Optional[dict]:
+    """Death Cross EMA7/EMA21 — señal SHORT para Pure Mode y Wild Mode.
+    Sim validado: WR~65%, PF~3.0 en 1h×30d (2026-04-12)."""
+    if not risk_eval.get("approved"):
+        return None
+    if ind.get("cross") != "death":
+        return None
+
+    rsi_val = ind.get("rsi")
+    macd_d  = ind.get("macd")
+
+    if not macd_d or macd_d.get("histogram", 0) >= 0:
+        return None  # Death Cross sin MACD negativo = señal débil
+
+    if rsi_val and (rsi_val < 30 or rsi_val > 60):
+        return None  # Muy sobrevendido (riesgo rebote) o muy alto = skip
+
+    score_base = 0.60
+    reasons = ["Death Cross EMA7/EMA21 ✅"]
+
+    if rsi_val and 40 <= rsi_val <= 58:
+        score_base += 0.12
+        reasons.append(f"RSI {rsi_val:.0f} zona óptima short (40-58) ✅")
+    if macd_d.get("histogram", 0) < 0:
+        score_base += 0.10
+        reasons.append("MACD histograma negativo ✅")
+    if macd_d.get("bearish_cross"):
+        score_base += 0.08
+        reasons.append("MACD cruce bajista confirmado ✅")
+    if ind.get("obv_trend") == "down":
+        score_base += 0.10
+        reasons.append("OBV distribución ✅")
+    if ind.get("bb", {}) and ind["bb"].get("pct_b", 0.5) < 0.55:
+        score_base += 0.06
+        reasons.append("BB posición desfavorable ✅")
+
+    return build_signal(symbol, "short", "death_cross", ind, min(score_base, 0.92), reasons, risk_eval)
 
 
 def strategy_macd_cross(symbol, ind, risk_eval) -> Optional[dict]:
@@ -1063,11 +1391,326 @@ def strategy_macd_cross(symbol, ind, risk_eval) -> Optional[dict]:
     return build_signal(symbol, direction, "macd_cross", ind, min(score_base, 0.90), reasons, risk_eval)
 
 
+
+
+def strategy_stoch_rsi_scalp(symbol: str, ind: dict, risk_eval: dict) -> Optional[dict]:
+    """
+    PRIMARY Wild Mode: Scalping bidireccional Stochastic K + RSI.
+    Doble confirmación de extremo — validado como mejor estrategia Wild Mode.
+
+    LONG:  Stoch K ≤ 20  AND  RSI ≤ 35  → precio doblemente sobrevendido
+    SHORT: Stoch K ≥ 80  AND  RSI ≥ 65  → precio doblemente sobrecomprado
+
+    Simulación 357,984 combos (30m × 15d, Kraken, 2026-04-12):
+      + Martingala: WR=64.5%, PF=38.5x, Daily=+0.64%, DD=-0.44%
+      + Sin mart.:  WR=~35%, PF=~2.5x (estrategia selectiva = pocos trades)
+
+    Solo tokens core para martingala (SOL,ETH,XRP,BTC,JUP).
+    exit_mode=fixed para cierre rápido.
+    """
+    if not risk_eval.get("approved"):
+        return None
+    # ── Filtro de régimen: stoch_rsi solo funciona en mercados caóticos ──
+    _ph = ind.get("_price_hist", [])
+    if len(_ph) >= 50:
+        _regime = market_regime(_ph, symbol)
+        if _regime == "trending":
+            log.debug(f"⛔ stoch_rsi_scalp bloqueado {symbol}: tendencia detectada (ER/Hurst)")
+            return None
+
+    price   = ind.get("price", 0)
+    rsi_val = ind.get("rsi")
+    stoch_k = ind.get("stoch_k")
+    atr_pct = ind.get("atr_pct", 0)
+    fg      = ind.get("fear_greed", 50)
+    bb      = ind.get("bb", {})
+    obv_tr  = ind.get("obv_trend", "unknown")
+    diverg  = ind.get("rsi_divergence", None)
+
+    if price <= 0 or rsi_val is None or stoch_k is None:
+        return None
+    if atr_pct is not None and atr_pct > 8.0:   # Evitar tokens extremadamente volátiles
+        return None
+
+    # ── SCALP LONG: Stoch K ≤ 20 AND RSI ≤ 35 ──────────────────────────────
+    if stoch_k <= 20 and rsi_val <= 35 and fg <= 70:
+        score = 0.62
+        reasons = [f"Stoch K {stoch_k:.0f} sobrevendido + RSI {rsi_val:.0f} — doble extremo ✅"]
+
+        if rsi_val <= 28:
+            score += 0.10
+            reasons.append(f"RSI {rsi_val:.0f} extremo (<28) ✅")
+        if stoch_k <= 10:
+            score += 0.08
+            reasons.append(f"Stoch K {stoch_k:.0f} extremo (<10) ✅")
+        if bb and bb.get("below_lower"):
+            score += 0.07
+            reasons.append("Precio bajo BB inferior ✅")
+        if obv_tr == "up":
+            score += 0.06
+            reasons.append("OBV rebote alcista ✅")
+        if diverg == "bullish":
+            score += 0.08
+            reasons.append("Divergencia RSI bullish ✅")
+        if fg <= 20:
+            score += 0.06
+            reasons.append(f"Extreme Fear {fg} — rebote probable ✅")
+
+        if score >= 0.76 and len(reasons) >= 2:
+            sig = build_signal(symbol, "long", "stoch_rsi_scalp", ind, min(score, 0.93), reasons, risk_eval)
+            if sig:
+                sig["exit_mode"] = "fixed"
+                sig["trailing_pct"] = 0.0
+                sig["mart_eligible"] = symbol in {"SOL", "ETH", "XRP", "BTC", "JUP"}
+            return sig
+
+    # ── SCALP SHORT: Stoch K ≥ 80 AND RSI ≥ 65 ──────────────────────────────
+    if stoch_k >= 80 and rsi_val >= 65 and fg >= 25:
+        score = 0.62
+        reasons = [f"Stoch K {stoch_k:.0f} sobrecomprado + RSI {rsi_val:.0f} — doble extremo ✅"]
+
+        if rsi_val >= 72:
+            score += 0.10
+            reasons.append(f"RSI {rsi_val:.0f} extremo (>72) ✅")
+        if stoch_k >= 90:
+            score += 0.08
+            reasons.append(f"Stoch K {stoch_k:.0f} extremo (>90) ✅")
+        if bb and bb.get("above_upper"):
+            score += 0.07
+            reasons.append("Precio sobre BB superior ✅")
+        if obv_tr == "down":
+            score += 0.06
+            reasons.append("OBV distribución bajista ✅")
+        if diverg == "bearish":
+            score += 0.08
+            reasons.append("Divergencia RSI bearish ✅")
+        if fg >= 80:
+            score += 0.06
+            reasons.append(f"Extreme Greed {fg} — caída probable ✅")
+
+        if score >= 0.76 and len(reasons) >= 2:
+            sig = build_signal(symbol, "short", "stoch_rsi_scalp", ind, min(score, 0.93), reasons, risk_eval)
+            if sig:
+                sig["exit_mode"] = "fixed"
+                sig["trailing_pct"] = 0.0
+                sig["mart_eligible"] = symbol in {"SOL", "ETH", "XRP", "BTC", "JUP"}
+            return sig
+
+    return None
+
+
+def strategy_rsi_bb_scalp(symbol: str, ind: dict, risk_eval: dict) -> Optional[dict]:
+    """
+    SECONDARY Wild Mode: RSI extremo + precio toca banda Bollinger.
+    WR=73-76% con martingala, PF=17-20x (sim 357,984 combos 2026-04-12).
+
+    LONG:  RSI ≤ 30  AND  BB pct_b < 0.05  (precio en la banda inferior)
+    SHORT: RSI ≥ 70  AND  BB pct_b > 0.95  (precio en la banda superior)
+    """
+    if not risk_eval.get("approved"):
+        return None
+    # ── Filtro de régimen: rsi_bb también requiere mercado caótico ──
+    _ph2 = ind.get("_price_hist", [])
+    if len(_ph2) >= 50:
+        _regime2 = market_regime(_ph2, symbol)
+        if _regime2 == "trending":
+            log.debug(f"⛔ rsi_bb_scalp bloqueado {symbol}: tendencia detectada")
+            return None
+
+    price   = ind.get("price", 0)
+    rsi_val = ind.get("rsi")
+    bb      = ind.get("bb", {})
+    atr_pct = ind.get("atr_pct", 0)
+    fg      = ind.get("fear_greed", 50)
+    obv_tr  = ind.get("obv_trend", "unknown")
+    diverg  = ind.get("rsi_divergence", None)
+
+    if price <= 0 or rsi_val is None or not bb:
+        return None
+    if atr_pct is not None and atr_pct > 8.0:
+        return None
+
+    bb_pct_b = bb.get("pct_b", 0.5)
+
+    # ── LONG: RSI extremo + BB inferior ──────────────────────────────────────
+    if rsi_val <= 30 and bb_pct_b is not None and bb_pct_b < 0.05 and fg <= 70:
+        score = 0.64
+        reasons = [f"RSI {rsi_val:.0f} oversold + precio en BB inferior ({bb_pct_b:.2f}) ✅"]
+
+        if rsi_val <= 25:
+            score += 0.10
+            reasons.append(f"RSI {rsi_val:.0f} extremo ✅")
+        if bb_pct_b < 0.02:
+            score += 0.08
+            reasons.append("BB inferior extremo (<0.02) ✅")
+        if obv_tr == "up":
+            score += 0.06
+            reasons.append("OBV acumulación ✅")
+        if diverg == "bullish":
+            score += 0.08
+            reasons.append("Divergencia RSI bullish ✅")
+        if fg <= 20:
+            score += 0.06
+            reasons.append(f"Extreme Fear {fg} ✅")
+
+        if score >= 0.76 and len(reasons) >= 2:
+            sig = build_signal(symbol, "long", "rsi_bb_scalp", ind, min(score, 0.93), reasons, risk_eval)
+            if sig:
+                sig["exit_mode"] = "fixed"
+                sig["trailing_pct"] = 0.0
+                sig["mart_eligible"] = symbol in {"SOL", "ETH", "XRP", "BTC", "JUP"}
+            return sig
+
+    # ── SHORT: RSI extremo + BB superior ─────────────────────────────────────
+    if rsi_val >= 70 and bb_pct_b is not None and bb_pct_b > 0.95 and fg >= 25:
+        score = 0.64
+        reasons = [f"RSI {rsi_val:.0f} overbought + precio en BB superior ({bb_pct_b:.2f}) ✅"]
+
+        if rsi_val >= 75:
+            score += 0.10
+            reasons.append(f"RSI {rsi_val:.0f} extremo ✅")
+        if bb_pct_b > 0.98:
+            score += 0.08
+            reasons.append("BB superior extremo (>0.98) ✅")
+        if obv_tr == "down":
+            score += 0.06
+            reasons.append("OBV distribución ✅")
+        if diverg == "bearish":
+            score += 0.08
+            reasons.append("Divergencia RSI bearish ✅")
+        if fg >= 80:
+            score += 0.06
+            reasons.append(f"Extreme Greed {fg} ✅")
+
+        if score >= 0.76 and len(reasons) >= 2:
+            sig = build_signal(symbol, "short", "rsi_bb_scalp", ind, min(score, 0.93), reasons, risk_eval)
+            if sig:
+                sig["exit_mode"] = "fixed"
+                sig["trailing_pct"] = 0.0
+                sig["mart_eligible"] = symbol in {"SOL", "ETH", "XRP", "BTC", "JUP"}
+            return sig
+
+    return None
+
+
+def strategy_scalping(symbol: str, ind: dict, risk_eval: dict) -> Optional[dict]:
+    """
+    Scalping bidireccional RSI+ATR — suplementario en Wild Mode (COMBO).
+    
+    LONG:  RSI ≤ 30 + caída > 0.4×ATR → SL/TP calculados por auto-learner (exit_mode=fixed)
+    SHORT: RSI ≥ 70 + subida > 0.4×ATR → SL/TP calculados por auto-learner (exit_mode=fixed)
+    
+    Validado: mejor variante en simulación 1h × 30 días (SOL,ETH,XRP).
+    BTC excluido (históricamente negativo en scalping).
+    exit_mode="fixed" para cierre rápido sin trailing.
+    Confidence mínima 0.68 — más exigente que swing (0.55).
+    """
+    if not risk_eval.get("approved"):
+        return None
+
+    # BTC no funciona bien para scalping (0/12 configs positivas en simulación)
+    if symbol == "BTC":
+        return None
+
+    price   = ind.get("price", 0)
+    rsi_val = ind.get("rsi", 50)
+    atr_val = ind.get("atr", 0)
+    atr_pct = ind.get("atr_pct", 0)
+    fg      = ind.get("fear_greed", 50)
+    change  = ind.get("change_5m", 0)
+    bb      = ind.get("bb", {})
+    obv_tr  = ind.get("obv_trend", "unknown")
+    diverg  = ind.get("rsi_divergence", None)
+
+    if price <= 0 or atr_pct < 0.008:  # ATR mínimo 0.8% del precio
+        return None
+
+    atr_thr = (atr_val / price * 100) * 0.4  # 0.4×ATR como mínimo de movimiento
+
+    # ── SCALP LONG: RSI oversold + caída confirmada ─────────────────────────
+    if rsi_val <= 30 and fg <= 65:
+        drop = abs(min(change, 0))
+        score = 0.55
+        reasons = [f"RSI {rsi_val:.0f} oversold — scalp setup ✅"]
+
+        if drop >= atr_thr:
+            score += 0.15
+            reasons.append(f"Drop {drop:.1f}% ≥ 0.4×ATR ({atr_thr:.1f}%) ✅")
+        if obv_tr == "up":
+            score += 0.08
+            reasons.append("OBV rebote alcista ✅")
+        if diverg == "bullish":
+            score += 0.08
+            reasons.append("Divergencia RSI bullish ✅")
+        if bb.get("below_lower"):
+            score += 0.07
+            reasons.append("Precio bajo BB inferior ✅")
+        if fg <= 20:
+            score += 0.08
+            reasons.append(f"Extreme Fear {fg} — rebote probable ✅")
+        elif fg <= 35:
+            score += 0.04
+
+        if score >= 0.68 and len(reasons) >= 2:
+            sig = build_signal(symbol, "long", "scalping", ind, min(score, 0.90), reasons, risk_eval)
+            if sig:
+                sig["exit_mode"] = "fixed"   # Scalp: sin trailing, cierre rápido
+                sig["trailing_pct"] = 0.0
+            return sig
+
+    # ── SCALP SHORT: RSI overbought + subida confirmada ─────────────────────
+    if rsi_val >= 70 and fg >= 20:  # No shortar en panic extremo (riesgo de rebote violento)
+        rise = max(change, 0)
+        score = 0.55
+        reasons = [f"RSI {rsi_val:.0f} overbought — scalp short setup ✅"]
+
+        if rise >= atr_thr:
+            score += 0.15
+            reasons.append(f"Subida {rise:.1f}% ≥ 0.4×ATR ({atr_thr:.1f}%) ✅")
+        if obv_tr == "down":
+            score += 0.08
+            reasons.append("OBV distribución bajista ✅")
+        if diverg == "bearish":
+            score += 0.08
+            reasons.append("Divergencia RSI bearish ✅")
+        if bb.get("above_upper"):
+            score += 0.07
+            reasons.append("Precio sobre BB superior ✅")
+        if fg >= 80:
+            score += 0.08
+            reasons.append(f"Extreme Greed {fg} — caída probable ✅")
+        elif fg >= 65:
+            score += 0.04
+
+        if score >= 0.68 and len(reasons) >= 2:
+            sig = build_signal(symbol, "short", "scalping", ind, min(score, 0.90), reasons, risk_eval)
+            if sig:
+                sig["exit_mode"] = "fixed"
+                sig["trailing_pct"] = 0.0
+            return sig
+
+    return None
+
+# ── Strategy Lists by Mode (sim validado 357,984 combos Kraken 5m-1d, 2026-04-12) ──
+# PURE: golden+death cross primero (WR=73%, PF=5.42) + swing conservadoras
+STRATEGIES_PURE  = [strategy_golden_cross, strategy_death_cross,
+                    strategy_oversold_bounce, strategy_breakout,
+                    strategy_trend_momentum]
+
+# WILD: scalping agresivo bidireccional primero (stoch+rsi=doble extremo)
+# stoch_rsi_scalp → rsi_bb_scalp → golden/death cross → macd → rsi+atr scalp
+STRATEGIES_WILD  = [strategy_stoch_rsi_scalp, strategy_rsi_bb_scalp,
+                    strategy_golden_cross, strategy_death_cross,
+                    strategy_macd_cross, strategy_scalping]
+
+# COMBO mantenido por compatibilidad (alias de WILD)
+STRATEGIES_COMBO = STRATEGIES_WILD
+
 # ══════════════════════════════════════════════════════════════════════════════
 # MAIN
 # ══════════════════════════════════════════════════════════════════════════════
 
-def run(debug: bool = False) -> dict:
+def run(debug: bool = False, wild_mode: bool = False) -> dict:
     log.info("=" * 50)
     log.info("🧠 STRATEGY AGENT — stack completo de indicadores")
     log.info("=" * 50)
@@ -1090,14 +1733,16 @@ def run(debug: bool = False) -> dict:
 
     # Actualizar historial
     price_hist, vol_hist = update_price_history(tokens)
+    # Actualizar velas 30m para ADX real
+    try:
+        import candle_aggregator as _ca
+        _ca.update(price_hist)
+    except Exception as _ca_e:
+        log.debug(f"candle_aggregator: {_ca_e}")
 
-    strategies = [
-        strategy_trend_momentum,
-        strategy_breakout,
-        strategy_oversold_bounce,
-        strategy_golden_cross,
-        strategy_macd_cross,
-    ]
+    strategies = STRATEGIES_WILD if wild_mode else STRATEGIES_PURE
+    mode_label = "WILD (stoch_rsi+rsi_bb scalping, 6 strats)" if wild_mode else "PURE (golden+death cross, swing, 5 strats)"
+    log.info(f"   📊 Strategy mode: {mode_label}")
 
     signals = []
     strategy_counts = {s.__name__: 0 for s in strategies}

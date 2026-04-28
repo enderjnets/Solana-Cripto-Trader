@@ -14,13 +14,17 @@ import threading
 import time as _time
 from datetime import datetime, timezone
 from pathlib import Path
-from flask import Flask, jsonify, render_template_string, request, Response
+from flask import Flask, jsonify, render_template_string, request, Response, send_from_directory
+import uuid
 
 app = Flask(__name__)
 
 # ── Data paths ───────────────────────────────────────────────────────────────
 BASE = Path(__file__).parent.parent
 DATA = BASE / "agents" / "data"
+RESET_ATTACHMENTS_DIR = DATA / "reset_attachments"
+RESET_ATTACHMENTS_DIR.mkdir(parents=True, exist_ok=True)
+ALLOWED_ATTACH_EXT = {'png', 'jpg', 'jpeg', 'gif', 'webp', 'pdf', 'txt', 'csv'}
 WATCHDOG_LOG = Path("/home/enderj/.config/solana-jupiter-bot/modular.log")
 
 def load_json(path):
@@ -48,23 +52,23 @@ def load_trade_history():
     
     BUG FIX (2026-03-23): Previously used portfolio.json positions as primary source,
     which only contained the last ~10 trades. trade_history.json has 2200+ trades.
-    portfolio.json positions are used only for open positions (api/positions).
+    
+    AUDIT FIX (2026-04-10): REMOVED portfolio.json fallback. The fallback was
+    leaking OPEN positions into trade_history when the file was empty (post-reset),
+    causing duplicate entries and false accounting discrepancies. If trade_history.json
+    is missing/empty/invalid, we return [] — never mix open positions with history.
     """
-    # Primary: trade_history.json (full history)
     path = DATA / "trade_history.json"
     try:
         with open(path) as f:
             data = json.load(f)
-        if isinstance(data, list) and data:
+        if isinstance(data, list):
             return data
-        # Handle dict format: {"trades": [...], "last_updated": "..."}
         if isinstance(data, dict):
             return data.get("trades", [])
     except Exception:
         pass
-    # Fallback: portfolio.json positions
-    port = load_json(DATA / "portfolio.json")
-    return port.get("positions", [])
+    return []
 
 # ── Agent Notes (Chat) ────────────────────────────────────────────────────────
 AGENT_NOTES_FILE = DATA / "agent_notes.json"
@@ -101,6 +105,240 @@ def safe_parse_dt(s):
         return d
     except (ValueError, TypeError):
         return None
+
+def estimate_open_position_pnl(pos: dict, current_price: float | None = None) -> dict:
+    """Estimate net PnL if the open position were closed now."""
+    symbol = str(pos.get('symbol', ''))
+    direction = str(pos.get('direction', 'long')).lower()
+    entry_price = safe_float(pos.get('entry_price', 0))
+    margin = safe_float(pos.get('margin_usd', 0))
+    leverage = safe_float(pos.get('leverage', 0))
+    notional = safe_float(pos.get('notional_value', 0)) or safe_float(pos.get('size_usd', 0)) or (margin * leverage)
+    funding = safe_float(pos.get('funding_accumulated', 0))
+    fee_entry = safe_float(pos.get('fee_entry', 0))
+    current_price = safe_float(current_price if current_price is not None else pos.get('current_price', 0))
+
+    if entry_price <= 0 or current_price <= 0:
+        return {
+            'pnl_usd': safe_float(pos.get('pnl_usd', 0)),
+            'pnl_pct': safe_float(pos.get('pnl_pct', 0)),
+            'current_price': current_price,
+            'notional_value': notional,
+        }
+
+    gross_price_pct = ((current_price - entry_price) / entry_price) if direction == 'long' else ((entry_price - current_price) / entry_price)
+    gross_pnl_usd = (gross_price_pct * notional) + funding
+    fee_exit_est = 0.0
+    try:
+        import sys
+        sys.path.insert(0, str(DATA.parent))
+        import executor as ex
+        fee_exit_est = notional * (ex.TAKER_FEE + ex.get_slippage(symbol))
+    except Exception:
+        fee_exit_est = notional * 0.001
+
+    pnl_usd = gross_pnl_usd - fee_entry - fee_exit_est
+    pnl_pct = ((pnl_usd / margin) * 100) if margin > 0 else (gross_price_pct * 100)
+    return {
+        'pnl_usd': round(pnl_usd, 4),
+        'pnl_pct': round(pnl_pct, 4),
+        'current_price': current_price,
+        'notional_value': notional,
+    }
+
+# ── Version & Changelog ──────────────────────────────────────────────────────
+VERSION = "2.9.0-live"
+CHANGELOG = [
+    {
+        "version": "2.9.0-live",
+        "date": "2026-04-17",
+        "title": "Sprint 1 Safety Nets: kill switch + daily loss + whitelist + startup validation",
+        "changes": [
+            "NEW agents/safety.py: modulo centralizado fail-safe (todos los hooks con try/except)",
+            "NEW kill switch: /tmp/solana_live_killswitch -- orchestrator skipea ciclo si existe",
+            "NEW MAX_DAILY_LOSS_USD: si se alcanza, activa kill switch automatico",
+            "NEW TRADE_WHITELIST env var: filtro de tokens en signal loop (vacio = allow all = paper behavior)",
+            "NEW validate_startup(): chequea kill switch inactivo + si LIVE_TRADING_ENABLED=true exige wallet/RPC/limites configurados",
+            "NEW MAX_SLIPPAGE_BPS: cutoff para swaps reales (aun no usado; se activa en Sprint 2 con real_open_position)",
+            "NUEVOS endpoints: GET /api/safety/status, POST /api/safety/kill-switch",
+            "Retrocompatible: sin env vars, comportamiento identico al paper. Safe merge back to master.",
+        ]
+    },
+    {
+        "version": "2.8.1",
+        "date": "2026-04-17",
+        "title": "Hotfix: cambio de idioma fuerza regeneracion LLM en WILD mode",
+        "changes": [
+            "FIX: al cambiar idioma, se invalida _last_llm_ts en wild_mode_state.json",
+            "El proximo ciclo WILD (~10s a 2min) regenera el reasoning en el nuevo idioma",
+            "Antes: el tag (EN)/(ES) permanecia hasta 10min por el cache v2.6.0 sin movimiento de precio",
+            "NUEVO endpoint: POST /api/force-reasoning-refresh -- invocado por toggleLang() automaticamente",
+        ]
+    },
+    {
+        "version": "2.8.0",
+        "date": "2026-04-17",
+        "title": "LLM razona en ingles cuando idioma = EN (Fase 2 i18n)",
+        "changes": [
+            "NEW: agents/lang_utils.py con get_user_language() + lang_directive()",
+            "NEW: martingale_engine y risk_manager apendizan directiva EN al prompt cuando user_profile.json language=en -- el LLM devuelve reasoning traducido",
+            "NEW: reasoning_lang persistido en wild_mode_state.json y position_decisions.json para saber en que idioma fue generado cada texto",
+            "FIX: dashboard muestra tag (ES)/(EN) SOLO si hay desajuste real entre idioma del texto y idioma seleccionado -- tag desaparece cuando el ciclo regenera en idioma correcto",
+            "FAIL-SAFE: si lang_utils falla o user_profile.json esta ausente, bot opera normal en espanol (cero regresion)",
+            "NOTA: razonamientos persistidos antes del cambio de idioma muestran su tag original hasta que el ciclo WILD regenera (~2min)",
+        ]
+    },
+    {
+        "version": "2.7.0",
+        "date": "2026-04-16",
+        "title": "i18n completo: traducción ES/EN de modal AI Thinking + UI dinámica",
+        "changes": [
+            "FIX: modal 'Que esta pensando la IA' ahora traduce 100% al ingles (titulo, KPIs, badges, labels, fallbacks)",
+            "NEW: 25 keys nuevas en TRANSLATIONS (ES+EN) para modal AI Thinking y strings dinamicos",
+            "NEW: helper T(key) en JS -- reemplaza TRANSLATIONS[currentLang].key con fallback seguro",
+            "FIX: _actionBadge() traduce HOLD/OPEN_LEVEL/CLOSE_CHAIN/CLOSE/ABANDON segun idioma",
+            "FIX: renderAIThinking() usa templates con {n}/{ts}/{c} para interpolar datos en strings traducidos",
+            "NEW: applyLang() re-renderiza modal AI Thinking si esta abierto -- cambio de idioma en vivo",
+            "FIX: botones 'Cerrar' en tabla posiciones, 'Sin trades que mostrar', 'Sin log disponible' ahora se traducen",
+            "NOTA: el razonamiento del LLM (p.llm_reasoning) queda en ES -- marcado con '(ES)' en modo EN como Fase 2",
+        ]
+    },
+    {
+        "version": "2.6.0",
+        "date": "2026-04-15",
+        "title": "Eficiencia LLM: cache inteligente -94% llamadas",
+        "changes": [
+            "NEW: _should_call_llm_wild() en martingale_engine -- skip LLM si precio no movio >0.3% y <10min desde ultima llamada",
+            "NEW: _strategy_needs_refresh() en orchestrator -- reemplaza 'if True:' con cache basado en F&G + precio + vela 30m",
+            "AI Strategy: de ~1440 llamadas/dia a ~96 (cache 15min, refresh en vela 30m o movimiento >1%)",
+            "WILD mode: de ~1440 llamadas/dia a ~72 (cache 10min, override si precio movio o cadena escalada)",
+            "Reduccion total estimada: 94% (de ~2880 a ~168 llamadas/dia) sin perdida de calidad",
+            "Env vars de tuning: WILD_LLM_CACHE_SEC, WILD_LLM_PRICE_THRESHOLD, STRATEGY_CACHE_SEC",
+        ]
+    },
+    {
+        "version": "2.5.0",
+        "date": "2026-04-16",
+        "title": "Resiliencia LLM: Qwen local + guardia anti-abandono",
+        "changes": [
+            "NEW: call_qwen_local() -- Qwen 2.5 14B via Ollama como 4to fallback local (sin internet, sin coste)",
+            "Cadena LLM: GPT-5.4 -> MiniMax M2.7 -> Claude Sonnet 4.6 -> Qwen 2.5 14B local",
+            "NEW: _llm_is_down() en martingale_engine -- detecta circuit breaker activo",
+            "NEW: LLM_DOWN_GUARD en run_cycle() -- cierre preventivo a 75% del timeout si LLM caido",
+            "Elimina causa raiz de WILD_ABANDON_session_expired cuando LLM no responde",
+            "QWEN_URL / QWEN_MODEL configurables via .env para cualquier modelo Ollama",
+        ]
+    },
+    {
+        "version": "2.4.0",
+        "date": "2026-04-15",
+        "title": "Portabilidad multi-instancia",
+        "changes": [
+            "FIX: llm_config.py — MINIMAX_API_KEY ahora lee de env var primero (portable), fallback a archivo legacy (ROG sin cambios)",
+            "FIX: chat_agent.py — minimax key lee env var antes que archivo; LOG_FILE usa Path.home() (funciona en Mac/Linux)",
+            "FIX: reporter.py — ruta minimax.json para TTS usa Path.home() en lugar de /home/enderj/",
+            "FIX: run_watchdog.sh — cd usa dirname BASH_SOURCE (portable); logs usan $HOME en vez de /home/enderj/",
+            "NEW: .env.example completo con MINIMAX_API_KEY, GPT5_URL, PAPERCLIP, OPENCLAW_WEBHOOK documentados",
+            "NUEVO colaborador puede arrancar con: cp .env.example .env + pip install -r requirements.txt + bash run_watchdog.sh",
+        ]
+    },
+    {
+        "version": "2.3.0",
+        "date": "2026-04-15",
+        "title": "Auditoría post-deploy: 5 fixes críticos",
+        "changes": [
+            "FIX: MAX_SESSION_MINUTES 360 → 180 (martingale_engine.py) — reduce pérdidas por session_expired de -$35.23 histórico",
+            "FIX: equity_history.json usaba capital_usd ($299) en vez de total_value ($490) — gráfico mostraba falsa caída",
+            "FIX: orchestrator.py — eliminado _dt = __import__('datetime').datetime (línea no usada causaba WARNING cada ciclo)",
+            "FIX: LLM chain ampliada: GPT-5.4 → MiniMax M2.7 → Claude Sonnet 4.6 (tertiary) — cero cierres sin LLM",
+            "FIX: Proceso zombie dashboard PID 178985 consumía 92.8% CPU desde Apr 14 — eliminado",
+        ]
+    },
+    {
+        "version": "2.2.0",
+        "date": "2026-04-15",
+        "title": "OpenClaw webhooks + plugins Fase 1 & 2",
+        "changes": [
+            "Nuevo: agents/openclaw_webhook.py — notificaciones Telegram en tiempo real via OpenClaw",
+            "Integración: executor.py notifica trade abierto/cerrado via webhook",
+            "Integración: martingale_engine.py notifica cadena WILD cerrada y nuevo nivel",
+            "OpenClaw 2026.4.5 → 2026.4.14 actualizado en PC ROG",
+            "Plugins Fase 1 activados: active-memory, diffs, llm-task",
+            "Plugins Fase 2 activados: webhooks con rutas solana-alerts y github-solana",
+            "nginx en ROG puerto 18790 como proxy externo para webhooks",
+            "Fix: conflicto system/user systemd en openclaw-gateway (--force + KillMode=control-group)",
+        ]
+    },
+    {
+        "version": "2.1.0",
+        "date": "2026-04-14",
+        "title": "Auditoría de seguridad & fixes críticos",
+        "changes": [
+            "FIX CRÍTICO: executor.py — 4 rutas de early-return (kill switch, daily target, max loss) perdían trades en trade_history.json al actualizar solo portfolio.json",
+            "FIX: Escrituras atómicas en save_portfolio() y save_history() usando atomic_write_json() — previene corrupción de archivos en crash",
+            "FIX: reporter.py + performance_tracker.py — filtro 'status==closed' retornaba lista vacía; avg_loss_usd mostraba 0 con pérdidas reales",
+            "FIX: equity_history.json sin actualizar desde Apr 3 — ahora se actualiza en cada ciclo del reporter",
+            "FIX: token_scanner.py — Jupiter DNS falla sin fallback; ahora usa caché local válido hasta 6h",
+            "Dashboard: solana-dashboard.service tenía 2 procesos huérfanos usando 41% CPU en puerto 8081 — limpiados",
+        ]
+    },
+    {
+        "version": "2.0.5",
+        "date": "2026-04-12",
+        "title": "Wild Mode & template LLM fix",
+        "changes": [
+            "FIX: Bot sin operaciones — template LLM bloqueaba señales técnicas",
+            "FIX: Wild Mode margin starvation + filtro Extreme Fear",
+            "Ajuste: dashboard estilos ait-wild-inline y tarjeta Motor Martingala",
+        ]
+    },
+    {
+        "version": "2.0.4",
+        "date": "2026-04-08",
+        "title": "Hardening runtime & watchdog",
+        "changes": [
+            "FIX: Invertir lógica shorts cuando RSI < 30 en tendencia bajista",
+            "FIX: Filtro anti-reversión SHORT (RSI<30 + tendencia)",
+            "FIX: Watchdog ownership split entre systemd y run_watchdog manual",
+            "FIX: Bot no ejecuta trades después del restart",
+            "Hardening: single orchestrator lock + canonical state path",
+        ]
+    },
+    {
+        "version": "2.0.3",
+        "date": "2026-04-07",
+        "title": "Pérdidas constantes — fix shorts",
+        "changes": [
+            "Investigación de pérdidas sistemáticas en posiciones short",
+            "Ajuste de parámetros de entrada y salida para shorts",
+        ]
+    },
+    {
+        "version": "2.0.0",
+        "date": "2026-04-03",
+        "title": "Wild Mode + Martingale Engine",
+        "changes": [
+            "Nuevo: Wild Mode con engine Martingala para maximizar ganancias en tendencia",
+            "Nuevo: Análisis LLM combinado con señales técnicas (stoch_rsi, rsi_bb, golden_cross, etc.)",
+            "Nuevo: Auto-Learner v2.0 — parámetros adaptativos basados en historial",
+            "Nuevo: 6 estrategias activas en modo COMBO",
+            "Dashboard: modal AI Thinking en tiempo real",
+            "Dashboard: barra P&L reactiva en historial de trades",
+        ]
+    },
+    {
+        "version": "1.0.0",
+        "date": "2026-03-20",
+        "title": "v1.0-rentable — primera versión rentable confirmada",
+        "changes": [
+            "Primera versión con profit factor > 1 confirmado en paper trading",
+            "Pipeline completo: Market Data → Risk → Strategy → Executor → Reporter",
+            "Integración con Paperclip AI (CEO, CTO, Engineer, Analyst)",
+            "Dashboard web en puerto 8081",
+            "Modo paper_drift (Drift Protocol simulado con 5x leverage)",
+        ]
+    },
+]
 
 # ── HTML template (single-file SPA) ──────────────────────────────────────────
 DASHBOARD_HTML = r"""
@@ -260,6 +498,142 @@ DASHBOARD_HTML = r"""
   tbody tr { border-bottom: 1px solid rgba(48,54,61,0.5); transition: background .15s; }
   tbody tr:hover { background: rgba(88,166,255,0.04); }
   tbody td { padding: 8px 10px; white-space: nowrap; }
+  .chain-sub-row { background: rgba(188,140,255,0.05); border-left: 3px solid var(--purple); }
+  .chain-sub-row td:first-child { padding-left: 24px; }
+  .chain-sub-row:hover { background: rgba(188,140,255,0.1); }
+  .chain-toggle { background: none; border: 1px solid var(--purple); color: var(--purple); border-radius: 4px; padding: 1px 5px; font-size: 10px; cursor: pointer; margin-right: 4px; transition: all .15s; }
+  .chain-toggle:hover { background: var(--purple); color: var(--bg); }
+  /* ── Reason badge (clickable) ── */
+  .reason-btn { background: none; border: 1px solid var(--border); color: var(--text2); border-radius: 4px; padding: 2px 7px; font-size: 10px; cursor: pointer; transition: all .15s; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: inline-block; }
+  .reason-btn:hover { border-color: var(--blue); color: var(--blue); }
+  /* ── AI Reasoning Modal ── */
+  #reasonModal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 9999; align-items: center; justify-content: center; }
+  #reasonModal.open { display: flex; }
+  .reason-modal-box { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 24px; max-width: 580px; width: 90%; max-height: 80vh; overflow-y: auto; position: relative; }
+  .reason-modal-title { font-size: 13px; font-weight: 700; color: var(--blue); margin-bottom: 6px; }
+  .reason-modal-sym { font-size: 11px; color: var(--text2); margin-bottom: 14px; }
+  .reason-modal-type { display: inline-block; background: var(--bg3); border: 1px solid var(--border); border-radius: 6px; padding: 4px 10px; font-size: 11px; color: var(--yellow); margin-bottom: 14px; }
+  .reason-modal-body { font-size: 13px; line-height: 1.7; color: var(--text); white-space: pre-wrap; border-left: 3px solid var(--blue); padding-left: 12px; }
+  .reason-modal-close { position: absolute; top: 14px; right: 16px; background: none; border: none; color: var(--text2); font-size: 18px; cursor: pointer; }
+  .reason-modal-close:hover { color: var(--text); }
+  /* ── Reset Modal ── */
+  #resetModal{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:9999;align-items:center;justify-content:center;}
+  #resetModal.open{display:flex;}
+  .reset-modal-box{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:28px;max-width:520px;width:92%;max-height:90vh;overflow-y:auto;position:relative;}
+  .reset-modal-title{font-size:14px;font-weight:700;color:var(--orange);margin-bottom:20px;}
+  .reset-modal-field{margin-bottom:16px;}
+  .reset-modal-field label{display:block;font-size:11px;color:var(--text2);margin-bottom:5px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;}
+  .reset-modal-field input[type=number],.reset-modal-field textarea{width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:8px 10px;font-size:13px;box-sizing:border-box;}
+  .reset-modal-field textarea{resize:vertical;min-height:80px;font-family:inherit;}
+  .reset-drop-zone{border:2px dashed var(--border);border-radius:8px;padding:20px;text-align:center;cursor:pointer;color:var(--text2);font-size:12px;transition:border-color 0.2s;}
+  .reset-drop-zone.drag-over{border-color:var(--orange);color:var(--orange);}
+  .reset-drop-zone input[type=file]{display:none;}
+  .reset-file-list{margin-top:10px;display:flex;flex-direction:column;gap:4px;}
+  .reset-file-item{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--text2);background:var(--bg3);border-radius:4px;padding:4px 8px;}
+  .reset-file-item button{background:none;border:none;color:var(--red);cursor:pointer;font-size:14px;line-height:1;padding:0 2px;}
+  .reset-modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:20px;}
+  .reset-modal-actions button{padding:8px 20px;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;}
+  .reset-btn-cancel{background:var(--bg3);color:var(--text2);}
+  .reset-btn-confirm{background:var(--orange);color:#000;}
+  /* ── Version Badge ── */
+  .version-badge {
+    display: inline-block; font-size: 10px; font-weight: 700;
+    background: var(--bg3); border: 1px solid var(--border);
+    color: var(--purple); border-radius: 20px; padding: 2px 9px;
+    cursor: pointer; letter-spacing: 0.5px; transition: border-color 0.2s, color 0.2s;
+    vertical-align: middle; margin-left: 8px;
+  }
+  .version-badge:hover { border-color: var(--purple); color: #d4b8ff; }
+  /* ── Changelog Modal ── */
+  #changelogModal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 9999; align-items: center; justify-content: center; }
+  #changelogModal.open { display: flex; }
+  .changelog-box { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 24px; max-width: 640px; width: 94%; max-height: 82vh; overflow-y: auto; position: relative; }
+  .changelog-title { font-size: 15px; font-weight: 700; color: var(--purple); margin-bottom: 18px; }
+  .changelog-close { position: absolute; top: 14px; right: 16px; background: none; border: none; color: var(--text2); font-size: 18px; cursor: pointer; }
+  .changelog-close:hover { color: var(--text); }
+  .changelog-version { margin-bottom: 20px; }
+  .changelog-ver-header { display: flex; align-items: baseline; gap: 10px; margin-bottom: 8px; }
+  .changelog-ver-tag { font-size: 12px; font-weight: 700; color: var(--purple); background: rgba(188,140,255,0.12); border: 1px solid rgba(188,140,255,0.3); border-radius: 20px; padding: 2px 10px; }
+  .changelog-ver-date { font-size: 11px; color: var(--text2); }
+  .changelog-ver-title { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+  .changelog-ver-list { list-style: none; padding: 0; }
+  .changelog-ver-list li { font-size: 12px; color: var(--text2); padding: 3px 0 3px 16px; position: relative; line-height: 1.5; }
+  .changelog-ver-list li::before { content: "▸"; position: absolute; left: 0; color: var(--purple); opacity: 0.6; }
+  .changelog-ver-divider { border: none; border-top: 1px solid var(--border); margin: 18px 0; }
+  .reset-btn-confirm:disabled{opacity:0.4;cursor:not-allowed;}
+
+  /* ── AI Thinking Modal ── */
+  #aiThinkingModal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:10000; align-items:flex-start; justify-content:center; overflow-y:auto; padding:20px 0; }
+  #aiThinkingModal.open { display:flex; }
+  .ait-box { background:var(--bg); border:1px solid #30363d; border-radius:14px; width:min(900px,96vw); padding:0; overflow:hidden; position:relative; }
+  /* header */
+  .ait-header { background:linear-gradient(135deg,rgba(188,140,255,0.15),rgba(88,166,255,0.1)); border-bottom:1px solid #30363d; padding:18px 24px; display:flex; align-items:center; justify-content:space-between; }
+  .ait-header-left { display:flex; align-items:center; gap:12px; }
+  .ait-brain { font-size:28px; animation:ait-pulse 2s infinite; }
+  @keyframes ait-pulse { 0%,100%{transform:scale(1);filter:brightness(1)} 50%{transform:scale(1.1);filter:brightness(1.3)} }
+  .ait-title { font-size:16px; font-weight:700; background:linear-gradient(90deg,#bc8cff,#58a6ff); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+  .ait-subtitle { font-size:11px; color:var(--text2); margin-top:2px; }
+  .ait-live { display:flex; align-items:center; gap:6px; font-size:11px; font-weight:700; color:#3fb950; }
+  .ait-live-dot { width:8px; height:8px; border-radius:50%; background:#3fb950; box-shadow:0 0 8px #3fb950; animation:pulse 1.5s infinite; }
+  .ait-close-btn { background:none; border:1px solid #30363d; color:var(--text2); border-radius:6px; padding:4px 10px; cursor:pointer; font-size:14px; }
+  .ait-close-btn:hover { color:var(--text); border-color:var(--text2); }
+  /* refresh bar */
+  .ait-refresh-bar { height:2px; background:var(--bg3); position:relative; overflow:hidden; }
+  .ait-refresh-fill { height:100%; background:linear-gradient(90deg,#bc8cff,#58a6ff); transition:width 1s linear; }
+  /* global context */
+  .ait-global { display:grid; grid-template-columns:repeat(4,1fr); gap:1px; background:#30363d; border-bottom:1px solid #30363d; }
+  .ait-kpi { background:var(--bg2); padding:12px 16px; text-align:center; }
+  .ait-kpi-val { font-size:18px; font-weight:700; }
+  .ait-kpi-lbl { font-size:10px; color:var(--text2); margin-top:2px; text-transform:uppercase; letter-spacing:0.5px; }
+  /* body */
+  .ait-body { padding:20px 24px; display:flex; flex-direction:column; gap:16px; }
+  /* position card */
+  .ait-pos-card { background:var(--bg2); border:1px solid #30363d; border-radius:10px; overflow:hidden; transition:border-color .2s; }
+  .ait-pos-card:hover { border-color:#bc8cff44; }
+  .ait-pos-header { display:flex; align-items:center; gap:10px; padding:12px 16px; border-bottom:1px solid #30363d; }
+  .ait-sym { font-size:16px; font-weight:700; }
+  .ait-pos-pnl { margin-left:auto; font-size:15px; font-weight:700; }
+  .ait-decision-badge { font-size:11px; font-weight:700; padding:3px 10px; border-radius:12px; letter-spacing:0.5px; }
+  .ait-badge-hold { background:rgba(210,153,34,0.2); color:#d29922; border:1px solid #d2992244; }
+  .ait-badge-open { background:rgba(63,185,80,0.2); color:#3fb950; border:1px solid #3fb95044; }
+  .ait-badge-close { background:rgba(88,166,255,0.2); color:#58a6ff; border:1px solid #58a6ff44; }
+  .ait-badge-abandon { background:rgba(248,81,73,0.2); color:#f85149; border:1px solid #f8514944; }
+  .ait-pos-body { padding:12px 16px; display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  /* alignment */
+  .ait-align { font-size:11px; padding:6px 10px; border-radius:6px; background:var(--bg3); }
+  .ait-align-split { border-left:3px solid #d29922; }
+  .ait-align-agree { border-left:3px solid #3fb950; }
+  /* confidence bar */
+  .ait-conf-wrap { display:flex; align-items:center; gap:8px; }
+  .ait-conf-track { flex:1; height:6px; background:var(--bg3); border-radius:3px; overflow:hidden; }
+  .ait-conf-fill { height:100%; border-radius:3px; background:linear-gradient(90deg,#bc8cff,#58a6ff); transition:width .5s ease; }
+  .ait-conf-lbl { font-size:10px; color:var(--text2); width:30px; text-align:right; }
+  /* quant reasons */
+  .ait-reasons { display:flex; flex-wrap:wrap; gap:4px; }
+  .ait-reason-chip { font-size:10px; padding:2px 7px; border-radius:10px; background:var(--bg3); color:var(--text2); border:1px solid #30363d; }
+  .ait-reason-chip.good { color:#3fb950; border-color:#3fb95033; background:rgba(63,185,80,0.08); }
+  .ait-reason-chip.bad  { color:#f85149; border-color:#f8514933; background:rgba(248,81,73,0.08); }
+  /* LLM reasoning block */
+  .ait-llm-block { grid-column:1/-1; background:rgba(88,166,255,0.04); border:1px solid rgba(88,166,255,0.15); border-radius:8px; padding:12px 14px; }
+  .ait-llm-title { font-size:10px; font-weight:700; color:var(--blue); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px; display:flex; align-items:center; gap:6px; }
+  .ait-llm-text { font-size:12px; color:var(--text); line-height:1.7; white-space:pre-wrap; }
+  /* guardrails */
+  .ait-guardrail { font-size:11px; color:#f85149; background:rgba(248,81,73,0.08); border:1px solid rgba(248,81,73,0.2); border-radius:6px; padding:4px 10px; display:flex; align-items:center; gap:6px; }
+  /* metrics row */
+  .ait-metrics { display:flex; gap:16px; flex-wrap:wrap; }
+  .ait-metric { font-size:11px; color:var(--text2); }
+  .ait-metric span { color:var(--text); font-weight:600; }
+  /* wild mode section */
+  .ait-wild-header { display:flex; align-items:center; gap:8px; font-size:12px; font-weight:700; color:var(--orange); margin-bottom:10px; }
+  .ait-wild-chain { background:rgba(255,123,114,0.06); border:1px solid rgba(255,123,114,0.2); border-radius:8px; padding:10px 14px; margin-bottom:8px; }
+  /* loading state */
+  .ait-loading { padding:60px 24px; text-align:center; color:var(--text2); }
+  .ait-loading-spinner { font-size:32px; animation:ait-pulse 1s infinite; margin-bottom:12px; }
+  /* distance bars */
+  .ait-dist-row { display:flex; align-items:center; gap:6px; font-size:10px; color:var(--text2); }
+  .ait-dist-bar { flex:1; height:4px; background:var(--bg3); border-radius:2px; overflow:hidden; position:relative; }
+  .ait-dist-sl { height:100%; background:#f85149; border-radius:2px; }
+  .ait-dist-tp { height:100%; background:#3fb950; border-radius:2px; position:absolute; right:0; top:0; }
   .badge {
     display: inline-block; padding: 2px 7px; border-radius: 4px;
     font-size: 10px; font-weight: 600; text-transform: uppercase;
@@ -394,6 +768,57 @@ DASHBOARD_HTML = r"""
   @keyframes dotBounce{0%,80%,100%{transform:scale(.4);opacity:.4}40%{transform:scale(1);opacity:1}}
   .typing-text{color:var(--text2);font-size:11px;animation:tPulse 2s infinite}
   @keyframes tPulse{0%,100%{opacity:.5}50%{opacity:1}}
+
+/* ── Trades Summary Bar ─────────────────────────────────────────── */
+.trades-summary {
+  display: flex;
+  gap: 1.5rem;
+  align-items: center;
+  padding: 0.55rem 1rem;
+  margin-bottom: 0.75rem;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 8px;
+  font-size: 0.82rem;
+  flex-wrap: wrap;
+}
+.trades-summary .ts-label { color: var(--text-muted, #aaa); margin-right: 0.25rem; }
+.trades-summary .ts-val   { font-weight: 700; }
+.trades-summary .ts-sep   { color: rgba(255,255,255,0.15); }
+
+/* ── AI Thinking: Wild Chain inline block ───────────────────────── */
+.ait-wild-inline { grid-column:1/-1;
+  border-left: 3px solid #fb923c;
+  background: transparent;
+  padding: 3px 0 3px 10px;
+  margin-bottom: 10px;
+}
+.ait-wild-inline-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #fb923c;
+  margin-bottom: 3px;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+}
+.ait-wild-inline-header .ait-chain-meta {
+  color: var(--text2);
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+}
+.ait-wild-inline-header .ait-chain-pnl {
+  margin-left: auto;
+  font-size: 11px;
+}
+.ait-wild-inline-text {
+  font-size: 12px;
+  color: var(--text);
+  line-height: 1.7;
+}
 </style>
 </head>
 <body>
@@ -401,7 +826,7 @@ DASHBOARD_HTML = r"""
 <!-- HEADER -->
 <div class="header">
   <div class="header-left">
-    <div class="logo">◎ Solana <span>Cripto</span> Trader</div>
+    <div class="logo">◎ Solana <span>Cripto</span> Trader<span class="version-badge" id="versionBadge" onclick="openChangelog()" title="Ver historial de versiones">v—</span></div>
     <div class="status-badge" id="statusBadge">
       <div class="status-dot dot-green" id="statusDot"></div>
       <span id="statusText">ACTIVE</span>
@@ -415,6 +840,7 @@ DASHBOARD_HTML = r"""
     </div>
     <div class="last-update" id="lastUpdate">Actualizado: —</div>
     <button class="btn-refresh" onclick="refreshAll()">⟳ Refresh</button>
+    <button id="langToggle" onclick="toggleLang()" style="font-size:12px;padding:4px 10px;background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:6px;cursor:pointer;font-weight:600;">🇬🇧 EN</button>
     <button class="btn-reset" onclick="resetBot()">🔄 Reset</button>
   </div>
 </div>
@@ -492,10 +918,39 @@ DASHBOARD_HTML = r"""
     </div>
   </div>
 
+  <!-- RESET MODAL -->
+  <div id="resetModal" onclick="if(event.target===this)closeResetModal()">
+    <div class="reset-modal-box">
+      <button class="reason-modal-close" onclick="closeResetModal()">&#x2715;</button>
+      <div class="reset-modal-title">&#x1F504; Reset del Bot</div>
+      <div class="reset-modal-field">
+        <label>Capital inicial (USD)</label>
+        <input type="number" id="resetCapitalInput" value="200" min="100" step="50">
+      </div>
+      <div class="reset-modal-field">
+        <label>Motivo del reset</label>
+        <textarea id="resetNotesInput" placeholder="Describe por que estas reseteando: que salio mal, que vas a cambiar, que aprendiste..."></textarea>
+      </div>
+      <div class="reset-modal-field">
+        <label>Archivos adjuntos (capturas, PDFs, imagenes)</label>
+        <div class="reset-drop-zone" id="resetDropZone" onclick="document.getElementById('resetFileInput').click()">
+          <input type="file" id="resetFileInput" multiple accept="image/*,.pdf,.txt,.csv" onchange="handleResetFiles(this.files)">
+          &#x1F4CE; Arrastra archivos aqui o haz clic para seleccionar<br>
+          <span style="font-size:10px;opacity:0.6;">PNG, JPG, PDF, etc. &middot; Max 10 archivos &middot; 20MB c/u</span>
+        </div>
+        <div class="reset-file-list" id="resetFileList"></div>
+      </div>
+      <div class="reset-modal-actions">
+        <button class="reset-btn-cancel" onclick="closeResetModal()">Cancelar</button>
+        <button class="reset-btn-confirm" id="resetConfirmBtn" onclick="confirmReset()">Confirmar Reset</button>
+      </div>
+    </div>
+  </div>
+
   <!-- OPEN POSITIONS (moved up) -->
   <section>
     <div class="section-title" style="display:flex;align-items:center;justify-content:space-between;">
-      <span>⚡ Posiciones Abiertas</span>
+      <span data-i18n="openPositions">⚡ Posiciones Abiertas</span>
       <div style="display:flex;align-items:center;gap:10px;">
         <span id="totalPnlBadge" style="font-size:16px;font-weight:700;padding:4px 12px;border-radius:8px;background:var(--bg3);"></span>
         <div style="display:flex;align-items:center;gap:6px;">
@@ -503,15 +958,50 @@ DASHBOARD_HTML = r"""
           <input type="number" id="pnlTargetInput" placeholder="ej: 5" style="width:60px;font-size:12px;" step="0.5" min="0">
           <button onclick="setPnlTarget()" style="font-size:11px;padding:3px 8px;background:var(--green);color:#000;border:none;border-radius:4px;cursor:pointer;">Set</button>
           <button onclick="clearPnlTarget()" style="font-size:11px;padding:3px 8px;background:var(--bg3);color:var(--text2);border:1px solid var(--bg3);border-radius:4px;cursor:pointer;">Clear</button>
+          <label style="display:flex;align-items:center;gap:4px;font-size:11px;cursor:pointer;margin-left:8px;" title="Modo Salvaje: IA gestiona coberturas martingala automaticamente">
+            <input type="checkbox" id="wildModeSwitch" onchange="toggleWildMode()" style="cursor:pointer;">
+            <span style="color:var(--orange);font-weight:600;">🔥 Salvaje</span>
+          </label>
+          <span id="wildModeBadge" style="display:none;font-size:10px;padding:3px 8px;border-radius:6px;background:var(--orange);color:#000;font-weight:700;"></span>
           <span id="pnlTargetStatus" style="font-size:10px;color:var(--text2);"></span>
         </div>
-        <button onclick="closeAllPositions()" style="font-size:11px;padding:4px 12px;background:var(--red);color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:600;">Cerrar Todas</button>
+        <button onclick="openAIThinking()" id="aiThinkingBtn" style="font-size:11px;padding:4px 12px;background:linear-gradient(135deg,#bc8cff,#58a6ff);color:#000;border:none;border-radius:6px;cursor:pointer;font-weight:700;letter-spacing:0.3px;" data-i18n="aiThinking">🧠 Qué está pensando la IA</button>
+        <button onclick="closeAllPositions()" style="font-size:11px;padding:4px 12px;background:var(--red);color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:600;" data-i18n="closeAll">Cerrar Todas</button>
       </div>
     </div>
     <div class="card">
       <div class="table-wrap" id="positionsTable">
-        <div class="empty">Cargando posiciones...</div>
+        <div class="empty" data-i18n="loadingPositions">Cargando posiciones...</div>
       </div>
+    </div>
+  </section>
+
+  <!-- TRADE HISTORY -->
+  <section>
+    <div class="section-title"><span data-i18n="tradeHistory">📋 Historial de Trades</span></div>
+    <div class="card">
+      <div class="filters">
+        <select id="filterSymbol" onchange="filterTrades()">
+          <option value="" data-i18n="allSymbols">Todos los símbolos</option>
+        </select>
+        <select id="filterResult" onchange="filterTrades()">
+          <option value="" data-i18n="allResults">Todos los resultados</option>
+          <option value="win" data-i18n="winners">Ganadores</option>
+          <option value="loss" data-i18n="losers">Perdedores</option>
+          <option value="flat" data-i18n="flat">Sin cambio (FLAT)</option>
+          <option value="nonflat" data-i18n="nonFlat">Solo W/L (excl. FLAT)</option>
+        </select>
+        <select id="filterDir" onchange="filterTrades()">
+          <option value="" data-i18n="longShort">Long &amp; Short</option>
+          <option value="long">Long</option>
+          <option value="short">Short</option>
+        </select>
+      </div>
+      <div id="tradesSummary" class="trades-summary" style="display:none"></div>
+      <div class="table-wrap" id="tradesTable">
+        <div class="empty" data-i18n="loadingTrades">Cargando trades...</div>
+      </div>
+      <div class="pagination" id="tradesPagination"></div>
     </div>
   </section>
 
@@ -520,7 +1010,7 @@ DASHBOARD_HTML = r"""
     <div class="grid-2">
       <!-- Equity Curve -->
       <div class="card" style="grid-column: span 1;">
-        <div class="card-title"><span class="icon">📈</span> Equity Curve</div>
+        <div class="card-title"><span class="icon">📈</span> <span data-i18n="equityCurve">Equity Curve</span></div>
         <div class="chart-toolbar">
           <button class="tb-btn active" onclick="setEquityRange('all', this)">All</button>
           <button class="tb-btn" onclick="setEquityRange(50, this)">50T</button>
@@ -537,13 +1027,13 @@ DASHBOARD_HTML = r"""
       <!-- Right column: pie + bar -->
       <div style="display:flex; flex-direction:column; gap:16px;">
         <div class="card">
-          <div class="card-title"><span class="icon">🥧</span> Wins vs Losses</div>
+          <div class="card-title"><span class="icon">🥧</span> <span data-i18n="winsVsLosses">Wins vs Losses</span></div>
           <div class="chart-container chart-sm">
             <canvas id="pieChart"></canvas>
           </div>
         </div>
         <div class="card">
-          <div class="card-title"><span class="icon">📊</span> P&amp;L por Símbolo</div>
+          <div class="card-title"><span class="icon">📊</span> <span data-i18n="pnlBySymbol">P&amp;L por Símbolo</span></div>
           <div class="chart-container chart-sm">
             <canvas id="symbolChart"></canvas>
           </div>
@@ -555,77 +1045,52 @@ DASHBOARD_HTML = r"""
   <!-- P&L HISTOGRAM -->
   <section>
     <div class="card">
-      <div class="card-title"><span class="icon">📉</span> Distribución de P&amp;L por Trade</div>
+      <div class="card-title"><span class="icon">📉</span> <span data-i18n="pnlDistribution">Distribución de P&amp;L por Trade</span></div>
       <div class="chart-container chart-md">
         <canvas id="histChart"></canvas>
       </div>
     </div>
   </section>
 
-<!-- POSITIONS MOVED UP -->
-
-  <!-- TRADE HISTORY -->
-  <section>
-    <div class="section-title">📋 Historial de Trades</div>
-    <div class="card">
-      <div class="filters">
-        <select id="filterSymbol" onchange="filterTrades()">
-          <option value="">Todos los símbolos</option>
-        </select>
-        <select id="filterResult" onchange="filterTrades()">
-          <option value="">Todos los resultados</option>
-          <option value="win">Ganadores</option>
-          <option value="loss">Perdedores</option>
-          <option value="flat">Sin cambio (FLAT)</option>
-          <option value="nonflat">Solo W/L (excl. FLAT)</option>
-        </select>
-        <select id="filterDir" onchange="filterTrades()">
-          <option value="">Long &amp; Short</option>
-          <option value="long">Long</option>
-          <option value="short">Short</option>
-        </select>
-      </div>
-      <div class="table-wrap" id="tradesTable">
-        <div class="empty">Cargando trades...</div>
-      </div>
-      <div class="pagination" id="tradesPagination"></div>
-    </div>
-  </section>
 
   <!-- RESET HISTORY -->
   <section>
-    <div class="section-title">📊 Historial de Resets</div>
+    <div class="section-title" data-i18n="resetHistory">📊 Historial de Resets</div>
     <div class="card">
       <div class="table-wrap" id="resetHistoryTable">
-        <div class="empty">Sin resets registrados</div>
+        <div class="empty" data-i18n="noResets">Sin resets registrados</div>
       </div>
     </div>
   </section>
 
   <!-- AGENT CHAT -->
   <section class="chat-section">
-    <div class="section-title">💬 Agente de Trading — Chat en Vivo</div>
+    <div class="section-title" data-i18n="chatTitle">💬 Agente de Trading — Chat en Vivo</div>
     <div class="chat-card">
       <div class="chat-header">
-        <span>🤖 <strong>Solana Trading Agent</strong></span>
-        <span class="chat-badge" id="chatBadge">0 notas</span>
+        <span>🤖 <strong data-i18n="agentName">Solana Trading Agent</strong></span>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span class="chat-badge" id="chatBadge">0 notas</span>
+          <button onclick="clearChat()" title="Limpiar chat — el historial queda guardado para el agente"
+            style="font-size:10px;padding:2px 8px;background:var(--bg);border:1px solid var(--border);color:var(--text2);border-radius:4px;cursor:pointer;" data-i18n="clearChat">🗑 Limpiar</button>
+        </div>
       </div>
       <div class="chat-messages" id="chatMessages">
-        <div class="empty">Conectando con el agente...</div>
+        <div class="empty" data-i18n="connectingAgent">Conectando con el agente...</div>
       </div>
       <div class="typing-wrap" id="chatTyping">
         <div class="typing-label">🤖 Agente</div>
         <div class="typing-row">
           <div class="typing-dots"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
-          <span class="typing-text" id="chatTypingText">Pensando...</span>
+          <span class="typing-text" id="chatTypingText" data-i18n="thinking">Pensando...</span>
         </div>
       </div>
       <div class="chat-input-row">
-        <input type="text" id="chatInput" placeholder="Escribe una nota o pregunta al agente..." maxlength="500"
+        <input type="text" id="chatInput" placeholder="Escribe una nota o pregunta al agente..." data-i18n-placeholder="chatPlaceholder" maxlength="500"
                onkeydown="if(event.key==='Enter')sendChatNote()">
-        <button onclick="sendChatNote()" id="chatSendBtn">Enviar ▸</button>
+        <button onclick="sendChatNote()" id="chatSendBtn" data-i18n="send">Enviar ▸</button>
       </div>
-      <div class="chat-hint">🚀 El agente responde automáticamente. Presiona Enter para enviar.</div>
+      <div class="chat-hint" data-i18n="chatHint">🚀 El agente responde automáticamente. Presiona Enter para enviar.</div>
     </div>
   </section>
 
@@ -634,16 +1099,16 @@ DASHBOARD_HTML = r"""
     <div class="grid-2">
       <!-- Watchdog Log -->
       <div class="card">
-        <div class="card-title"><span class="icon">🔍</span> Watchdog Log</div>
+        <div class="card-title"><span class="icon">🔍</span> <span data-i18n="watchdogLog">Watchdog Log</span></div>
         <div class="log-container" id="logContainer">
-          <div class="log-info">Cargando log...</div>
+          <div class="log-info" data-i18n="logLoading">Cargando log...</div>
         </div>
-        <div class="log-auto">🔄 Auto-refresh cada 30s</div>
+        <div class="log-auto" data-i18n="autoRefresh">🔄 Auto-refresh cada 30s</div>
       </div>
 
       <!-- Advanced Metrics -->
       <div class="card">
-        <div class="card-title"><span class="icon">🧮</span> Métricas Avanzadas</div>
+        <div class="card-title"><span class="icon">🧮</span> <span data-i18n="advancedMetrics">Métricas Avanzadas</span></div>
         <div id="advancedMetrics">
           <div class="metric-row">
             <span class="metric-label">Sharpe Ratio</span>
@@ -713,11 +1178,20 @@ let equityAllData = { labels: [], datasets: [] };
 document.addEventListener('DOMContentLoaded', () => {
   initCharts();
   refreshAll();
+  loadVersionBadge();
   // Refresh completo cada 30 segundos
   setInterval(refreshAll, 10000);  // 10s refresh (was 30s)
   // Refresh de posiciones cada 3 segundos (tiempo real)
   setInterval(loadPositionsRealtime, 3000);
 });
+
+async function loadVersionBadge() {
+  try {
+    const res = await fetch('/api/version');
+    const data = await res.json();
+    document.getElementById('versionBadge').textContent = 'v' + data.version;
+  } catch(e) {}
+}
 
 async function refreshAll() {
   try {
@@ -736,36 +1210,120 @@ async function refreshAll() {
   }
 }
 
-async function resetBot() {
-  const capital = prompt('¿Capital inicial para resetear? (USD)', '500');
-  if (!capital) return;
-  
-  const capitalNum = parseFloat(capital);
-  if (isNaN(capitalNum) || capitalNum < 100) {
-    alert('Capital inválido (mínimo $100)');
-    return;
-  }
-  
-  if (!confirm(`⚠️ ¿Resetear el bot a $${capitalNum}?\n\nEsto borrará TODO el historial de trades.`)) {
-    return;
-  }
-  
+let _resetFiles = [];
+
+function openResetModal() {
+  _resetFiles = [];
+  document.getElementById('resetFileList').innerHTML = '';
+  document.getElementById('resetNotesInput').value = '';
+  document.getElementById('resetCapitalInput').value = '200';
+  document.getElementById('resetModal').classList.add('open');
+  setTimeout(() => document.getElementById('resetCapitalInput').focus(), 100);
+}
+function closeResetModal() {
+  document.getElementById('resetModal').classList.remove('open');
+}
+async function resetBot() { openResetModal(); }
+
+/* ── Changelog ── */
+async function openChangelog() {
+  document.getElementById('changelogModal').classList.add('open');
+  const content = document.getElementById('changelogContent');
   try {
+    const res = await fetch('/api/version');
+    const data = await res.json();
+    let html = '';
+    data.changelog.forEach((entry, idx) => {
+      if (idx > 0) html += '<hr class="changelog-ver-divider">';
+      html += `<div class="changelog-version">
+        <div class="changelog-ver-header">
+          <span class="changelog-ver-tag">v${entry.version}</span>
+          <span class="changelog-ver-date">${entry.date}</span>
+        </div>
+        <div class="changelog-ver-title">${entry.title}</div>
+        <ul class="changelog-ver-list">
+          ${entry.changes.map(c => `<li>${c}</li>`).join('')}
+        </ul>
+      </div>`;
+    });
+    content.innerHTML = html;
+  } catch(e) {
+    content.innerHTML = '<span style="color:var(--red)">Error al cargar el changelog.</span>';
+  }
+}
+function closeChangelog() {
+  document.getElementById('changelogModal').classList.remove('open');
+}
+
+function handleResetFiles(files) {
+  for (const f of Array.from(files)) {
+    if (_resetFiles.length >= 10) break;
+    if (f.size > 20 * 1024 * 1024) { alert(f.name + ': demasiado grande (max 20MB)'); continue; }
+    if (!_resetFiles.find(x => x.name === f.name)) _resetFiles.push(f);
+  }
+  renderResetFileList();
+}
+function renderResetFileList() {
+  const list = document.getElementById('resetFileList');
+  list.innerHTML = _resetFiles.map((f, i) =>
+    `<div class="reset-file-item">
+      <span>${_fileIcon(f.name)}</span>
+      <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escHtml(f.name)}</span>
+      <span style="color:var(--text2);flex-shrink:0">${(f.size/1024).toFixed(0)}KB</span>
+      <button onclick="_resetFiles.splice(${i},1);renderResetFileList()" title="Quitar">&#x2715;</button>
+    </div>`).join('');
+}
+function _fileIcon(name) {
+  const ext = (name.split('.').pop()||'').toLowerCase();
+  if (['png','jpg','jpeg','gif','webp'].includes(ext)) return '🖼';
+  if (ext === 'pdf') return '📄';
+  return '📎';
+}
+
+// Drag & drop setup — called once on DOMContentLoaded (see below)
+function _initResetDrop() {
+  const zone = document.getElementById('resetDropZone');
+  if (!zone) return;
+  zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag-over'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+  zone.addEventListener('drop', e => {
+    e.preventDefault(); zone.classList.remove('drag-over');
+    handleResetFiles(e.dataTransfer.files);
+  });
+}
+
+async function confirmReset() {
+  const capitalNum = parseFloat(document.getElementById('resetCapitalInput').value);
+  const notes = document.getElementById('resetNotesInput').value.trim();
+  if (isNaN(capitalNum) || capitalNum < 100) { alert(TRANSLATIONS[currentLang].invalidCapital); return; }
+  const btn = document.getElementById('resetConfirmBtn');
+  btn.disabled = true; btn.textContent = 'Procesando...';
+  try {
+    let attachments = [];
+    if (_resetFiles.length > 0) {
+      const fd = new FormData();
+      _resetFiles.forEach(f => fd.append('files', f));
+      const up = await fetch('/api/reset-upload', { method: 'POST', body: fd });
+      const upd = await up.json();
+      attachments = upd.files || [];
+    }
     const r = await fetch('/api/reset', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ capital: capitalNum })
+      body: JSON.stringify({ capital: capitalNum, notes, attachments })
     });
     const d = await r.json();
-    
     if (d.success) {
-      alert(`✅ Bot reseteado a $${capitalNum}\n\nLa página se recargará.`);
+      closeResetModal();
+      alert(TRANSLATIONS[currentLang].resetSuccess.replace('${capital}', '$' + capitalNum));
       location.reload();
     } else {
       alert('❌ Error: ' + (d.error || 'Unknown'));
     }
   } catch(e) {
     alert('❌ Error de conexión: ' + e.message);
+  } finally {
+    btn.disabled = false; btn.textContent = 'Confirmar Reset';
   }
 }
 
@@ -791,13 +1349,13 @@ async function loadStats() {
   document.getElementById('kpiCapital').textContent = fmt$(d.capital_usd);
   document.getElementById('kpiCapitalSub').textContent = 'Inicial: ' + fmt$(d.initial_capital);
 
-  const pnl = d.total_pnl;
+  const pnl = d.realized_pnl;
   const pnlEl = document.getElementById('kpiPnl');
   const pnlSubEl = document.getElementById('kpiPnlSub');
   const pnlCard = document.getElementById('kpiPnlCard');
   pnlEl.textContent = (pnl >= 0 ? '+' : '') + fmt$(pnl);
   pnlEl.className = 'kpi-value ' + (pnl >= 0 ? 'pos' : 'neg');
-  const unrealized_val = d.unrealized_pnl || 0; pnlSubEl.textContent = "Unrealized: " + (unrealized_val >= 0 ? "+" : "") + fmt$(unrealized_val);
+  const unrealized_val = d.unrealized_pnl || 0; pnlSubEl.textContent = TRANSLATIONS[currentLang].unrealized + ": " + (unrealized_val >= 0 ? "+" : "") + fmt$(unrealized_val);
   pnlSubEl.className = 'kpi-sub ' + (pnl >= 0 ? 'pos' : 'neg');
   pnlCard.className = 'kpi-card ' + (pnl >= 0 ? 'positive' : 'negative');
 
@@ -831,7 +1389,7 @@ async function loadStats() {
 
   const op = d.open_positions;
   document.getElementById('kpiPos').textContent = op;
-  document.getElementById('kpiPosSub').textContent = op === 0 ? 'sin exposición' : `$${fmtNum(d.total_exposure_usd, 0)} exp.`;
+  document.getElementById('kpiPosSub').textContent = op === 0 ? TRANSLATIONS[currentLang].noExposure : `$${fmtNum(d.total_exposure_usd, 0)} exp.`;
 
   // Advanced metrics
   document.getElementById('mSharpe').textContent = fmtNum(d.sharpe_ratio, 3);
@@ -954,7 +1512,9 @@ function updateTotalPnl(positions) {
   el.textContent = 'Total: ' + sign + '$' + total.toFixed(2);
   el.style.color = total >= 0 ? 'var(--green)' : 'var(--red)';
   // Check auto-close target
-  if (_pnlTarget > 0 && total >= _pnlTarget) {
+  const wildSw = document.getElementById('wildModeSwitch');
+  const wildActive = wildSw && wildSw.checked;
+  if (!wildActive && _pnlTarget > 0 && total >= _pnlTarget) {
     autoCloseAllPositions();
     _pnlTarget = 0;
     document.getElementById('pnlTargetStatus').textContent = '✅ Target hit!';
@@ -976,6 +1536,71 @@ function clearPnlTarget() {
   document.getElementById('pnlTargetStatus').textContent = 'Sin target';
   setTimeout(() => document.getElementById('pnlTargetStatus').textContent = '', 3000);
 }
+
+// ── Wild Mode (Modo Salvaje) ─────────────────────────────────────────────
+async function toggleWildMode() {
+  const sw = document.getElementById('wildModeSwitch');
+  const badge = document.getElementById('wildModeBadge');
+  if (sw.checked) {
+    const targetMode = _pnlTarget > 0
+      ? `con target $${_pnlTarget.toFixed(2)} (cierra al alcanzar)`
+      : `SIN target — la IA decidirá cuándo cerrar según mercado`;
+    if (!confirm(TRANSLATIONS[currentLang].confirmWildOn)) {
+      sw.checked = false;
+      return;
+    }
+    try {
+      const r = await fetch('/api/wild-mode/activate', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({target: _pnlTarget})
+      });
+      const j = await r.json();
+      if (j.ok) {
+        badge.style.display = 'inline-block';
+        badge.textContent = _pnlTarget > 0 ? `🔥 $${_pnlTarget.toFixed(2)}` : '🔥 IA-LIBRE';
+      } else {
+        alert('Error: ' + (j.error || 'unknown'));
+        sw.checked = false;
+      }
+    } catch(e) {
+      alert('Error de red: ' + e);
+      sw.checked = false;
+    }
+  } else {
+    if (!confirm(TRANSLATIONS[currentLang].confirmWildOff)) {
+      sw.checked = true;
+      return;
+    }
+    try {
+      await fetch('/api/wild-mode/deactivate', {method: 'POST'});
+      badge.style.display = 'none';
+    } catch(e) { alert('Error: ' + e); }
+  }
+}
+
+async function loadWildModeState() {
+  try {
+    const r = await fetch('/api/wild-mode/state');
+    const s = await r.json();
+    if (s && s.active) {
+      document.getElementById('wildModeSwitch').checked = true;
+      const badge = document.getElementById('wildModeBadge');
+      badge.style.display = 'inline-block';
+      const tgt = parseFloat(s.target_usd || 0);
+      if (tgt > 0) {
+        _pnlTarget = tgt;
+        document.getElementById('pnlTargetInput').value = tgt;
+        document.getElementById('pnlTargetStatus').textContent = `Target: $${tgt.toFixed(2)} 🔥`;
+        badge.textContent = `🔥 $${tgt.toFixed(2)}`;
+      } else {
+        badge.textContent = '🔥 IA-LIBRE';
+      }
+    }
+  } catch(e) { /* silencioso */ }
+}
+// Carga estado al iniciar
+window.addEventListener('DOMContentLoaded', loadWildModeState);
 async function autoCloseAllPositions() {
   try {
     await fetch('/api/close-all-target', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({target: _pnlTarget}) });
@@ -986,14 +1611,14 @@ async function autoCloseAllPositions() {
   } catch(e) { console.error(e); }
 }
 async function closeAllPositions() {
-  if (!confirm('¿Cerrar TODAS las posiciones abiertas?')) return;
+  if (!confirm(TRANSLATIONS[currentLang].confirmCloseAll)) return;
   try {
     await fetch('/api/close-all', { method: 'POST' });
     refreshAll();
   } catch(e) { alert('Error: ' + e); }
 }
 async function closePosition(symbol) {
-  if (!confirm('¿Cerrar posición de ' + symbol + '?')) return;
+  if (!confirm(TRANSLATIONS[currentLang].confirmCloseOne.replace('${symbol}', symbol))) return;
   try {
     await fetch('/api/close-position', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({symbol: symbol}) });
     refreshAll();
@@ -1017,21 +1642,33 @@ async function loadPositionsRealtime() {
 function renderPositions(d) {
   const wrap = document.getElementById('positionsTable');
   if (!d.positions || d.positions.length === 0) {
-    wrap.innerHTML = '<div class="empty">⚡ Sin posiciones abiertas en este momento</div>';
+    wrap.innerHTML = `<div class="empty">${TRANSLATIONS[currentLang].noOpenPositions}</div>`;
     return;
   }
   let html = `<table><thead><tr>
     <th>Símbolo</th><th>Dirección</th><th>Entrada</th><th>Precio Act.</th>
-    <th>P&L $</th><th>P&L %</th><th>Margin</th><th>Tamaño</th>
+    <th>Ganancia real estimada</th><th>% neto est.</th><th>Margin</th><th>Tamaño</th>
     <th>SL</th><th>TP</th><th>Tiempo</th><th>Estrategia</th>
     <th>Acción</th>
   </tr></thead><tbody>`;
   for (const p of d.positions) {
     const pnlCls = p.pnl_usd >= 0 ? 'pos' : 'neg';
-    // Animación de flash cuando cambia el precio
     const flashCls = p.price_changed ? 'flash-update' : '';
+    const hasHedges = p.chain_levels && p.chain_levels.length > 0;
+    const symId = p.symbol.replace(/[^a-zA-Z0-9]/g, '_');
+    const toggleBtn = hasHedges
+      ? `<button class="chain-toggle" id="ctbtn_${symId}" onclick="toggleChainRows('${symId}')" title="${p.chain_levels.length} cobertura(s)">▶ ${p.chain_levels.length}</button>`
+      : '';
+    // Chain combined PnL badge (if in chain)
+    const chainBadge = hasHedges
+      ? (() => {
+          const totalPnl = p.pnl_usd + p.chain_levels.reduce((s,lv) => s + (lv.pnl_usd||0), 0);
+          const cls = totalPnl >= 0 ? 'pos' : 'neg';
+          return ` <span class="${cls}" style="font-size:10px;" title="PnL combinado de la cadena">[${totalPnl >= 0 ? '+' : ''}${totalPnl.toFixed(2)}]</span>`;
+        })()
+      : '';
     html += `<tr class="${flashCls}">
-      <td><strong>${p.symbol}</strong></td>
+      <td>${toggleBtn}<strong>${p.symbol}</strong>${chainBadge}</td>
       <td><span class="badge badge-${p.direction}">${p.direction.toUpperCase()}</span></td>
       <td>${fmtPrice(p.entry_price)}</td>
       <td class="price-cell">${fmtPrice(p.current_price)}</td>
@@ -1042,12 +1679,322 @@ function renderPositions(d) {
       <td class="neg">${fmtPrice(p.sl_price)}</td>
       <td class="pos">${fmtPrice(p.tp_price)}</td>
       <td>${p.time_open || '—'}</td>
-      <td><button onclick="closePosition('${p.symbol}')" style="font-size:10px;padding:2px 8px;background:var(--orange);color:#fff;border:none;border-radius:4px;cursor:pointer;">Cerrar</button></td>
+      <td><button onclick="closePosition('${p.symbol}')" style="font-size:10px;padding:2px 8px;background:var(--orange);color:#fff;border:none;border-radius:4px;cursor:pointer;">${T('closeBtnCell')}</button></td>
       <td>${p.strategy || '—'}</td>
     </tr>`;
+    // Sub-rows for hedge levels (hidden by default)
+    if (hasHedges) {
+      for (const lv of p.chain_levels) {
+        const lvPnlCls = (lv.pnl_usd||0) >= 0 ? 'pos' : 'neg';
+        const lvDir = lv.direction || '—';
+        const lvBadge = `<span class="badge badge-${lvDir}" style="font-size:9px;">${lvDir.toUpperCase()}</span>`;
+        html += `<tr class="chain-sub-row" id="csub_${symId}_${lv.level}" style="display:none;">
+          <td><span style="color:var(--purple);font-size:10px;">Nivel ${lv.level}</span> ${lvBadge} <span style="font-size:9px;color:var(--text2);">x${lv.size_multiplier||1}</span></td>
+          <td>${lvBadge}</td>
+          <td>${fmtPrice(lv.entry_price)}</td>
+          <td class="price-cell">${fmtPrice(lv.current_price)}</td>
+          <td class="${lvPnlCls}">${(lv.pnl_usd||0) >= 0 ? '+' : ''}${fmt$(lv.pnl_usd||0)}</td>
+          <td class="${lvPnlCls}">${fmtPct(lv.pnl_pct||0, true)}</td>
+          <td>${fmt$(lv.margin||0)}</td>
+          <td>—</td><td>—</td><td>—</td>
+          <td style="font-size:10px;color:var(--text2);">${lv.opened_at ? new Date(lv.opened_at).toLocaleTimeString() : '—'}</td>
+          <td>—</td><td style="font-size:10px;color:var(--purple);">Cobertura</td>
+        </tr>`;
+      }
+    }
   }
   html += '</tbody></table>';
   wrap.innerHTML = html;
+}
+
+function toggleChainRows(symId) {
+  const btn = document.getElementById('ctbtn_' + symId);
+  const rows = document.querySelectorAll('[id^="csub_' + symId + '_"]');
+  const isOpen = btn && btn.textContent.startsWith('▼');
+  rows.forEach(r => r.style.display = isOpen ? 'none' : '');
+  if (btn) btn.textContent = btn.textContent.replace(isOpen ? '▼' : '▶', isOpen ? '▶' : '▼');
+}
+
+// ── AI Reasoning Modal ──────────────────────────────────────────────
+const _REASON_LABELS = {
+  'SL':                    { label: 'Stop Loss alcanzado', text: 'El precio tocó el nivel de Stop Loss predefinido. La posición se cerró automáticamente para limitar la pérdida máxima según los parámetros de riesgo configurados.' },
+  'TP':                    { label: 'Take Profit alcanzado', text: 'El precio llegó al objetivo de ganancia (Take Profit). La posición se cerró automáticamente al alcanzar el retorno objetivo.' },
+  'TRAILING_SL':           { label: 'Trailing Stop activado', text: 'El stop loss dinámico (trailing) se activó. El precio retrocedió desde su máximo y alcanzó el nivel de stop móvil, asegurando parte de las ganancias acumuladas.' },
+  'TIME_EXIT':             { label: 'Tiempo máximo alcanzado', text: 'La posición superó el tiempo máximo permitido de permanencia. El sistema la cerró automáticamente para liberar capital y evitar exposición prolongada.' },
+  'WILD_MODE_CLOSE_CHAIN': { label: 'Modo Salvaje — Cadena cerrada', text: 'El motor de modo salvaje cerró la cadena completa porque el PnL combinado de todos los niveles llegó a positivo (o condiciones de mercado óptimas). La IA evaluó el contexto (RSI, MACD, tendencia) y determinó el momento ideal para realizar la ganancia.' },
+  'MANUAL_CLOSE':          { label: 'Cierre manual', text: 'El usuario cerró esta posición manualmente desde el dashboard.' },
+  'MANUAL_CLOSE_ALL':      { label: 'Cierre manual de todas las posiciones', text: 'El usuario cerró todas las posiciones abiertas manualmente desde el dashboard.' },
+  'EMERGENCY_CLOSE':       { label: 'Cierre de emergencia', text: 'El Risk Manager detectó condiciones de riesgo extremo (drawdown excesivo, exposición peligrosa) y cerró la posición automáticamente como medida de protección del capital.' },
+  'ABANDON_ALL':           { label: 'Modo Salvaje — Abandono total', text: 'El modo salvaje alcanzó el límite máximo de pérdida (15% de drawdown desde el inicio de la sesión) y activó el protocolo de abandono. Todas las posiciones de la cadena se cerraron para preservar el capital restante.' },
+  'LIQUIDATED':            { label: 'Liquidación', text: 'La posición fue liquidada por el sistema al alcanzar el precio de liquidación (margen insuficiente para mantener la posición abierta con el leverage configurado).' },
+};
+
+function _reasonFallback(closeReason, pnl) {
+  if (!closeReason) return 'No hay información disponible sobre el motivo de cierre de esta posición.';
+  const r = closeReason.toUpperCase();
+  // PNL_TARGET pattern
+  if (r.startsWith('PNL_TARGET')) {
+    const amt = closeReason.replace(/[^0-9.]/g, '');
+    return amt
+      ? 'Se alcanzó el target de ganancia de $' + amt + ' configurado por el usuario. El sistema cerró automáticamente todas las posiciones para asegurar el objetivo diario.'
+      : 'Se alcanzó el target de ganancia configurado. El sistema cerró las posiciones automáticamente.';
+  }
+  // WILD_* dynamic patterns (generated by martingale_engine.py)
+  if (r.startsWith('WILD_AI_CLOSE_F') || r.includes('F&G') || r.includes('MIEDO') || r.includes('FEAR')) {
+    const fg = closeReason.match(/\d+/)?.[0] || '?';
+    return 'La IA del Modo Salvaje evaluó el contexto de mercado y decidió cerrar la sesión. Fear & Greed Index = ' + fg + ' (miedo extremo), que históricamente precede recuperaciones en crypto. La IA realizó la ganancia/pérdida en el momento óptimo para proteger capital antes de mayor volatilidad.';
+  }
+  if (r.startsWith('WILD_AI_CLOSE_PNL') || r.includes('PNL COMBINADO') || r.includes('PNL_COMB')) {
+    return 'La IA del Modo Salvaje cerró todas las posiciones de la cadena porque el PnL combinado de todos los niveles alcanzó un valor positivo. La IA evaluó RSI, MACD y tendencia para confirmar el momento óptimo de salida y asegurar la ganancia acumulada.';
+  }
+  if (r.startsWith('WILD_AI_CLOSE')) {
+    const detail = closeReason.replace(/^WILD_AI_CLOSE_?/i, '').trim();
+    return 'La IA del Modo Salvaje evaluó las condiciones de mercado y decidió cerrar la sesión proactivamente.' + (detail ? ' Razón: ' + detail + '.' : '') + ' El sistema libera capital para la siguiente oportunidad.';
+  }
+  if (r.startsWith('WILD_ABANDON')) {
+    const detail = closeReason.replace(/^WILD_ABANDON_?/i, '').trim();
+    const mins = detail.match(/(\d+)m/)?.[1];
+    return mins
+      ? 'El Modo Salvaje cerró todas las posiciones porque la sesión superó ' + mins + ' minutos sin alcanzar el objetivo. Cierre preventivo para proteger capital antes del siguiente ciclo.'
+      : 'El Modo Salvaje activó el protocolo de abandono. ' + (detail || 'La sesión superó los límites de tiempo o pérdida configurados.') + ' Todas las posiciones de la cadena fueron cerradas.';
+  }
+  if (r.startsWith('WILD_TARGET_HIT') || r.startsWith('WILD_TARGET')) {
+    return 'El Modo Salvaje alcanzó el objetivo de ganancia de la sesión. Todas las posiciones de la cadena se cerraron para asegurar el profit objetivo antes de que el mercado revierta.';
+  }
+  if (r === 'WILD_MODE_CLOSE_CHAIN' || r.startsWith('WILD_MODE_CLOSE_CHAIN')) {
+    return 'El motor de Martingala cerró toda la cadena de posiciones porque el PnL combinado de todos los niveles alcanzó el objetivo de la sesión. Las posiciones se cerraron juntas para maximizar la ganancia acumulada antes de que el mercado revierta.';
+  }
+  if (r.startsWith('WILD_')) {
+    const detail = closeReason.replace(/^WILD_/i, '').trim();
+    return 'Cierre por motor Wild Mode. ' + (detail || 'El sistema de martingala ejecutó un cierre automático según sus reglas internas.');
+  }
+  const entry = _REASON_LABELS[r];
+  if (entry) return entry.text;
+  return 'Razón de cierre: ' + closeReason + '. No hay descripción detallada disponible para este tipo de cierre.';
+}
+
+function showReasonByIdx(idx) {
+  const d = (window._tradeReasonData || {})[idx];
+  if (!d) return;
+  showReason(d.symbol, d.closeReason, d.aiReasoning, d.pnl, d.closeTime);
+}
+
+function showReason(symbol, closeReason, aiReasoning, pnl, closeTime) {
+  const modal = document.getElementById('reasonModal');
+  const r = (closeReason || '').toUpperCase();
+  const entry = _REASON_LABELS[r] || {};
+  let typeLabel = entry.label || closeReason || '—';
+  // Dynamic labels for WILD_* close reasons
+  if (!entry.label) {
+    if (r.startsWith('WILD_AI_CLOSE'))           typeLabel = 'Modo Salvaje — Cierre por IA';
+    else if (r.startsWith('WILD_ABANDON'))        typeLabel = 'Modo Salvaje — Sesión abandonada';
+    else if (r.startsWith('WILD_TARGET'))         typeLabel = 'Modo Salvaje — Target alcanzado';
+    else if (r.startsWith('WILD_'))               typeLabel = 'Modo Salvaje — Cierre automático';
+  }
+  const ts = closeTime ? new Date(closeTime).toLocaleString() : '';
+  document.getElementById('rmSym').textContent = symbol + (ts ? '  ·  ' + ts : '');
+  document.getElementById('rmType').textContent = typeLabel;
+  // Priority: real AI reasoning > fallback description
+  const body = (aiReasoning && aiReasoning.trim().length > 10)
+    ? aiReasoning.trim()
+    : _reasonFallback(closeReason, pnl);
+  document.getElementById('rmBody').textContent = body;
+  modal.classList.add('open');
+}
+
+function closeReasonModal() {
+  document.getElementById('reasonModal').classList.remove('open');
+}
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { closeReasonModal(); closeAIThinking(); closeResetModal(); }
+});
+
+// ── AI Thinking Modal ────────────────────────────────────────────────
+let _aitTimer = null;
+let _aitCountdownVal = 20;
+let _aitCountdownTimer = null;
+
+async function openAIThinking() {
+  document.getElementById('aiThinkingModal').classList.add('open');
+  await fetchAIThinking();
+  _startAitCountdown();
+}
+
+function closeAIThinking() {
+  document.getElementById('aiThinkingModal').classList.remove('open');
+  clearTimeout(_aitTimer);
+  clearInterval(_aitCountdownTimer);
+}
+
+function _startAitCountdown() {
+  clearInterval(_aitCountdownTimer);
+  _aitCountdownVal = 20;
+  _updateAitBar();
+  _aitCountdownTimer = setInterval(() => {
+    _aitCountdownVal--;
+    _updateAitBar();
+    if (_aitCountdownVal <= 0) {
+      clearInterval(_aitCountdownTimer);
+      fetchAIThinking().then(_startAitCountdown);
+    }
+  }, 1000);
+}
+
+function _updateAitBar() {
+  const pct = (_aitCountdownVal / 20) * 100;
+  const bar = document.getElementById('aitRefillBar');
+  const lbl = document.getElementById('aitCountdown');
+  if (bar) bar.style.width = pct + '%';
+  if (lbl) lbl.textContent = T('aitCountdown').replace('{n}', _aitCountdownVal);
+}
+
+async function fetchAIThinking() {
+  try {
+    const r = await fetch('/api/ai-thinking');
+    const d = await r.json();
+    renderAIThinking(d);
+  } catch(e) {
+    document.getElementById('aitContent').innerHTML =
+      '<div class="ait-loading"><div>⚠️ ' + T('aitError') + ' ' + e.message + '</div></div>';
+  }
+}
+
+function _actionBadge(action) {
+  if (!action) return '';
+  const a = action.toUpperCase();
+  if (a === 'HOLD')        return `<span class="ait-decision-badge ait-badge-hold">${T('badgeHold')}</span>`;
+  if (a === 'OPEN_LEVEL')  return `<span class="ait-decision-badge ait-badge-open">${T('badgeOpen')}</span>`;
+  if (a === 'CLOSE_CHAIN') return `<span class="ait-decision-badge ait-badge-close">${T('badgeCloseChain')}</span>`;
+  if (a === 'CLOSE')       return `<span class="ait-decision-badge ait-badge-close">${T('badgeClose')}</span>`;
+  if (a.includes('ABANDON'))return `<span class="ait-decision-badge ait-badge-abandon">${T('badgeAbandon')}</span>`;
+  return `<span class="ait-decision-badge ait-badge-hold">${action}</span>`;
+}
+
+function _pnlColor(v) { return v > 0 ? '#3fb950' : v < 0 ? '#f85149' : 'var(--text2)'; }
+function _fmtUsd(v) { const s = v >= 0 ? '+' : ''; return s + '$' + Math.abs(v).toFixed(2); }
+function _fmtPct(v) { const s = v >= 0 ? '+' : ''; return s + v.toFixed(2) + '%'; }
+
+function renderAIThinking(d) {
+  const fg = d.fear_greed || {};
+  const fgColor = fg.value <= 25 ? '#f85149' : fg.value >= 75 ? '#3fb950' : '#d29922';
+  const ts = d.timestamp ? new Date(d.timestamp).toLocaleTimeString() : '—';
+  document.getElementById('aitSubtitle').textContent = T('aitLastAnalysis').replace('{ts}', ts).replace('{c}', d.cycle || '—');
+
+  // Global KPIs
+  const ddColor = (d.drawdown_pct||0) > 10 ? '#f85149' : (d.drawdown_pct||0) > 5 ? '#d29922' : '#3fb950';
+  let html = `<div class="ait-global">
+    <div class="ait-kpi">
+      <div class="ait-kpi-val" style="color:${fgColor}">${fg.value || '—'}</div>
+      <div class="ait-kpi-lbl">Fear & Greed</div>
+      <div style="font-size:10px;color:${fgColor};margin-top:2px;">${fg.label || ''}</div>
+    </div>
+    <div class="ait-kpi">
+      <div class="ait-kpi-val">\$${(d.equity||0).toFixed(2)}</div>
+      <div class="ait-kpi-lbl">Equity</div>
+    </div>
+    <div class="ait-kpi">
+      <div class="ait-kpi-val" style="color:${ddColor}">-${(d.drawdown_pct||0).toFixed(1)}%</div>
+      <div class="ait-kpi-lbl">Drawdown</div>
+    </div>
+    <div class="ait-kpi">
+      <div class="ait-kpi-val">${d.open_positions || 0}</div>
+      <div class="ait-kpi-lbl">${T('aitKpiOpenPos')}</div>
+    </div>
+  </div>
+  <div class="ait-body">`;
+
+  // Per-position cards — wild chain info integrated inline (no duplicate cards)
+  const chains = d.wild_chains || {};
+  const positions = d.positions || [];
+  if (positions.length === 0) {
+    html += `<div style="text-align:center;padding:30px;color:var(--text2);">${T('aitEmpty')}</div>`;
+  }
+  for (const p of positions) {
+    const pnlColor = _pnlColor(p.pnl_usd || 0);
+    const alignClass = (p.alignment||'').includes('SPLIT') ? 'ait-align-split' : 'ait-align-agree';
+    const confPct = Math.round((p.confidence || 0) * 100);
+    const action = p.action || p.llm_action || 'HOLD';
+    const badgeHtml = _actionBadge(action);
+    // Build quant reason chips
+    const reasons = (p.quant_reasons || []).map(r => {
+      const isGood = /TP_|RR_|PROFIT|GAIN|BULL/i.test(r);
+      const isBad  = /SL_|LOSS|BEAR|LIQUIDAT|PANIC|FEAR/i.test(r);
+      const cls = isGood ? 'good' : isBad ? 'bad' : '';
+      return `<span class="ait-reason-chip ${cls}">${r}</span>`;
+    }).join('');
+
+    // Distance bars
+    const sl = p.dist_sl_pct || 0;
+    const tp = p.dist_tp_pct || 0;
+    const total = sl + tp || 1;
+    const slW = Math.min(100, (sl / total) * 100).toFixed(0);
+    const tpW = Math.min(100, (tp / total) * 100).toFixed(0);
+
+    html += `<div class="ait-pos-card">
+      <div class="ait-pos-header">
+        <span class="ait-sym">${p.symbol}</span>
+        <span class="badge badge-${p.direction}">${(p.direction||'').toUpperCase()}</span>
+        ${badgeHtml}
+        <div class="ait-conf-wrap" style="width:120px;">
+          <div class="ait-conf-track"><div class="ait-conf-fill" style="width:${confPct}%"></div></div>
+          <span class="ait-conf-lbl">${confPct}%</span>
+        </div>
+        <span class="ait-pos-pnl" style="color:${pnlColor}">${_fmtUsd(p.pnl_usd||0)} (${_fmtPct(p.pnl_pct||0)})</span>
+      </div>
+      <div class="ait-pos-body">
+        <div>
+          <div style="font-size:10px;color:var(--text2);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;">${T('aitQuantAnalysis')}</div>
+          <div class="ait-align ${alignClass}" style="margin-bottom:8px;">${escHtml(p.alignment || '—')}</div>
+          <div class="ait-reasons">${reasons || '<span style="font-size:11px;color:var(--text2);">' + T('aitNoQuant') + '</span>'}</div>
+        </div>
+        <div>
+          <div style="font-size:10px;color:var(--text2);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;">${T('aitDistances')}</div>
+          <div class="ait-metrics" style="margin-bottom:8px;">
+            <div class="ait-metric">SL <span style="color:#f85149">${sl.toFixed(2)}%</span></div>
+            <div class="ait-metric">TP <span style="color:#3fb950">${tp.toFixed(2)}%</span></div>
+            <div class="ait-metric">R/R <span>${(p.rr_remaining||0).toFixed(2)}x</span></div>
+            <div class="ait-metric">${T('aitOpenFor')} <span>${p.hours_open||0}h</span></div>
+          </div>
+          <div class="ait-dist-row">
+            <span style="color:#f85149;min-width:18px;">SL</span>
+            <div class="ait-dist-bar">
+              <div class="ait-dist-sl" style="width:${slW}%"></div>
+              <div class="ait-dist-tp" style="width:${tpW}%"></div>
+            </div>
+            <span style="color:#3fb950;min-width:18px;">TP</span>
+          </div>
+        </div>
+        ${(()=>{
+          const chain = chains[p.symbol];
+          if (!chain) return '';
+          const craw = (chain.last_decision || {}).raw || {};
+          const cval = (chain.last_decision || {}).validated || {};
+          const cguards = cval.guardrails_hit || [];
+          const cpnlColor = _pnlColor(chain.chain_pnl || 0);
+          let chtml = '<div class=\"ait-wild-inline\">';
+          const cRlang = (chain.last_decision || {}).reasoning_lang || 'es';
+          const cLangTag = cRlang !== currentLang ? ' (' + cRlang.toUpperCase() + ')' : '';
+          chtml += '<div class=\"ait-wild-inline-header\">' + T('aitMartingale') + cLangTag;
+          chtml += '<span class=\"ait-chain-meta\">' + T('aitChainMeta').replace('{n}', chain.n_levels||1).replace('{m}', (chain.total_margin||0).toFixed(2)) + '</span>';
+          chtml += '<span class=\"ait-chain-pnl\" style=\"color:' + cpnlColor + ';font-weight:700;\">' + _fmtUsd(chain.chain_pnl||0) + '</span>';
+          chtml += '</div>';
+          if (craw.reasoning && !craw.reasoning.startsWith('fallback')) {
+            chtml += '<div class=\"ait-wild-inline-text\">' + escHtml(craw.reasoning) + '</div>';
+          }
+          cguards.forEach(g => { chtml += '<div class=\"ait-guardrail\">🛡️ ' + escHtml(g) + '</div>'; });
+          chtml += '</div>';
+          return chtml;
+        })()}
+        <div class="ait-llm-block">
+          <div class="ait-llm-title">${T('aitLlmTitle')}${(p.llm_reasoning_lang||'es')!==currentLang?' ('+(p.llm_reasoning_lang||'es').toUpperCase()+')':''} <span style="color:var(--text2);font-weight:400;text-transform:none;">${p.llm_source ? '· ' + p.llm_source : ''}</span></div>
+          <div class="ait-llm-text">${p.llm_reasoning && p.llm_reasoning.length > 15 && !p.llm_reasoning.includes('workdir:') ? escHtml(p.llm_reasoning) : '<span style="color:var(--text2);font-style:italic;">' + T('aitLlmAnalyzing') + '</span>'}</div>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  html += `</div>`; // end ait-body
+  document.getElementById('aitContent').innerHTML = html;
 }
 
 async function loadTrades() {
@@ -1063,7 +2010,7 @@ async function loadLog() {
   const d = await r.json();
   const el = document.getElementById('logContainer');
   if (!d.lines || d.lines.length === 0) {
-    el.innerHTML = '<div class="log-info">Sin log disponible</div>';
+    el.innerHTML = '<div class="log-info">' + T('logEmpty') + '</div>';
     return;
   }
   el.innerHTML = d.lines.map(line => {
@@ -1076,18 +2023,41 @@ async function loadLog() {
   el.scrollTop = el.scrollHeight;
 }
 
+let _resetHistoryData = [];
+
+function showResetDetail(idx) {
+  const h = _resetHistoryData[idx];
+  if (!h) return;
+  const dateStr = new Date(h.reset_date).toLocaleString();
+  document.getElementById('rmSym').textContent = dateStr + '  ·  $' + (h.initial_capital||0).toFixed(0) + ' → $' + (h.new_capital||0).toFixed(0);
+  document.getElementById('rmType').textContent = 'Reset — ' + (h.reason || 'Manual');
+  let body = (h.notes && h.notes.trim()) ? h.notes : '(sin notas)';
+  if (h.attachments && h.attachments.length) {
+    body += '\n\n📎 Archivos adjuntos (' + h.attachments.length + '):\n';
+    h.attachments.forEach(f => {
+      const name = f.split('/').pop();
+      const ext = (name.split('.').pop()||'').toLowerCase();
+      const isImg = ['png','jpg','jpeg','gif','webp'].includes(ext);
+      body += (isImg ? '🖼 ' : '📄 ') + name + '  →  /api/reset-file/' + f + '\n';
+    });
+  }
+  document.getElementById('rmBody').textContent = body;
+  document.getElementById('reasonModal').classList.add('open');
+}
+
 async function loadResetHistory() {
   const r = await fetch('/api/reset-history');
   const d = await r.json();
   const el = document.getElementById('resetHistoryTable');
   
   if (!d.history || d.history.length === 0) {
-    el.innerHTML = '<div class="empty">Sin resets registrados — el historial aparecerá después del primer reset</div>';
+    el.innerHTML = `<div class="empty">${TRANSLATIONS[currentLang].noResets}</div>`;
     return;
   }
   
   // Ordenar por fecha (más reciente primero)
   const history = d.history.sort((a, b) => new Date(b.reset_date) - new Date(a.reset_date));
+  _resetHistoryData = history;
   
   let html = `<table>
     <thead>
@@ -1117,9 +2087,13 @@ async function loadResetHistory() {
     const worst = h.worst_trade_usd || 0;
     const flat = h.flat || 0;
 
+    const hasNotes = h.notes && h.notes.trim();
+    const hasFiles = h.attachments && h.attachments.length > 0;
+    const notesBadge = hasNotes ? `<span onclick="showResetDetail(${i})" title="Ver notas" style="cursor:pointer;color:var(--yellow);margin-left:4px;">💬</span>` : '';
+    const filesBadge = hasFiles ? `<span onclick="showResetDetail(${i})" style="cursor:pointer;color:var(--blue);margin-left:4px;" title="Ver adjuntos">📎${h.attachments.length}</span>` : '';
     html += `<tr>
       <td><strong>${num}</strong></td>
-      <td>${date}</td>
+      <td>${date}${notesBadge}${filesBadge}</td>
       <td>$${(h.initial_capital||0).toFixed(2)}</td>
       <td>$${(h.final_capital||0).toFixed(2)}</td>
       <td class="${returnCls}">${returnSign}${ret.toFixed(2)}%</td>
@@ -1156,7 +2130,7 @@ function populateFilters() {
   const symbols = [...new Set(allTrades.map(t => t.symbol))].sort();
   const sel = document.getElementById('filterSymbol');
   const current = sel.value;
-  sel.innerHTML = '<option value="">Todos los símbolos</option>';
+  sel.innerHTML = `<option value="">${TRANSLATIONS[currentLang].allSymbols}</option>`;
   symbols.forEach(s => sel.innerHTML += `<option value="${s}" ${s === current ? 'selected' : ''}>${s}</option>`);
 }
 
@@ -1177,6 +2151,37 @@ function filterTrades() {
   });
   currentPage = 1;
   renderTradesPage();
+  updateTradesSummary();
+}
+
+function updateTradesSummary() {
+  const el = document.getElementById('tradesSummary');
+  if (!el) return;
+  if (!filteredTrades.length) { el.style.display = 'none'; return; }
+
+  const wins   = filteredTrades.filter(t => (t.pnl_usd || 0) > 0);
+  const losses = filteredTrades.filter(t => (t.pnl_usd || 0) < 0);
+  const net    = filteredTrades.reduce((s, t) => s + (t.pnl_usd || 0), 0);
+  const winSum = wins.reduce((s, t) => s + (t.pnl_usd || 0), 0);
+  const lssSum = losses.reduce((s, t) => s + (t.pnl_usd || 0), 0);
+  const wr     = filteredTrades.length
+    ? (wins.length / filteredTrades.length * 100).toFixed(1)
+    : '0.0';
+
+  const netCls = net >= 0 ? 'pos' : 'neg';
+  el.innerHTML =
+    '<span><span class="ts-label">NET P&L</span>' +
+    '<span class="ts-val ' + netCls + '">' + (net >= 0 ? '+' : '') + fmt$(net) + '</span></span>' +
+    '<span class="ts-sep">·</span>' +
+    '<span><span class="ts-label">' + wins.length + ' WIN</span>' +
+    '<span class="ts-val pos">+' + fmt$(winSum) + '</span></span>' +
+    '<span class="ts-sep">·</span>' +
+    '<span><span class="ts-label">' + losses.length + ' LOSS</span>' +
+    '<span class="ts-val neg">' + fmt$(lssSum) + '</span></span>' +
+    '<span class="ts-sep">·</span>' +
+    '<span><span class="ts-label">Win Rate</span>' +
+    '<span class="ts-val">' + wr + '%</span></span>';
+  el.style.display = 'flex';
 }
 
 function renderTradesPage() {
@@ -1185,7 +2190,7 @@ function renderTradesPage() {
   const wrap = document.getElementById('tradesTable');
 
   if (page.length === 0) {
-    wrap.innerHTML = '<div class="empty">Sin trades que mostrar</div>';
+    wrap.innerHTML = '<div class="empty">' + T('noTrades') + '</div>';
     document.getElementById('tradesPagination').innerHTML = '';
     return;
   }
@@ -1196,12 +2201,25 @@ function renderTradesPage() {
     <th>P&L $</th><th>P&L %</th><th>Resultado</th><th>Razón cierre</th>
   </tr></thead><tbody>`;
 
+  // Store trade data for modal lookups — avoids HTML attribute quote-escaping issues
+  window._tradeReasonData = {};
   page.forEach((t, i) => {
+    const idx = start + i;
+    window._tradeReasonData[idx] = {
+      symbol: t.symbol, closeReason: t.close_reason || '',
+      aiReasoning: t.ai_reasoning || '', pnl: t.pnl_usd, closeTime: t.close_time || ''
+    };
+  });
+
+  page.forEach((t, i) => {
+    const idx = start + i;
     const pnlCls = t.pnl_usd > 0 ? 'pos' : t.pnl_usd < 0 ? 'neg' : '';
     const resultBadge = t.pnl_usd > 0 ? 'badge-win' : t.pnl_usd < 0 ? 'badge-loss' : 'badge-hold';
     const resultTxt = t.pnl_usd > 0 ? 'WIN' : t.pnl_usd < 0 ? 'LOSS' : 'FLAT';
+    const reasonLabel = t.close_reason || '—';
+    const reasonCell = `<button class="reason-btn" onclick="showReasonByIdx(${idx})" title="Ver razonamiento de la IA">${reasonLabel}</button>`;
     html += `<tr>
-      <td class="text2">${start + i + 1}</td>
+      <td class="text2">${idx + 1}</td>
       <td>${t.open_time ? t.open_time.replace('T',' ').slice(0,16) : '—'}</td>
       <td><strong>${t.symbol}</strong></td>
       <td><span class="badge badge-${t.direction}">${t.direction.toUpperCase()}</span></td>
@@ -1211,7 +2229,7 @@ function renderTradesPage() {
       <td class="${pnlCls}">${t.pnl_usd >= 0 ? '+' : ''}${fmt$(t.pnl_usd)}</td>
       <td class="${pnlCls}">${fmtPct(t.pnl_pct, true)}</td>
       <td><span class="badge ${resultBadge}">${resultTxt}</span></td>
-      <td>${t.close_reason || '—'}</td>
+      <td>${reasonCell}</td>
     </tr>`;
   });
   html += '</tbody></table>';
@@ -1220,13 +2238,13 @@ function renderTradesPage() {
   // Pagination
   const totalPages = Math.ceil(filteredTrades.length / PAGE_SIZE);
   let pg = `<span class="page-info">${filteredTrades.length} trades · Pág ${currentPage}/${totalPages}</span>`;
-  if (currentPage > 1) pg += `<button class="page-btn" onclick="goPage(${currentPage-1})">← Anterior</button>`;
+  if (currentPage > 1) pg += `<button class="page-btn" onclick="goPage(${currentPage-1})">← ${TRANSLATIONS[currentLang].prev}</button>`;
   // page numbers
   const from = Math.max(1, currentPage - 2), to = Math.min(totalPages, currentPage + 2);
   for (let p = from; p <= to; p++) {
     pg += `<button class="page-btn ${p===currentPage?'active':''}" onclick="goPage(${p})">${p}</button>`;
   }
-  if (currentPage < totalPages) pg += `<button class="page-btn" onclick="goPage(${currentPage+1})">Siguiente →</button>`;
+  if (currentPage < totalPages) pg += `<button class="page-btn" onclick="goPage(${currentPage+1})">${TRANSLATIONS[currentLang].next} →</button>`;
   document.getElementById('tradesPagination').innerHTML = pg;
 }
 
@@ -1248,12 +2266,12 @@ function initCharts() {
       backgroundColor: 'rgba(88,166,255,0.08)',
       tension: 0.3, pointRadius: 0, pointHoverRadius: 4
     },{
-      label: 'Ganadores',
+      label: TRANSLATIONS[currentLang].winners,
       data: [], type: 'scatter',
       backgroundColor: 'rgba(63,185,80,0.8)',
       pointStyle: 'triangle', pointRadius: 5, showLine: false
     },{
-      label: 'Perdedores',
+      label: TRANSLATIONS[currentLang].losers,
       data: [], type: 'scatter',
       backgroundColor: 'rgba(248,81,73,0.8)',
       pointStyle: 'rectRot', pointRadius: 4, showLine: false
@@ -1291,7 +2309,7 @@ function initCharts() {
   pieChart = new Chart(pieCtx, {
     type: 'doughnut',
     data: {
-      labels: ['Ganadores', 'Perdedores'],
+      labels: [TRANSLATIONS[currentLang].winners, TRANSLATIONS[currentLang].losers],
       datasets: [{ data: [0,0], backgroundColor: ['rgba(63,185,80,0.8)','rgba(248,81,73,0.8)'], borderWidth: 2, borderColor: '#161b22' }]
     },
     options: {
@@ -1378,7 +2396,7 @@ function fmtPct(v, sign=false) {
 function fmtPrice(v) {
   if (!v || v === 0) return '—';
   if (v < 0.0001) return v.toExponential(4);
-  if (v < 1) return '$' + v.toFixed(6);
+  if (v < 1) return '$' + v.toFixed(8);
   if (v < 10) return '$' + v.toFixed(4);
   if (v < 1000) return '$' + v.toFixed(2);
   return '$' + v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -1388,6 +2406,151 @@ function escHtml(str) {
 }
 
 // ── Agent Chat (SSE real-time) ────────────────────────────────────────────
+const TRANSLATIONS = {
+  es: {
+    tradeHistory:"📋 Historial de Trades", openPositions:"⚡ Posiciones Abiertas",
+    equityCurve:"📈 Equity Curve", winsVsLosses:"🥧 Wins vs Losses",
+    pnlBySymbol:"📊 P&L por Símbolo", pnlDistribution:"📉 Distribución de P&L por Trade",
+    resetHistory:"📊 Historial de Resets", chatTitle:"💬 Agente de Trading — Chat en Vivo",
+    advancedMetrics:"🧮 Métricas Avanzadas", watchdogLog:"🔍 Watchdog Log",
+    agentName:"Solana Trading Agent",
+    closeAll:"Cerrar Todas", close:"Cerrar", send:"Enviar ▸", clearChat:"🗑 Limpiar",
+    aiThinking:"🧠 Qué está pensando la IA",
+    allSymbols:"Todos los símbolos", allResults:"Todos los resultados",
+    winners:"Ganadores", losers:"Perdedores",
+    flat:"Sin cambio (FLAT)", nonFlat:"Solo W/L (excl. FLAT)", longShort:"Long & Short",
+    loadingPositions:"Cargando posiciones...", loadingTrades:"Cargando trades...",
+    connectingAgent:"Conectando con el agente...", noResets:"Sin resets registrados",
+    noNotes:"Sin notas aún. El agente dejará actualizaciones aquí.",
+    noTrades:"Sin trades que mostrar", noOpenPositions:"⚡ Sin posiciones abiertas en este momento",
+    thinking:"Pensando...", analyzingPos:"Analizando posiciones...",
+    reviewingMarket:"Revisando mercado...", preparingResp:"Preparando respuesta...", writing:"Escribiendo...",
+    chatHint:"🚀 El agente responde automáticamente. Presiona Enter para enviar.",
+    chatPlaceholder:"Escribe una nota o pregunta al agente...",
+    notes:"notas", note:"nota", autoRefresh:"🔄 Auto-refresh cada 30s",
+    invalidCapital:"Capital inválido (mínimo $100)",
+    confirmReset:"⚠️ ¿Resetear el bot a ${capital}?\n\nEsto borrará TODO el historial de trades.",
+    resetSuccess:"✅ Bot reseteado a ${capital}\n\nLa página se recargará.",
+    confirmCloseAll:"¿Cerrar TODAS las posiciones abiertas?",
+    confirmCloseOne:"¿Cerrar posición de ${symbol}?",
+    confirmClearChat:"¿Limpiar el chat?\nEl historial queda guardado para el agente.",
+    confirmWildOn:"Activar MODO SALVAJE?\n\nLa IA abrirá coberturas martingala automáticamente.",
+    confirmWildOff:"¿Desactivar Modo Salvaje? (las posiciones quedan abiertas)",
+    unrealized:"Unrealized", noExposure:"sin exposición", prev:"Anterior", next:"Siguiente",
+    // ── AI Thinking modal (v2.7.0) ──
+    aitTitle:"Qué está pensando la IA",
+    aitSubtitleDefault:"Análisis en tiempo real de cada posición abierta",
+    aitLive:"EN VIVO", aitClose:"✕ Cerrar",
+    aitLoading:"Consultando a la IA...",
+    aitCountdown:"Actualiza en {n}s",
+    aitError:"Error consultando la IA:",
+    aitLastAnalysis:"Último análisis: {ts} · Ciclo #{c}",
+    aitKpiOpenPos:"Posiciones abiertas",
+    aitEmpty:"Sin posiciones abiertas para analizar",
+    aitQuantAnalysis:"Análisis cuantitativo",
+    aitNoQuant:"Sin señales cuantitativas",
+    aitDistances:"Distancias", aitOpenFor:"Abierta",
+    aitMartingale:"🔥 Motor Martingala",
+    aitChainMeta:"{n} nivel(es) · ${m} margen",
+    aitLlmTitle:"🤖 Razonamiento del LLM",
+    aitLlmAnalyzing:"Analizando condiciones del mercado...",
+    badgeHold:"⏸ HOLD — Esperar", badgeOpen:"➕ ABRIR COBERTURA",
+    badgeCloseChain:"✅ CERRAR CADENA", badgeClose:"✅ CERRAR",
+    badgeAbandon:"🚨 ABANDONAR",
+    logEmpty:"Sin log disponible", logLoading:"Cargando log...",
+    closeBtnCell:"Cerrar", changelogLoading:"Cargando...",
+  },
+  en: {
+    tradeHistory:"📋 Trade History", openPositions:"⚡ Open Positions",
+    equityCurve:"📈 Equity Curve", winsVsLosses:"🥧 Wins vs Losses",
+    pnlBySymbol:"📊 P&L by Symbol", pnlDistribution:"📉 P&L Distribution per Trade",
+    resetHistory:"📊 Reset History", chatTitle:"💬 Trading Agent — Live Chat",
+    advancedMetrics:"🧮 Advanced Metrics", watchdogLog:"🔍 Watchdog Log",
+    agentName:"Solana Trading Agent",
+    closeAll:"Close All", close:"Close", send:"Send ▸", clearChat:"🗑 Clear",
+    aiThinking:"🧠 What is the AI thinking",
+    allSymbols:"All symbols", allResults:"All results",
+    winners:"Winners", losers:"Losers",
+    flat:"No change (FLAT)", nonFlat:"W/L only (excl. FLAT)", longShort:"Long & Short",
+    loadingPositions:"Loading positions...", loadingTrades:"Loading trades...",
+    connectingAgent:"Connecting to agent...", noResets:"No resets recorded",
+    noNotes:"No notes yet. The agent will leave updates here.",
+    noTrades:"No trades to show", noOpenPositions:"⚡ No open positions at this time",
+    thinking:"Thinking...", analyzingPos:"Analyzing positions...",
+    reviewingMarket:"Reviewing market...", preparingResp:"Preparing response...", writing:"Writing...",
+    chatHint:"🚀 The agent responds automatically. Press Enter to send.",
+    chatPlaceholder:"Write a note or question to the agent...",
+    notes:"notes", note:"note", autoRefresh:"🔄 Auto-refresh every 30s",
+    invalidCapital:"Invalid capital (minimum $100)",
+    confirmReset:"⚠️ Reset bot to ${capital}?\n\nThis will erase ALL trade history.",
+    resetSuccess:"✅ Bot reset to ${capital}\n\nPage will reload.",
+    confirmCloseAll:"Close ALL open positions?",
+    confirmCloseOne:"Close position for ${symbol}?",
+    confirmClearChat:"Clear chat?\nHistory is saved for the agent.",
+    confirmWildOn:"Activate WILD MODE?\n\nThe AI will open martingale hedges automatically.",
+    confirmWildOff:"Deactivate Wild Mode? (positions remain open)",
+    unrealized:"Unrealized", noExposure:"no exposure", prev:"Previous", next:"Next",
+    // ── AI Thinking modal (v2.7.0) ──
+    aitTitle:"What is the AI thinking",
+    aitSubtitleDefault:"Real-time analysis of each open position",
+    aitLive:"LIVE", aitClose:"✕ Close",
+    aitLoading:"Querying the AI...",
+    aitCountdown:"Refresh in {n}s",
+    aitError:"Error querying the AI:",
+    aitLastAnalysis:"Last analysis: {ts} · Cycle #{c}",
+    aitKpiOpenPos:"Open positions",
+    aitEmpty:"No open positions to analyze",
+    aitQuantAnalysis:"Quantitative analysis",
+    aitNoQuant:"No quantitative signals",
+    aitDistances:"Distances", aitOpenFor:"Open for",
+    aitMartingale:"🔥 Martingale Engine",
+    aitChainMeta:"{n} level(s) · ${m} margin",
+    aitLlmTitle:"🤖 LLM Reasoning",
+    aitLlmAnalyzing:"Analyzing market conditions...",
+    badgeHold:"⏸ HOLD — Wait", badgeOpen:"➕ OPEN HEDGE",
+    badgeCloseChain:"✅ CLOSE CHAIN", badgeClose:"✅ CLOSE",
+    badgeAbandon:"🚨 ABANDON",
+    logEmpty:"No log available", logLoading:"Loading log...",
+    closeBtnCell:"Close", changelogLoading:"Loading...",
+  }
+};
+
+let currentLang = localStorage.getItem('lang') || 'es';
+
+// Helper: resuelve clave de traducción con fallback al propio key
+const T = (key) => (TRANSLATIONS[currentLang] && TRANSLATIONS[currentLang][key]) || key;
+
+function applyLang() {
+  const t = TRANSLATIONS[currentLang];
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    if (t[key] !== undefined) el.textContent = t[key];
+  });
+  document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+    const key = el.getAttribute('data-i18n-placeholder');
+    if (t[key] !== undefined) el.placeholder = t[key];
+  });
+  const btn = document.getElementById('langToggle');
+  if (btn) btn.textContent = currentLang === 'es' ? '🇬🇧 EN' : '🇪🇸 ES';
+  fetch('/api/set-language', {method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({language: currentLang})}).catch(()=>{});
+  // Re-render modal AI Thinking si está abierto — fuerza traducción de contenido dinámico
+  const aitModal = document.getElementById('aiThinkingModal');
+  if (aitModal && aitModal.style.display === 'flex') {
+    fetchAIThinking();
+  }
+}
+
+function toggleLang() {
+  currentLang = currentLang === 'es' ? 'en' : 'es';
+  localStorage.setItem('lang', currentLang);
+  applyLang();
+  // v2.8.1: invalida cache WILD para regenerar reasoning en nuevo idioma
+  fetch('/api/force-reasoning-refresh', {method:'POST'}).catch(()=>{});
+}
+
+document.addEventListener('DOMContentLoaded', () => { applyLang(); _initResetDrop(); });
+
 let chatSSE = null;
 let chatLastCount = 0;
 let chatTypingInterval = null;
@@ -1395,9 +2558,9 @@ let chatTypingInterval = null;
 function renderChat(notes){
   const msgs = notes.messages || [];
   const count = msgs.length;
-  document.getElementById('chatBadge').textContent = count + ' ' + (count===1?'nota':'notas');
+  const t_b=TRANSLATIONS[currentLang]; document.getElementById('chatBadge').textContent = count + ' ' + (count===1?t_b.note:t_b.notes);
   if(count===0){
-    document.getElementById('chatMessages').innerHTML='<div class="empty">Sin notas aún. El agente dejará actualizaciones aquí.</div>';
+    document.getElementById('chatMessages').innerHTML=`<div class="empty">${TRANSLATIONS[currentLang].noNotes}</div>`;
     return;
   }
   let h='';
@@ -1428,7 +2591,7 @@ function showChatTyping(show){
     const box = document.getElementById('chatMessages');
     box.scrollTop = box.scrollHeight;
     if(!chatTypingInterval){
-      const statuses=['Pensando...','Analizando posiciones...','Revisando mercado...','Preparando respuesta...','Escribiendo...'];
+      const t_s=TRANSLATIONS[currentLang]; const statuses=[t_s.thinking, t_s.analyzingPos, t_s.reviewingMarket, t_s.preparingResp, t_s.writing];
       let idx=0;
       chatTypingInterval = setInterval(()=>{
         idx=(idx+1)%statuses.length;
@@ -1439,6 +2602,12 @@ function showChatTyping(show){
     el.className = 'typing-wrap';
     if(chatTypingInterval){clearInterval(chatTypingInterval);chatTypingInterval=null;}
   }
+}
+
+async function clearChat(){
+  if(!confirm(TRANSLATIONS[currentLang].confirmClearChat)) return;
+  await fetch('/api/chat/clear',{method:'POST'});
+  // SSE detecta el cambio y llama renderChat() automaticamente
 }
 
 async function sendChatNote(){
@@ -1517,6 +2686,49 @@ function connectChatSSE(){
   connectChatSSE();
 })();
 </script>
+
+<!-- ── AI Thinking Modal ── -->
+<div id="aiThinkingModal" onclick="if(event.target===this)closeAIThinking()">
+  <div class="ait-box">
+    <div class="ait-header">
+      <div class="ait-header-left">
+        <span class="ait-brain">🧠</span>
+        <div>
+          <div class="ait-title" data-i18n="aitTitle">Qué está pensando la IA</div>
+          <div class="ait-subtitle" id="aitSubtitle" data-i18n="aitSubtitleDefault">Análisis en tiempo real de cada posición abierta</div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;">
+        <div class="ait-live"><div class="ait-live-dot"></div><span data-i18n="aitLive">EN VIVO</span></div>
+        <span id="aitCountdown" style="font-size:10px;color:var(--text2);"></span>
+        <button class="ait-close-btn" onclick="closeAIThinking()" data-i18n="aitClose">✕ Cerrar</button>
+      </div>
+    </div>
+    <div class="ait-refresh-bar"><div class="ait-refresh-fill" id="aitRefillBar" style="width:100%"></div></div>
+    <div id="aitContent"><div class="ait-loading"><div class="ait-loading-spinner">🧠</div><div data-i18n="aitLoading">Consultando a la IA...</div></div></div>
+  </div>
+</div>
+
+<!-- ── AI Reasoning Modal ── -->
+<div id="reasonModal" onclick="if(event.target===this)closeReasonModal()">
+  <div class="reason-modal-box">
+    <button class="reason-modal-close" onclick="closeReasonModal()">✕</button>
+    <div class="reason-modal-title">🤖 Razonamiento de la IA</div>
+    <div class="reason-modal-sym" id="rmSym"></div>
+    <div class="reason-modal-type" id="rmType"></div>
+    <div class="reason-modal-body" id="rmBody"></div>
+  </div>
+</div>
+
+<!-- CHANGELOG MODAL -->
+<div id="changelogModal" onclick="if(event.target===this)closeChangelog()">
+  <div class="changelog-box">
+    <button class="changelog-close" onclick="closeChangelog()">✕</button>
+    <div class="changelog-title">📋 Historial de versiones</div>
+    <div id="changelogContent" data-i18n="changelogLoading">Cargando...</div>
+  </div>
+</div>
+
 </body>
 </html>
 """
@@ -1526,6 +2738,11 @@ function connectChatSSE(){
 @app.route('/')
 def index():
     return render_template_string(DASHBOARD_HTML)
+
+
+@app.route('/api/version')
+def api_version():
+    return jsonify({"version": VERSION, "changelog": CHANGELOG})
 
 
 @app.route('/api/stats')
@@ -1580,6 +2797,8 @@ def api_stats():
     if not open_pos:
         open_pos = [t for t in trades_raw if t.get("status") == "open"]
     total_exp = sum(safe_float(t.get("size_usd", 0)) for t in open_pos)
+    market_live = load_json(DATA / "market_latest.json") or {}
+    market_tokens = market_live.get("tokens", {}) if isinstance(market_live, dict) else {}
 
     # --- Compute real metrics from closed trades ---
     win_trades  = [t for t in closed if safe_float(t.get("pnl_usd", 0)) > 0]
@@ -1628,7 +2847,12 @@ def api_stats():
     # The executor DOES deduct margin_usd from capital when opening positions.
     # So capital_usd = free capital only. True equity = capital + locked margin + unrealized PnL.
     capital_usd = safe_float(port.get("capital_usd", initial_capital))
-    unrealized = sum(safe_float(p.get("pnl_usd", 0)) for p in open_pos)
+    unrealized = 0.0
+    for p in open_pos:
+        sym = str(p.get("symbol", "")).upper()
+        mkt = market_tokens.get(sym, {}) if isinstance(market_tokens, dict) else {}
+        current_price = safe_float(mkt.get("price", p.get("current_price", 0)))
+        unrealized += estimate_open_position_pnl(p, current_price).get("pnl_usd", 0.0)
     margin_locked = sum(safe_float(p.get("margin_usd", 0)) for p in open_pos)
     invested = sum(safe_float(p.get("margin_usd", p.get("size_usd", 0))) for p in open_pos)
     # True equity includes free capital + margin locked in positions + unrealized PnL
@@ -1662,7 +2886,8 @@ def api_stats():
     # Accounting discrepancy: use equity (not free capital) vs recorded PnL
     # Suppress warning if gap ≈ initial_capital - equity_with_no_trades (manual reset scenario)
     real_capital_change = equity - initial_capital
-    accounting_gap = real_capital_change - total_pnl
+    # Subtract unrealized PnL — it is already accounted for by open positions
+    accounting_gap = real_capital_change - total_pnl - unrealized
     # If no closed trades and gap ≈ initial_capital, it's a manual reset — suppress
     if abs(total_pnl) < 0.01 and abs(accounting_gap - initial_capital) < 1.0:
         accounting_gap = 0
@@ -1792,7 +3017,13 @@ def api_equity():
     closed_all = [t for t in trades_raw if t.get("status") in ("closed", None, "")]
 
     # Filter to post-reset trades if reset exists
-    reset_log = load_json(DATA / "reset_log_20260326.json")
+    # Try reset_history.json (latest) first, then fallback to legacy file
+    reset_log = {}
+    _rh = load_json(DATA / "reset_history.json")
+    if isinstance(_rh, list) and _rh:
+        reset_log = _rh[-1]
+    if not reset_log or not reset_log.get("reset_date"):
+        reset_log = load_json(DATA / "reset_log_20260326.json")
     has_reset = bool(reset_log and reset_log.get("reset_date"))
     reset_dt = None
     if has_reset:
@@ -1819,8 +3050,10 @@ def api_equity():
     closed.sort(key=lambda t: t.get("close_time", ""))
 
     # Build equity curve from reset baseline
-    init_cap = safe_float(reset_log.get("capital_after", 500.0)) if has_reset else \
-               safe_float(port.get("initial_capital", 1000))
+    # reset_history uses new_capital; legacy file uses capital_after
+    _reset_cap = reset_log.get("capital_after") or reset_log.get("new_capital")
+    _fallback_cap = safe_float(port.get("initial_capital", 500))
+    init_cap = safe_float(_reset_cap) if (has_reset and _reset_cap) else _fallback_cap
     capital = init_cap
     equity_full = [init_cap]
     labels_full = ["Start"]
@@ -1891,20 +3124,21 @@ def api_trades():
     result = []
     for t in closed[:limit]:
         result.append({
-            "id":          t.get("id", ""),
-            "symbol":      t.get("symbol", ""),
-            "direction":   t.get("direction", "long"),
-            "strategy":    t.get("strategy", ""),
-            "entry_price": safe_float(t.get("entry_price", 0)),
-            "close_price": safe_float(t.get("close_price", 0)),
-            "pnl_usd":     round(safe_float(t.get("pnl_usd", 0)), 4),
-            "pnl_pct":     round(safe_float(t.get("pnl_pct", 0)), 4),
-            "open_time":   t.get("open_time", ""),
-            "close_time":  t.get("close_time", ""),
-            "close_reason":t.get("close_reason", ""),
-            "margin_usd":  safe_float(t.get("margin_usd", 0)),
-            "leverage":    t.get("leverage", 1),
-            "confidence":  safe_float(t.get("confidence", 0)),
+            "id":           t.get("id", ""),
+            "symbol":       t.get("symbol", ""),
+            "direction":    t.get("direction", "long"),
+            "strategy":     t.get("strategy", ""),
+            "entry_price":  safe_float(t.get("entry_price", 0)),
+            "close_price":  safe_float(t.get("close_price", 0)),
+            "pnl_usd":      round(safe_float(t.get("pnl_usd", 0)), 4),
+            "pnl_pct":      round(safe_float(t.get("pnl_pct", 0)), 4),
+            "open_time":    t.get("open_time", ""),
+            "close_time":   t.get("close_time", ""),
+            "close_reason": t.get("close_reason", ""),
+            "ai_reasoning": t.get("ai_reasoning", ""),
+            "margin_usd":   safe_float(t.get("margin_usd", 0)),
+            "leverage":     t.get("leverage", 1),
+            "confidence":   safe_float(t.get("confidence", 0)),
         })
     return jsonify({"trades": result, "total": len(closed)})
 
@@ -1979,6 +3213,7 @@ def api_close_all_target():
             closed = ex.close_positions_emergency(port, symbols, market, history, reason=reason)
             ex.save_portfolio(port)
             ex.save_history(history)
+            _sync_wild_mode_after_close([p["symbol"] for p in closed])
             return jsonify({"ok": True, "closed": len(closed), "target": target})
         return jsonify({"ok": True, "closed": 0})
     except Exception as e:
@@ -1999,6 +3234,7 @@ def api_close_all():
             closed = ex.close_positions_emergency(port, symbols, market, history, reason="MANUAL_CLOSE_ALL")
             ex.save_portfolio(port)
             ex.save_history(history)
+            _sync_wild_mode_after_close([p["symbol"] for p in closed])
             return jsonify({"ok": True, "closed": len(closed)})
         return jsonify({"ok": True, "closed": 0})
     except Exception as e:
@@ -2020,10 +3256,150 @@ def api_close_position():
         history = load_trade_history()
         closed = ex.close_positions_emergency(port, [symbol], market, history, reason="MANUAL_CLOSE")
         ex.save_portfolio(port)
+        _sync_wild_mode_after_close([symbol])
         ex.save_history(history)
         return jsonify({"ok": True, "closed": len(closed)})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
+
+
+def _sync_wild_mode_after_close(closed_symbols: list):
+    """After manual close, sync wild_mode chains to remove orphaned position_ids.
+       If all chains gone, deactivate wild mode and record outcome."""
+    try:
+        import sys
+        sys.path.insert(0, str(DATA.parent))
+        import martingale_engine as me
+        state = me.load_state()
+        if not state.get('active'):
+            return
+        chains = state.setdefault('martingale_chains', {})
+        for sym in closed_symbols:
+            chains.pop(sym, None)
+        if not chains:
+            from datetime import datetime, timezone
+            state['active'] = False
+            state['ended_at'] = datetime.now(timezone.utc).isoformat()
+            state['end_reason'] = 'manual_close_all_positions'
+            try:
+                _port_now = load_portfolio()
+                _hist_now = load_trade_history()
+                me.record_session_outcome(state, _port_now, _hist_now, 'manual_off')
+            except Exception:
+                pass
+        me.save_state(state)
+    except Exception as _e:
+        print(f"wild_mode sync error (non-fatal): {_e}")
+
+
+@app.route('/api/wild-mode/activate', methods=['POST'])
+def api_wild_mode_activate():
+    try:
+        data = request.get_json(force=True)
+        target = float(data.get('target', 0))
+        if target < 0:
+            return jsonify({"ok": False, "error": "target must be >= 0"}), 400
+        port = load_portfolio()
+        cash = float(port.get('capital_usd', 0))
+        margins = sum(float(p.get('margin_usd', 0)) for p in port.get('positions', []) if p.get('status') == 'open')
+        unreal = sum(float(p.get('pnl_usd', 0)) for p in port.get('positions', []) if p.get('status') == 'open')
+        equity = cash + margins + unreal
+        if equity <= 0:
+            return jsonify({"ok": False, "error": "no equity"}), 400
+        import sys, time
+        from datetime import datetime, timezone
+        sys.path.insert(0, str(DATA.parent))
+        import martingale_engine as me
+        # Read F&G from market
+        try:
+            mkt = load_json(DATA / "market_latest.json") or {}
+            fg_raw = mkt.get("fear_greed", {})
+            fg_val = fg_raw.get("value", 50) if isinstance(fg_raw, dict) else int(fg_raw or 50)
+        except Exception:
+            fg_val = 50
+        state = {
+            "active": True,
+            "target_usd": target,
+            "session_id": f"wild_{int(time.time())}",
+            "started_at": datetime.now(timezone.utc).isoformat(),
+            "starting_equity": round(equity, 4),
+            "starting_position_count": len([p for p in port.get('positions', []) if p.get('status') == 'open']),
+            "starting_fg": fg_val,
+            "martingale_chains": {},
+            "decisions_log": []
+        }
+        # Bootstrap chains: each open position becomes a level-0 chain
+        for p in port.get('positions', []):
+            if p.get('status') != 'open':
+                continue
+            sym = p['symbol']
+            margin = float(p.get('margin_usd', 0))
+            state['martingale_chains'][sym] = {
+                "base_position_id": p['id'],
+                "base_margin": margin,
+                "base_direction": p['direction'],
+                "levels": [{
+                    "level": 0,
+                    "position_id": p['id'],
+                    "size_multiplier": 1.0,
+                    "margin": margin,
+                    "direction": p['direction'],
+                    "opened_at": p.get('open_time')
+                }],
+                "total_margin": margin,
+                "max_total_allowed": margin * 4.0
+            }
+        me.save_state(state)
+        # Notify Paperclip — non-blocking
+        try:
+            import sys as _sys2
+            _sys2.path.insert(0, str(DATA.parent))
+            import paperclip_client as _pcc
+            _pcc.on_wild_mode_session_start(
+                session_id=state["session_id"],
+                equity=round(equity, 2),
+                chains=state["martingale_chains"],
+            )
+        except Exception:
+            pass
+        return jsonify({"ok": True, "state": state})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route('/api/wild-mode/deactivate', methods=['POST'])
+def api_wild_mode_deactivate():
+    try:
+        import sys
+        from datetime import datetime, timezone
+        sys.path.insert(0, str(DATA.parent))
+        import martingale_engine as me
+        state = me.load_state()
+        state['active'] = False
+        state['deactivated_at'] = datetime.now(timezone.utc).isoformat()
+        me.save_state(state)
+        # Record outcome
+        try:
+            port = load_portfolio()
+            history = load_trade_history()
+            me.record_session_outcome(state, port, history, 'manual_off')
+        except Exception:
+            pass
+        return jsonify({"ok": True})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route('/api/wild-mode/state', methods=['GET'])
+def api_wild_mode_state():
+    try:
+        import sys
+        sys.path.insert(0, str(DATA.parent))
+        import martingale_engine as me
+        return jsonify(me.load_state())
+    except Exception as e:
+        return jsonify({"active": False, "error": str(e)})
+
 
 @app.route('/api/positions')
 def api_positions():
@@ -2036,35 +3412,57 @@ def api_positions():
         trades_raw = load_trade_history()
         open_pos = [t for t in trades_raw if t.get("status") == "open"]
 
+    # Load wild mode chains to attach hedge level data per position
+    wm_chains = {}
+    pos_to_chain = {}  # position_id -> {chain_sym, level_num}
+    try:
+        import json as _json2
+        wm_path = DATA / "wild_mode_state.json"
+        if wm_path.exists():
+            wm_data = _json2.loads(wm_path.read_text())
+            if wm_data.get("active"):
+                wm_chains = wm_data.get("martingale_chains", {})
+                for _sym, _chain in wm_chains.items():
+                    for _lv in _chain.get("levels", []):
+                        pos_to_chain[_lv["position_id"]] = {
+                            "chain_sym": _sym,
+                            "level_num": _lv["level"],
+                        }
+    except Exception:
+        pass
+
+    # Build position_id -> raw position map for hedge level PnL lookup
+    pos_by_id = {p.get("position_id", p.get("id", p.get("symbol", ""))): p for p in open_pos}
+
     # Fetch live prices for all open position symbols
     symbols = [t.get("symbol", "") for t in open_pos]
     live_prices = get_live_prices(symbols) if symbols else {}
 
+    # Collect position_ids of hedge levels (level > 0) — skip as top-level rows
+    # NOTE: do NOT filter by symbol — same symbol can be both base and hedge (eg. ETH short + ETH hedge long)
+    hedge_pos_ids = {pid for pid, info in pos_to_chain.items() if info["level_num"] > 0}
+
     result = []
+
     for t in open_pos:
+        pos_id = t.get("position_id", t.get("id", t.get("symbol", "")))
+        # Skip if this specific position_id is a hedge level
+        if pos_id in hedge_pos_ids:
+            continue
+
         ot = t.get("open_time", "")
         symbol = t.get("symbol", "")
         direction = t.get("direction", "long")
         entry_price = safe_float(t.get("entry_price", 0))
-        
+
         # Use live price if available, fallback to stored price
         current_price = live_prices.get(symbol, safe_float(t.get("current_price", 0)))
-        
-        # Recalculate P&L with live price
+        est = estimate_open_position_pnl(t, current_price)
         margin = safe_float(t.get("margin_usd", 0))
-        leverage = safe_float(t.get("leverage", 3))
-        size_usd = margin * leverage
-        
-        if entry_price > 0 and current_price > 0:
-            if direction == "long":
-                pnl_pct = ((current_price - entry_price) / entry_price) * 100
-            else:  # short
-                pnl_pct = ((entry_price - current_price) / entry_price) * 100
-            pnl_usd = (pnl_pct / 100) * size_usd
-        else:
-            pnl_pct = safe_float(t.get("pnl_pct", 0))
-            pnl_usd = safe_float(t.get("pnl_usd", 0))
-        
+        size_usd = est.get("notional_value", safe_float(t.get("notional_value", 0)) or safe_float(t.get("size_usd", 0)))
+        pnl_pct = est.get("pnl_pct", safe_float(t.get("pnl_pct", 0)))
+        pnl_usd = est.get("pnl_usd", safe_float(t.get("pnl_usd", 0)))
+
         # Compute time open
         time_open_str = "—"
         if ot:
@@ -2077,6 +3475,35 @@ def api_positions():
                 time_open_str = f"{h}h {m}m"
             except Exception:
                 pass
+
+        # Build chain sub-level data if this position is in a wild mode chain
+        # Fallback to symbol lookup when position_id is None/missing in portfolio
+        chain_info = pos_to_chain.get(pos_id, {})
+        if not chain_info and symbol in wm_chains:
+            chain_info = {"chain_sym": symbol, "level_num": 0}
+        chain_sym = chain_info.get("chain_sym", symbol)
+        chain_data = wm_chains.get(chain_sym, {})
+        chain_levels_out = []
+        for _lv in chain_data.get("levels", []):
+            if _lv["level"] == 0:
+                continue  # skip base level (shown as main row)
+            lv_pos_id = _lv["position_id"]
+            lv_pos = pos_by_id.get(lv_pos_id, {})
+            lv_sym = lv_pos.get("symbol", chain_sym)
+            lv_price = live_prices.get(lv_sym, safe_float(lv_pos.get("current_price", 0)))
+            lv_est = estimate_open_position_pnl(lv_pos, lv_price) if lv_pos else {}
+            chain_levels_out.append({
+                "level":           _lv["level"],
+                "direction":       _lv.get("direction", ""),
+                "margin":          _lv.get("margin", 0),
+                "size_multiplier": _lv.get("size_multiplier", 1),
+                "entry_price":     safe_float(lv_pos.get("entry_price", 0)),
+                "current_price":   round(lv_price, 8),
+                "pnl_usd":         round(lv_est.get("pnl_usd", 0), 4),
+                "pnl_pct":         round(lv_est.get("pnl_pct", 0), 4),
+                "opened_at":       _lv.get("opened_at", ""),
+            })
+
         result.append({
             "symbol":        symbol,
             "direction":     direction,
@@ -2090,9 +3517,120 @@ def api_positions():
             "tp_price":      safe_float(t.get("tp_price", 0)),
             "strategy":      t.get("strategy", ""),
             "time_open":     time_open_str,
+            "in_chain":      bool(chain_info),
+            "chain_levels":  chain_levels_out,
         })
 
     return jsonify({"positions": result})
+
+
+@app.route('/api/ai-thinking')
+def api_ai_thinking():
+    """Aggregates live AI reasoning for the 'What is the AI thinking?' panel."""
+    import json as _json
+
+    port = load_portfolio()
+    market = load_json(DATA / "market_latest.json") or {}
+
+    # Equity / drawdown
+    positions_raw = [p for p in port.get('positions', []) if p.get('status') == 'open']
+    cash = safe_float(port.get('capital_usd', 0))
+    margin_total = sum(safe_float(p.get('margin_usd', 0)) for p in positions_raw)
+    unreal = sum(safe_float(p.get('unrealized_pnl_usd', 0)) for p in positions_raw)
+    equity = cash + margin_total + unreal
+    initial = safe_float(port.get('initial_capital', equity or 1))
+    drawdown_pct = max(0, (initial - equity) / initial * 100) if initial > 0 else 0
+
+    # Fear & Greed
+    fg_raw = market.get('fear_greed', {})
+    fg = fg_raw if isinstance(fg_raw, dict) else {'value': int(fg_raw or 50), 'label': ''}
+
+    # Position decisions
+    pd_data = {}
+    try:
+        pd_path = DATA / 'position_decisions.json'
+        if pd_path.exists():
+            pd_raw = _json.loads(pd_path.read_text())
+            pd_data = {d['symbol']: d for d in pd_raw.get('decisions', [])}
+    except Exception:
+        pass
+
+    # Build per-position data
+    live_prices = get_live_prices([p.get('symbol', '') for p in positions_raw])
+    pos_out = []
+    for p in positions_raw:
+        sym = p.get('symbol', '')
+        dec = pd_data.get(sym, {})
+        cur_price = live_prices.get(sym, safe_float(p.get('current_price', 0)))
+        est = estimate_open_position_pnl(p, cur_price)
+
+        # Strip Codex header from llm_reasoning if present
+        llm_r = dec.get('llm_reasoning', '') or ''
+        if '\nassistant\n' in llm_r:
+            llm_r = llm_r.split('\nassistant\n')[-1].strip()
+        elif 'workdir:' in llm_r:
+            llm_r = ''
+
+        pos_out.append({
+            'symbol':       sym,
+            'direction':    p.get('direction', 'long'),
+            'pnl_usd':      round(est.get('pnl_usd', 0), 4),
+            'pnl_pct':      round(est.get('pnl_pct', 0), 4),
+            'action':       dec.get('action', ''),
+            'llm_action':   dec.get('llm_action', ''),
+            'quant_action': dec.get('quant_action', ''),
+            'alignment':    dec.get('alignment', ''),
+            'confidence':   safe_float(dec.get('confidence', 0)),
+            'quant_reasons':dec.get('quant_reasons', []),
+            'llm_reasoning':llm_r,
+            'llm_reasoning_lang': dec.get('llm_reasoning_lang', 'es'),
+            'llm_source':   dec.get('llm_source', ''),
+            'dist_sl_pct':  safe_float(dec.get('dist_sl_pct', 0)),
+            'dist_tp_pct':  safe_float(dec.get('dist_tp_pct', 0)),
+            'rr_remaining': safe_float(dec.get('rr_remaining', 0)),
+            'hours_open':   safe_float(dec.get('hours_open', 0)),
+        })
+
+    # Wild mode chains with last decision
+    wild_chains_out = {}
+    try:
+        wm_path = DATA / 'wild_mode_state.json'
+        if wm_path.exists():
+            wm = _json.loads(wm_path.read_text())
+            if wm.get('active'):
+                chains = wm.get('martingale_chains', {})
+                dlog = wm.get('decisions_log', [])
+                # Last decision per symbol
+                last_dec_by_sym = {}
+                for entry in dlog:
+                    s = entry.get('raw', {}).get('symbol') or entry.get('validated', {}).get('symbol')
+                    if s:
+                        last_dec_by_sym[s] = entry
+                # Chain PnL from portfolio
+                chain_pnl_by_sym = {}
+                for p in positions_raw:
+                    s = p.get('symbol', '')
+                    chain_pnl_by_sym[s] = chain_pnl_by_sym.get(s, 0) + safe_float(p.get('unrealized_pnl_usd', 0))
+                for sym, chain in chains.items():
+                    wild_chains_out[sym] = {
+                        'n_levels':     len(chain.get('levels', [])),
+                        'total_margin': safe_float(chain.get('total_margin', 0)),
+                        'chain_pnl':    round(chain_pnl_by_sym.get(sym, 0), 4),
+                        'last_decision':last_dec_by_sym.get(sym, {}),
+                    }
+    except Exception:
+        pass
+
+    return jsonify({
+        'timestamp':     datetime.now(timezone.utc).isoformat(),
+        'cycle':         port.get('cycle_counter', '—'),
+        'equity':        round(equity, 2),
+        'drawdown_pct':  round(drawdown_pct, 2),
+        'open_positions':len(positions_raw),
+        'fear_greed':    fg,
+        'positions':     pos_out,
+        'wild_chains':   wild_chains_out,
+    })
 
 
 @app.route('/api/reset-history')
@@ -2137,22 +3675,30 @@ def api_reset():
         old_history = load_trade_history()
         
         # Calcular estadísticas del período que termina
-        total_trades = len([t for t in old_history if t.get("status") == "closed"])
-        wins = len([t for t in old_history if t.get("status") == "closed" and safe_float(t.get("pnl_usd", 0)) > 0])
-        losses = len([t for t in old_history if t.get("status") == "closed" and safe_float(t.get("pnl_usd", 0)) < 0])
-        flat = total_trades - wins - losses
-        
-        total_pnl = sum(safe_float(t.get("pnl_usd", 0)) for t in old_history if t.get("status") == "closed")
-        
+        # Fix: trades en history no tienen campo status — identificar por close_time/close_reason
+        _closed = [t for t in old_history if t.get("close_time") or t.get("close_reason")]
+        total_trades = len(_closed)
+        wins   = len([t for t in _closed if safe_float(t.get("pnl_usd", 0)) > 0])
+        losses = len([t for t in _closed if safe_float(t.get("pnl_usd", 0)) < 0])
+        flat   = len([t for t in _closed if safe_float(t.get("pnl_usd", 0)) == 0])
+
+        total_pnl = sum(safe_float(t.get("pnl_usd", 0)) for t in _closed)
+
+        # Fix: equity real = cash libre + márgenes de posiciones abiertas + PnL no realizado
         old_capital = safe_float(old_portfolio.get("capital_usd", 500))
+        _open_pos_old = [p for p in old_portfolio.get("positions", []) if p.get("status") == "open"]
+        _margins_old = sum(safe_float(p.get("margin_usd", 0)) for p in _open_pos_old)
+        _unreal_old  = sum(safe_float(p.get("pnl_usd", 0))    for p in _open_pos_old)
+        old_equity = round(old_capital + _margins_old + _unreal_old, 2)
+
         old_initial = safe_float(old_portfolio.get("initial_capital", 1000))
-        return_pct = ((old_capital - old_initial) / old_initial * 100) if old_initial > 0 else 0
-        
+        return_pct = ((old_equity - old_initial) / old_initial * 100) if old_initial > 0 else 0
+
         win_rate = (wins / total_trades * 100) if total_trades > 0 else 0
-        
+
         # Mejor y peor trade
-        pnls = [safe_float(t.get("pnl_usd", 0)) for t in old_history if t.get("status") == "closed"]
-        best_trade = max(pnls) if pnls else 0
+        pnls = [safe_float(t.get("pnl_usd", 0)) for t in _closed]
+        best_trade  = max(pnls) if pnls else 0
         worst_trade = min(pnls) if pnls else 0
         
         # Crear entrada de historial
@@ -2161,7 +3707,7 @@ def api_reset():
             "period_start": old_portfolio.get("created_at", "unknown"),
             "period_end": now,
             "initial_capital": old_initial,
-            "final_capital": old_capital,
+            "final_capital": old_equity,
             "return_pct": round(return_pct, 2),
             "total_pnl_usd": round(total_pnl, 2),
             "total_trades": total_trades,
@@ -2172,7 +3718,9 @@ def api_reset():
             "best_trade_usd": round(best_trade, 2),
             "worst_trade_usd": round(worst_trade, 2),
             "new_capital": capital,
-            "reason": data.get("reason", "Manual reset")
+            "reason": data.get("reason", "Manual reset"),
+            "notes": data.get("notes", "").strip(),
+            "attachments": data.get("attachments", [])
         }
         
         # Cargar historial existente y agregar
@@ -2208,9 +3756,77 @@ def api_reset():
         with open(DATA / "portfolio.json", "w") as f:
             json.dump(portfolio, f, indent=2)
         
+        # 2a. Exportar trades al auto_learner.db ANTES de borrar el historial
+        #     Asi el aprendizaje acumulado sobrevive a todos los resets
+        if _closed:
+            try:
+                import sqlite3 as _sqlite3
+                _db_path = DATA / "auto_learner.db"
+                _al_state_path = DATA / "auto_learner_state.json"
+                _al_params = {}
+                if _al_state_path.exists():
+                    try:
+                        _al_state_data = json.load(open(_al_state_path))
+                        _al_params = _al_state_data.get("params", {})
+                    except Exception:
+                        pass
+                _create_sql = (
+                    "CREATE TABLE IF NOT EXISTS trade_results ("
+                    "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+                    "timestamp DATETIME DEFAULT CURRENT_TIMESTAMP, "
+                    "trade_id TEXT UNIQUE, symbol TEXT, direction TEXT, "
+                    "sl_pct REAL, tp_pct REAL, leverage REAL, "
+                    "pnl_usd REAL, pnl_pct REAL, win INTEGER, "
+                    "confidence REAL, holding_time REAL)"
+                )
+                _insert_sql = (
+                    "INSERT OR IGNORE INTO trade_results "
+                    "(trade_id, symbol, direction, sl_pct, tp_pct, leverage, "
+                    "pnl_usd, pnl_pct, win, confidence, holding_time) "
+                    "VALUES (?,?,?,?,?,?,?,?,?,?,?)"
+                )
+                with _sqlite3.connect(str(_db_path)) as _conn:
+                    _conn.execute(_create_sql)
+                    _saved = 0
+                    for _t in _closed:
+                        try:
+                            _conn.execute(_insert_sql, (
+                                _t.get("id") or _t.get("position_id") or _t.get("trade_id"),
+                                _t.get("symbol"), _t.get("direction"),
+                                _al_params.get("sl_pct"), _al_params.get("tp_pct"),
+                                safe_float(_t.get("leverage", 5.0)),
+                                safe_float(_t.get("pnl_usd", 0)),
+                                safe_float(_t.get("pnl_pct", 0)),
+                                1 if safe_float(_t.get("pnl_usd", 0)) > 0 else 0,
+                                safe_float(_t.get("confidence", 0.5)),
+                                0.0
+                            ))
+                            _saved += 1
+                        except Exception:
+                            pass
+                log.info(f"reset: {_saved}/{len(_closed)} trades exportados a auto_learner.db")
+            except Exception as _e:
+                log.warning(f"reset: no se pudo exportar trades a auto_learner.db: {_e}")
+
         # 2. Trade History
         with open(DATA / "trade_history.json", "w") as f:
             json.dump([], f)
+
+        # 2b. Wild Mode State — clear any active salvage session on reset
+        try:
+            import sys
+            sys.path.insert(0, str(DATA.parent))
+            import martingale_engine as me
+            me.save_state({
+                "active": False,
+                "target_usd": 0.0,
+                "martingale_chains": {},
+                "decisions_log": [],
+                "ended_at": now,
+                "end_reason": "reset",
+            })
+        except Exception as _e:
+            log.warning(f'reset: could not clear wild mode state: {_e}')
         
         # 3. Daily Target State
         daily_state = {
@@ -2357,6 +3973,136 @@ def api_agent_notes_stream():
 
 CHAT_STATE_FILE = DATA / "chat_agent_state.json"
 
+@app.route('/api/reset-upload', methods=['POST'])
+def api_reset_upload():
+    """Sube archivos adjuntos para un reset y los guarda en reset_attachments/."""
+    import werkzeug.utils
+    files = request.files.getlist('files')
+    if not files:
+        return jsonify({'files': []})
+    session_id = datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S') + '_' + uuid.uuid4().hex[:6]
+    upload_dir = RESET_ATTACHMENTS_DIR / session_id
+    upload_dir.mkdir(parents=True, exist_ok=True)
+    saved = []
+    for f in files[:10]:
+        if f.filename and '.' in f.filename:
+            ext = f.filename.rsplit('.', 1)[1].lower()
+            if ext in ALLOWED_ATTACH_EXT:
+                safe_name = werkzeug.utils.secure_filename(f.filename)
+                f.save(str(upload_dir / safe_name))
+                saved.append(f'{session_id}/{safe_name}')
+    return jsonify({'files': saved, 'session_id': session_id})
+
+
+@app.route('/api/reset-file/<path:filepath>')
+def api_reset_file(filepath):
+    """Sirve un archivo adjunto de reset."""
+    return send_from_directory(str(RESET_ATTACHMENTS_DIR), filepath)
+
+
+@app.route('/api/set-language', methods=['POST'])
+def api_set_language():
+    """Guarda preferencia de idioma en user_profile para el chat agent."""
+    data = request.get_json() or {}
+    lang = data.get('language', 'es')
+    if lang not in ('es', 'en'):
+        return jsonify({'error': 'invalid language'}), 400
+    profile_file = DATA / "user_profile.json"
+    profile = {}
+    if profile_file.exists():
+        try: profile = json.loads(profile_file.read_text())
+        except: pass
+    profile['language'] = lang
+    profile_file.write_text(json.dumps(profile, ensure_ascii=False, indent=2))
+    return jsonify({'ok': True})
+
+
+@app.route('/api/force-reasoning-refresh', methods=['POST'])
+def api_force_reasoning_refresh():
+    """v2.8.1: Invalida el cache LLM del WILD mode para que el proximo
+    ciclo regenere los reasonings en el idioma actual del usuario.
+    Se llama automaticamente desde toggleLang() al cambiar idioma."""
+    try:
+        wm_path = DATA / 'wild_mode_state.json'
+        cleared = []
+        if wm_path.exists():
+            state = json.loads(wm_path.read_text())
+            if state.get('_last_llm_ts', 0) > 0:
+                state['_last_llm_ts'] = 0
+                wm_path.write_text(json.dumps(state, indent=2))
+                cleared.append('wild_mode._last_llm_ts')
+        return jsonify({'ok': True, 'cleared': cleared,
+                        'ts': datetime.now(timezone.utc).isoformat()})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+
+# ════════════════════════════════════════════════════════════════════
+# v2.9.0-live Sprint 1 — Safety endpoints (kill switch + status)
+# ════════════════════════════════════════════════════════════════════
+@app.route('/api/safety/status', methods=['GET'])
+def api_safety_status():
+    """Devuelve el estado actual del modulo safety: kill switch,
+    limites, whitelist, y si live trading esta habilitado."""
+    try:
+        import sys as _sys
+        _agents_path = str(Path(__file__).resolve().parent.parent / 'agents')
+        if _agents_path not in _sys.path:
+            _sys.path.insert(0, _agents_path)
+        import importlib
+        import safety as _safety
+        importlib.reload(_safety)  # refrescar env vars si cambiaron
+        return jsonify({'ok': True, **_safety.status_snapshot()})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+
+@app.route('/api/safety/kill-switch', methods=['POST'])
+def api_safety_kill_switch():
+    """Activa o desactiva el kill switch.
+    Body: {"action": "activate"|"deactivate", "reason": "texto opcional"}"""
+    try:
+        import sys as _sys
+        _agents_path = str(Path(__file__).resolve().parent.parent / 'agents')
+        if _agents_path not in _sys.path:
+            _sys.path.insert(0, _agents_path)
+        import safety as _safety
+        data = request.get_json() or {}
+        action = (data.get('action') or '').lower()
+        if action == 'activate':
+            reason = data.get('reason', 'manual_dashboard')
+            _safety.activate_kill_switch(reason)
+            return jsonify({'ok': True, 'status': 'activated', 'reason': reason})
+        elif action == 'deactivate':
+            _safety.deactivate_kill_switch()
+            return jsonify({'ok': True, 'status': 'deactivated'})
+        else:
+            return jsonify({'ok': False, 'error': 'action must be activate|deactivate'}), 400
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+
+@app.route('/api/chat/clear', methods=['POST'])
+def api_chat_clear():
+    """Archiva mensajes actuales y limpia el chat visible."""
+    now = datetime.now(timezone.utc).isoformat()
+    notes = load_notes()
+    msgs = notes.get("messages", [])
+    if msgs:
+        archive_file = DATA / "agent_notes_archive.json"
+        archive = []
+        if archive_file.exists():
+            try:
+                archive = json.loads(archive_file.read_text())
+            except Exception:
+                archive = []
+        archive.append({"archived_at": now, "messages": msgs})
+        archive_file.write_text(json.dumps(archive, ensure_ascii=False, indent=2))
+    with open(AGENT_NOTES_FILE, "w") as f:
+        json.dump({"messages": [], "last_updated": now}, f)
+    return jsonify({"ok": True, "archived": len(msgs)})
+
+
 @app.route('/api/chat-status')
 def api_chat_status():
     """Retorna estado del agente de chat (pensando sí/no)."""
@@ -2374,4 +4120,4 @@ if __name__ == '__main__':
     port = int(sys.argv[1]) if len(sys.argv) > 1 else 8081
     print(f"🚀 Solana Cripto Trader Dashboard")
     print(f"   URL: http://localhost:{port}")
-    app.run(host='0.0.0.0', port=port, debug=False)
+    app.run(host='0.0.0.0', port=port, debug=False, use_reloader=True)

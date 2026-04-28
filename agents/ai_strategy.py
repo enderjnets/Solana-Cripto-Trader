@@ -227,18 +227,18 @@ Responde ÚNICAMENTE en formato JSON válido con esta estructura:
 {
   "signals": [
     {
-      "symbol": "TOKEN",
-      "direction": "long|short|none",
-      "entry_price": 0.0,
-      "sl_price": 0.0,
-      "tp_price": 0.0,
-      "exit_mode": "fixed|trailing",
-      "trailing_pct": 0.0,
-      "size_usd": 0.0,
-      "confidence": 0.0,
-      "strategy": "momentum|breakout|oversold",
-      "reasoning": "Breve explicación",
-      "factors": ["factor1", "factor2"]
+      "symbol": "SOL",
+      "direction": "long",
+      "entry_price": 142.50,
+      "sl_price": 138.95,
+      "tp_price": 151.75,
+      "exit_mode": "trailing",
+      "trailing_pct": 0.025,
+      "size_usd": 10.0,
+      "confidence": 0.82,
+      "strategy": "breakout",
+      "reasoning": "RSI 28 sobreventa + rebote desde soporte clave",
+      "factors": ["RSI_oversold_28", "soporte_confirmado"]
     }
   ],
   "summary": {
@@ -256,11 +256,11 @@ REGLAS DE TRADING:
 4. MÁXIMO 5 señales por ciclo — APROVECHA condiciones extremas del mercado
 5. NO generar señal si el token YA tiene posición abierta
 
-REGLA DE SENTIMIENTO EXTREMO (OBLIGATORIA):
-- Fear & Greed ≤ 20 (Extreme Fear): mercado en PÁNICO → genera SHORTs selectivos (2-3) en tokens con tendencia bajista confirmada, Y busca LONGs en tokens con RSI < 25 (oversold bounce). Equilibra ambas direcciones.
-- Fear & Greed ≤ 35 (Fear): mercado con miedo → genera SHORTs moderados (1-2) en tokens débiles, Y LONGs en tokens con RSI < 30 (sobreventa). Equilibra riesgo.
-- Fear & Greed ≥ 75 (Greed): mercado eufórico → genera la MAYOR cantidad de LONGs posibles (3-5). La euforia tiende a continuar. SHORTs solo en tokens con RSI > 80.
-- Fear & Greed ≥ 85 (Extreme Greed): → genera 4-5 LONGs agresivos. La tendencia es tu amiga.
+REGLA DE SENTIMIENTO EXTREMO (OBLIGATORIA — CONTRARIAN):
+- Fear & Greed ≤ 20 (Extreme Fear): señal CONTRARIAN de COMPRA → genera 3-4 LONGs en tokens de alta capitalización (SOL, ETH, BTC, JUP). El pánico extremo históricamente precede rebounds. NO generes SHORTs en meme coins (cap < $500M) — rebote violento puede quemar la posición.
+- Fear & Greed ≤ 35 (Fear): mercado con miedo → genera 2-3 LONGs en tokens con RSI < 35 (oversold). SHORTs solo si RSI > 65 Y cambio 24h > +5% (local overbought en tendencia bajista).
+- Fear & Greed ≥ 75 (Greed): señal CONTRARIAN de VENTA → genera 2-3 SHORTs selectivos en tokens sobrecomprados (RSI > 70). LONGs solo si hay breakout confirmado.
+- Fear & Greed ≥ 85 (Extreme Greed): señal CONTRARIAN agresiva → genera 3-4 SHORTs. La euforia extrema históricamente precede correcciones.
 - Fear & Greed 35-75 (Neutral): genera señales normales basadas en técnico (2-3).
 
 OBJETIVO: Aprovechar al MÁXIMO las condiciones del mercado abriendo tantas posiciones como la situación lo permita, siempre respetando el riesgo.
@@ -299,15 +299,15 @@ EVITAR SEÑALES EN:
     
     # Determine how many signals to request based on sentiment
     if fg_value <= 20:
-        target_signals = "2-3 señales mixtas (Extreme Fear — shorts en tendencia bajista + longs en oversold bounce)"
+        target_signals = "3-4 LONGs CONTRARIAN (Extreme Fear = señal de compra histórica). Prioriza SOL/ETH/BTC/JUP con RSI < 45. PROHIBIDO shortear meme coins (FARTCOIN, PENGU, WIF, BONK, POPCAT etc.) — volatilidad extrema puede dispararse +30% en minutos."
     elif fg_value <= 35:
-        target_signals = "2-3 señales mixtas (Fear — equilibrar shorts y longs oversold)"
+        target_signals = "2-3 LONGs en tokens oversold (Fear — RSI < 35 + rebote potencial). SHORTs solo si RSI > 65 Y cambio 24h > +5%."
     elif fg_value >= 85:
-        target_signals = "4-5 LONGs (Extreme Greed — APROVECHA la euforia)"
+        target_signals = "3-4 SHORTs CONTRARIAN (Extreme Greed = señal de venta histórica). Tokens con RSI > 70 + sobrecompra confirmada."
     elif fg_value >= 75:
-        target_signals = "3-4 LONGs (Greed — mercado alcista)"
+        target_signals = "2-3 SHORTs selectivos (Greed — buscar sobrecomprados RSI > 68). LONGs solo con breakout muy confirmado."
     else:
-        target_signals = "2-3 señales mixtas (mercado neutral)"
+        target_signals = "2-3 señales mixtas (mercado neutral — seguir técnico puro)"
 
     user_prompt = f"""Genera señales de trading basado en estos datos:
 
@@ -360,9 +360,28 @@ Responde SOLO en JSON válido."""
                 
                 # Validar estructura
                 if "signals" in signals_data:
+                    # Sanear señales: rechazar placeholders y SL/TP imposibles
+                    _cur_prices = {sym: d.get("price", 0) for sym, d in tokens_data.items()}
+                    _clean = []
+                    for _sig in signals_data["signals"]:
+                        _sym = _sig.get("symbol", "")
+                        _dir = _sig.get("direction", "")
+                        _conf = _sig.get("confidence", 0)
+                        if "|" in _dir or _sym in ("", "TOKEN") or _conf < 0.55:
+                            log.warning(f"\u26a0\ufe0f LLM signal rechazada (template): {_sym} dir={_dir} conf={_conf}")
+                            continue
+                        _ep = _sig.get("entry_price", 0)
+                        _cur = _cur_prices.get(_sym, 0)
+                        if _ep > 0 and _cur > 0 and abs(_ep - _cur) / _cur > 0.30:
+                            log.warning(f"\u26a0\ufe0f {_sym} entry={_ep:.4f} vs mkt={_cur:.4f} diff>30% — limpiando SL/TP")
+                            _sig["sl_price"] = 0.0
+                            _sig["tp_price"] = 0.0
+                            _sig["entry_price"] = 0.0
+                        _clean.append(_sig)
+                    signals_data["signals"] = _clean
                     return signals_data
                 else:
-                    log.warning("⚠️ LLM response no contiene 'signals'")
+                    log.warning("\u26a0\ufe0f LLM response no contiene 'signals'")
                     return {"signals": [], "error": "Invalid response structure"}
                     
             except json.JSONDecodeError as e:
