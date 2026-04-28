@@ -1,4 +1,4 @@
-# Jupiter Perpetuals Integration — Estado v2.13.0-alpha (2026-04-25)
+# Jupiter Perpetuals Integration — Estado v2.13.3-live (2026-04-28)
 
 ## TL;DR
 
@@ -162,3 +162,45 @@ ssh enderj@10.0.0.240 "cd /home/enderj/.openclaw/workspace/Solana-Cripto-Trader-
 - [julianfssen/jupiter-perps-anchor-idl-parsing](https://github.com/julianfssen/jupiter-perps-anchor-idl-parsing) — IDL + examples
 - [DeepWiki: Program Instructions catalog](https://deepwiki.com/pengxuan37/jupiter-perps-anchor-idl-parsing/2.1-program-instructions)
 - [Solnet.JupiterPerps (C# reference)](https://github.com/Bifrost-Technologies/Solnet.JupiterPerps)
+
+## UPDATE 2026-04-26 — Phase 2 IDL análisis
+
+**IDL JSON descargado** (152KB) y parseado. 51 instructions, 7 accounts, 69 types.
+
+### Hallazgo crítico: dos paths posibles para write op
+
+**Path A — `instantIncreasePosition` (NO viable client-only)**:
+- 20 accounts, requiere **3 signers**: keeper + apiKeeper (Jupiter backend) + owner
+- NO podemos co-sign sin coordinación con backend Jupiter
+- Solo uso interno de Jupiter
+
+**Path B — `createIncreasePositionMarketRequest` (✅ VIABLE client-only)**:
+- 16 accounts, **solo 1 signer (owner)**
+- Workflow: cliente crea on-chain request → keeper Jupiter detecta → keeper ejecuta `increasePosition4` automáticamente (~500ms-1s latencia)
+- **Este es el path correcto para Python**
+
+### Args params type:
+- `sizeUsdDelta: u64` — tamaño en USD lamports
+- `collateralTokenDelta: option<u64>` — collateral en lamports del token
+- `side: Side` enum Long(0) | Short(1)
+- `priceSlippage: u64` — bps
+- `requestTime: i64` — Unix timestamp
+
+### Plan revisado Phase 2
+1. ✅ IDL parseado, instruction Path B identificada
+2. ⏸ Parsear con anchorpy para generar Python bindings
+3. ⏸ Derivar 16 PDAs (position, custody, etc.)
+4. ⏸ Build ix con accounts + params
+5. ⏸ Monitorear keeper fulfillment (poll tx logs)
+6. ⏸ Implementar close análogo (`createDecreasePositionMarketRequest`)
+
+### Estimación revisada
+- Anterior: 3-5 días dev
+- **Revisada: 5-7 días dev** + smoke test mainnet $2
+- Razón: 16-account ix complejo + keeper fulfillment monitoring + edge cases
+
+### Decisión pendiente del user
+Phase 2 es factible pero significativo. Antes de invertir 5-7 días, considerar alternativas:
+- Esperar SDK oficial Jupiter (sin ETA)
+- TypeScript bridge (1-2 días pero adds Node)
+- Pivote a Pacifica/Raydium Perps (research nuevo)
