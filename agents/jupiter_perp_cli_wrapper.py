@@ -76,11 +76,17 @@ def _run(args: list, timeout: int = 120) -> dict:
             line = line.strip()
             if line.startswith("{") or line.startswith("["):
                 try:
-                    return json.loads(line)
+                    data = json.loads(line)
+                    if isinstance(data, dict) and data.get("error"):
+                        raise RuntimeError(data["error"])
+                    return data
                 except json.JSONDecodeError:
                     continue
         # Fallback: try full stdout
-        return json.loads(result.stdout)
+        data = json.loads(result.stdout)
+        if isinstance(data, dict) and data.get("error"):
+            raise RuntimeError(data["error"])
+        return data
     except subprocess.TimeoutExpired:
         log.error("jup cli timeout")
         raise RuntimeError("jup cli timeout")
@@ -118,27 +124,36 @@ def open_position(
         "--leverage", str(leverage),
         "--slippage", str(slippage_bps),
     ]
+    # Default input token is USDC (bot capital is USD-denominated).
     if dry_run:
         args.append("--dry-run")
 
     try:
         data = _run(args)
+        if isinstance(data, dict) and data.get("error"):
+            return OpenResult(success=False, tx_signature="", entry_price=0, size_usd=0, leverage=0, fee_usd=0, error=data["error"])
+        # CLI v0.10.0 uses camelCase with 'Usd' suffix for price/size/fee fields
+        entry_price = float(data.get("entryPriceUsd", data.get("entryPrice", 0)))
+        size_usd = float(data.get("sizeUsd", data.get("size", 0)))
+        fee_usd = float(data.get("openFeeUsd", data.get("openFee", 0)))
+        leverage = float(data.get("leverage", 0))
+        sig = data.get("signature") or data.get("txSignature") or ""
         if dry_run:
             return OpenResult(
                 success=True,
                 tx_signature="",
-                entry_price=float(data.get("entryPrice", 0)),
-                size_usd=float(data.get("size", 0)),
-                leverage=float(data.get("leverage", 0)),
-                fee_usd=float(data.get("openFee", 0)),
+                entry_price=entry_price,
+                size_usd=size_usd,
+                leverage=leverage,
+                fee_usd=fee_usd,
             )
         return OpenResult(
             success=True,
-            tx_signature=data.get("txSignature", ""),
-            entry_price=float(data.get("entryPrice", 0)),
-            size_usd=float(data.get("size", 0)),
-            leverage=float(data.get("leverage", 0)),
-            fee_usd=float(data.get("openFee", 0)),
+            tx_signature=sig,
+            entry_price=entry_price,
+            size_usd=size_usd,
+            leverage=leverage,
+            fee_usd=fee_usd,
         )
     except Exception as e:
         return OpenResult(success=False, tx_signature="", entry_price=0, size_usd=0, leverage=0, fee_usd=0, error=str(e))
@@ -165,22 +180,36 @@ def close_position(
 
     try:
         data = _run(args)
+        if isinstance(data, dict) and data.get("error"):
+            return CloseResult(success=False, tx_signature="", size_reduced_usd=0, received_usd=0, pnl_pct=0, fee_usd=0, error=data["error"])
+        # CLI v0.10.0 close returns 'signatures' array (null in dry-run)
+        sig = ""
+        if isinstance(data.get("signatures"), list) and data["signatures"]:
+            sig = data["signatures"][0]
+        elif data.get("signature"):
+            sig = data["signature"]
+        elif data.get("txSignature"):
+            sig = data["txSignature"]
+        size_reduced = float(data.get("sizeReducedUsd", data.get("sizeReduced", 0)))
+        received = float(data.get("receivedUsd", data.get("received", 0)) or 0)
+        pnl_pct = float(data.get("pnlPct", 0))
+        fee = float(data.get("feesUsd", data.get("fees", 0)))
         if dry_run:
             return CloseResult(
                 success=True,
                 tx_signature="",
-                size_reduced_usd=float(data.get("sizeReduced", 0)),
-                received_usd=float(data.get("receivedUsd", 0) or data.get("received", 0)),
-                pnl_pct=float(data.get("pnlPct", 0)),
-                fee_usd=float(data.get("fees", 0)),
+                size_reduced_usd=size_reduced,
+                received_usd=received,
+                pnl_pct=pnl_pct,
+                fee_usd=fee,
             )
         return CloseResult(
             success=True,
-            tx_signature=data.get("txSignature", ""),
-            size_reduced_usd=float(data.get("sizeReduced", 0)),
-            received_usd=float(data.get("receivedUsd", 0) or data.get("received", 0)),
-            pnl_pct=float(data.get("pnlPct", 0)),
-            fee_usd=float(data.get("fees", 0)),
+            tx_signature=sig,
+            size_reduced_usd=size_reduced,
+            received_usd=received,
+            pnl_pct=pnl_pct,
+            fee_usd=fee,
         )
     except Exception as e:
         return CloseResult(success=False, tx_signature="", size_reduced_usd=0, received_usd=0, pnl_pct=0, fee_usd=0, error=str(e))
@@ -193,15 +222,15 @@ def get_positions() -> List[PerpPosition]:
         positions = []
         for p in data.get("positions", []):
             positions.append(PerpPosition(
-                pubkey=p.get("pubkey", ""),
+                pubkey=p.get("positionPubkey", p.get("pubkey", "")),
                 asset=p.get("asset", ""),
                 side=p.get("side", ""),
-                size_usd=float(p.get("size", 0)),
-                entry_price=float(p.get("entryPrice", 0)),
-                mark_price=float(p.get("markPrice", 0)),
+                size_usd=float(p.get("sizeUsd", p.get("size", 0))),
+                entry_price=float(p.get("entryPriceUsd", p.get("entryPrice", 0))),
+                mark_price=float(p.get("markPriceUsd", p.get("markPrice", 0))),
                 pnl_pct=float(p.get("pnlPct", 0)),
                 leverage=float(p.get("leverage", 0)),
-                liq_price=float(p.get("liqPrice", 0)),
+                liq_price=float(p.get("liquidationPriceUsd", p.get("liqPrice", 0))),
             ))
         return positions
     except Exception as e:
