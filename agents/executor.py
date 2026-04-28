@@ -1728,7 +1728,7 @@ MINT_MAP = {
     "SOL":  "So11111111111111111111111111111111111111112",   # wrapped SOL, 9 decimals
     "JUP":  "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",   # Jupiter, 6 decimals
     "ETH":  "7vfCXTUXx5WJV5JADk17DUJ4ksgau7utNKj4b963voxs",   # Wormhole wETH (Portal), 8 decimals
-    # "BTC":  "3NZ9JMVBmGAqocybic2c7LQCJScmgsAZ6vQqTDzcqmJh",   # Wormhole wBTC — agregar post-validación JUP/ETH
+    "BTC":  "3NZ9JMVBmGAqocybic2c7LQCJScmgsAZ6vQqTDzcqmJh",   # Wormhole wBTC
     # "XRP":  no tiene route en Jupiter Solana (liquidez insuficiente)
 }
 
