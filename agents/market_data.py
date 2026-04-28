@@ -76,6 +76,23 @@ COINGECKO_FEAR_GREED = "https://api.alternative.me/fng/?limit=1"
 
 # Timeout para requests
 REQUEST_TIMEOUT = 15
+MAX_RETRIES = 3
+RETRY_BACKOFF = 2  # seconds
+
+# ─── Retry helper ─────────────────────────────────────────────────────────────
+
+def _retry_request(func, *args, **kwargs):
+    """Execute a request function with retry + exponential backoff."""
+    for attempt in range(1, MAX_RETRIES + 1):
+        try:
+            return func(*args, **kwargs)
+        except requests.RequestException as e:
+            log.warning(f"Request failed (attempt {attempt}/{MAX_RETRIES}): {e}")
+            if attempt < MAX_RETRIES:
+                time.sleep(RETRY_BACKOFF * attempt)
+            else:
+                raise
+    return None
 
 # ─── Funciones de API ─────────────────────────────────────────────────────────
 
@@ -86,26 +103,29 @@ def fetch_jupiter_prices(mints: dict) -> dict:
     """
     mint_ids = ",".join(mints.values())
     try:
-        resp = requests.get(
-            JUPITER_PRICE_URL,
-            params={"ids": mint_ids},
-            timeout=REQUEST_TIMEOUT
-        )
-        resp.raise_for_status()
-        # v3 returns the data directly (not wrapped in "data" key)
-        return resp.json()
+        def _do():
+            resp = requests.get(
+                JUPITER_PRICE_URL,
+                params={"ids": mint_ids},
+                timeout=REQUEST_TIMEOUT
+            )
+            resp.raise_for_status()
+            return resp.json()
+        return _retry_request(_do) or {}
     except requests.RequestException as e:
-        log.error(f"❌ Jupiter API error: {e}")
+        log.error(f"❌ Jupiter API error after {MAX_RETRIES} retries: {e}")
         return {}
 
 
 def fetch_coingecko_fear_greed() -> dict:
     """Obtiene Fear & Greed Index de CoinGecko/alternative.me (gratis)."""
     try:
-        _coingecko_limiter.wait()  # FIX 3.2
-        resp = requests.get(COINGECKO_FEAR_GREED, timeout=REQUEST_TIMEOUT)
-        resp.raise_for_status()
-        data = resp.json()
+        def _do():
+            _coingecko_limiter.wait()  # FIX 3.2
+            resp = requests.get(COINGECKO_FEAR_GREED, timeout=REQUEST_TIMEOUT)
+            resp.raise_for_status()
+            return resp.json()
+        data = _retry_request(_do) or {}
         fng = data.get("data", [{}])[0]
         return {
             "value": int(fng.get("value", 50)),
@@ -113,7 +133,7 @@ def fetch_coingecko_fear_greed() -> dict:
             "timestamp": fng.get("timestamp", "")
         }
     except Exception as e:
-        log.warning(f"⚠️  Fear/Greed API error: {e}")
+        log.warning(f"⚠️  Fear/Greed API error after retries: {e}")
         return {"value": 50, "label": "Neutral", "timestamp": ""}
 
 
@@ -266,19 +286,21 @@ def fetch_coingecko_24h() -> dict:
     }
     ids_str = ",".join(CG_IDS.values())
     try:
-        url = "https://api.coingecko.com/api/v3/coins/markets"
-        _coingecko_limiter.wait()  # FIX 3.2
-        resp = requests.get(url, params={
-            "vs_currency": "usd",
-            "ids": ids_str,
-            "order": "market_cap_desc",
-            "per_page": 20,
-            "page": 1,
-            "sparkline": "false",
-            "price_change_percentage": "24h"
-        }, timeout=REQUEST_TIMEOUT)
-        resp.raise_for_status()
-        data = resp.json()
+        def _do():
+            url = "https://api.coingecko.com/api/v3/coins/markets"
+            _coingecko_limiter.wait()  # FIX 3.2
+            resp = requests.get(url, params={
+                "vs_currency": "usd",
+                "ids": ids_str,
+                "order": "market_cap_desc",
+                "per_page": 20,
+                "page": 1,
+                "sparkline": "false",
+                "price_change_percentage": "24h"
+            }, timeout=REQUEST_TIMEOUT)
+            resp.raise_for_status()
+            return resp.json()
+        data = _retry_request(_do) or {}
 
         # Invertir mapa CG_IDS para lookup
         cg_to_symbol = {v: k for k, v in CG_IDS.items()}
@@ -293,7 +315,7 @@ def fetch_coingecko_24h() -> dict:
                 }
         return result
     except Exception as e:
-        log.warning(f"⚠️  CoinGecko 24h error: {e}")
+        log.warning(f"⚠️  CoinGecko 24h error after retries: {e}")
         return {}
 
 
@@ -306,11 +328,13 @@ def fetch_hourly_trends() -> dict:
     trends = {}
     for symbol, cg_id in HOURLY_TOKENS.items():
         try:
-            url = f"https://api.coingecko.com/api/v3/coins/{cg_id}/market_chart"
-            _coingecko_limiter.wait()  # FIX 3.2
-            resp = requests.get(url, params={"vs_currency": "usd", "days": "1"}, timeout=10)
-            resp.raise_for_status()
-            data = resp.json()
+            def _do():
+                url = f"https://api.coingecko.com/api/v3/coins/{cg_id}/market_chart"
+                _coingecko_limiter.wait()  # FIX 3.2
+                resp = requests.get(url, params={"vs_currency": "usd", "days": "1"}, timeout=10)
+                resp.raise_for_status()
+                return resp.json()
+            data = _retry_request(_do) or {}
             prices = data.get("prices", [])
             if len(prices) >= 2:
                 first_price = prices[0][1]

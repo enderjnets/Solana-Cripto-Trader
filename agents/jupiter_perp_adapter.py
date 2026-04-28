@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import logging
 import os
+import time
 from dataclasses import dataclass
 from typing import Optional
 
@@ -39,6 +40,7 @@ class PerpResult:
     leverage: float = 1.0
     tx_signature: str = ""
     entry_price: float = 0.0
+    position_pubkey: str = ""
 
 
 # ── Env helpers ──────────────────────────────────────────────────────────────
@@ -153,6 +155,17 @@ def open_perp_position(
             dry_run=False,
         )
         if result.success:
+            # Fetch pubkey of the newly opened position
+            position_pubkey = ""
+            try:
+                time.sleep(2)  # allow on-chain indexing
+                positions = get_positions()
+                for p in positions:
+                    if p.asset.upper() == market and p.side.lower() == direction:
+                        position_pubkey = p.pubkey
+                        break
+            except Exception as e:
+                log.warning(f"could not fetch position pubkey after open: {e}")
             return PerpResult(
                 success=True,
                 reason="opened",
@@ -162,6 +175,7 @@ def open_perp_position(
                 leverage=result.leverage,
                 tx_signature=result.tx_signature,
                 entry_price=result.entry_price,
+                position_pubkey=position_pubkey,
             )
         return PerpResult(success=False, reason=f"open_failed: {result.error}")
     except Exception as e:

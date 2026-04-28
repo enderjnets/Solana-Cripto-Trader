@@ -330,9 +330,9 @@ SCALP_TP = 0.015      # 1.5% TP (R:R 1:1.5)
 SCALP_MAX_HOLD = 1800  # 30 min max hold
 SCALP_MAX_SIMULTANEOUS = 1
 
-# ─── Drift Protocol Simulation ───────────────────────────────────────────────
-TAKER_FEE           = 0.001    # 0.1% taker fee (Drift Protocol)
-MAKER_FEE           = 0.001    # 0.1% maker fee (Drift Protocol)
+# ─── Perpetuals Simulation (Jupiter Perps) ───────────────────────────────────
+TAKER_FEE           = 0.001    # 0.1% taker fee (Jupiter Perps)
+MAKER_FEE           = 0.001    # 0.1% maker fee (Jupiter Perps)
 DEFAULT_LEVERAGE    = 5        # 5x leverage por defecto (subido de 3x — orden Ender 2026-03-31)
 MAX_LEVERAGE        = 10       # Máximo 10x
 MAINTENANCE_MARGIN  = 0.05     # 5% margen de mantenimiento
@@ -586,7 +586,7 @@ def get_fear_greed_index() -> int:
 
 def paper_open_position(signal: dict, portfolio: dict, market: dict) -> Optional[dict]:
     """
-    Abre una posición en paper trading simulando Drift Protocol.
+    Abre una posición en paper trading simulando Jupiter Perps.
     - Leverage configurable (default 3x, max 10x)
     - Solo se descuenta el margen del capital
     - Calcula precio de liquidación
@@ -891,7 +891,7 @@ def paper_open_position(signal: dict, portfolio: dict, market: dict) -> Optional
 
 def apply_funding_rate(pos: dict) -> float:
     """
-    Simula el funding rate de Drift Protocol.
+    Simula el funding rate de Jupiter Perps.
     Se aplica cada hora sobre el notional value.
     Longs pagan cuando funding > 0, shorts pagan cuando funding < 0.
     Retorna el monto de funding aplicado (negativo = pagado, positivo = recibido).
@@ -938,7 +938,7 @@ def apply_funding_rate(pos: dict) -> float:
 def paper_update_positions(portfolio: dict, market: dict, history: list) -> list:
     """
     Actualiza P&L de todas las posiciones abiertas.
-    Simula Drift Protocol: leverage, liquidación, funding rate.
+    Simula Jupiter Perps: leverage, liquidación, funding rate.
     Cierra automáticamente si toca SL, TP o precio de liquidación.
     """
     closed = []
@@ -983,7 +983,7 @@ def paper_update_positions(portfolio: dict, market: dict, history: list) -> list
         pos["pnl_usd"] = round(pnl_usd, 4)
         pos["pnl_pct"] = round(pnl_pct_on_margin, 4)
 
-        # ─── Verificar LIQUIDACIÓN (Drift Protocol) ─────────────────────
+        # ─── Verificar LIQUIDACIÓN (Jupiter Perps) ──────────────────────
         liq_price = pos.get("liquidation_price", 0)
         hit_liquidation = False
 
@@ -1293,8 +1293,8 @@ def paper_update_positions(portfolio: dict, market: dict, history: list) -> list
 
 def real_open_position(signal: dict, portfolio: dict) -> Optional[dict]:
     """Legacy stub for Jupiter live trading — superseded by agents.live_executor.live_open_position
-    (Drift Protocol perps). Kept only so old imports don't break."""
-    log.warning("⚠️  real_open_position is deprecated — use --live flag with Drift integration")
+    (Jupiter Perps). Kept only so old imports don't break."""
+    log.warning("⚠️  real_open_position is deprecated — use --live flag with Jupiter Perps integration")
     return None
 
 
@@ -1332,10 +1332,10 @@ def run(safe: bool = True, debug: bool = False) -> dict:
     # Actualizar precios y cerrar posiciones que tocaron SL/TP
     open_before = len([p for p in portfolio["positions"] if p.get("status") == "open"])
     closed_this_cycle = paper_update_positions(portfolio, market, history)
-    # In live mode, ALSO process live positions via Drift (they sit alongside paper
-    # positions in the same portfolio.json). Paper update_positions skips them implicitly
-    # because it reads price from the `market` dict, not from Drift — but liquidation
-    # / SL / TP for live must come from Drift's oracle.
+    # In live mode, ALSO process live positions via Jupiter Perps (they sit alongside
+    # paper positions in the same portfolio.json). Paper update_positions skips them
+    # implicitly because it reads price from the `market` dict — but liquidation / SL /
+    # TP for live uses the same market price source.
     if not safe:
         from agents.live_executor import live_update_positions
         closed_this_cycle.extend(live_update_positions(portfolio, market, history))
