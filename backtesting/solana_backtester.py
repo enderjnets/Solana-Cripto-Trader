@@ -57,9 +57,7 @@ class JupiterFees:
     def calculate_total_fee(
         self,
         input_amount_lamports: int,
-        swap_direction: str = "SOL_TO_USDC",
-        priority_fee_lamports: Optional[int] = None,
-        jito_tip_lamports: Optional[int] = None,
+        swap_direction: str = "SOL_TO_USDC"
     ) -> Tuple[int, float]:
         """
         Calculate total fee in lamports and USD
@@ -74,10 +72,10 @@ class JupiterFees:
         network_fee = self.base_fee_lamports + self.compute_unit_fee_lamports
         
         # Priority fee
-        priority_fee = self.priority_fee_lamports if priority_fee_lamports is None else int(priority_fee_lamports)
+        priority_fee = self.priority_fee_lamports
         
         # Jito tip
-        jito_fee = self.jito_tip_lamports if jito_tip_lamports is None else int(jito_tip_lamports)
+        jito_fee = self.jito_tip_lamports
         
         # Total
         total_fee = route_fee + network_fee + priority_fee + jito_fee

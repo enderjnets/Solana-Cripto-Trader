@@ -28,11 +28,6 @@ try:
     _PAPERCLIP = True
 except ImportError:
     _PAPERCLIP = False
-try:
-    import agents.openclaw_webhook as _ocwh
-    _OPENCLAW_WH = True
-except ImportError:
-    _OPENCLAW_WH = False
 from typing import Optional
 
 try:
@@ -268,53 +263,31 @@ SHORT_REBOUND_FILTER_DRY_RUN = os.environ.get("SHORT_REBOUND_FILTER_DRY_RUN", "f
 
 # ─── Risk Management (ajustado 31-Mar-2026 — orden de Ender) ─────────────────
 MIN_CONFIDENCE      = 0.55     # E1: Lowered from 0.70 for more trades     # Bajado de 0.85 para aprovechar más señales en extremos (2026-03-31)
-BLOCK_LONGS_FG      = 10       # E1: Lowered from 20 — allow longs during F&G recovery bounces
+BLOCK_LONGS_FG      = 20       # E1: Lowered from 35 - only block in extreme fear       # Bloquear LONGs si Fear & Greed < 35 (mercado bajista)
 MAX_TRADES_PER_DAY  = 0        # 0 = sin límite
 
-# ─── Regla de Ender (SOL-8): Dual sizing — Wild vs Pure Mode ────────────────
-# Wild Mode: small initial sizes so martingale has room (1.5%/10x at conf=0.85)
-# Pure Mode: moderate swing sizes, lower leverage, no martingale (2%/5x)
-MAX_RISK_PCT        = 0.020   # 2.0% base (reduced from 2.5%)
-PORTFOLIO_RISK_PCT  = 0.10    # 10% of capital total risk (unchanged)
-MIN_PROFIT_PCT      = 0.002   # 0.2% of capital min profit per pos (unchanged)
+# ─── Regla de Ender (31-Mar-2026): $4 min profit, $2 max risk ────────────
+# Capital-proportional risk (works with $100-$10,000)
+MAX_RISK_PCT        = 0.025   # 2.5% of capital per trade (was fixed $5)
+PORTFOLIO_RISK_PCT  = 0.10    # 10% of capital total risk (was fixed $20)
+MIN_PROFIT_PCT      = 0.002   # 0.2% of capital min profit per pos (was fixed $0.50)
 
-def _is_wild_mode_active() -> bool:
-    """Lee wild_mode_state.json para detectar si Wild Mode está ON."""
-    try:
-        state = safe_read_json(DATA_DIR / "wild_mode_state.json", default={})
-        return bool(state.get("active", False))
-    except Exception:
-        return False
-
-# Wild Mode: smaller positions → martingale 2 chains × $37.50 × 2.3x = $172 (34% cap) ✅
-_WILD_TIERS = [
-    (0.85, 0.015, 10),   # conf ≥ 0.85: 1.5% capital, 10x lev → ~$37.50 margin at $500
-    (0.75, 0.012,  7),   # conf ≥ 0.75: 1.2% capital, 7x lev
-    (0.65, 0.010,  5),   # conf ≥ 0.65: 1.0% capital, 5x lev
-    (0.00, 0.008,  3),   # else:         0.8% capital, 3x lev
-]
-# Pure Mode: swing sizes, no martingale → 2 positions × $100 = $200 (40% cap) ✅
-_PURE_TIERS = [
-    (0.85, 0.020,  5),   # conf ≥ 0.85: 2.0% capital, 5x lev → ~$100 margin at $500
-    (0.75, 0.015,  4),   # conf ≥ 0.75: 1.5% capital, 4x lev
-    (0.65, 0.010,  3),   # conf ≥ 0.65: 1.0% capital, 3x lev
-    (0.00, 0.008,  2),   # else:         0.8% capital, 2x lev
-]
-
-def _get_risk_for_capital(capital: float, confidence: float = 0.7,
-                          wild_mode: "Optional[bool]" = None) -> tuple:
-    """Returns (max_risk_usd, leverage) based on capital, confidence and mode.
-    Wild Mode: smaller initial sizes to leave room for martingale.
-    Pure Mode: moderate swing sizes, lower leverage.
-    """
-    if wild_mode is None:
-        wild_mode = _is_wild_mode_active()
-    tiers = _WILD_TIERS if wild_mode else _PURE_TIERS
-    for min_conf, risk_pct, lev in tiers:
-        if confidence >= min_conf:
-            risk = max(0.50, round(capital * risk_pct, 2))
-            return risk, lev
-    return max(0.50, round(capital * 0.008, 2)), 2
+def _get_risk_for_capital(capital: float, confidence: float = 0.7) -> tuple:
+    """Returns (max_risk_usd, leverage) based on capital and confidence."""
+    base_risk = capital * MAX_RISK_PCT
+    # Confidence-based scaling
+    if confidence >= 0.85:
+        risk = base_risk * 1.4   # 3.5% of capital
+        lev = min(7, 7)
+    elif confidence >= 0.70:
+        risk = base_risk          # 2.5% of capital
+        lev = min(5, 5)
+    else:
+        risk = base_risk * 0.6   # 1.5% of capital
+        lev = min(3, 3)
+    # Floor: minimum $0.50 risk to avoid dust trades
+    risk = max(0.50, risk)
+    return round(risk, 2), lev
 
 # Legacy compatibility
 MAX_RISK_USD        = 5.00     # Overridden by _get_risk_for_capital() at runtime     # Máximo $3 de riesgo por POSICIÓN individual (ajustado 2026-03-31 para mercado lento)
@@ -404,26 +377,20 @@ def load_portfolio() -> dict:
 
 def save_portfolio(portfolio: dict):
     portfolio["last_updated"] = datetime.now(timezone.utc).isoformat()
-    atomic_write_json(PORTFOLIO_FILE, portfolio)
+    with open(PORTFOLIO_FILE, "w") as f:
+        json.dump(portfolio, f, indent=2)
 
 
 def load_history() -> list:
-    """Carga trade_history.json — maneja formato lista O dict {"trades": [...]}."""
     if HISTORY_FILE.exists():
-        try:
-            with open(HISTORY_FILE) as f:
-                data = json.load(f)
-            if isinstance(data, list):
-                return data
-            if isinstance(data, dict):           # formato del orchestrator
-                return data.get("trades", [])
-        except Exception:
-            pass
+        with open(HISTORY_FILE) as f:
+            return json.load(f)
     return []
 
 
 def save_history(history: list):
-    atomic_write_json(HISTORY_FILE, history)
+    with open(HISTORY_FILE, "w") as f:
+        json.dump(history, f, indent=2)
 
 
 def load_signals() -> dict:
@@ -457,9 +424,6 @@ def load_signals() -> dict:
                         valid_llm_signals = [
                             s for s in llm_signals
                             if s.get("direction", "none") not in ("none", "")
-                            and "|" not in s.get("direction", "")  # reject template placeholder
-                            and s.get("symbol", "") not in ("", "TOKEN")  # reject template placeholder
-                            and s.get("confidence", 0) >= 0.55  # reject low-confidence/template signals
                         ]
                         if valid_llm_signals:
                             # FIX 1.6b: Filtrar tokens_to_avoid TAMBIEN en senales LLM
@@ -533,11 +497,10 @@ def load_risk_report() -> dict:
     return {}
 
 
-def close_positions_emergency(portfolio: dict, symbols: list, market: dict, history: list, reason: str = "EMERGENCY_CLOSE", ai_reasoning: str = "") -> list:
+def close_positions_emergency(portfolio: dict, symbols: list, market: dict, history: list, reason: str = "EMERGENCY_CLOSE") -> list:
     """
     Cierra posiciones por emergencia (sin importar SL/TP).
     Usado cuando Risk Manager detecta condiciones extremas, Portfolio TP, Smart Rotation, etc.
-    ai_reasoning: texto opcional del LLM explicando por qué se cerró.
     """
     closed = []
     now = datetime.now(timezone.utc).isoformat()
@@ -582,7 +545,7 @@ def close_positions_emergency(portfolio: dict, symbols: list, market: dict, hist
             portfolio["capital_usd"] += returned
 
             # Agregar al historial
-            record = {
+            history.append({
                 "id": pos["id"],
                 "symbol": pos["symbol"],
                 "direction": pos["direction"],
@@ -595,10 +558,7 @@ def close_positions_emergency(portfolio: dict, symbols: list, market: dict, hist
                 "close_time": pos["close_time"],
                 "close_reason": reason,  # Usar la razón correcta, no hardcodear
                 "strategy": pos.get("strategy", "unknown"),
-            }
-            if ai_reasoning:
-                record["ai_reasoning"] = ai_reasoning
-            history.append(record)
+            })
 
             closed.append(pos)
             log.error(f"🚨 EMERGENCY CLOSE: {pos['symbol']} | P&L: ${pnl_usd:+.2f} ({pnl_pct:+.2f}%)")
@@ -699,15 +659,10 @@ def paper_open_position(signal: dict, portfolio: dict, market: dict) -> Optional
     _capital = portfolio.get("capital_usd", 500) + sum(
         p.get("margin_usd", 0) for p in portfolio.get("positions", []) if p.get("status") == "open"
     )
-    _wm = _is_wild_mode_active()
-    _dyn_risk, leverage = _get_risk_for_capital(_capital, confidence, wild_mode=_wm)
+    _dyn_risk, leverage = _get_risk_for_capital(_capital, confidence)
     signal["_coordinated_risk"] = _dyn_risk
     log.info(f"   \U0001f4b0 Sizing: capital=${_capital:.0f} conf={confidence:.2f} -> risk=${_dyn_risk:.2f} lev={leverage}x")
     leverage = max(1, min(leverage, MAX_LEVERAGE))
-    # WILD MODE: signal may force leverage (inherited from chain base position)
-    if signal.get("_force_leverage"):
-        leverage = max(1, min(int(signal["_force_leverage"]), MAX_LEVERAGE))
-        log.info(f"   \U0001f525 Wild mode: leverage forced to {leverage}x")
 
     # ─── Position Sizing basado en Regla de Ender ─────────────────────────
     # Regla: ganar mín $4 neto después de comisiones, arriesgar máx $2
@@ -825,12 +780,6 @@ def paper_open_position(signal: dict, portfolio: dict, market: dict) -> Optional
     notional_value = max_notional_by_risk  # Usar max permitido por riesgo
     margin_usd = notional_value / leverage
 
-    # WILD MODE: signal may force exact margin (bypass risk-based sizing)
-    if signal.get("_force_margin"):
-        margin_usd = float(signal["_force_margin"])
-        notional_value = margin_usd * leverage
-        log.info(f"   \U0001f525 Wild mode: margin forced to ${margin_usd:.2f} (notional ${notional_value:.2f})")
-
     # Hard cap: max 25% of equity per position (safety for small accounts)
     _eq = portfolio.get("capital_usd", 100) + sum(
         p.get("margin_usd", 0) for p in portfolio.get("positions", []) if p.get("status") == "open"
@@ -923,11 +872,7 @@ def paper_open_position(signal: dict, portfolio: dict, market: dict) -> Optional
     }
 
     # Descontar solo el MARGEN del capital (no el notional completo)
-    _new_cap = round(portfolio["capital_usd"] - margin_usd, 2)
-    if _new_cap < 0:
-        log.error(f"\U0001f6d1 NEGATIVE CAPITAL prevented: ${portfolio['capital_usd']:.2f} - ${margin_usd:.2f} = ${_new_cap:.2f} - REJECTING TRADE")
-        return None
-    portfolio["capital_usd"] = _new_cap
+    portfolio["capital_usd"] = round(portfolio["capital_usd"] - margin_usd, 2)
     # Paperclip: track trade open
     if _PAPERCLIP:
         try:
@@ -936,9 +881,6 @@ def paper_open_position(signal: dict, portfolio: dict, market: dict) -> Optional
                 position['paperclip_issue_id'] = _pc_id
         except Exception:
             pass
-    if _OPENCLAW_WH:
-        try: _ocwh.on_trade_opened(position)
-        except Exception: pass
 
     portfolio["positions"].append(position)
 
@@ -1321,22 +1263,6 @@ def paper_update_positions(portfolio: dict, market: dict, history: list) -> list
                      f"P&L: ${net_pnl:+.2f} ({pnl_pct_on_margin:+.1f}% on margin) | "
                      f"Funding: ${funding_total:+.4f}")
 
-            # Attach last known LLM reasoning for this symbol (from position_decisions.json)
-            try:
-                _pd_path = DATA_DIR / "position_decisions.json"
-                if _pd_path.exists():
-                    import json as _j2
-                    _pd = _j2.loads(_pd_path.read_text())
-                    _decisions = _pd.get("decisions", []) if isinstance(_pd, dict) else []
-                    _sym_dec = next((x for x in _decisions if x.get("symbol") == symbol), None)
-                    if _sym_dec and _sym_dec.get("llm_reasoning"):
-                        _r = _sym_dec["llm_reasoning"].strip()
-                        # Only store if it looks like real reasoning (>20 chars, not a header block)
-                        if len(_r) > 20 and "workdir:" not in _r:
-                            pos["ai_reasoning"] = _r
-            except Exception:
-                pass
-
             history.append({**pos})
             closed.append(pos)
 
@@ -1346,9 +1272,6 @@ def paper_update_positions(portfolio: dict, market: dict, history: list) -> list
                     on_trade_closed(pos)
                 except Exception:
                     pass
-            if _OPENCLAW_WH:
-                try: _ocwh.on_trade_closed(pos)
-                except Exception: pass
 
             # 📈 Compound Engine: actualizar capital base tras cada cierre
             if _COMPOUND_ENABLED:
@@ -1459,7 +1382,6 @@ def run(safe: bool = True, debug: bool = False) -> dict:
     STOP_FILE = DATA_DIR / "STOP_TRADING"
     if STOP_FILE.exists():
         log.warning("🛑 KILL SWITCH ACTIVE — STOP_TRADING file detected. No new positions.")
-        save_history(history)  # BUG FIX: persist any trades closed this cycle before early return
         save_portfolio(portfolio)
         return {
             "status": "kill_switch_active",
@@ -1530,7 +1452,6 @@ def run(safe: bool = True, debug: bool = False) -> dict:
                     TARGET_HIT_FILE.unlink()
                 else:
                     log.warning(f"   🛡️ DAILY_TARGET_HIT activo — FG={fear_greed}, RSI={rsi:.1f}, manteniendo lock")
-                    save_history(history)  # BUG FIX: persist any trades closed this cycle before early return
                     save_portfolio(portfolio)
                     return {
                         "status": "daily_target_hit",
@@ -1542,7 +1463,6 @@ def run(safe: bool = True, debug: bool = False) -> dict:
                     }
             except Exception as e:
                 log.warning(f"   🛡️ DAILY_TARGET_HIT — error en re-eval: {e}, manteniendo lock")
-                save_history(history)  # BUG FIX: persist any trades closed this cycle before early return
                 save_portfolio(portfolio)
                 return {
                     "status": "daily_target_hit",
@@ -1570,7 +1490,6 @@ def run(safe: bool = True, debug: bool = False) -> dict:
 
     if today_pnl < -MAX_DAILY_LOSS:
         log.warning(f"🛑 MAX DAILY LOSS hit: ${today_pnl:.2f} < -${MAX_DAILY_LOSS}. Stopping new trades.")
-        save_history(history)  # BUG FIX: persist any trades closed this cycle before early return
         save_portfolio(portfolio)
         return {
             "status": "max_daily_loss",
@@ -1622,25 +1541,11 @@ def run(safe: bool = True, debug: bool = False) -> dict:
     if slots_available <= 0:
         log.info(f"📊 Máximo de posiciones alcanzado ({MAX_POSITIONS})")
     else:
-        # Paso 1: Filtrar señales válidas (no duplicadas, con confidence, whitelist)
+        # Paso 1: Filtrar señales válidas (no duplicadas, con confidence)
         valid_signals = []
         open_symbols = {p["symbol"] for p in portfolio["positions"] if p.get("status") == "open"}
-        # v2.9.0-live: pre-carga modulo safety para whitelist (fail-safe)
-        try:
-            import safety as _safety_mod
-        except Exception:
-            _safety_mod = None
         for signal in signals:
             sym = signal["symbol"]
-            # v2.9.0-live Sprint 1: TRADE_WHITELIST filter (empty whitelist = allow all)
-            if _safety_mod is not None:
-                try:
-                    if not _safety_mod.is_whitelisted(sym):
-                        if debug:
-                            log.info(f"  ⏭️  {sym}: fuera de TRADE_WHITELIST, skip")
-                        continue
-                except Exception:
-                    pass
             if sym in open_symbols:
                 if debug:
                     log.info(f"  ⏭️  {sym}: posición ya abierta, skip")

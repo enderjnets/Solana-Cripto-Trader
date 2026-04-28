@@ -15,73 +15,12 @@ except ImportError:
     _PAPERCLIP = False
 from datetime import datetime, timezone
 from pathlib import Path
-try:
-    import performance_tracker as pt
-    _PERF_TRACKER = True
-except ImportError:
-    _PERF_TRACKER = False
-try:
-    import candle_aggregator as ca
-    _CANDLE_AGG = True
-except ImportError:
-    _CANDLE_AGG = False
 
 BASE_DIR = Path(__file__).parent
 DATA_DIR = BASE_DIR / "data"
 sys.path.insert(0, str(BASE_DIR))
 
 # ── Helpers para trade_history.json (puede ser dict o list) ──────────────────
-# ── 30m Candle Close Detection ───────────────────────────────────────────────
-_last_candle_bucket: int = -1   # floor(unix_ts / 1800)
-_last_strategy_ts: float    = 0.0   # unix ts of last AI strategy generation
-_last_strategy_fg: int      = -1    # fear_greed value at last generation
-_last_strategy_prices: dict = {}    # {symbol: price} at last generation
-_STRATEGY_CACHE_SEC: int    = int(os.environ.get('STRATEGY_CACHE_SEC', '900'))
-
-def _is_new_candle_30m() -> bool:
-    """
-    Retorna True si acaba de cerrar una vela de 30 minutos.
-    La vela cierra en :00 y :30 de cada hora (UTC).
-    Solo retorna True UNA VEZ por cierre de vela.
-    """
-    global _last_candle_bucket
-    import time as _time
-    now_ts = int(_time.time())
-    bucket = now_ts // 1800
-    if bucket != _last_candle_bucket:
-        _last_candle_bucket = bucket
-        return True
-    return False
-
-
-def _strategy_needs_refresh(current_fg: int, current_prices: dict, force: bool = False) -> bool:
-    """
-    Returns True if AI Strategy should regenerate signals.
-    Refresh if: forced (new 30m candle), cache expired (>15min),
-    F&G changed >=5 pts, or any token moved >=1% since last generation.
-    Updates module-level tracking vars when returning True.
-    """
-    global _last_strategy_ts, _last_strategy_fg, _last_strategy_prices
-    import time as _t
-    now = _t.time()
-    needs = False
-    if force or (now - _last_strategy_ts) >= _STRATEGY_CACHE_SEC:
-        needs = True
-    elif abs(current_fg - _last_strategy_fg) >= 5:
-        needs = True
-    else:
-        for sym, price in current_prices.items():
-            last_p = _last_strategy_prices.get(sym, price)
-            if last_p and price and abs((price - last_p) / last_p * 100) >= 1.0:
-                needs = True
-                break
-    if needs:
-        _last_strategy_ts = now
-        _last_strategy_fg = current_fg
-        _last_strategy_prices = dict(current_prices)
-    return needs
-
-
 def _load_trade_history() -> list:
     """Carga trade_history.json y retorna SIEMPRE una lista de trades."""
     f = DATA_DIR / "trade_history.json"
@@ -205,27 +144,6 @@ def run_cycle(safe=True, debug=False):
     cycle_start = time.time()
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     log.info(f"📁 [run_cycle] DATA_DIR={DATA_DIR} | PID={os.getpid()}")
-
-    # v2.9.0-live Sprint 1: Safety gates antes de cualquier actividad
-    try:
-        import safety as _safety
-        _ks_active, _ks_reason = _safety.is_kill_switch_active()
-        if _ks_active:
-            log.error(f"🛑 KILL SWITCH ACTIVO: {_ks_reason} — ciclo omitido")
-            return {"status": "KILL_SWITCH_ACTIVE", "reason": _ks_reason}
-        # Chequear limite diario de perdida
-        _pf_file = DATA_DIR / "portfolio.json"
-        _pf_data = None
-        if _pf_file.exists():
-            try: _pf_data = json.loads(_pf_file.read_text())
-            except Exception: _pf_data = None
-        _hit, _todays_pnl = _safety.check_daily_loss(_pf_data)
-        if _hit:
-            log.error(f"🛑 MAX_DAILY_LOSS_USD alcanzado (${_todays_pnl:.2f}) — activando kill switch")
-            _safety.activate_kill_switch(f"daily_loss_exceeded_{_todays_pnl:.2f}")
-            return {"status": "DAILY_LOSS_LIMIT_HIT", "todays_pnl": _todays_pnl}
-    except Exception as _se:
-        log.warning(f"safety check error (non-fatal, continuando): {_se}")
     
     log.info("=" * 60)
     log.info(f"🔄 CICLO INICIADO — {now}")
@@ -266,19 +184,11 @@ def run_cycle(safe=True, debug=False):
         log.warning(f"   ⚠️ Error: {e}")
         results["risk_manager"] = {"ok": False}
     
-    # Detectar modo ANTES de llamar strategy — determina qué estrategias activar
-    try:
-        import martingale_engine as _wild_me_early
-        _wild_active = _wild_me_early.is_active()
-    except Exception:
-        _wild_active = False
-    log.info(f"   🎯 Modo activo: {'COMBO + Wild Mode' if _wild_active else 'Pure Strategy'}")
-
     # Paso 3: Strategy (Technical + AI)
     log.info("━" * 40)
     log.info("🧠 [3/6] Strategy")
     try:
-        result = st.run(debug=debug, wild_mode=_wild_active)
+        result = st.run(debug=debug)
         n_signals = result.get("total_signals", 0)
         results["strategy"] = {"ok": True, "signals": n_signals}
         log.info(f"   → {n_signals} señal(es) técnicas")
@@ -295,10 +205,8 @@ def run_cycle(safe=True, debug=False):
             fg = mkt.get("fear_greed", {})
             fg_val = fg.get("value", 50) if isinstance(fg, dict) else 50
             
-            # Solo invocar AI strategy si hubo cambio relevante (F&G, precio, vela, o >15min)
-            _curr_prices_s = {s: float(v.get('price', 0)) for s, v in mkt.get('tokens', {}).items() if v.get('price')}
-            _force_s = _is_new_candle_30m()
-            if _strategy_needs_refresh(fg_val, _curr_prices_s, force=_force_s):
+            # Solo invocar AI strategy si F&G es extremo o si hay pocas señales técnicas
+            if True:  # E6: Always invoke AI Strategy
                 import ai_strategy
                 port_3b = json.loads(portfolio_file_3b.read_text()) if portfolio_file_3b.exists() else {}
                 research_file = DATA_DIR / "research_latest.json"
@@ -313,13 +221,6 @@ def run_cycle(safe=True, debug=False):
                 else:
                     ai_signals = []
                 
-                # Pre-save filter: reject template/placeholder signals
-                ai_signals = [
-                    s for s in ai_signals
-                    if s.get("confidence", 0) >= 0.55
-                    and s.get("symbol", "") not in ("", "TOKEN")
-                    and "|" not in s.get("direction", "")
-                ]
                 if ai_signals and len(ai_signals) > 0:
                     # Guardar en strategy_llm.json para que el executor las use
                     llm_out = DATA_DIR / "strategy_llm.json"
@@ -525,22 +426,7 @@ def run_cycle(safe=True, debug=False):
         if research_file.exists():
             research_data = json.loads(research_file.read_text())
 
-        # FIX 4 (audit): Staleness check — never feed stale data to LLM-based position decisions
-        _stale_dec = False
-        try:
-            if market_data_for_dec.get("_stale"):
-                _stale_dec = True
-            else:
-                _ts_dec = market_data_for_dec.get("timestamp", "")
-                if _ts_dec:
-                    _age_sec = (datetime.now(timezone.utc) - datetime.fromisoformat(str(_ts_dec).replace("Z", "+00:00"))).total_seconds()
-                    if _age_sec > 300:
-                        _stale_dec = True
-                        log.warning(f"   ⚠️ Position decisions: market data is {_age_sec:.0f}s old (>300s), skipping LLM eval")
-        except Exception as _e_st:
-            log.debug(f"staleness check error: {_e_st}")
-
-        if portfolio_data and portfolio_data.get("positions") and not _stale_dec:
+        if portfolio_data and portfolio_data.get("positions"):
             decisions = rm.evaluate_position_decision(portfolio_data, market_data_for_dec, research_data)
             # Fix 3: Excluir posiciones recién abiertas de recomendaciones de cierre
             # FIX 2026-04-05: Umbrales MUY estrictos — solo cerrar si confidence >= 0.75 AND hours >= 20min
@@ -599,6 +485,7 @@ def run_cycle(safe=True, debug=False):
                                 log.info(f"   ✂️ REDUCED {symbol} 50%: returned ${returned:.2f}, SL->breakeven")
 
                                 # Record REDUCE as trade in history (fix accounting gap)
+                                _dt = __import__('datetime').datetime
                                 history.append({
                                     "id": f"{pos.get('id','')}_reduce",
                                     "symbol": symbol,
@@ -743,41 +630,6 @@ def run_cycle(safe=True, debug=False):
             results["circuit_breaker"] = {"triggered": True, "closes": _cycle_emergency_closes}
             return results
 
-    # Paso 4.5: WILD MODE (martingale_engine) — opcional, controlado por dashboard
-    try:
-        import martingale_engine as wild_me
-        if wild_me.is_active():
-            log.info("━" * 40)
-            log.info("🔥 [4.5] Wild Mode (Martingale Engine)")
-            # Reload portfolio (may have changed during this cycle)
-            from executor import load_portfolio as _load_p, load_history as _load_h, save_portfolio as _save_p, save_history as _save_h, load_market as _load_m
-            _wild_port = _load_p()
-            _wild_market = _load_m()
-            _wild_history = _load_h()
-            try:
-                _wild_mkt = _wild_market or {}
-                _fg_raw = _wild_mkt.get("fear_greed", {})
-                _fg_val = _fg_raw.get("value", 50) if isinstance(_fg_raw, dict) else int(_fg_raw or 50)
-            except Exception:
-                _fg_val = 50
-            wild_result = wild_me.run_cycle(_wild_port, _wild_market, _wild_history, _fg_val)
-            # Persist any changes the engine made
-            if wild_result.get("opened") or wild_result.get("closed") or wild_result.get("abandoned") or wild_result.get("target_hit"):
-                _save_p(_wild_port)
-                _save_h(_wild_history)
-            if wild_result.get("abandoned"):
-                log.warning(f"   🔥 WILD MODE ABANDONED: {wild_result.get('reason')}")
-            elif wild_result.get("target_hit"):
-                log.info(f"   🎯 WILD MODE TARGET HIT: closed {wild_result.get('closed')} positions ({wild_result.get('reason')})")
-            elif wild_result.get("opened"):
-                log.info(f"   🔥 WILD MODE: opened {wild_result.get('opened')} hedge levels, closed {wild_result.get('closed')}")
-            else:
-                log.info(f"   🔥 WILD MODE: HOLD (no changes)")
-            results["wild_mode"] = wild_result
-    except Exception as e:
-        log.warning(f"   ⚠️ Wild Mode error (non-fatal): {e}")
-        results["wild_mode"] = {"ok": False, "error": str(e)}
-
     # Paso 5: Auto-Learner — analiza trades y adapta parámetros
     log.info("━" * 40)
     log.info("🧠 [5/6] Auto-Learner")
@@ -834,11 +686,7 @@ def run_cycle(safe=True, debug=False):
     # Extraer equity y posiciones del portfolio para la línea de salud
     try:
         pf = json.loads(portfolio_file.read_text()) if portfolio_file.exists() else {}
-        _cash = float(pf.get("capital_usd", 0))
-        _open_pos = [p for p in pf.get("positions", []) if p.get("status") == "open"]
-        _margins = sum(float(p.get("margin_usd", 0)) for p in _open_pos)
-        _unreal = sum(float(p.get("pnl_usd", 0)) for p in _open_pos)
-        equity = _cash + _margins + _unreal
+        equity = pf.get("capital_usd", pf.get("equity", pf.get("balance", 0.0)))
         n_positions = len([p for p in pf.get("positions", []) if p.get("status") == "open"])
     except Exception:
         equity = 0.0
@@ -883,48 +731,11 @@ def run_token_scanner():
 # Use absolute path so ALL entry points (agents/orchestrator.py, root orchestrator.py, etc.)
 # share the same lock regardless of working directory.
 import tempfile
-# Lock file override via ORCH_LOCK_FILE env var (permite correr paper + live en paralelo)
-LOCK_FILE = Path(os.environ.get("ORCH_LOCK_FILE", str(Path(tempfile.gettempdir()) / "solana_jupiter_orchestrator.lock")))
-
-# AUDIT FIX: Persistent cycle counter so scanner runs even across restarts
-CYCLE_COUNT_FILE = DATA_DIR / "cycle_counter.txt"
-
-def _load_cycle_count() -> int:
-    """Load persistent cycle counter from file. Returns 0 if missing/corrupt."""
-    try:
-        if CYCLE_COUNT_FILE.exists():
-            return int(CYCLE_COUNT_FILE.read_text().strip() or "0")
-    except Exception:
-        pass
-    return 0
-
-def _save_cycle_count(n: int) -> None:
-    """Persist cycle counter to file (atomic via temp+rename)."""
-    try:
-        DATA_DIR.mkdir(parents=True, exist_ok=True)
-        _tmp = CYCLE_COUNT_FILE.with_suffix(".tmp")
-        _tmp.write_text(str(n))
-        _tmp.rename(CYCLE_COUNT_FILE)
-    except Exception as _e_save:
-        log.warning(f"cycle_count save error: {_e_save}")
-
+LOCK_FILE = Path(tempfile.gettempdir()) / "solana_jupiter_orchestrator.lock"
 
 def _acquire_lock():
     """Acquire PID lock. Exit if another instance is running."""
     log.info(f"📁 DATA_DIR={DATA_DIR} | PID={os.getpid()} | LOCK_FILE={LOCK_FILE}")
-    # v2.9.0-live: validar configuracion al arrancar
-    try:
-        import safety as _safety
-        _startup_errors = _safety.validate_startup()
-        if _startup_errors:
-            for _e in _startup_errors:
-                log.error(f"❌ STARTUP VALIDATION: {_e}")
-            log.error("❌ Abortando arranque. Corregir errores y reiniciar.")
-            sys.exit(1)
-    except SystemExit:
-        raise
-    except Exception as _ve:
-        log.warning(f"validate_startup error (non-fatal): {_ve}")
     if LOCK_FILE.exists():
         try:
             old_pid = int(LOCK_FILE.read_text().strip())
@@ -952,59 +763,21 @@ if __name__ == "__main__":
     if args.once:
         _acquire_lock()  # Prevent dual instances even in single-cycle mode
         log.info(f"📁 DATA_DIR={DATA_DIR} | PID={os.getpid()} | MODE=once")
-        # Detectar cierre de vela 30m
-        _candle_close = _is_new_candle_30m()
-        if _candle_close:
-            log.info("🕯️ [CANDLE CLOSE] Vela 30m cerrada — ejecutando ciclo en punto óptimo")
         run_cycle(debug=args.debug)
-        # Performance snapshot cada 10 ciclos
-        if _PERF_TRACKER and cycle_count % 10 == 0:
-            try:
-                pt.save_performance_snapshot()
-                if cycle_count % 50 == 0:
-                    pt.print_dashboard()
-                # Alerta Telegram si estrategia degradada (cada ~60 ciclos = 1h)
-                if cycle_count % 60 == 0:
-                    pt.check_and_alert(cooldown_hours=6.0)
-            except Exception as _pt_err:
-                log.debug(f"perf_tracker error: {_pt_err}")
     else:
         # --live or bare invocation: run continuous loop
         _acquire_lock()  # Prevent dual orchestrator instances
         interval = args.interval if args.interval else 60
         scan_interval = args.scan_interval if args.scan_interval else 10
-        cycle_count = _load_cycle_count()
-        log.info(f"🔢 Cycle counter loaded from disk: {cycle_count}")
+        cycle_count = 0
 
         log.info(f"🔄 Modo continuo — intervalo: {interval}s")
         log.info(f"🔍 Token Scanner cada {scan_interval} ciclos (~{scan_interval}min)")
         log.info(f"📁 DATA_DIR={DATA_DIR} | PID={os.getpid()}")
-
-        # Kickstart: run scanner once at startup if last scan is stale (>30 min)
-        try:
-            _scanner_report = DATA_DIR / "scanner_report.json"
-            _should_kickstart = True
-            if _scanner_report.exists():
-                import json as _json_kick
-                _sr = _json_kick.loads(_scanner_report.read_text())
-                _ts = _sr.get("timestamp", "")
-                if _ts:
-                    _age_min = (datetime.now(timezone.utc) - datetime.fromisoformat(str(_ts).replace("Z", "+00:00"))).total_seconds() / 60
-                    if _age_min < 30:
-                        _should_kickstart = False
-                        log.info(f"🔍 Scanner: last scan {_age_min:.0f}min ago, skipping kickstart")
-            if _should_kickstart:
-                log.info(f"🔍 Scanner kickstart on startup (stale or never run)")
-                run_token_scanner()
-        except Exception as _e_kick:
-            log.warning(f"scanner kickstart check error: {_e_kick}")
-
+        
         while True:
             try:
                 cycle_count += 1
-                if cycle_count > 1_000_000:
-                    cycle_count = 0
-                _save_cycle_count(cycle_count)
                 
                 # Ejecutar scanner cada N ciclos
                 if cycle_count % scan_interval == 0:

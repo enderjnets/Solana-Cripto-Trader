@@ -13,7 +13,6 @@ Actualiza automáticamente la lista de tokens a tradear.
 
 import json
 import logging
-import time
 import requests
 from pathlib import Path
 from datetime import datetime, timezone
@@ -100,40 +99,16 @@ def fetch_dexscreener_trending() -> list:
     return unique
 
 
-JUPITER_CACHE_FILE = DATA_DIR / "jupiter_tokens_cache.json"
-JUPITER_CACHE_TTL  = 3600 * 6   # 6 horas en segundos
-
-
 def fetch_jupiter_verified_tokens() -> dict:
-    """Obtiene tokens verificados de Jupiter. Usa caché local si DNS falla."""
-    # Intentar fetch fresco
+    """Obtiene lista de tokens verificados de Jupiter."""
     try:
         resp = requests.get(JUPITER_STRICT_LIST, timeout=15)
         if resp.status_code == 200:
             tokens = resp.json()
-            result = {t.get("symbol", ""): t for t in tokens if t.get("symbol")}
-            # Guardar caché en disco para uso posterior
-            try:
-                with open(JUPITER_CACHE_FILE, "w") as f:
-                    json.dump({"tokens": result, "saved_at": time.time()}, f)
-            except Exception:
-                pass
-            return result
+            # Convertir a dict por símbolo
+            return {t.get("symbol", ""): t for t in tokens if t.get("symbol")}
     except Exception as e:
         log.warning(f"Jupiter token list error: {e}")
-
-    # Fallback: caché local si tiene menos de 6h de antigüedad
-    try:
-        if JUPITER_CACHE_FILE.exists():
-            with open(JUPITER_CACHE_FILE) as f:
-                cached = json.load(f)
-            age_h = (time.time() - cached.get("saved_at", 0)) / 3600
-            if age_h < (JUPITER_CACHE_TTL / 3600):
-                log.info(f"Jupiter: usando caché ({age_h:.1f}h de antigüedad, {len(cached['tokens'])} tokens)")
-                return cached["tokens"]
-    except Exception:
-        pass
-
     return {}
 
 
@@ -366,7 +341,6 @@ def update_token_list(opportunities: list, current_tracked: dict) -> dict:
                 log.info(f"➕ Agregado {symbol} (score={opp['opportunity_score']:.2f})")
     
     # Remove expired tokens (older than 7 days)
-    # FIX: rename loop-local variable to avoid shadowing the `added` list
     now = datetime.now(timezone.utc)
     expired = []
     for sym, data in list(tokens.items()):
@@ -375,12 +349,12 @@ def update_token_list(opportunities: list, current_tracked: dict) -> dict:
         added_str = data.get("added_at", "")
         if added_str:
             try:
-                added_dt = datetime.fromisoformat(added_str)
-                if added_dt.tzinfo is None:
-                    added_dt = added_dt.replace(tzinfo=timezone.utc)
-                if (now - added_dt).days > 7:
+                added = datetime.fromisoformat(added_str)
+                if added.tzinfo is None:
+                    added = added.replace(tzinfo=timezone.utc)
+                if (now - added).days > 7:
                     expired.append(sym)
-            except Exception:
+            except:
                 pass
     for sym in expired:
         del tokens[sym]

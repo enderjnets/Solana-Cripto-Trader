@@ -67,7 +67,7 @@ log = logging.getLogger("risk_manager")
 RISK_PER_TRADE_PCT    = 0.025  # E2: Raised from 1% to 2.5%  # 1.0% del capital por trade
 SL_PCT                = 0.025  # Stop loss: 2.5% — crypto necesita espacio (1.5% causó 70% SL hits)
 TP_MULTIPLIER         = 2.0    # TP = 2x SL → 5.0% (R:R 1:2)
-MAX_OPEN_POSITIONS    = 4      # AUDIT FIX: Aligned with auto_learner moderado profile (was 6)
+MAX_OPEN_POSITIONS    = 6      # E6: Raised from 4 for more throughput      # Subido de 2 a 4 para mayor throughput (target 5% daily)
 MAX_DRAWDOWN_PCT      = 0.15   # FIX 2.5: 15% drawdown (ampliado de 10% para 5x leverage)
 PAUSE_DRAWDOWN_PCT    = 0.10   # FIX 2.5: 10% pause (ampliado de 6% para 5x leverage)
 MIN_POSITION_USD      = 2.0    # Lowered from $5 for small capital ($100+)    # Mínimo $5 margen (era $8 — ajustado a capital bajo)
@@ -98,19 +98,13 @@ def _load_auto_learner_params():
 
 # Apply auto_learner overrides (can be called dynamically after learner runs)
 def reload_auto_learner_params():
-    """Fuerza relectura de auto_learner (llamar después de que learner genera nuevos params).
-       AUDIT FIX: actually updates MAX_OPEN_POSITIONS global from learner state."""
+    """Fuerza relectura de auto_learner (llamar después de que learner genera nuevos params)."""
     global _AUTO_LEARNER_CACHE, SL_PCT, TP_MULTIPLIER, RISK_PER_TRADE_PCT, MAX_OPEN_POSITIONS
     _AUTO_LEARNER_CACHE = None
     params = _load_auto_learner_params()
-    if params and 'max_positions' in params:
-        try:
-            _new_max = int(params.get('max_positions', MAX_OPEN_POSITIONS))
-            if _new_max != MAX_OPEN_POSITIONS and 1 <= _new_max <= 10:
-                log.info(f"   🧠 Auto-learner override: MAX_OPEN_POSITIONS {MAX_OPEN_POSITIONS} → {_new_max}")
-                MAX_OPEN_POSITIONS = _new_max
-        except Exception as _e:
-            log.warning(f"   ⚠️ MAX_OPEN_POSITIONS override error: {_e}")
+    if params:
+        # Apply overrides — these replace the module-level constants
+        pass  # Already applied via _load call below
 
 # Load at module import time
 _learner_params = _load_auto_learner_params()
@@ -749,13 +743,6 @@ REGLAS DE DECISIÓN:
 Responde SOLO en JSON válido:
 {{"action": "CLOSE|HOLD|REDUCE|TIGHTEN", "confidence": 0.0-1.0, "reasoning": "máx 2 oraciones", "trailing_pct": 0.005}}"""
 
-    try:
-        from lang_utils import lang_directive, get_user_language
-        _user_lang = get_user_language()
-        prompt += lang_directive(_user_lang)
-    except Exception:
-        _user_lang = 'es'  # Fail-safe
-
     system = "Eres un risk manager de crypto. Responde siempre con JSON válido únicamente, sin markdown."
 
     response = call_llm(prompt, system=system, max_tokens=4000)
@@ -772,7 +759,6 @@ Responde SOLO en JSON válido:
             "action": action,
             "confidence": 0.5,
             "reasoning": f"Decisión cuantitativa (LLM no disponible). Score: {quant['score']}",
-            "lang": "es",
             "source": "quantitative_fallback"
         }
 
@@ -787,7 +773,6 @@ Responde SOLO en JSON válido:
         text = text.strip()
         result = json.loads(text)
         result["source"] = "llm_claude_sonnet"
-        result["lang"] = _user_lang
         return result
     except Exception:
         # Try extracting action from text
@@ -802,7 +787,6 @@ Responde SOLO en JSON válido:
             "action": action,
             "confidence": 0.5,
             "reasoning": response[:200],
-            "lang": _user_lang,
             "source": "llm_text_fallback"
         }
 
@@ -882,7 +866,6 @@ def evaluate_position_decision(portfolio: dict, market: dict, research: dict) ->
             "llm_action":       llm_action,
             "llm_confidence":   llm_rec.get("confidence", 0),
             "llm_reasoning":    llm_rec.get("reasoning", ""),
-            "llm_reasoning_lang": llm_rec.get("lang", "es"),
             "llm_source":       llm_rec.get("source", "unknown"),
             "pnl_usd":          pos.get("pnl_usd", 0),
             "pnl_pct":          pos.get("pnl_pct", 0),

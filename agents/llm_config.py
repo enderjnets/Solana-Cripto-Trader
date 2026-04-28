@@ -11,8 +11,7 @@ import requests
 from pathlib import Path
 
 # ── Paths ──────────────────────────────────────────────────────────────────
-import os as _os_llm
-WORKSPACE = Path(_os_llm.environ.get("SOLANA_WORKSPACE", "/home/enderj/.openclaw/workspace"))
+WORKSPACE = Path("/home/enderj/.openclaw/workspace")
 BITTRADER = WORKSPACE / "bittrader"
 KEYS_DIR  = BITTRADER / "keys"
 
@@ -126,51 +125,9 @@ def call_claude_sonnet(prompt: str, system: str = "", max_tokens: int = 2000) ->
 # FALLBACK: MiniMax M2.5
 # ══════════════════════════════════════════════════════════════════════
 
-def _get_minimax_key() -> str:
-    # 1. Env var — portable (cualquier instancia nueva)
-    if _os_llm.environ.get("MINIMAX_API_KEY"):
-        return _os_llm.environ["MINIMAX_API_KEY"]
-    # 2. Archivo legacy — backward compat para ROG
-    try:
-        return json.loads((KEYS_DIR / "minimax.json").read_text())["minimax_api_key"]
-    except Exception:
-        return ""
-
-MINIMAX_KEY   = _get_minimax_key()
+MINIMAX_KEY   = json.loads((KEYS_DIR / "minimax.json").read_text())["minimax_api_key"]
 MINIMAX_URL   = "https://api.minimax.io/v1/text/chatcompletion_v2"
 MINIMAX_MODEL = "MiniMax-M2.7"  # Upgraded from M2.5 - better reasoning for trading decisions
-
-
-# ══════════════════════════════════════════════════════════════════════
-# 4to FALLBACK: Qwen 2.5 14B local via Ollama
-# Sin internet, sin API key, sin coste -- siempre disponible en ROG
-# ══════════════════════════════════════════════════════════════════════
-QWEN_URL   = _os_llm.environ.get("QWEN_URL",   "http://localhost:11434/api/chat")
-QWEN_MODEL = _os_llm.environ.get("QWEN_MODEL", "qwen2.5:14b")
-
-
-def call_qwen_local(prompt: str, system: str = "", max_tokens: int = 2000) -> str:
-    """Qwen 2.5 14B via Ollama -- 4to fallback local. Sin internet, sin coste."""
-    messages = []
-    if system:
-        messages.append({"role": "system", "content": system})
-    messages.append({"role": "user", "content": prompt})
-    try:
-        r = requests.post(QWEN_URL, json={
-            "model": QWEN_MODEL,
-            "messages": messages,
-            "stream": False,
-            "options": {"num_predict": max_tokens, "temperature": 0.2}
-        }, timeout=90)
-        r.raise_for_status()
-        text = r.json().get("message", {}).get("content", "").strip()
-        if "<think>" in text and "</think>" in text:
-            text = text.split("</think>", 1)[-1].strip()
-        return text if text else None
-    except Exception as e:
-        print(f"    \u26a0\ufe0f Qwen local error: {e}")
-        return None
-
 
 # ── OpenRouter config ──────────────────────────────────────────────────────
 OPENROUTER_URL   = "https://openrouter.ai/api/v1/chat/completions"
@@ -276,13 +233,9 @@ def call_minimax(prompt: str, system: str = "", max_tokens: int = 2000) -> str:
 # ══════════════════════════════════════════════════════════════════════
 
 # ── GPT-5.4 via OpenClaw Proxy (PRIMARY for deep reasoning) ──────────────
-# AUDIT FIX: env-overridable so the proxy can be moved without code edits
-import os as _os_gpt5
-_DEFAULT_GPT5_TOKEN = "eyJhbGciOiJSUzI1NiIsImtpZCI6IjE5MzQ0ZTY1LWJiYzktNDRkMS1hOWQwLWY5NTdiMDc5YmQwZSIsInR5cCI6IkpXVCJ9.eyJhdWQiOlsiaHR0cHM6Ly9hcGkub3BlbmFpLmNvbS92MSJdLCJjbGllbnRfaWQiOiJhcHBfRU1vYW1FRVo3M2YwQ2tYYVhwN2hyYW5uIiwiZXhwIjoxNzc2NDc0MzE2LCJodHRwczovL2FwaS5vcGVuYWkuY29tL2F1dGgiOnsiY2hhdGdwdF9hY2NvdW50X2lkIjoiMDIxZDhmMTMtMjM1Yy00ZDY4LWJkN2MtODhlNmY4MmVlZmNmIiwiY2hhdGdwdF9hY2NvdW50X3VzZXJfaWQiOiJ1c2VyLW11U2F5ZWhqeG1zTzZNR1lRZDhld2dLaF9fMDIxZDhmMTMtMjM1Yy00ZDY4LWJkN2MtODhlNmY4MmVlZmNmIiwiY2hhdGdwdF9jb21wdXRlX3Jlc2lkZW5jeSI6Im5vX2NvbnN0cmFpbnQiLCJjaGF0Z3B0X3BsYW5fdHlwZSI6InBsdXMiLCJjaGF0Z3B0X3VzZXJfaWQiOiJ1c2VyLW11U2F5ZWhqeG1zTzZNR1lRZDhld2dLaCIsImxvY2FsaG9zdCI6dHJ1ZSwidXNlcl9pZCI6InVzZXItbXVTYXllaGp4bXNPNk1HWVFkOGV3Z0toIn0sImh0dHBzOi8vYXBpLm9wZW5haS5jb20vcHJvZmlsZSI6eyJlbWFpbCI6ImVuZGVyam5ldHNAZ21haWwuY29tIiwiZW1haWxfdmVyaWZpZWQiOnRydWV9LCJpYXQiOjE3NzU2MTAzMTYsImlzcyI6Imh0dHBzOi8vYXV0aC5vcGVuYWkuY29tIiwianRpIjoiYWYyZTcyNDAtYzk4MC00NjgwLTg3OTAtOTJhYjkwMGE4YTg5IiwibmJmIjoxNzc1NjEwMzE2LCJwd2RfYXV0aF90aW1lIjoxNzc1NjEwMzE1MzI2LCJzY3AiOlsib3BlbmlkIiwicHJvZmlsZSIsImVtYWlsIiwib2ZmbGluZV9hY2Nlc3MiLCJhcGkuY29ubmVjdG9ycy5yZWFkIiwiYXBpLmNvbm5lY3RvcnMuaW52b2tlIl0sInNlc3Npb25faWQiOiJhdXRoc2Vzc19xcHJCRUZ6b1BmR3AxUUt1Y0U4cW55WXUiLCJzbCI6dHJ1ZSwic3ViIjoiZ29vZ2xlLW9hdXRoMnwxMDM5NzkwMTQ0Njk4ODM5MDczMTMifQ.GvUdegjur8dIjmsIPIPShzmSHiZgi26GjYIHXxFozQ9KVrmwfQBeBEVND0dMEhrZAHGPiihCcaqpanQoa-zoBhtWoWqSfNJgm7a6wMIyVgbQ6nchSjMOOVCds9qoAyahYBsyKjKkM2dMcCCCHGjGRSZrjuBwei22amGssdsF2Fx9hhko2txtVk3UvDboUUA42hOR5zELiWqoGCpWmAHyC08nryET0HpKIaOj2bRaVTK_-qBhmXKlEkkG90XyGHuraD49N4xpm3_7fgvbWn-fAJFgqyR_GVurl7YKK2tobUYfAg4CSlpLhuGEPdM_WEnFibrx0tJn7EbLUa1ILi8apAKLoQF7-oeXLf63logh-dFjqCwoUumaPWQc6ZoMg47gTxvhhtewOWiB6h_sJQh8GufdHylc2DYBVSeeu_YB7vAu3wp-pvl1jUosPNnMaJcYdKYIVJp75MH3TiMHL1alKjiGQwRyTCnafLRKQj__kf0rxUn06zknE-v5uomxflaRolkTzhZlVeDr9krgqBh4srsnR212S9XMzipqk-p1KUYSbjkb5sVuFJNFE42gsKP_sgKdR0d6dvlOqQzB9aXnkGXLLSkjZlHbbNid9OJDerFhi4_X9KLvd8MCg2-UzTcM_mP3qNJkYeSNbzqiw7v4sp7NzxPPMWMqMG3MaEjEEDY"
-
-GPT5_URL = _os_gpt5.environ.get("GPT5_URL", "http://127.0.0.1:18793/v1/chat/completions")
-GPT5_TOKEN = _os_gpt5.environ.get("GPT5_TOKEN", _DEFAULT_GPT5_TOKEN)
-GPT5_MODEL = _os_gpt5.environ.get("GPT5_MODEL", "gpt-5.4")
+GPT5_URL = "http://127.0.0.1:18793/v1/chat/completions"
+GPT5_TOKEN = "eyJhbGciOiJSUzI1NiIsImtpZCI6IjE5MzQ0ZTY1LWJiYzktNDRkMS1hOWQwLWY5NTdiMDc5YmQwZSIsInR5cCI6IkpXVCJ9.eyJhdWQiOlsiaHR0cHM6Ly9hcGkub3BlbmFpLmNvbS92MSJdLCJjbGllbnRfaWQiOiJhcHBfRU1vYW1FRVo3M2YwQ2tYYVhwN2hyYW5uIiwiZXhwIjoxNzc2NDc0MzE2LCJodHRwczovL2FwaS5vcGVuYWkuY29tL2F1dGgiOnsiY2hhdGdwdF9hY2NvdW50X2lkIjoiMDIxZDhmMTMtMjM1Yy00ZDY4LWJkN2MtODhlNmY4MmVlZmNmIiwiY2hhdGdwdF9hY2NvdW50X3VzZXJfaWQiOiJ1c2VyLW11U2F5ZWhqeG1zTzZNR1lRZDhld2dLaF9fMDIxZDhmMTMtMjM1Yy00ZDY4LWJkN2MtODhlNmY4MmVlZmNmIiwiY2hhdGdwdF9jb21wdXRlX3Jlc2lkZW5jeSI6Im5vX2NvbnN0cmFpbnQiLCJjaGF0Z3B0X3BsYW5fdHlwZSI6InBsdXMiLCJjaGF0Z3B0X3VzZXJfaWQiOiJ1c2VyLW11U2F5ZWhqeG1zTzZNR1lRZDhld2dLaCIsImxvY2FsaG9zdCI6dHJ1ZSwidXNlcl9pZCI6InVzZXItbXVTYXllaGp4bXNPNk1HWVFkOGV3Z0toIn0sImh0dHBzOi8vYXBpLm9wZW5haS5jb20vcHJvZmlsZSI6eyJlbWFpbCI6ImVuZGVyam5ldHNAZ21haWwuY29tIiwiZW1haWxfdmVyaWZpZWQiOnRydWV9LCJpYXQiOjE3NzU2MTAzMTYsImlzcyI6Imh0dHBzOi8vYXV0aC5vcGVuYWkuY29tIiwianRpIjoiYWYyZTcyNDAtYzk4MC00NjgwLTg3OTAtOTJhYjkwMGE4YTg5IiwibmJmIjoxNzc1NjEwMzE2LCJwd2RfYXV0aF90aW1lIjoxNzc1NjEwMzE1MzI2LCJzY3AiOlsib3BlbmlkIiwicHJvZmlsZSIsImVtYWlsIiwib2ZmbGluZV9hY2Nlc3MiLCJhcGkuY29ubmVjdG9ycy5yZWFkIiwiYXBpLmNvbm5lY3RvcnMuaW52b2tlIl0sInNlc3Npb25faWQiOiJhdXRoc2Vzc19xcHJCRUZ6b1BmR3AxUUt1Y0U4cW55WXUiLCJzbCI6dHJ1ZSwic3ViIjoiZ29vZ2xlLW9hdXRoMnwxMDM5NzkwMTQ0Njk4ODM5MDczMTMifQ.GvUdegjur8dIjmsIPIPShzmSHiZgi26GjYIHXxFozQ9KVrmwfQBeBEVND0dMEhrZAHGPiihCcaqpanQoa-zoBhtWoWqSfNJgm7a6wMIyVgbQ6nchSjMOOVCds9qoAyahYBsyKjKkM2dMcCCCHGjGRSZrjuBwei22amGssdsF2Fx9hhko2txtVk3UvDboUUA42hOR5zELiWqoGCpWmAHyC08nryET0HpKIaOj2bRaVTK_-qBhmXKlEkkG90XyGHuraD49N4xpm3_7fgvbWn-fAJFgqyR_GVurl7YKK2tobUYfAg4CSlpLhuGEPdM_WEnFibrx0tJn7EbLUa1ILi8apAKLoQF7-oeXLf63logh-dFjqCwoUumaPWQc6ZoMg47gTxvhhtewOWiB6h_sJQh8GufdHylc2DYBVSeeu_YB7vAu3wp-pvl1jUosPNnMaJcYdKYIVJp75MH3TiMHL1alKjiGQwRyTCnafLRKQj__kf0rxUn06zknE-v5uomxflaRolkTzhZlVeDr9krgqBh4srsnR212S9XMzipqk-p1KUYSbjkb5sVuFJNFE42gsKP_sgKdR0d6dvlOqQzB9aXnkGXLLSkjZlHbbNid9OJDerFhi4_X9KLvd8MCg2-UzTcM_mP3qNJkYeSNbzqiw7v4sp7NzxPPMWMqMG3MaEjEEDY"
+GPT5_MODEL = "gpt-5.4"
 
 def call_gpt5(prompt: str, system: str = "", max_tokens: int = 2000) -> str:
     """Call GPT-5.4 via OpenClaw proxy. Returns None if unavailable."""
@@ -303,18 +256,6 @@ def call_gpt5(prompt: str, system: str = "", max_tokens: int = 2000) -> str:
         if r.ok:
             text = r.json().get("choices", [{}])[0].get("message", {}).get("content", "").strip()
             if text:
-                # Codex wraps the full conversation in its response (header + user + assistant).
-                # Strip everything before the last "assistant\n" section to get only the reply.
-                if "\nassistant\n" in text:
-                    text = text.split("\nassistant\n")[-1].strip()
-                    if text:
-                        return text
-                    return None  # empty assistant section
-                # No assistant section = Codex header/error (usage limit etc)
-                errs = ("usage limit", "upgrade to pro", "hit your usage")
-                if any(kw in text.lower() for kw in errs) or text.startswith("OpenAI Codex"):
-                    print("    ⚠️ GPT-5.4: Codex limit detected -- fallback")
-                    return None
                 return text
     except Exception as e:
         print(f"GPT-5.4 error: {e}")
@@ -323,9 +264,9 @@ def call_gpt5(prompt: str, system: str = "", max_tokens: int = 2000) -> str:
 
 def call_llm(prompt: str, system: str = "", max_tokens: int = 2000) -> str:
     """
-    LLM chain: GPT-5.4 → MiniMax M2.7 → Claude Sonnet 4.6 (tertiary).
+    LLM chain: GPT-5.4 (PRIMARY - best reasoning) → MiniMax M2.7 (FALLBACK - always available).
     GPT-5.4 via OpenClaw proxy (localhost:18793).
-    MiniMax M2.7 as reliable 2nd fallback, Claude Sonnet 4.6 as last resort.
+    MiniMax M2.7 as reliable fallback when proxy is down.
     """
     if _cb_is_open():
         return None
@@ -344,22 +285,8 @@ def call_llm(prompt: str, system: str = "", max_tokens: int = 2000) -> str:
         print("    🧠 LLM: MiniMax M2.7 (fallback)")
         return result
 
-    # Last resort: Claude Sonnet 4.6 via direct Anthropic API
-    result = call_claude_sonnet(prompt, system, max_tokens)
-    if result:
-        _cb_record_success()
-        print("    🧠 LLM: Claude Sonnet 4.6 (tertiary)")
-        return result
-
-    # 4to fallback: Qwen 2.5 14B local via Ollama
-    result = call_qwen_local(prompt, system, max_tokens)
-    if result:
-        _cb_record_success()
-        print("    \U0001f9e0 LLM: Qwen 2.5 14B local (4to fallback)")
-        return result
-
     _cb_record_failure()
-    print("    \u274c GPT-5.4 + MiniMax + Claude + Qwen all failed")
+    print("    \u274c Both GPT-5.4 and MiniMax failed")
     return None
 
 

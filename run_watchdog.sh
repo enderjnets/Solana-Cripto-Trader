@@ -1,9 +1,7 @@
 #!/bin/bash
-# Env vars para correr paper + live en paralelo (WATCHDOG_PREFIX distingue instancias)
-WATCHDOG_PREFIX="${WATCHDOG_PREFIX:-solana_jupiter}"
-LOCKFILE="${WATCHDOG_LOCKFILE:-/tmp/${WATCHDOG_PREFIX}_modular_orchestrator.lock}"
-HANDOVER_FLAG="${WATCHDOG_HANDOVER:-/tmp/${WATCHDOG_PREFIX}_watchdog_handover.lock}"
-RESTART_MARKER="${WATCHDOG_RESTART_MARKER:-/tmp/${WATCHDOG_PREFIX}_watchdog_restart_marker}"
+LOCKFILE="/tmp/solana_modular_orchestrator.lock"
+HANDOVER_FLAG="/tmp/solana_watchdog_handover.lock"
+RESTART_MARKER="/tmp/solana_watchdog_restart_marker"
 IS_SYSTEMD=false
 
 # Detect if running under systemd (PPid=1 or cgroup contains system.slice)
@@ -55,8 +53,7 @@ echo $$ > "$LOCKFILE"
 rm -f "$HANDOVER_FLAG"
 trap "rm -f $LOCKFILE $RESTART_MARKER" EXIT
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "$SCRIPT_DIR"
+cd ~/.openclaw/workspace/Solana-Cripto-Trader
 
 # Load .env for Paperclip API key
 if [ -f ".env" ]; then
@@ -78,13 +75,13 @@ chat_agent_missing_logged=false
 if ! pgrep -f "agents/chat_agent\.py" > /dev/null 2>&1; then
     if [ ! -f "$CHAT_AGENT_PATH" ]; then
         if [ "$chat_agent_missing_logged" = false ]; then
-            echo "[WATCHDOG] chat_agent path missing ($CHAT_AGENT_PATH), not starting. Will retry after backoff." | tee -a ${HOME}/.config/solana-jupiter-bot/chat_agent.log
+            echo "[WATCHDOG] chat_agent path missing ($CHAT_AGENT_PATH), not starting. Will retry after backoff." | tee -a /home/enderj/.config/solana-jupiter-bot/chat_agent.log
             chat_agent_missing_logged=true
         fi
         chat_agent_backoff=10
     else
         echo "[WATCHDOG] Starting agents/chat_agent.py..."
-        nohup python3 -u "$CHAT_AGENT_PATH" >> ${HOME}/.config/solana-jupiter-bot/chat_agent.log 2>&1 &
+        nohup python3 -u "$CHAT_AGENT_PATH" >> /home/enderj/.config/solana-jupiter-bot/chat_agent.log 2>&1 &
         chat_agent_backoff=0
         chat_agent_missing_logged=false
     fi
@@ -95,7 +92,7 @@ while true; do
     if ! pgrep -f "agents/chat_agent\.py" > /dev/null 2>&1; then
         if [ ! -f "$CHAT_AGENT_PATH" ]; then
             if [ "$chat_agent_missing_logged" = false ]; then
-                echo "[WATCHDOG] chat_agent path missing ($CHAT_AGENT_PATH), skipping restart. Backoff ${chat_agent_backoff}s." | tee -a ${HOME}/.config/solana-jupiter-bot/chat_agent.log
+                echo "[WATCHDOG] chat_agent path missing ($CHAT_AGENT_PATH), skipping restart. Backoff ${chat_agent_backoff}s." | tee -a /home/enderj/.config/solana-jupiter-bot/chat_agent.log
                 chat_agent_missing_logged=true
             fi
             # Don't tight-loop: exponential backoff capped at 5 minutes
@@ -109,22 +106,20 @@ while true; do
             continue
         else
             if [ "$chat_agent_missing_logged" = true ]; then
-                echo "[WATCHDOG] chat_agent path restored ($CHAT_AGENT_PATH), resuming normal restart." | tee -a ${HOME}/.config/solana-jupiter-bot/chat_agent.log
+                echo "[WATCHDOG] chat_agent path restored ($CHAT_AGENT_PATH), resuming normal restart." | tee -a /home/enderj/.config/solana-jupiter-bot/chat_agent.log
                 chat_agent_missing_logged=false
                 chat_agent_backoff=0
             fi
             echo "[WATCHDOG] chat_agent died, restarting..."
-            nohup python3 -u "$CHAT_AGENT_PATH" >> ${HOME}/.config/solana-jupiter-bot/chat_agent.log 2>&1 &
+            nohup python3 -u "$CHAT_AGENT_PATH" >> /home/enderj/.config/solana-jupiter-bot/chat_agent.log 2>&1 &
         fi
     fi
 
     # Check for existing orchestrator before launching (fast-fail)
     # Pattern matches BOTH agents/orchestrator.py AND root-level orchestrator.py
     # Uses both pgrep (process check) and the absolute lock file for double protection
-    ORCH_PID_LOCK="${ORCH_LOCK_FILE:-/tmp/solana_jupiter_orchestrator.lock}"
-    # Pattern: distingue instancia por directorio de trabajo (paper vs live)
-    ORCH_PATTERN="${ORCH_PGREP_PATTERN:-Solana-Cripto-Trader/agents/orchestrator}"
-    if pgrep -f "$ORCH_PATTERN" > /dev/null 2>&1; then
+    ORCH_PID_LOCK="/tmp/solana_jupiter_orchestrator.lock"
+    if pgrep -f "Solana-Cripto-Trader/agents/orchestrator" > /dev/null 2>&1; then
         echo "[WATCHDOG] orchestrator already running (detected by pgrep), skipping launch"
     elif [ -f "$ORCH_PID_LOCK" ] && kill -0 "$(cat $ORCH_PID_LOCK)" 2>/dev/null; then
         echo "[WATCHDOG] orchestrator already running (lock file PID $(cat $ORCH_PID_LOCK)), skipping launch"

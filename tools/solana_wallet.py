@@ -15,10 +15,7 @@ Usage:
 import os
 import sys
 import json
-try:
-    import base58  # type: ignore
-except ImportError:
-    base58 = None
+import base58
 from pathlib import Path
 from typing import Optional
 from dataclasses import dataclass
@@ -31,36 +28,17 @@ from solana.rpc.api import Client
 # Config
 WALLET_DIR = Path.home() / ".config" / "solana-jupiter-bot"
 WALLET_FILE = WALLET_DIR / "wallet.json"
-ENCRYPTED_KEY_FILE = WALLET_DIR / "wallet.enc"
 # Use the .env in the project root (2 levels up from tools/)
 ENV_FILE = Path(__file__).parent.parent / ".env"
 
 
 @dataclass
 class WalletInfo:
-    """Wallet information (supports both legacy and current fields)."""
-    public_key: str = ""
-    key_type: str = "json"
-    created_at: str = ""
-    last_used: str = ""
-    network: str = "devnet"
-    address: str = ""
-    private_key: str = ""  # JSON format
-    balance_sol: float = 0.0
-    balance_lamports: int = 0
-
-
-@dataclass
-class WalletBalance:
-    """Legacy wallet balance object expected by test_system.py."""
-    sol_balance: float = 0.0
-    usdc_balance: float = 0.0
-    usdt_balance: float = 0.0
-    token_balances: dict | None = None
-
-    def total_usd_value(self, sol_price_usd: float) -> float:
-        extras = sum((self.token_balances or {}).values())
-        return (self.sol_balance * sol_price_usd) + self.usdc_balance + self.usdt_balance + extras
+    """Wallet information"""
+    address: str
+    private_key: str  # JSON format
+    balance_sol: float
+    balance_lamports: int
 
 
 class WalletManager:
@@ -125,8 +103,6 @@ class WalletManager:
                         return
                     else:
                         # Try base58
-                        if base58 is None:
-                            raise ImportError("base58 package not installed")
                         key_bytes = base58.b58decode(private_key)
                         if len(key_bytes) == 64:
                             self.keypair = Keypair.from_bytes(key_bytes)
@@ -181,8 +157,6 @@ class WalletManager:
                 self.keypair = Keypair.from_json(private_key)
             else:
                 # Try base58
-                if base58 is None:
-                    raise ImportError("base58 package not installed")
                 key_bytes = base58.b58decode(private_key)
                 self.keypair = Keypair.from_bytes(key_bytes)
             
@@ -215,13 +189,7 @@ class WalletManager:
             lamports = 0
             sol = 0.0
         
-        now = __import__('datetime').datetime.utcnow().isoformat()
         return WalletInfo(
-            public_key=address,
-            key_type='json',
-            created_at=now,
-            last_used=now,
-            network=self.network,
             address=address,
             private_key=self.keypair.to_json(),
             balance_sol=sol,
@@ -277,16 +245,6 @@ class WalletManager:
         
         ENV_FILE.write_text("\n".join(new_lines))
         print(f"✅ Updated {ENV_FILE}")
-
-
-class SolanaWallet(WalletManager):
-    """Backward-compatible alias for older code/tests."""
-    pass
-
-
-class HotWalletManager(WalletManager):
-    """Backward-compatible alias for older code/tests."""
-    pass
 
 
 # ==================== MAIN ====================

@@ -25,8 +25,7 @@ DATA_DIR = AGENTS_DIR / "data"
 NOTES_FILE = DATA_DIR / "agent_notes.json"
 STATE_FILE = DATA_DIR / "chat_agent_state.json"
 PROFILE_FILE = DATA_DIR / "user_profile.json"
-LOG_FILE = Path.home() / ".config" / "solana-jupiter-bot" / "chat_agent.log"
-LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
+LOG_FILE = Path("/home/enderj/.config/solana-jupiter-bot/chat_agent.log")
 
 # ── Risk Profiles ────────────────────────────────────────────────
 RISK_PROFILES = {
@@ -72,10 +71,6 @@ def save_state(state):
 def load_notes():
     try: return json.loads(NOTES_FILE.read_text())
     except: return {"messages": [], "last_updated": None}
-
-def load_archive():
-    try: return json.loads((DATA_DIR / "agent_notes_archive.json").read_text())
-    except: return []
 
 def save_notes(notes):
     notes["last_updated"] = datetime.now(timezone.utc).isoformat()
@@ -156,24 +151,6 @@ def get_full_context():
 
         # User Profile
         ctx["profile"] = load_profile()
-
-        # Wild Mode State
-        try:
-            wm = json.loads((DATA_DIR / "wild_mode_state.json").read_text())
-            ctx["wild_active"] = wm.get("active", False)
-            ctx["wild_session_id"] = wm.get("session_id", "")
-            ctx["wild_started_at"] = (wm.get("started_at", "") or "")[:16]
-            ctx["wild_starting_equity"] = wm.get("starting_equity", 0)
-            ctx["wild_chains"] = wm.get("martingale_chains", {})
-            ctx["wild_target_usd"] = wm.get("target_usd", 0)
-            ctx["wild_session_pnl"] = round(
-                ctx.get("equity", 0) - wm.get("starting_equity", ctx.get("equity", 0)), 2
-            )
-        except Exception:
-            ctx["wild_active"] = False
-            ctx["wild_chains"] = {}
-            ctx["wild_session_pnl"] = 0
-            ctx["wild_starting_equity"] = 0
 
     except Exception as e:
         log(f"Context error: {e}")
@@ -379,7 +356,7 @@ def handle_onboarding(text, profile):
 # ── Build Enhanced Prompt ────────────────────────────────────────
 SYSTEM_PROMPT = dedent("""\
     Eres el Agente de Trading Inteligente del Solana Cripto Trader.
-    Tu nombre es "Solana Trading Agent". {lang_instruction}
+    Tu nombre es "Solana Trading Agent". Hablas en español.
 
     ## USUARIO
     Nombre: {user_name}
@@ -404,21 +381,6 @@ SYSTEM_PROMPT = dedent("""\
     - Risk/trade: {risk_per_trade:.1f}%
     - Tokens evitar: {avoid}
     - Tokens preferir: {prefer}
-
-    ## MODO SALVAJE (MARTINGALA/COBERTURA)
-    Estado: {wild_status}
-    {wild_section}
-
-    ### Qué es el Modo Salvaje:
-    - Motor de martingala/cobertura: cuando una posición pierde, en lugar de cerrarla abre "niveles" adicionales
-    - Cada nivel multiplica el margen (1.1x–1.3x) para promediar la pérdida y recuperar
-    - La IA decide cada ciclo: HOLD, abrir nivel de cobertura, o cerrar la cadena completa
-    - Guardrails fijos: máx 2 niveles/símbolo · máx 4× margen base · drawdown máx 15% · duración máx 6h
-    - Cierra la cadena automáticamente cuando el PnL combinado alcanza +20% del margen base
-
-    ### Modos de estrategia:
-    - PURE (Wild OFF): 3 estrategias — oversold_bounce, breakout, trend_momentum
-    - COMBO (Wild ON): 5 estrategias — agrega golden_cross y macd_cross
 
     ## ARQUITECTURA DEL BOT
     - Ejecuta ciclos cada 10-60 segundos
@@ -462,26 +424,7 @@ def build_prompt(user_msg, ctx):
     sl = params.get("sl_pct", 0.025) * 100
     tp = params.get("tp_pct", 0.08) * 100
 
-    # Wild Mode formatting
-    if ctx.get("wild_active"):
-        _chains = ctx.get("wild_chains", {})
-        _spnl = ctx.get("wild_session_pnl", 0)
-        _sign = "+" if _spnl >= 0 else ""
-        wild_status = f"ACTIVO | Sesión: {ctx.get('wild_session_id','')} | PnL sesión: {_sign}${_spnl:.2f}"
-        if _chains:
-            wild_section = "Cadenas activas: " + ", ".join(
-                f"{s}({len(c.get('levels', []))} niv)" for s, c in _chains.items()
-            )
-        else:
-            wild_section = f"Sin cadenas abiertas | Equity inicio sesión: ${ctx.get('wild_starting_equity', 0):.2f}"
-    else:
-        wild_status = "INACTIVO (modo Pure Strategy)"
-        wild_section = "Usando 3 estrategias puras: oversold_bounce, breakout, trend_momentum"
-
-    _lang = profile.get("language", "es")
-    _lang_instr = "Responde siempre en español." if _lang == "es" else "Always respond in English."
     system = SYSTEM_PROMPT.format(
-        lang_instruction=_lang_instr,
         user_name=profile.get("name", "Trader"),
         risk_profile=profile.get("risk_profile", "moderado"),
         capital=ctx.get("capital", 0),
@@ -504,21 +447,10 @@ def build_prompt(user_msg, ctx):
         risk_per_trade=params.get("risk_per_trade", 0.015) * 100,
         avoid=ctx.get("avoid", []),
         prefer=ctx.get("prefer", []),
-        wild_status=wild_status,
-        wild_section=wild_section,
     )
 
     notes = load_notes()
-    msgs_current = notes.get("messages", [])
-    if len(msgs_current) < 4:
-        archive = load_archive()
-        if archive:
-            prev = archive[-1].get("messages", [])[-4:]
-            msgs = (prev + msgs_current)[-8:]
-        else:
-            msgs = msgs_current[-6:]
-    else:
-        msgs = msgs_current[-6:]
+    msgs = notes.get("messages", [])[-6:]
     history = "\n".join(f"[{'USER' if m.get('sender')=='user' else 'AGENT'}]: {m.get('text','')[:200]}"
                         for m in msgs if m.get('text'))
 
@@ -526,15 +458,12 @@ def build_prompt(user_msg, ctx):
 
 
 # ── LLM Config ──────────────────────────────────────────────────
-MINIMAX_KEY = os.environ.get("MINIMAX_API_KEY", "")  # env var primero (portable)
-if not MINIMAX_KEY:
-    try:
-        import json as _json
-        _mm_path = Path.home() / ".openclaw" / "workspace" / "bittrader" / "keys" / "minimax.json"
-        _keys = _json.loads(_mm_path.read_text()) if _mm_path.exists() else {}
-        MINIMAX_KEY = _keys.get("minimax_api_key", "")
-    except Exception:
-        MINIMAX_KEY = ""
+try:
+    import json as _json
+    _keys = _json.loads(open("/home/enderj/.openclaw/workspace/bittrader/keys/minimax.json").read_text())
+    MINIMAX_KEY = os.environ.get("MINIMAX_API_KEY", _keys["minimax_api_key"])
+except Exception:
+    MINIMAX_KEY = ""
 MINIMAX_URL = "https://api.minimax.io/v1/text/chatcompletion_v2"
 MINIMAX_MODEL = "MiniMax-M2.7"
 
@@ -548,7 +477,6 @@ def get_response(user_msg):
     if cmd_result:
         return cmd_result
 
-    profile = ctx.get("profile", {})
     prompt = build_prompt(user_msg, ctx)
 
     # Try Gemma 4 local first
@@ -569,7 +497,7 @@ def get_response(user_msg):
         payload = {
             "model": MINIMAX_MODEL, "max_tokens": 500,
             "messages": [
-                {"role": "system", "content": ("Respond in English. Max 3-4 sentences." if profile.get("language","es") == "en" else "Responde en español. Max 3-4 oraciones.")},
+                {"role": "system", "content": "Responde en espanol. Max 3-4 oraciones."},
                 {"role": "user", "content": prompt[:4000]}
             ],
             "temperature": 0.7
