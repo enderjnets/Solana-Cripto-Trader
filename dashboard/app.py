@@ -4089,8 +4089,11 @@ def api_stats():
         accounting_gap = 0
         real_capital_change = 0
 
+    real_capital = initial_capital + total_pnl + unrealized
+
     return jsonify({
-        "capital_usd":        round(equity, 2),
+        "capital_usd":        round(real_capital, 2),
+        "total_equity":       round(equity, 2),
         "initial_capital":    round(initial_capital, 2),
         "total_pnl":          round(total_pnl + unrealized, 2),
         "realized_pnl":       round(total_pnl, 2),
@@ -4119,8 +4122,8 @@ def api_stats():
         "jup_perp_enabled":   os.environ.get("JUP_PERP_ENABLED", "").lower() in ("true", "1", "yes"),
         "accounting_gap":     round(accounting_gap, 2),
         "real_capital_change":round(real_capital_change, 2),
-        "capital_tier":       _get_capital_tier(equity)[3],
-        "max_positions_tier": _get_capital_tier(equity)[2],
+        "capital_tier":       _get_capital_tier(real_capital)[3],
+        "max_positions_tier": _get_capital_tier(real_capital)[2],
     })
 
 
