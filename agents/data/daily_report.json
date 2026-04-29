@@ -1,12 +1,12 @@
 {
-  "timestamp": "2026-04-29T01:34:14.703749+00:00",
+  "timestamp": "2026-04-29T01:46:35.508786+00:00",
   "metrics": {
     "capital_usd": 99.97,
     "initial_capital": 100.0,
     "total_pnl": 0,
     "unrealized_pnl": 0,
-    "total_value": 103.7,
-    "return_pct": 3.7,
+    "total_value": 52.49,
+    "return_pct": -47.51,
     "total_trades": 1,
     "wins": 0,
     "losses": 0,
