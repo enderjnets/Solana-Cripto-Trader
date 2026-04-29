@@ -1,5 +1,101 @@
 {
-  "signals": [],
-  "timestamp": "2026-04-29T01:33:56.764803+00:00",
-  "blocked": false
+  "signals": [
+    {
+      "symbol": "POPCAT",
+      "direction": "long",
+      "entry_price": 0.060697,
+      "sl_price": 0.058877,
+      "tp_price": 0.064338,
+      "exit_mode": "trailing",
+      "trailing_pct": 0.025,
+      "size_usd": 10.0,
+      "confidence": 0.78,
+      "strategy": "oversold_bounce",
+      "reasoning": "Ca\u00edda -3.12% con alta volatilidad 3.12% en token de baja cap, mercado en Fear permite capturar rebote en activos castigados",
+      "factors": [
+        "alta_volatilidad_3.12",
+        "caida_24h_negativa",
+        "mercado_fear_rebote",
+        "baja_cap_experimento"
+      ]
+    },
+    {
+      "symbol": "RAY",
+      "direction": "long",
+      "entry_price": 0.762627,
+      "sl_price": 0.740751,
+      "tp_price": 0.808383,
+      "exit_mode": "trailing",
+      "trailing_pct": 0.03,
+      "size_usd": 10.0,
+      "confidence": 0.81,
+      "strategy": "momentum",
+      "reasoning": "RSI 46.9 en zona neutral-baja con momentum +3.16% y alta volatilidad 3.16%, breakout potencial en mercado fear",
+      "factors": [
+        "momentum_positivo_3.16",
+        "alta_volatilidad_3.16",
+        "RSI_subiendo_desde_bajo",
+        "tendencia_bullish_mercado"
+      ]
+    },
+    {
+      "symbol": "JUP",
+      "direction": "short",
+      "entry_price": 0.189722,
+      "sl_price": 0.194965,
+      "tp_price": 0.180236,
+      "exit_mode": "fixed",
+      "size_usd": 10.0,
+      "confidence": 0.76,
+      "strategy": "mean_reversion",
+      "reasoning": "RSI 65.7 cercano a sobrecompra con ca\u00edda -1.68% en mercado fear, desacoplamiento negativo sugiere debilidad oculta",
+      "factors": [
+        "RSI_elevado_65.7",
+        "divergencia_bajista_precio",
+        "mercado_fear_presion",
+        "volatilidad_suficiente_1.68"
+      ]
+    },
+    {
+      "symbol": "BTC",
+      "direction": "short",
+      "entry_price": 76384.185368,
+      "sl_price": 78475.710929,
+      "tp_price": 72564.9761,
+      "exit_mode": "trailing",
+      "trailing_pct": 0.02,
+      "size_usd": 10.0,
+      "confidence": 0.83,
+      "strategy": "contrarian",
+      "reasoning": "RSI 70.4 sobrecompra extrema en mercado fear (26), contradicci\u00f3n entre sentimiento y t\u00e9cnico, correcci\u00f3n inminente en activo l\u00edder",
+      "factors": [
+        "RSI_sobrecompra_70.4",
+        "mercado_fear_vs_BTC_sobrecomprado",
+        "divergencia_sentimiento_tecnico",
+        "alta_cap_seguro_short"
+      ]
+    },
+    {
+      "symbol": "ETH",
+      "direction": "long",
+      "entry_price": 2290.678998,
+      "sl_price": 2222.458628,
+      "tp_price": 2428.119537,
+      "exit_mode": "trailing",
+      "trailing_pct": 0.025,
+      "size_usd": 10.0,
+      "confidence": 0.77,
+      "strategy": "accumulation",
+      "reasoning": "RSI 61.1 saludable, volatilidad muy baja 0.31% indica compresi\u00f3n antes de expansi\u00f3n, mercado fear = acumulaci\u00f3n en grandes caps",
+      "factors": [
+        "RSI_saludable_61.1",
+        "volatilidad_compresion_0.31",
+        "gran_cap_seguro",
+        "mercado_fear_acumulacion"
+      ]
+    }
+  ],
+  "generated_at": "2026-04-29T02:01:05.915875+00:00",
+  "fear_greed": 26,
+  "source": "ai_strategy_extreme"
 }

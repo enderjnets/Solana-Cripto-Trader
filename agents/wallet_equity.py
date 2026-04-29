@@ -220,8 +220,26 @@ def fetch_wallet_equity(force_refresh: bool = False):
                 log.warning(f" wallet_total ${wallet_total:.2f} suspiciously low vs disk cache ${disk_total:.2f} after {rpc_errors}/{rpc_total} RPC errors — using disk cache")
                 return disk_cache
 
+        # Jupiter Perps value (collateral locked in contract not in wallet balances)
+        perps_value = 0.0
+        try:
+            if os.environ.get("JUP_PERP_ENABLED", "").lower() == "true":
+                try:
+                    import jupiter_perp_adapter as _jpa
+                except ImportError:
+                    from agents import jupiter_perp_adapter as _jpa
+                _snapshot = _jpa.get_account_snapshot()
+                if _snapshot and _snapshot.get("positions"):
+                    perps_value = float(_snapshot.get("total_size_usd", 0.0))
+        except Exception:
+            pass
+
+        total_equity = wallet_total + perps_value
+
         result = {
             "wallet_total": round(wallet_total, 4),
+            "total_equity": round(total_equity, 4),
+            "jupiter_perps_value": round(perps_value, 4),
             "balances": {k: round(v, 6) for k, v in balances.items()},
             "prices": {k: round(v, 6) for k, v in prices.items()},
             "ts": now,

@@ -3800,7 +3800,10 @@ def api_health():
     import os as _os, subprocess as _sp, time as _time
     from pathlib import Path as _P
 
-    bot_dir = _P("/home/enderj/.openclaw/workspace/Solana-Cripto-Trader-Live")
+    bot_dirs = [
+    _P("/home/enderj/.openclaw/workspace/Solana-Cripto-Trader-Live"),
+    _P("/home/enderj/.openclaw/workspace/Solana-Cripto-Trader"),
+]
     hb_file = _P("/tmp/solana_live_heartbeat")
     ks_file = _P("/tmp/solana_live_killswitch")
     cf_file = _P("/tmp/solana_live_close_failures")
@@ -3823,7 +3826,7 @@ def api_health():
         for pid in pids:
             pid = pid.strip()
             try:
-                if _os.readlink(f"/proc/{pid}/cwd") == str(bot_dir):
+                if _os.readlink(f"/proc/{pid}/cwd") in [str(d) for d in bot_dirs]:
                     orch_alive = True
                     orch_pid = int(pid)
                     break
@@ -3837,7 +3840,7 @@ def api_health():
         for line in lines:
             pid = line.split()[0]
             try:
-                if _os.readlink(f"/proc/{pid}/cwd") == str(bot_dir):
+                if _os.readlink(f"/proc/{pid}/cwd") in [str(d) for d in bot_dirs]:
                     watchdog_alive = True
                     watchdog_pid = int(pid)
                     break
@@ -4037,7 +4040,7 @@ def api_stats():
     # Falls back to bot_equity if RPC fails (paper bot, network issue).
     _wallet_data = _fetch_wallet_equity()
     if _wallet_data and _wallet_data.get("wallet_total") is not None:
-        equity = _wallet_data["wallet_total"]
+        equity = _wallet_data.get("total_equity", _wallet_data["wallet_total"])
     else:
         equity = bot_equity
 
