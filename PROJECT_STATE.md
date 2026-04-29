@@ -5,7 +5,7 @@
 ## Última actualización
 - **Fecha**: 2026-04-28
 - **Versión**: v2.13.4-live
-- **Commit**: `e01b995`
+- **Commit**: (pending)
 
 ## Estado del pipeline
 
@@ -13,7 +13,7 @@
 |------------|--------|
 | Orchestrator | ✅ Activo (PID 39915, heartbeat <60s) |
 | Risk Manager | ✅ ACTIVE — drawdown 0.0% |
-| Strategy Agent | ✅ Generando señales, `blocked=False` |
+| Strategy Agent | ✅ Generando señales,  |
 | Executor | ✅ Modo LIVE, 1 posición abierta (BTC long) |
 | Dashboard | ✅ Puerto 8082, v2.13.4-live |
 | Jupiter Perps | ✅ Habilitado (SOL, BTC, ETH) |
@@ -23,8 +23,8 @@
 
 **1 posición abierta:**
 - **BTC LONG**: Size $167.10, Collateral $83.55, Leverage 2.0x
-- Entry: $76,429.37, Mark: ~$76,473
-- PnL: ~-$0.29 (-0.29%)
+- Entry: $76,429.37, Mark: ~$76,989
+- PnL: ~+$0.67 (+0.80%)
 - SL: $73,946.32 | TP: $80,807.32 | Liq: $38,421.90
 - Position pubkey: `HfB4rkCYrPaCvhNWJU237YXcU25eE5D9ZZkPTD7oKw6Z`
 
@@ -48,6 +48,7 @@
 6. **Fix dashboard** — usa `total_equity` para tier, capital real como principal
 7. **Fix accounting_gap** — resta collateral de perps
 8. **Fix return_pct** — basado en PnL real, no equity delta
+9. **Fix BTC open_time** — corregido de 2026-04-28T22:01:18Z → 2026-04-29T01:41:18+00:00 (coincide con ID timestamp)
 
 ## Paperclip
 
