@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-04-29T02:01:09.459004+00:00",
+  "timestamp": "2026-04-29T03:14:43.502184+00:00",
   "results": {
     "market_data": {
       "ok": true,
@@ -10,7 +10,7 @@
     },
     "strategy": {
       "ok": true,
-      "signals": 7
+      "signals": 6
     },
     "position_updater": {
       "ok": true
@@ -28,7 +28,7 @@
     },
     "position_decisions": {
       "ok": true,
-      "evaluated": 0,
+      "evaluated": 1,
       "close_signals": 0,
       "reduce_signals": 0
     },

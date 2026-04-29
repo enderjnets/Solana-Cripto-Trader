@@ -1,101 +1,100 @@
 {
   "signals": [
     {
-      "symbol": "POPCAT",
+      "symbol": "JUP",
       "direction": "long",
-      "entry_price": 0.060697,
-      "sl_price": 0.058877,
-      "tp_price": 0.064338,
-      "exit_mode": "trailing",
-      "trailing_pct": 0.025,
+      "entry_price": 0.188289,
+      "sl_price": 0.18264,
+      "tp_price": 0.199589,
+      "exit_mode": "fixed",
+      "trailing_pct": null,
       "size_usd": 10.0,
-      "confidence": 0.78,
+      "confidence": 0.84,
       "strategy": "oversold_bounce",
-      "reasoning": "Ca\u00edda -3.12% con alta volatilidad 3.12% en token de baja cap, mercado en Fear permite capturar rebote en activos castigados",
+      "reasoning": "RSI 38.6 cerca de zona oversold, volatilidad 1.2% permite movimiento, Fear en mercado favorece rebotes en tokens con debilidad relativa",
       "factors": [
-        "alta_volatilidad_3.12",
-        "caida_24h_negativa",
-        "mercado_fear_rebote",
-        "baja_cap_experimento"
+        "RSI_near_oversold_38.6",
+        "fear_market_contrarian",
+        "volatilidad_aceptable",
+        "high_cap_liquid"
       ]
     },
     {
       "symbol": "RAY",
       "direction": "long",
-      "entry_price": 0.762627,
-      "sl_price": 0.740751,
-      "tp_price": 0.808383,
-      "exit_mode": "trailing",
-      "trailing_pct": 0.03,
-      "size_usd": 10.0,
-      "confidence": 0.81,
-      "strategy": "momentum",
-      "reasoning": "RSI 46.9 en zona neutral-baja con momentum +3.16% y alta volatilidad 3.16%, breakout potencial en mercado fear",
-      "factors": [
-        "momentum_positivo_3.16",
-        "alta_volatilidad_3.16",
-        "RSI_subiendo_desde_bajo",
-        "tendencia_bullish_mercado"
-      ]
-    },
-    {
-      "symbol": "JUP",
-      "direction": "short",
-      "entry_price": 0.189722,
-      "sl_price": 0.194965,
-      "tp_price": 0.180236,
-      "exit_mode": "fixed",
-      "size_usd": 10.0,
-      "confidence": 0.76,
-      "strategy": "mean_reversion",
-      "reasoning": "RSI 65.7 cercano a sobrecompra con ca\u00edda -1.68% en mercado fear, desacoplamiento negativo sugiere debilidad oculta",
-      "factors": [
-        "RSI_elevado_65.7",
-        "divergencia_bajista_precio",
-        "mercado_fear_presion",
-        "volatilidad_suficiente_1.68"
-      ]
-    },
-    {
-      "symbol": "BTC",
-      "direction": "short",
-      "entry_price": 76384.185368,
-      "sl_price": 78475.710929,
-      "tp_price": 72564.9761,
-      "exit_mode": "trailing",
-      "trailing_pct": 0.02,
-      "size_usd": 10.0,
-      "confidence": 0.83,
-      "strategy": "contrarian",
-      "reasoning": "RSI 70.4 sobrecompra extrema en mercado fear (26), contradicci\u00f3n entre sentimiento y t\u00e9cnico, correcci\u00f3n inminente en activo l\u00edder",
-      "factors": [
-        "RSI_sobrecompra_70.4",
-        "mercado_fear_vs_BTC_sobrecomprado",
-        "divergencia_sentimiento_tecnico",
-        "alta_cap_seguro_short"
-      ]
-    },
-    {
-      "symbol": "ETH",
-      "direction": "long",
-      "entry_price": 2290.678998,
-      "sl_price": 2222.458628,
-      "tp_price": 2428.119537,
+      "entry_price": 0.768795,
+      "sl_price": 0.745731,
+      "tp_price": 0.814923,
       "exit_mode": "trailing",
       "trailing_pct": 0.025,
       "size_usd": 10.0,
-      "confidence": 0.77,
-      "strategy": "accumulation",
-      "reasoning": "RSI 61.1 saludable, volatilidad muy baja 0.31% indica compresi\u00f3n antes de expansi\u00f3n, mercado fear = acumulaci\u00f3n en grandes caps",
+      "confidence": 0.81,
+      "strategy": "momentum_continuation",
+      "reasoning": "RSI 58.6 en zona momentum saludable, +4.7% en 24h con alta volatilidad 4.7%, breakout potencial en mercado fear ofrece entrada con riesgo controlado",
       "factors": [
-        "RSI_saludable_61.1",
-        "volatilidad_compresion_0.31",
-        "gran_cap_seguro",
-        "mercado_fear_acumulacion"
+        "momentum_positive_4.7",
+        "high_volatility_4.7",
+        "RSI_momentum_zone",
+        "trailing_favorable"
+      ]
+    },
+    {
+      "symbol": "POPCAT",
+      "direction": "long",
+      "entry_price": 0.060605,
+      "sl_price": 0.058787,
+      "tp_price": 0.064242,
+      "exit_mode": "fixed",
+      "trailing_pct": null,
+      "size_usd": 10.0,
+      "confidence": 0.78,
+      "strategy": "oversold_bounce",
+      "reasoning": "RSI 53.4 neutral pero -1.75% en 24h en mercado fear, volatilidad 1.75% suficiente, market cap l\u00edmite pero aceptable para capturar rebote en microcap",
+      "factors": [
+        "negative_drift_fear",
+        "volatilidad_aceptable",
+        "microcap_rebound_potential"
+      ]
+    },
+    {
+      "symbol": "WIF",
+      "direction": "long",
+      "entry_price": 0.178334,
+      "sl_price": 0.172985,
+      "tp_price": 0.189034,
+      "exit_mode": "fixed",
+      "trailing_pct": null,
+      "size_usd": 10.0,
+      "confidence": 0.77,
+      "strategy": "oversold_bounce",
+      "reasoning": "RSI 42.5 debajo de 50 con ligero positivo +0.44%, en fear market tokens con debilidad relativa pueden ofrecer rebote, volatilidad baja pero suficiente",
+      "factors": [
+        "RSI_below_50_weakness",
+        "slight_positive_divergence",
+        "fear_market_oversold_opportunity"
+      ]
+    },
+    {
+      "symbol": "BONK",
+      "direction": "long",
+      "entry_price": 6e-06,
+      "sl_price": 5.82e-06,
+      "tp_price": 6.36e-06,
+      "exit_mode": "trailing",
+      "trailing_pct": 0.03,
+      "size_usd": 10.0,
+      "confidence": 0.79,
+      "strategy": "momentum_continuation",
+      "reasoning": "RSI 61.6 en zona momentum, +1.67% con volatilidad 1.67%, meme coin con momentum en fear market puede extenderse si el sentimiento mejora ligeramente",
+      "factors": [
+        "momentum_positive_1.67",
+        "meme_liquidity",
+        "RSI_momentum_zone",
+        "volatilidad_matching_return"
       ]
     }
   ],
-  "generated_at": "2026-04-29T02:01:05.915875+00:00",
+  "generated_at": "2026-04-29T03:06:47.289154+00:00",
   "fear_greed": 26,
   "source": "ai_strategy_extreme"
 }

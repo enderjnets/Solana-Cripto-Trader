@@ -1,8 +1,8 @@
 {
-  "timestamp": "2026-04-29T01:32:48.920175+00:00",
+  "timestamp": "2026-04-29T03:14:43.500689+00:00",
   "decisions": [
     {
-      "symbol": "SOL",
+      "symbol": "BTC",
       "direction": "long",
       "action": "CLOSE",
       "confidence": 0.58,
@@ -10,20 +10,20 @@
       "quant_score": 10,
       "quant_action": "HOLD",
       "quant_reasons": [
-        "TP_MODERADO (5.57%)"
+        "TP_MODERADO (5.87%)"
       ],
       "llm_action": "CLOSE",
       "llm_confidence": 0.72,
-      "llm_reasoning": "Score de 10/100 indica se\u00f1al fuerte de cierre. A pesar de tendencia bullish, el Fear & Greed en 26/100 muestra miedo extremo en el mercado y la posici\u00f3n ya lleva 2 horas abierta sin avance real hacia el TP de $2.00 del portafolio.",
+      "llm_reasoning": "Score de 10/100 indica se\u00f1al fuerte de cierre, y el TP moderado de 5.87% con Fear & Greed en 26 (miedo extremo) reduce probabilidad de alcance. Lleva 5.2h negativa sin mejorar, constituye peso muerto que lastra el portafolio para alcanzar el target de $2.00.",
       "llm_reasoning_lang": "es",
       "llm_source": "llm_claude_sonnet",
-      "pnl_usd": -0.0781,
-      "pnl_pct": -0.5198,
-      "dist_tp_pct": 5.571,
-      "dist_sl_pct": 4.026,
-      "rr_remaining": 1.384,
-      "hours_open": 2.0,
-      "evaluated_at": "2026-04-29T01:32:48.920083+00:00"
+      "pnl_usd": -0.7378,
+      "pnl_pct": -0.883,
+      "dist_tp_pct": 5.867,
+      "dist_sl_pct": 3.121,
+      "rr_remaining": 1.88,
+      "hours_open": 5.2,
+      "evaluated_at": "2026-04-29T03:14:43.500596+00:00"
     }
   ]
 }

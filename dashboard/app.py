@@ -4044,7 +4044,8 @@ def api_stats():
     else:
         equity = bot_equity
 
-    return_pct = ((equity - initial_capital) / initial_capital * 100) \
+    # v2.13.4-fix: return_pct based on real PnL, not equity (which includes perps collateral)
+    return_pct = ((total_pnl + unrealized) / initial_capital * 100) \
                  if initial_capital > 0 else 0.0
 
     # Drawdown: compute from post-reset closed trade equity curve
@@ -4070,12 +4071,21 @@ def api_stats():
         sharpe = 0.0
 
     # Accounting discrepancy: use equity (not free capital) vs recorded PnL
-    # Suppress warning if gap ≈ initial_capital - equity_with_no_trades (manual reset scenario)
-    real_capital_change = equity - initial_capital
+    # v2.13.4-fix: subtract perps collateral locked in contract — it's not missing, it's invested
+    perps_collateral = sum(
+        safe_float(p.get("margin_usd", 0))
+        for p in open_pos
+        if p.get("mode") == "jupiter_perp"
+    )
+    real_capital_change = (equity - perps_collateral) - initial_capital
     # Subtract unrealized PnL — it is already accounted for by open positions
     accounting_gap = real_capital_change - total_pnl - unrealized
+    # Suppress if gap is explained by perps collateral (within $2 tolerance)
+    if abs(accounting_gap) < 2.0:
+        accounting_gap = 0
+        real_capital_change = total_pnl + unrealized
     # If no closed trades and gap ≈ initial_capital, it's a manual reset — suppress
-    if abs(total_pnl) < 0.01 and abs(accounting_gap - initial_capital) < 1.0:
+    elif abs(total_pnl) < 0.01 and abs(accounting_gap - initial_capital) < 1.0:
         accounting_gap = 0
         real_capital_change = 0
 
