@@ -201,12 +201,31 @@ def calculate_drawdown(portfolio: dict) -> float:
         return 0.0
 
     # v2.12.30: primary source — on-chain wallet total equity
+    # v2.13.3 FIX: Jupiter Perps collateral is locked in the perps contract and
+    # excluded from wallet balances. We must add back perps position value to get
+    # true equity, otherwise every perp trade triggers a false drawdown pause.
     try:
         from wallet_equity import fetch_wallet_equity
         we = fetch_wallet_equity()
         if we and we.get("wallet_total") is not None:
             wallet_total = float(we["wallet_total"])
-            return max(0.0, (initial - wallet_total) / initial)
+            # Add Jupiter Perps position value (collateral locked in contract)
+            perps_value = 0.0
+            try:
+                import os
+                if os.environ.get("JUP_PERP_ENABLED", "").lower() == "true":
+                    # Robust import: works whether agents/ is in sys.path or not
+                    try:
+                        import jupiter_perp_adapter as _jpa
+                    except ImportError:
+                        from agents import jupiter_perp_adapter as _jpa
+                    _snapshot = _jpa.get_account_snapshot()
+                    if _snapshot and _snapshot.get("positions"):
+                        perps_value = float(_snapshot.get("total_size_usd", 0.0))
+            except Exception:
+                pass
+            total_equity = wallet_total + perps_value
+            return max(0.0, (initial - total_equity) / initial)
     except Exception as _e:
         log.warning(f"calculate_drawdown: wallet_equity unavailable, falling back to bot equity ({_e})")
 

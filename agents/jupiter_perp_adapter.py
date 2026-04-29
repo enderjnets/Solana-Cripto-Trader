@@ -21,12 +21,20 @@ import time
 from dataclasses import dataclass
 from typing import Optional
 
-from agents.jupiter_perp_cli_wrapper import (
-    close_position,
-    get_positions,
-    open_position,
-    ensure_configured,
-)
+try:
+    from jupiter_perp_cli_wrapper import (
+        close_position,
+        get_positions,
+        open_position,
+        ensure_configured,
+    )
+except ImportError:
+    from agents.jupiter_perp_cli_wrapper import (
+        close_position,
+        get_positions,
+        open_position,
+        ensure_configured,
+    )
 
 log = logging.getLogger("jupiter_perp_adapter")
 

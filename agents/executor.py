@@ -1808,6 +1808,32 @@ def real_open_position(signal: dict, portfolio: dict, market: dict = None) -> Op
     # v2.13.0-live: Jupiter Perps routing — replaces deprecated Drift Protocol.
     if _os.environ.get("JUP_PERP_ENABLED", "false").lower() == "true":
         try:
+            # v2.13.3 FIX: inject perp sizing from capital-tier logic.
+            # The adapter defaults to $10 notional, which with 2x lev → $5 collateral,
+            # below Jupiter's $10 min. We calculate sizing here to match the executor's
+            # risk model and guarantee collateral >= $10.
+            if signal.get("suggested_size_usd", 0) <= 0:
+                _capital = portfolio.get("capital_usd", 500) + sum(
+                    p.get("margin_usd", 0) for p in portfolio.get("positions", []) if p.get("status") == "open"
+                )
+                try:
+                    from agents.wallet_equity import fetch_wallet_equity
+                    _we = fetch_wallet_equity()
+                    if _we and _we.get("wallet_total"):
+                        _capital = float(_we["wallet_total"])
+                except Exception:
+                    pass
+                _wm = _is_wild_mode_active()
+                _dyn_risk, _lev, _ = _get_risk_for_capital(_capital, signal.get("confidence", 0.7), _wm)
+                if _dyn_risk > 0:
+                    # Margin = risk (conservative) capped at 20% of capital
+                    _margin = min(_dyn_risk, _capital * 0.20)
+                    # Ensure Jupiter $10 min collateral
+                    _margin = max(_margin, 10.0)
+                    _notional = _margin * _lev
+                    signal["suggested_size_usd"] = round(_notional, 2)
+                    log.info(f"   📐 Perp sizing injected: notional=${_notional:.2f} margin=${_margin:.2f} lev={_lev}x")
+
             import jupiter_perp_adapter as _jpa
             _pr = _jpa.open_perp_position(signal)
             if _pr is None:
