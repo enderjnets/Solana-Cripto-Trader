@@ -5,39 +5,54 @@
 ## Última actualización
 - **Fecha**: 2026-04-28
 - **Versión**: v2.13.4-live
-- **Commit**: `e12b458` (remote) / `7adecb6` (local)
+- **Commit**: `e01b995`
 
 ## Estado del pipeline
 
 | Componente | Estado |
 |------------|--------|
-| Orchestrator | ✅ Activo (ciclos cada ~2 min) |
+| Orchestrator | ✅ Activo (PID 39915, heartbeat <60s) |
 | Risk Manager | ✅ ACTIVE — drawdown 0.0% |
 | Strategy Agent | ✅ Generando señales, `blocked=False` |
-| Executor | ✅ Modo LIVE, 0 posiciones abiertas |
+| Executor | ✅ Modo LIVE, 1 posición abierta (BTC long) |
 | Dashboard | ✅ Puerto 8082, v2.13.4-live |
 | Jupiter Perps | ✅ Habilitado (SOL, BTC, ETH) |
+| Health | ✅ HEALTHY |
 
 ## Posiciones actuales
 
-**0 posiciones abiertas** (todas cerradas).
-
-Último cierre:
-- Asset: SOL
-- Side: Long
-- Size: $29.91
-- PnL: +$0.015
-- Tx: `2G2RbTNXSnHAjo3vUCUXDffZ8WVZtBDX5gFFhUxRriNqEnEjDjtTk37D16shS4mjmv9M7xkJtCa2SeoWHgGMPPvT`
+**1 posición abierta:**
+- **BTC LONG**: Size $167.10, Collateral $83.55, Leverage 2.0x
+- Entry: $76,429.37, Mark: ~$76,473
+- PnL: ~-$0.29 (-0.29%)
+- SL: $73,946.32 | TP: $80,807.32 | Liq: $38,421.90
+- Position pubkey: `HfB4rkCYrPaCvhNWJU237YXcU25eE5D9ZZkPTD7oKw6Z`
 
 ## Wallet
 
 - **Address**: `EEmtkySNz1SLNZBMBu6EsuqkEhttEKjejsEXdEFT2fMH`
-- **Balance SOL**: ~0.14 SOL
-- **Balance USDC**: ~90.40
-- **Balance JUP**: ~2.28
-- **Equity**: ~$102.49
+- **Capital real**: $99.71 (initial $100 + PnL -$0.29)
+- **Capital libre**: ~$16.18 (wallet)
+- **Total equity**: ~$183.29 (libre + perps)
 - **Capital tier**: MICRO ($50-149)
 - **Max positions**: 1
+- **SOL**: ~0.1082
+
+## Fixes aplicados en esta sesión
+
+1. **Cierre posición SOL accidental** — Tx: `2G2RbTN...GMPPvT`
+2. **Reset estadísticas** — portfolio, cache, risk, strategy
+3. **Sync wallet** — local macOS + servidor remoto
+4. **Fix heartbeat** — orchestrator correcto desde `Solana-Cripto-Trader-Live/`
+5. **Fix wallet_equity.py** — incluye `jupiter_perps_value`
+6. **Fix dashboard** — usa `total_equity` para tier, capital real como principal
+7. **Fix accounting_gap** — resta collateral de perps
+8. **Fix return_pct** — basado en PnL real, no equity delta
+
+## Paperclip
+
+- **Issue**: `SOLAA-117` — v2.13.4-live: Close accidental SOL position + reset stats + sync wallet
+- **Status**: Done
 
 ## Infraestructura
 
@@ -47,16 +62,3 @@
 | Dashboard | `http://100.88.47.99:8082` |
 | Wallet local | `~/.config/solana-jupiter-bot/wallet.json` |
 | Wallet remota | `~/wallet.json` en servidor |
-
-## Issues activos
-
-| Issue | Estado |
-|-------|--------|
-| Accidental SOL position | ✅ Cerrada |
-| Stale LLM signals | ✅ Mitigado (drawdown fix) |
-| Wallet equity cache | ✅ Limpio |
-
-## Paperclip
-
-- **Issue**: `SOLAA-117` — v2.13.4-live: Close accidental SOL position + reset stats + sync wallet
-- **Status**: Done
