@@ -1191,5 +1191,389 @@
     "attachments": [
       "20260413T013529_1b2487/Screenshot_2026-04-12_at_7.34.32_PM.png"
     ]
+  },
+  {
+    "reset_date": "2026-04-22T04:40:00+00:00",
+    "period_start": "2026-04-13T01:35:29+00:00",
+    "period_end": "2026-04-22T04:40:00+00:00",
+    "initial_capital": 500.0,
+    "final_capital": 8.07,
+    "return_pct": -98.39,
+    "total_pnl_usd": -491.93,
+    "total_trades": 0,
+    "wins": 0,
+    "losses": 0,
+    "flat": 0,
+    "win_rate": 0.0,
+    "best_trade_usd": 0,
+    "worst_trade_usd": 0,
+    "new_capital": 100.1,
+    "capital_after": 100.1,
+    "reason": "v2.12.20-live: capital scale $8 \u2192 $100 (user deposit $92 USDC + 0.033 SOL fuel). Previous $500 entries were paper-bot era; live workspace restarted with $100 baseline post-scale."
+  },
+  {
+    "reset_date": "2026-04-23T14:49:49.971397+00:00",
+    "period_start": "2026-04-18T21:14:43.287220+00:00",
+    "period_end": "2026-04-23T14:49:49.971397+00:00",
+    "initial_capital": 102.9,
+    "final_capital": 81.47,
+    "return_pct": -20.83,
+    "total_pnl_usd": -0.61,
+    "total_trades": 102,
+    "wins": 46,
+    "losses": 52,
+    "flat": 4,
+    "win_rate": 45.1,
+    "best_trade_usd": 0.04,
+    "worst_trade_usd": -0.32,
+    "new_capital": 104.6414,
+    "reason": "Fresh baseline post-v2.12.30 fixes \u2014 measure clean strategy performance with wallet-total DD + emergency guards + fee tracking",
+    "notes": "Soft reset via /api/soft-reset (new endpoint v2.12.31). auto_learner.db preserved, 2 live positions (SOL + ETH) preserved on-chain.",
+    "attachments": [],
+    "mode_pre_reset": "live",
+    "mode_post_reset": "live",
+    "wallet_snapshot": {
+      "wallet_total": 104.6414,
+      "balances": {
+        "SOL": 0.155478,
+        "USDC": 70.174701,
+        "JUP": 58.800278,
+        "ETH": 0.004729
+      },
+      "prices": {
+        "SOL": 86.084105,
+        "JUP": 0.171012,
+        "ETH": 2331.870867
+      },
+      "ts": 1776955755.7215667
+    },
+    "auto_learner_snapshot": {
+      "params": {
+        "sl_pct": 0.035,
+        "tp_pct": 0.045,
+        "leverage_tier": 1,
+        "risk_per_trade": 0.012,
+        "max_positions": 2,
+        "trailing_stop_pct": 0.75
+      },
+      "total_trades_learned_pre_reset": 100,
+      "adaptation_count_pre_reset": 13
+    },
+    "preserved_positions": [
+      {
+        "symbol": "SOL",
+        "direction": "long",
+        "margin_usd": 10.0,
+        "entry_price": 85.6835627712083,
+        "current_pnl_usd": 0.0239,
+        "open_time": "2026-04-23T14:13:38.432319+00:00"
+      },
+      {
+        "symbol": "ETH",
+        "direction": "long",
+        "margin_usd": 10.0,
+        "entry_price": 2320.9772242504987,
+        "current_pnl_usd": 0.0262,
+        "open_time": "2026-04-23T14:18:55.081960+00:00"
+      }
+    ],
+    "preserve_positions_flag": true,
+    "backups_created": [
+      "portfolio.json.bak_v2_12_31_reset_1776955790",
+      "trade_history.json.bak_v2_12_31_reset_1776955790",
+      "reset_history.json.bak_v2_12_31_reset_1776955790",
+      "daily_target_state.json.bak_v2_12_31_reset_1776955790",
+      "auto_learner_state.json.bak_v2_12_31_reset_1776955790"
+    ],
+    "capital_source": "wallet_equity",
+    "version": "2.12.31-live"
+  },
+  {
+    "reset_date": "2026-04-24T04:12:02.717073+00:00",
+    "period_start": "2026-04-23T21:00:30+00:00",
+    "period_end": "2026-04-24T04:12:02.717073+00:00",
+    "initial_capital": 104.64,
+    "final_capital": 90.19,
+    "return_pct": -13.81,
+    "total_pnl_usd": -0.0281,
+    "total_trades": 4,
+    "wins": 1,
+    "losses": 3,
+    "flat": 0,
+    "win_rate": 25.0,
+    "best_trade_usd": 0.0231,
+    "worst_trade_usd": -0.0295,
+    "new_capital": 90.1851,
+    "reason": "Orphan reconcile: SOL+ETH positions closed on-chain 21:00:30/34 UTC via emergency_close.py but broadcast_failed returned to Python (race condition). Manually reconciled with verified tx data.",
+    "notes": "INCIDENT SUMMARY:\n- emergency_close.py cron fired at 21:01 UTC (HB stale moment\u00e1neo)\n- Jupiter swaps para SOL + ETH salieron on-chain entre 21:00:30-34 UTC\n- broadcast_and_confirm Python retorn\u00f3 broadcast_failed (tx timeout race)\n- Portfolio.json dej\u00f3 positions como open aunque on-chain ya cerraron\n- Reconcile detect\u00f3 SHORTAGE 75.8% SOL + 90.3% ETH \u2192 kill switch (v2.12.23 asymmetric check working)\n- Manual reconcile con datos decoded via getTransaction RPC\n\nCLOSE DETAILS:\n- SOL_live_1776968192: tokens=0.117041 \u2192 USDC $10.0185 | gross +$0.02 fee -$0.02 = net $-0.0015 (FLAT)\n- ETH_live_1776969887: tokens=0.004318 \u2192 USDC $10.0431 | gross +$0.04 fee -$0.02 = net $0.0231 (WIN)\n\nBACKUPS creados con sufijo .bak_v2_12_31_orphan_reconcile_1777003922",
+    "attachments": [],
+    "mode_pre_reset": "live",
+    "mode_post_reset": "live",
+    "wallet_snapshot": null,
+    "auto_learner_snapshot": {},
+    "preserved_positions": [],
+    "preserve_positions_flag": false,
+    "backups_created": [
+      "portfolio.json.bak_v2_12_31_orphan_reconcile_1777003922",
+      "trade_history.json.bak_v2_12_31_orphan_reconcile_1777003922",
+      "reset_history.json.bak_v2_12_31_orphan_reconcile_1777003922"
+    ],
+    "capital_source": "wallet_equity",
+    "version": "2.12.31-live",
+    "incident_type": "orphan_reconcile_broadcast_race",
+    "verified_txs": [
+      {
+        "sig": "5uECxE1o12VCzdEiW42bnaoxfr7azTXyY943iqLHWUFVtAEtcJ8GwToEDmYuKwWyiKuzAQsA6tA22hNPJQu7uki",
+        "symbol": "SOL",
+        "time": "2026-04-23T21:00:30+00:00"
+      },
+      {
+        "sig": "32tGp4SSQKhFxSwqgfgS7LtKssXUWZBxs8AdRWjWcUSy7x5i2CFmKgs9dULxp2ti6tzUakGhmgycXBEuPEeysfcH",
+        "symbol": "ETH",
+        "time": "2026-04-23T21:00:34+00:00"
+      }
+    ]
+  },
+  {
+    "reset_date": "2026-04-24T13:52:24.650590+00:00",
+    "period_start": "2026-04-24T01:56:00+00:00",
+    "period_end": "2026-04-24T13:52:24.650590+00:00",
+    "initial_capital": 90.1851,
+    "final_capital": 90.19,
+    "return_pct": 0.01,
+    "total_pnl_usd": -0.0616,
+    "total_trades": 6,
+    "wins": 1,
+    "losses": 5,
+    "flat": 0,
+    "win_rate": 16.67,
+    "best_trade_usd": 0.0231,
+    "worst_trade_usd": -0.0295,
+    "new_capital": 90.1916,
+    "reason": "Orphan reconcile #2: SOL+ETH positions closed on-chain 2026-04-24T07:42:34-35 UTC via emergency_close.py cron but broadcast_failed returned to Python (same race condition as #1). Live orch had died ~01:56 UTC due to host OOM (load 376, memory 99%, 534 users).",
+    "notes": "INCIDENT #2 SUMMARY:\n- 2026-04-24T01:56:46 UTC: Live orch last log entry (died unexpectedly)\n- 01:56 \u2192 07:42 UTC: host unreachable via SSH/HTTP (load thrashing)\n- 07:42:34 UTC: emergency_close.py cron swap SOL \u2192 USDC (tx success on-chain, Python broadcast_failed)\n- 07:42:35 UTC: emergency_close.py cron swap ETH \u2192 USDC (tx success on-chain, Python broadcast_failed)\n- 07:48 UTC: host recovery (load 7, memory 70%), SSH accessible\n- ~12:00 UTC: user sees UNHEALTHY in dashboard, requests diagnosis\n- Manual reconcile executed with verified tx data\n\nSame pattern as 2026-04-23 orphan reconcile #1 (documented in prior reset_history entry).\n\nROOT CAUSE (host): unclear \u2014 534 users, memory saturated. Needs investigation. Possibly:\n  - Accumulated zombie SSH sessions\n  - Memory leak en alg\u00fan proceso\n  - OOM cascade\n\nFIX required: investigate systemd sshd session limits + host monitoring.",
+    "attachments": [],
+    "mode_pre_reset": "live",
+    "mode_post_reset": "live",
+    "wallet_snapshot": null,
+    "auto_learner_snapshot": {},
+    "preserved_positions": [],
+    "preserve_positions_flag": false,
+    "backups_created": [
+      "portfolio.json.bak_v2_12_31_orphan_reconcile_2_1777038744",
+      "trade_history.json.bak_v2_12_31_orphan_reconcile_2_1777038744",
+      "reset_history.json.bak_v2_12_31_orphan_reconcile_2_1777038744"
+    ],
+    "capital_source": "wallet_equity_rpc",
+    "version": "2.12.31-live",
+    "incident_type": "orphan_reconcile_broadcast_race_after_host_OOM",
+    "verified_txs": [
+      {
+        "sig": "CGqHbAnp3jQCx1DCK7f9ycA7Qz8QYhsyfq54nL553p6RECDDj41LcjThfWRz5bDPPexrXN5ehSXAkafV4XC7fGc",
+        "symbol": "SOL",
+        "time": "2026-04-24T07:42:34+00:00"
+      },
+      {
+        "sig": "2UCiLp3Q1mGiNZV7Yp9iXSYd29eSJau2p645xn5T2bpycQewV34DJm5eAqdtZcd8fg1J4rqbodmpctSJ273Wbma5",
+        "symbol": "ETH",
+        "time": "2026-04-24T07:42:35+00:00"
+      }
+    ],
+    "related_incident": "See prior reset_history entry 2026-04-24T04:12 (orphan reconcile #1)",
+    "host_diagnostics": {
+      "load_avg_during_crisis": "281/358/376",
+      "users_logged": "503-534",
+      "memory_usage_during_crisis": "99.2%",
+      "uptime_when_detected": "12 days, 0h17m"
+    }
+  },
+  {
+    "reset_date": "2026-04-28T12:37:36.878217+00:00",
+    "period_start": "2026-04-23T14:49:49.971397+00:00",
+    "period_end": "2026-04-28T12:37:36.878217+00:00",
+    "initial_capital": 104.6414,
+    "final_capital": 91.28,
+    "return_pct": -12.77,
+    "total_pnl_usd": 0.89,
+    "total_trades": 18,
+    "wins": 8,
+    "losses": 10,
+    "flat": 0,
+    "win_rate": 44.44,
+    "best_trade_usd": 0.42,
+    "worst_trade_usd": -0.08,
+    "new_capital": 103.7784,
+    "reason": "Soft reset \u2014 baseline refresh, positions + auto_learner preserved",
+    "notes": "",
+    "attachments": [],
+    "mode_pre_reset": "live",
+    "mode_post_reset": "live",
+    "wallet_snapshot": {
+      "wallet_total": 103.7784,
+      "balances": {
+        "SOL": 0.153568,
+        "USDC": 90.538282,
+        "JUP": 2.282295,
+        "ETH": 0
+      },
+      "prices": {
+        "SOL": 83.356449,
+        "JUP": 0.192455,
+        "ETH": 2273.958092
+      },
+      "ts": 1777379856.878831
+    },
+    "auto_learner_snapshot": {
+      "params": {
+        "sl_pct": 0.04,
+        "tp_pct": 0.056,
+        "leverage_tier": 1,
+        "risk_per_trade": 0.012,
+        "max_positions": 3,
+        "trailing_stop_pct": 0.9375
+      },
+      "total_trades_learned_pre_reset": 14,
+      "adaptation_count_pre_reset": 2
+    },
+    "preserved_positions": [],
+    "preserve_positions_flag": true,
+    "backups_created": [
+      "portfolio.json.bak_v2_12_31_reset_1777379857",
+      "trade_history.json.bak_v2_12_31_reset_1777379857",
+      "reset_history.json.bak_v2_12_31_reset_1777379857",
+      "daily_target_state.json.bak_v2_12_31_reset_1777379857",
+      "auto_learner_state.json.bak_v2_12_31_reset_1777379857"
+    ],
+    "capital_source": "wallet_equity",
+    "version": "2.12.31-live"
+  },
+  {
+    "reset_date": "2026-04-28T20:44:00.944698+00:00",
+    "period_start": "2026-04-28T12:37:36.878217+00:00",
+    "period_end": "2026-04-28T20:44:00.944698+00:00",
+    "initial_capital": 103.7784,
+    "final_capital": 103.72,
+    "return_pct": -0.06,
+    "total_pnl_usd": 0,
+    "total_trades": 0,
+    "wins": 0,
+    "losses": 0,
+    "flat": 0,
+    "win_rate": 0,
+    "best_trade_usd": 0,
+    "worst_trade_usd": 0,
+    "new_capital": 93.8448,
+    "reason": "Post-manual-perp-position reset \u2014 new baseline after SOL 2x long opened",
+    "notes": "",
+    "attachments": [],
+    "mode_pre_reset": "live",
+    "mode_post_reset": "live",
+    "wallet_snapshot": {
+      "wallet_total": 93.8448,
+      "balances": {
+        "SOL": 0.153551,
+        "USDC": 80.538282,
+        "JUP": 2.282295,
+        "ETH": 0
+      },
+      "prices": {
+        "SOL": 83.838113,
+        "JUP": 0.189797,
+        "ETH": 2296.050111
+      },
+      "ts": 1777408992.904649
+    },
+    "auto_learner_snapshot": {
+      "params": {
+        "sl_pct": 0.04,
+        "tp_pct": 0.056,
+        "leverage_tier": 1,
+        "risk_per_trade": 0.012,
+        "max_positions": 3,
+        "trailing_stop_pct": 0.9375
+      },
+      "total_trades_learned_pre_reset": 0,
+      "adaptation_count_pre_reset": 2
+    },
+    "preserved_positions": [
+      {
+        "symbol": "SOL",
+        "direction": "long",
+        "margin_usd": 10.0187,
+        "entry_price": 83.858995,
+        "current_pnl_usd": -0.0596,
+        "open_time": "2026-04-28T20:23:16.978442+00:00"
+      }
+    ],
+    "preserve_positions_flag": true,
+    "backups_created": [
+      "portfolio.json.bak_v2_12_31_reset_1777409040",
+      "trade_history.json.bak_v2_12_31_reset_1777409040",
+      "reset_history.json.bak_v2_12_31_reset_1777409040",
+      "daily_target_state.json.bak_v2_12_31_reset_1777409040",
+      "auto_learner_state.json.bak_v2_12_31_reset_1777409040"
+    ],
+    "capital_source": "wallet_equity",
+    "version": "2.12.31-live"
+  },
+  {
+    "reset_date": "2026-04-28T21:48:25.542580+00:00",
+    "period_start": "2026-04-28T20:44:00.944698+00:00",
+    "period_end": "2026-04-28T21:48:25.542580+00:00",
+    "initial_capital": 93.8448,
+    "final_capital": 93.75,
+    "return_pct": -0.1,
+    "total_pnl_usd": 0,
+    "total_trades": 0,
+    "wins": 0,
+    "losses": 0,
+    "flat": 0,
+    "win_rate": 0,
+    "best_trade_usd": 0,
+    "worst_trade_usd": 0,
+    "new_capital": 100.0,
+    "reason": "Post-test-position reset + $100 baseline establishment",
+    "notes": "Manual SOL 2x long closed. Expanding perps whitelist to BTC,ETH. Fresh $100 baseline for Phase 2 measurement.",
+    "attachments": [],
+    "mode_pre_reset": "live",
+    "mode_post_reset": "live",
+    "wallet_snapshot": {
+      "wallet_total": 103.7377,
+      "balances": {
+        "SOL": 0.153529,
+        "USDC": 90.450658,
+        "JUP": 2.282295,
+        "ETH": 0
+      },
+      "prices": {
+        "SOL": 83.736567,
+        "JUP": 0.188892,
+        "ETH": 2286.933299
+      },
+      "ts": 1777412893.5371282
+    },
+    "auto_learner_snapshot": {
+      "params": {
+        "sl_pct": 0.04,
+        "tp_pct": 0.056,
+        "leverage_tier": 1,
+        "risk_per_trade": 0.012,
+        "max_positions": 3,
+        "trailing_stop_pct": 0.9375
+      },
+      "total_trades_learned_pre_reset": 0,
+      "adaptation_count_pre_reset": 2
+    },
+    "preserved_positions": [],
+    "preserve_positions_flag": false,
+    "backups_created": [
+      "portfolio.json.bak_v2_12_31_reset_1777412905",
+      "trade_history.json.bak_v2_12_31_reset_1777412905",
+      "reset_history.json.bak_v2_12_31_reset_1777412905",
+      "daily_target_state.json.bak_v2_12_31_reset_1777412905",
+      "auto_learner_state.json.bak_v2_12_31_reset_1777412905"
+    ],
+    "capital_source": "user_input",
+    "version": "2.12.31-live"
   }
 ]

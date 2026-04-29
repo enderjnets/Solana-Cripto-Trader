@@ -1,55 +1,29 @@
 {
-  "timestamp": "2026-04-09T05:55:35.321042+00:00",
+  "timestamp": "2026-04-29T01:32:48.920175+00:00",
   "decisions": [
     {
-      "symbol": "BTC",
-      "direction": "short",
-      "action": "REDUCE",
-      "confidence": 0.68,
-      "alignment": "SPLIT (quant=CLOSE, llm=REDUCE)",
-      "quant_score": 50,
-      "quant_action": "CLOSE",
+      "symbol": "SOL",
+      "direction": "long",
+      "action": "CLOSE",
+      "confidence": 0.58,
+      "alignment": "SPLIT (quant=HOLD, llm=CLOSE)",
+      "quant_score": 10,
+      "quant_action": "HOLD",
       "quant_reasons": [
-        "TP_MUY_CERCA_GANANCIA (1.35%, pnl=9.2%)",
-        "PANICO_EXTREMO (F&G=14)"
+        "TP_MODERADO (5.57%)"
       ],
-      "llm_action": "REDUCE",
-      "llm_confidence": 0.85,
-      "llm_reasoning": "Ganancia de 9.16% supera el umbral de 8%, portafolio ya\u8d85\u6807 347% del target, y tendencia bullish con F&G en 14 sugiere presi\u00f3n al alza. Reducir 50% asegura ganancias y libera capital.",
+      "llm_action": "CLOSE",
+      "llm_confidence": 0.72,
+      "llm_reasoning": "Score de 10/100 indica se\u00f1al fuerte de cierre. A pesar de tendencia bullish, el Fear & Greed en 26/100 muestra miedo extremo en el mercado y la posici\u00f3n ya lleva 2 horas abierta sin avance real hacia el TP de $2.00 del portafolio.",
+      "llm_reasoning_lang": "es",
       "llm_source": "llm_claude_sonnet",
-      "pnl_usd": 2.5607,
-      "pnl_pct": 9.1616,
-      "dist_tp_pct": 1.35,
-      "dist_sl_pct": 1.701,
-      "rr_remaining": 0.794,
-      "hours_open": 0,
-      "evaluated_at": "2026-04-09T05:55:28.903753+00:00"
-    },
-    {
-      "symbol": "ETH",
-      "direction": "short",
-      "action": "REDUCE",
-      "confidence": 0.66,
-      "alignment": "SPLIT (quant=CLOSE, llm=REDUCE)",
-      "quant_score": 85,
-      "quant_action": "CLOSE",
-      "quant_reasons": [
-        "TP_MUY_CERCA_GANANCIA (0.00%, pnl=19.1%)",
-        "RR_MALO (0.00x)",
-        "GANANCIA_MUY_ALTA (19.1%)",
-        "PANICO_EXTREMO (F&G=14)"
-      ],
-      "llm_action": "REDUCE",
-      "llm_confidence": 0.82,
-      "llm_reasoning": "Ganancia del 19.1% enETHshort conscore85/100 yTPmuycerca(RR=0). Mercado bullishconfalta panico(F&G=14).Seguir\u00e9gla3:ganancia>8%cerrar50%yasegurarparte.Siextraccido$2.19(50%de$4.38),elportafoliosecalza$2.00targetyqueda$2.75libreparasietestacontinua.",
-      "llm_source": "llm_claude_sonnet",
-      "pnl_usd": 4.3818,
-      "pnl_pct": 19.0514,
-      "dist_tp_pct": 0,
-      "dist_sl_pct": 3.789,
-      "rr_remaining": 0.0,
-      "hours_open": 0,
-      "evaluated_at": "2026-04-09T05:55:35.320947+00:00"
+      "pnl_usd": -0.0781,
+      "pnl_pct": -0.5198,
+      "dist_tp_pct": 5.571,
+      "dist_sl_pct": 4.026,
+      "rr_remaining": 1.384,
+      "hours_open": 2.0,
+      "evaluated_at": "2026-04-29T01:32:48.920083+00:00"
     }
   ]
 }

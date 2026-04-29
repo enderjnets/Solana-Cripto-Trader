@@ -7,23 +7,20 @@
     "max_positions": 3,
     "trailing_stop_pct": 0.9375
   },
-  "total_trades_learned": 9,
-  "last_adaptation": "2026-04-25T14:02:56.854402+00:00",
-  "adaptation_count": 1,
-  "last_trade_count": 9,
-  "notes": "v2.12.32.1 cleanup: avoid list cleared + counters reset. Pre-fix data (6 trades, 16.7% WR) was contaminated by bugs fixed in v2.12.30. SL/TP params (4.4%/5.6%) preserved. Re-learning from scratch post-fix.",
+  "total_trades_learned": 0,
+  "last_adaptation": "2026-04-26T14:12:23.531212+00:00",
+  "adaptation_count": 2,
+  "last_trade_count": 0,
+  "notes": "Reset capital $100.0 - conocimiento preservado",
   "tokens_to_avoid": [
     "SOL",
     "ETH"
   ],
   "tokens_to_prefer": [
-    "JUP",
-    "POPCAT",
-    "FARTCOIN",
-    "WIF"
+    "JUP"
   ],
-  "last_updated": "2026-04-25T14:02:56.854414+00:00",
-  "last_analysis": "The bot is in a severe losing state with 33.3% WR and -$0.05 PnL across 9 trades. TIME_EXIT is the worst performer (0% WR, -$0.0497) while system-generated ORPHAN_RECONCILE_v2.12.31 without #2 shows 50% WR. SOL is the worst token (25% WR, -$0.0439) followed by ETH (33.3% WR, -$0.0148). JUP is the only profitable token (50% WR, +$0.0060) despite prior cycles marking it as broken\u2014this suggests the entry logic may have been updated. The 0.9375% trailing stop appears well-calibrated but needs evaluation against the recent 2.0% change mentioned in knowledge base.",
-  "last_insight": "TIME_EXIT is a guaranteed loser (0% WR, -$0.0497) that should be immediately disabled, while system-generated ORPHAN_RECONCILE closes consistently outperform manual timing. The bot is only trading losing tokens (SOL 25% WR, ETH 33.3% WR) when JUP is the only profitable performer at 50% WR.",
-  "confidence": 0.68
+  "last_updated": "2026-04-28T21:48:25.542580+00:00",
+  "last_analysis": "The bot is marginally profitable (+$0.13) with a healthy 2.0 R:R ratio despite only 42.9% WR, demonstrating solid risk-reward mechanics. JUP is the clear outperformer (66.7% WR, +$0.2644) while SOL and ETH are confirmed losers (20% and 33% WR respectively, both net negative). The 0.9375% trailing stop is working well with TRAILING_SL showing 66.7% WR and +$0.1640 profit. All trades are longs with no direction diversification, which is a systematic risk but hasn't prevented profitability on JUP.",
+  "last_insight": "JUP has dramatically flipped from a 0% WR broken signal to a 66.7% WR outperformer (+$0.2644) while SOL/ETH have deteriorated - the bot's current allocation is misaligned with where profits actually are.",
+  "confidence": 0.85
 }

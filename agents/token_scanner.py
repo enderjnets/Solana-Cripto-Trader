@@ -19,6 +19,23 @@ from pathlib import Path
 from datetime import datetime, timezone
 from typing import Optional
 
+# ─── Retry helper ─────────────────────────────────────────────────────────────
+MAX_RETRIES = 3
+RETRY_BACKOFF = 2  # seconds
+
+def _retry_request(func, *args, **kwargs):
+    """Execute a request function with retry + exponential backoff."""
+    for attempt in range(1, MAX_RETRIES + 1):
+        try:
+            return func(*args, **kwargs)
+        except requests.RequestException as e:
+            log.warning(f"Request failed (attempt {attempt}/{MAX_RETRIES}): {e}")
+            if attempt < MAX_RETRIES:
+                time.sleep(RETRY_BACKOFF * attempt)
+            else:
+                raise
+    return None
+
 # ─── Configuración ────────────────────────────────────────────────────────────
 
 DATA_DIR = Path(__file__).parent / "data"
@@ -55,34 +72,37 @@ def fetch_dexscreener_trending() -> list:
     results = []
     
     try:
-        # Top volume pairs on Solana
-        resp = requests.get(
-            "https://api.dexscreener.com/latest/dex/search?q=SOL",
-            timeout=15
-        )
-        if resp.status_code == 200:
-            data = resp.json()
-            pairs = data.get("pairs", [])
-            # Filtrar solo Solana
-            solana_pairs = [p for p in pairs if p.get("chainId") == "solana"]
-            results.extend(solana_pairs[:30])
+        def _do():
+            resp = requests.get(
+                "https://api.dexscreener.com/latest/dex/search?q=SOL",
+                timeout=15
+            )
+            resp.raise_for_status()
+            return resp.json()
+        data = _retry_request(_do) or {}
+        pairs = data.get("pairs", [])
+        # Filtrar solo Solana
+        solana_pairs = [p for p in pairs if p.get("chainId") == "solana"]
+        results.extend(solana_pairs[:30])
     except Exception as e:
-        log.warning(f"DexScreener search error: {e}")
+        log.warning(f"DexScreener search error after retries: {e}")
     
     try:
         # Top gainers - buscar tokens con movimiento en varias categorías
         queries = ["PUMP", "AI", "MEME", "TRUMP", "PEPE", "CAT", "DOG", "FROG", "COIN"]
         for query in queries:
             try:
-                resp = requests.get(
-                    f"https://api.dexscreener.com/latest/dex/search?q={query}",
-                    timeout=8
-                )
-                if resp.status_code == 200:
-                    data = resp.json()
-                    pairs = data.get("pairs", [])
-                    solana_pairs = [p for p in pairs if p.get("chainId") == "solana"]
-                    results.extend(solana_pairs[:15])
+                def _do_q():
+                    resp = requests.get(
+                        f"https://api.dexscreener.com/latest/dex/search?q={query}",
+                        timeout=8
+                    )
+                    resp.raise_for_status()
+                    return resp.json()
+                data = _retry_request(_do_q) or {}
+                pairs = data.get("pairs", [])
+                solana_pairs = [p for p in pairs if p.get("chainId") == "solana"]
+                results.extend(solana_pairs[:15])
             except:
                 pass
     except Exception as e:
@@ -100,64 +120,42 @@ def fetch_dexscreener_trending() -> list:
     return unique
 
 
-JUPITER_CACHE_FILE = DATA_DIR / "jupiter_tokens_cache.json"
-JUPITER_CACHE_TTL  = 3600 * 6   # 6 horas en segundos
-
-
 def fetch_jupiter_verified_tokens() -> dict:
-    """Obtiene tokens verificados de Jupiter. Usa caché local si DNS falla."""
-    # Intentar fetch fresco
+    """Obtiene lista de tokens verificados de Jupiter."""
     try:
-        resp = requests.get(JUPITER_STRICT_LIST, timeout=15)
-        if resp.status_code == 200:
-            tokens = resp.json()
-            result = {t.get("symbol", ""): t for t in tokens if t.get("symbol")}
-            # Guardar caché en disco para uso posterior
-            try:
-                with open(JUPITER_CACHE_FILE, "w") as f:
-                    json.dump({"tokens": result, "saved_at": time.time()}, f)
-            except Exception:
-                pass
-            return result
+        def _do():
+            resp = requests.get(JUPITER_STRICT_LIST, timeout=15)
+            resp.raise_for_status()
+            return resp.json()
+        tokens = _retry_request(_do) or []
+        return {t.get("symbol", ""): t for t in tokens if t.get("symbol")}
     except Exception as e:
-        log.warning(f"Jupiter token list error: {e}")
-
-    # Fallback: caché local si tiene menos de 6h de antigüedad
-    try:
-        if JUPITER_CACHE_FILE.exists():
-            with open(JUPITER_CACHE_FILE) as f:
-                cached = json.load(f)
-            age_h = (time.time() - cached.get("saved_at", 0)) / 3600
-            if age_h < (JUPITER_CACHE_TTL / 3600):
-                log.info(f"Jupiter: usando caché ({age_h:.1f}h de antigüedad, {len(cached['tokens'])} tokens)")
-                return cached["tokens"]
-    except Exception:
-        pass
-
+        log.warning(f"Jupiter token list error after retries: {e}")
     return {}
 
 
 def fetch_solana_top_movers() -> list:
     """Obtiene los mayores movimientos en Solana via CoinGecko."""
     try:
-        # Top gainers Solana ecosystem
-        resp = requests.get(
-            "https://api.coingecko.com/api/v3/coins/markets",
-            params={
-                "vs_currency": "usd",
-                "category": "solana-ecosystem",
-                "order": "volume_desc",
-                "per_page": 50,
-                "page": 1,
-                "sparkline": False,
-                "price_change_percentage": "24h"
-            },
-            timeout=15
-        )
-        if resp.status_code == 200:
+        def _do():
+            resp = requests.get(
+                "https://api.coingecko.com/api/v3/coins/markets",
+                params={
+                    "vs_currency": "usd",
+                    "category": "solana-ecosystem",
+                    "order": "volume_desc",
+                    "per_page": 50,
+                    "page": 1,
+                    "sparkline": False,
+                    "price_change_percentage": "24h"
+                },
+                timeout=15
+            )
+            resp.raise_for_status()
             return resp.json()
+        return _retry_request(_do) or []
     except Exception as e:
-        log.warning(f"CoinGecko error: {e}")
+        log.warning(f"CoinGecko error after retries: {e}")
     return []
 
 
@@ -366,7 +364,6 @@ def update_token_list(opportunities: list, current_tracked: dict) -> dict:
                 log.info(f"➕ Agregado {symbol} (score={opp['opportunity_score']:.2f})")
     
     # Remove expired tokens (older than 7 days)
-    # FIX: rename loop-local variable to avoid shadowing the `added` list
     now = datetime.now(timezone.utc)
     expired = []
     for sym, data in list(tokens.items()):
@@ -375,12 +372,12 @@ def update_token_list(opportunities: list, current_tracked: dict) -> dict:
         added_str = data.get("added_at", "")
         if added_str:
             try:
-                added_dt = datetime.fromisoformat(added_str)
-                if added_dt.tzinfo is None:
-                    added_dt = added_dt.replace(tzinfo=timezone.utc)
-                if (now - added_dt).days > 7:
+                added = datetime.fromisoformat(added_str)
+                if added.tzinfo is None:
+                    added = added.replace(tzinfo=timezone.utc)
+                if (now - added).days > 7:
                     expired.append(sym)
-            except Exception:
+            except:
                 pass
     for sym in expired:
         del tokens[sym]

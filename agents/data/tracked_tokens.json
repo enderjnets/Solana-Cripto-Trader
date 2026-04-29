@@ -1,39 +1,17 @@
 {
   "tokens": {
-    "PUMP": {
-      "address": "pumpCmXqMfrsAkQ5r49WcJnRayYRqmXz6ae8H7H9Dfn",
-      "added_at": "2026-03-27T18:02:32.546970+00:00",
-      "score": 0.5,
-      "reasons": [
-        "Liquidez $13.22M \u2705",
-        "Volumen muy alto $1.12M \u2705\u2705",
-        "MC $1703.0M \u2014 establecido \u2705"
-      ],
-      "price_at_add": 0.001702
-    },
-    "FROG": {
-      "address": "7MXrGPdZ9C5DtEm1MhqCny2kkTPiKk4NknxtLcTpy5PH",
-      "added_at": "2026-03-27T18:03:50.116818+00:00",
-      "score": 0.82,
-      "reasons": [
-        "Liquidez $0.11M \u2705",
-        "Volumen $0.23M \u2705",
-        "\ud83d\udcc8 PUMP +5846729.0% \u2705\u2705"
-      ],
-      "price_at_add": 0.2281
-    },
     "TRUMP": {
       "address": "6p6xgHyF7AeE6TZkSmFsko444wqoP15icUSqi2jfGiPN",
-      "added_at": "2026-03-27T18:03:50.116887+00:00",
-      "score": 0.52,
+      "added_at": "2026-04-27T03:47:29.320546+00:00",
+      "score": 0.6,
       "reasons": [
-        "Liquidez $0.71M \u2705",
-        "Volumen $0.49M \u2705",
-        "MC $3007.0M \u2014 establecido \u2705"
+        "Liquidez $1.36M \u2705",
+        "Volumen muy alto $2.09M \u2705\u2705",
+        "MC $2609.5M \u2014 establecido \u2705"
       ],
-      "price_at_add": 3.0069
+      "price_at_add": 2.6
     }
   },
-  "last_scan": "2026-04-10T00:30:52.168757+00:00",
+  "last_scan": "2026-04-28T05:31:47.887534+00:00",
   "added_this_scan": []
 }

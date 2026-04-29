@@ -1,62 +1,54 @@
 {
-  "timestamp": "2026-04-04T05:37:35.916401+00:00",
+  "timestamp": "2026-04-26T14:12:23.536871+00:00",
   "version": "2.0-ai",
-  "adaptation_count": 1,
-  "total_trades_analyzed": 524,
-  "new_trades_since_last": 524,
+  "adaptation_count": 2,
+  "total_trades_analyzed": 14,
+  "new_trades_since_last": 5,
   "performance": {
-    "total": 50,
-    "wins": 24,
-    "losses": 24,
-    "flat": 2,
-    "win_rate": 50.0,
-    "total_pnl": 6.6927,
+    "total": 14,
+    "wins": 6,
+    "losses": 8,
+    "flat": 0,
+    "win_rate": 42.9,
+    "total_pnl": 0.1254,
     "total_fees": 0,
-    "avg_win": 0.6297,
-    "avg_loss": 0.3508,
-    "rr_ratio": 1.79,
-    "best": 3.6802,
-    "worst": -1.6857
+    "avg_win": 0.0624,
+    "avg_loss": 0.0312,
+    "rr_ratio": 2.0,
+    "best": 0.1727,
+    "worst": -0.0813
   },
-  "analysis": "The strategy shows recovery with recent 50 trades posting +$6.69 and an improved 1.79 R:R ratio, though overall 524-trade stats remain negative at -$43.50 with a concerning 0.78 R:R. JUP is clearly the worst performer with 25% WR and -$2.34 losses across 4 short trades, while FARTCOIN emerged as the top profit contributor at +$4.56 despite previous avoid recommendations.",
-  "key_insight": "The close reason 'unknown' for all 50 recent trades (versus 96% EMERGENCY_CLOSE previously) suggests the trailing stop adjustment from 3.75% to 2.0% may have improved close reasons, but we now lack visibility into WHY trades close - this tracking needs attention.",
-  "confidence": 0.72,
+  "analysis": "The bot is marginally profitable (+$0.13) with a healthy 2.0 R:R ratio despite only 42.9% WR, demonstrating solid risk-reward mechanics. JUP is the clear outperformer (66.7% WR, +$0.2644) while SOL and ETH are confirmed losers (20% and 33% WR respectively, both net negative). The 0.9375% trailing stop is working well with TRAILING_SL showing 66.7% WR and +$0.1640 profit. All trades are longs with no direction diversification, which is a systematic risk but hasn't prevented profitability on JUP.",
+  "key_insight": "JUP has dramatically flipped from a 0% WR broken signal to a 66.7% WR outperformer (+$0.2644) while SOL/ETH have deteriorated - the bot's current allocation is misaligned with where profits actually are.",
+  "confidence": 0.85,
   "params_before": {
-    "sl_pct": 0.03,
-    "tp_pct": 0.06,
+    "sl_pct": 0.04,
+    "tp_pct": 0.056,
     "leverage_tier": 1,
-    "risk_per_trade": 0.015,
+    "risk_per_trade": 0.012,
     "max_positions": 3,
-    "trailing_stop_pct": 8.0
+    "trailing_stop_pct": 0.9375
   },
   "params_after": {
-    "sl_pct": 0.025,
-    "tp_pct": 0.06,
+    "sl_pct": 0.04,
+    "tp_pct": 0.056,
     "leverage_tier": 1,
-    "risk_per_trade": 0.015,
+    "risk_per_trade": 0.012,
     "max_positions": 3,
-    "trailing_stop_pct": 5.0
+    "trailing_stop_pct": 0.9375
   },
-  "changes": [
-    "sl_pct: 0.0300 \u2192 0.0250",
-    "trailing_stop_pct: 8.0000 \u2192 5.0000"
-  ],
+  "changes": [],
   "new_lessons": [
-    "JUP is catastrophic for this strategy with only 25% WR and -$2.34 total loss on shorts - permanently avoid despite low trade count, the pattern is clear",
-    "The knowledge base previously flagged FARTCOIN as 'avoid' but it has since become the top PnL contributor (+$4.56) - this demonstrates that token performance can reverse and avoid lists need periodic re-evaluation",
-    "Close reason tracking shows 'unknown' for all 50 recent trades after previously dominated by EMERGENCY_CLOSE - either the trailing stop is now more balanced or close reason logging is broken and needs investigation"
+    "PARTIAL_TAKE strategy shows 100% WR with best single trade profit ($0.1727) - consider implementing partial exit rules to lock in gains earlier",
+    "SMART_ROTATION shows 0% WR with worst avg loss ($0.0808) across 2 trades - this exit mechanism consistently destroys value and should be replaced with TRAILING_SL or system-generated reconcile",
+    "JUP has completely reversed from broken signal (0% WR in prior cycles) to top performer (66.7% WR, +$0.2644) - prior avoid rules may need reconsideration based on current entry logic updates",
+    "TIME_EXIT remains a guaranteed 0% WR mechanism (-$0.0497) - should continue to be disabled in favor of system-generated exits"
   ],
   "tokens_to_avoid": [
-    "JUP",
     "SOL",
-    "BONK",
-    "MOODENG"
+    "ETH"
   ],
   "tokens_to_prefer": [
-    "FARTCOIN",
-    "WIF",
-    "RAY",
-    "POPCAT",
-    "PENGU"
+    "JUP"
   ]
 }

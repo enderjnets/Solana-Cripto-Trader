@@ -1,16 +1,16 @@
 {
-  "timestamp": "2026-04-09T05:55:35.322606+00:00",
+  "timestamp": "2026-04-29T01:34:14.704268+00:00",
   "results": {
     "market_data": {
       "ok": true,
-      "prices": 16
+      "prices": 13
     },
     "risk_manager": {
       "ok": true
     },
     "strategy": {
       "ok": true,
-      "signals": 2
+      "signals": 4
     },
     "position_updater": {
       "ok": true
@@ -28,7 +28,7 @@
     },
     "position_decisions": {
       "ok": true,
-      "evaluated": 2,
+      "evaluated": 0,
       "close_signals": 0,
       "reduce_signals": 0
     },

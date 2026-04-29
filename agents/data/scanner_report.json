@@ -1,61 +1,7 @@
 {
-  "timestamp": "2026-04-09T05:38:35.282037+00:00",
-  "opportunities_found": 3,
-  "top_opportunities": [
-    {
-      "symbol": "TRUMP",
-      "name": "OFFICIAL TRUMP",
-      "address": "6p6xgHyF7AeE6TZkSmFsko444wqoP15icUSqi2jfGiPN",
-      "price": 2.93,
-      "price_change_24h": -1.99,
-      "volume_24h": 1455669.33,
-      "liquidity": 1381565.61,
-      "market_cap": 2930885027.0,
-      "verified": false,
-      "opportunity_score": 0.6,
-      "reasons": [
-        "Liquidez $1.38M \u2705",
-        "Volumen muy alto $1.46M \u2705\u2705",
-        "MC $2930.9M \u2014 establecido \u2705",
-        "Actividad normal (vol/liq=1.1x) \u2705"
-      ]
-    },
-    {
-      "symbol": "PUMP",
-      "name": "Pump",
-      "address": "pumpCmXqMfrsAkQ5r49WcJnRayYRqmXz6ae8H7H9Dfn",
-      "price": 0.001767,
-      "price_change_24h": -2.94,
-      "volume_24h": 826349.64,
-      "liquidity": 13491158.89,
-      "market_cap": 1767445920.0,
-      "verified": false,
-      "opportunity_score": 0.5,
-      "reasons": [
-        "Liquidez $13.49M \u2705",
-        "Volumen muy alto $0.83M \u2705\u2705",
-        "MC $1767.4M \u2014 establecido \u2705"
-      ]
-    },
-    {
-      "symbol": "DOG",
-      "name": "Dog (Bitcoin)",
-      "address": "dog1viwbb2vWDpER5FrJ4YFG6gq6XuyFohUe9TXN65u",
-      "price": 0.0006859,
-      "price_change_24h": -4.11,
-      "volume_24h": 53058.04,
-      "liquidity": 60047.02,
-      "market_cap": 68596713.0,
-      "verified": false,
-      "opportunity_score": 0.45,
-      "reasons": [
-        "Liquidez $0.06M \u26a0\ufe0f",
-        "Volumen $0.05M \u2705",
-        "MC $68.6M \u2014 establecido \u2705",
-        "Actividad normal (vol/liq=0.9x) \u2705"
-      ]
-    }
-  ],
+  "timestamp": "2026-04-28T05:31:47.887754+00:00",
+  "opportunities_found": 0,
+  "top_opportunities": [],
   "tokens_added": [],
-  "total_tracked": 16
+  "total_tracked": 8
 }

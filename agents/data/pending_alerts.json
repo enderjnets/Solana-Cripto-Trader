@@ -1,82 +1,82 @@
 [
   {
-    "ts": "2026-04-02T22:12:55.048504-06:00",
-    "msg": "\u26a0\ufe0f <b>ALERTA DRAWDOWN</b>\nDrawdown actual: 87.6%\nCapital: $80.24\nM\u00e1ximo permitido: 10%"
+    "ts": "2026-04-24T01:21:10.331934-06:00",
+    "msg": "\u26a0\ufe0f <b>ALERTA DRAWDOWN</b>\nDrawdown actual: 13.8%\nCapital: $70.19\nM\u00e1ximo permitido: 10%"
   },
   {
-    "ts": "2026-04-02T22:14:35.715695-06:00",
-    "msg": "\u26a0\ufe0f <b>ALERTA DRAWDOWN</b>\nDrawdown actual: 96.5%\nCapital: $13.24\nM\u00e1ximo permitido: 10%"
+    "ts": "2026-04-24T07:56:47.683108-06:00",
+    "msg": "\ud83c\udf05 <b>Reporte Diario \u2014 Solana Bot</b>\n\ud83d\udcc5 Friday 24 April 2026, 07:56 MT\n\n\ud83d\udcb0 <b>Capital:</b> $80.19\n\ud83d\udcca <b>Valor total:</b> $104.66\n\ud83d\udcc8 <b>Retorno:</b> +0.02%\n\ud83d\udcc9 <b>Drawdown:</b> 0.00%\n\n\ud83c\udfc6 <b>Win Rate:</b> 16.7%\n\ud83d\udcca <b>Trades totales:</b> 6 (1W / 5L)\n\ud83d\udc9a <b>Avg win:</b> $0.02\n\u2764\ufe0f <b>Avg loss:</b> $0.02\n\u26a1 <b>Profit factor:</b> 0.27\n\ud83d\udcd0 <b>Sharpe ratio:</b> -13.21\n\n\ud83d\udcca <b>Posiciones abiertas:</b> 1\n\n<b>\u00daltimos trades:</b>\n  \u274c ETH [oversold_bounce] $-0.01 via ORPHAN_RECONCILE_v2.12.31_#2\n  \u274c SOL [oversold_bounce] $-0.03 via ORPHAN_RECONCILE_v2.12.31_#2\n  \u2705 ETH [trend_momentum] $+0.02 via ORPHAN_RECONCILE_v2.12.31\n  \u274c SOL [trend_momentum] $-0.00 via ORPHAN_RECONCILE_v2.12.31\n  \u274c ETH [oversold_bounce] $-0.03 via TIME_EXIT"
   },
   {
-    "ts": "2026-04-02T22:15:57.959482-06:00",
-    "msg": "\u26a0\ufe0f <b>ALERTA DRAWDOWN</b>\nDrawdown actual: 98.7%\nCapital: $13.24\nM\u00e1ximo permitido: 10%"
+    "ts": "2026-04-24T16:39:59.228183-06:00",
+    "msg": "\u274c LOSS \u2014 <b>JUP</b>\nEstrategia: momentum\nP&L: $-0.00 (-0.03%)\nCierre: TRAILING_SL @ $0.173227"
   },
   {
-    "ts": "2026-04-02T22:19:06.256205-06:00",
-    "msg": "\u26a0\ufe0f <b>ALERTA DRAWDOWN</b>\nDrawdown actual: 25.7%\nCapital: $701.74\nM\u00e1ximo permitido: 10%"
+    "ts": "2026-04-25T07:00:29.392861-06:00",
+    "msg": "\ud83c\udf05 <b>Reporte Diario \u2014 Solana Bot</b>\n\ud83d\udcc5 Saturday 25 April 2026, 07:00 MT\n\n\ud83d\udcb0 <b>Capital:</b> $90.20\n\ud83d\udcca <b>Valor total:</b> $104.62\n\ud83d\udcc8 <b>Retorno:</b> -0.02%\n\ud83d\udcc9 <b>Drawdown:</b> 0.02%\n\n\ud83c\udfc6 <b>Win Rate:</b> 11.1%\n\ud83d\udcca <b>Trades totales:</b> 9 (1W / 6L)\n\ud83d\udc9a <b>Avg win:</b> $0.01\n\u2764\ufe0f <b>Avg loss:</b> $0.01\n\u26a1 <b>Profit factor:</b> 0.40\n\ud83d\udcd0 <b>Sharpe ratio:</b> -7.55\n\n\ud83d\udcca <b>Posiciones abiertas:</b> 1\n\n<b>\u00daltimos trades:</b>\n  \u274c JUP [momentum] $-0.00 via TRAILING_SL\n  \u2705 JUP [oversold_bounce] $+0.01 via reconcile_orphan_v2.12.16\n  \u2705 SOL [breakout] $+0.00 via reconcile_orphan_v2.12.16\n  \u274c ETH [oversold_bounce] $-0.01 via ORPHAN_RECONCILE_v2.12.31_#2\n  \u274c SOL [oversold_bounce] $-0.03 via ORPHAN_RECONCILE_v2.12.31_#2"
   },
   {
-    "ts": "2026-04-02T22:26:21.761037-06:00",
-    "msg": "\u26a0\ufe0f <b>ALERTA DRAWDOWN</b>\nDrawdown actual: 14.1%\nCapital: $819.41\nM\u00e1ximo permitido: 10%"
+    "ts": "2026-04-25T22:51:50.054397-06:00",
+    "msg": "\u2705 WIN \u2014 <b>JUP</b>\nEstrategia: trend_momentum\nP&L: $+0.17 (+3.45%)\nCierre: PARTIAL_TAKE @ $0.179740"
   },
   {
-    "ts": "2026-04-02T22:27:05.925726-06:00",
-    "msg": "\u26a0\ufe0f <b>ALERTA DRAWDOWN</b>\nDrawdown actual: 18.1%\nCapital: $819.41\nM\u00e1ximo permitido: 10%"
+    "ts": "2026-04-25T23:42:50.330007-06:00",
+    "msg": "\u2705 WIN \u2014 <b>JUP</b>\nEstrategia: trend_momentum\nP&L: $+0.15 (+3.09%)\nCierre: TRAILING_SL @ $0.178329"
   },
   {
-    "ts": "2026-04-03T01:58:31.187345-06:00",
-    "msg": "\u26a0\ufe0f <b>ALERTA DRAWDOWN</b>\nDrawdown actual: 10.3%\nCapital: $896.51\nM\u00e1ximo permitido: 10%"
+    "ts": "2026-04-26T06:12:02.996125-06:00",
+    "msg": "\u2705 WIN \u2014 <b>JUP</b>\nEstrategia: breakout\nP&L: $+0.01 (+0.13%)\nCierre: TRAILING_SL @ $0.179428"
   },
   {
-    "ts": "2026-04-03T05:10:28.407057-06:00",
-    "msg": "\u26a0\ufe0f <b>ALERTA DRAWDOWN</b>\nDrawdown actual: 20.7%\nCapital: $792.72\nM\u00e1ximo permitido: 10%"
+    "ts": "2026-04-26T07:00:22.800666-06:00",
+    "msg": "\ud83c\udf05 <b>Reporte Diario \u2014 Solana Bot</b>\n\ud83d\udcc5 Sunday 26 April 2026, 07:00 MT\n\n\ud83d\udcb0 <b>Capital:</b> $70.53\n\ud83d\udcca <b>Valor total:</b> $104.94\n\ud83d\udcc8 <b>Retorno:</b> +0.29%\n\ud83d\udcc9 <b>Drawdown:</b> 0.00%\n\n\ud83c\udfc6 <b>Win Rate:</b> 30.8%\n\ud83d\udcca <b>Trades totales:</b> 13 (4W / 7L)\n\ud83d\udc9a <b>Avg win:</b> $0.06\n\u2764\ufe0f <b>Avg loss:</b> $0.02\n\u26a1 <b>Profit factor:</b> 2.22\n\ud83d\udcd0 <b>Sharpe ratio:</b> 7.68\n\n\ud83d\udcca <b>Posiciones abiertas:</b> 3\n\n<b>\u00daltimos trades:</b>\n  \u2705 JUP [breakout] $+0.01 via TRAILING_SL\n  \u2705 JUP [trend_momentum] $+0.15 via TRAILING_SL\n  \u2705 JUP [trend_momentum] $+0.17 via PARTIAL_TAKE\n  \u274c JUP [oversold_momentum] $-0.08 via SMART_ROTATION\n  \u274c JUP [momentum] $-0.00 via TRAILING_SL"
   },
   {
-    "ts": "2026-04-03T05:14:46.468554-06:00",
-    "msg": "\u26a0\ufe0f <b>ALERTA DRAWDOWN</b>\nDrawdown actual: 22.1%\nCapital: $779.05\nM\u00e1ximo permitido: 10%"
+    "ts": "2026-04-26T21:47:17.487282-06:00",
+    "msg": "\u2705 WIN \u2014 <b>JUP</b>\nEstrategia: momentum_breakout\nP&L: $+0.40 (+8.08%)\nCierre: PARTIAL_TAKE @ $0.195302"
   },
   {
-    "ts": "2026-04-03T05:43:53.024897-06:00",
-    "msg": "\u26a0\ufe0f <b>ALERTA DRAWDOWN</b>\nDrawdown actual: 22.2%\nCapital: $777.66\nM\u00e1ximo permitido: 10%"
+    "ts": "2026-04-27T08:00:20.115101-06:00",
+    "msg": "\ud83c\udf05 <b>Reporte Diario \u2014 Solana Bot</b>\n\ud83d\udcc5 Monday 27 April 2026, 08:00 MT\n\n\ud83d\udcb0 <b>Capital:</b> $81.31\n\ud83d\udcca <b>Valor total:</b> $105.44\n\ud83d\udcc8 <b>Retorno:</b> +0.76%\n\ud83d\udcc9 <b>Drawdown:</b> 0.00%\n\n\ud83c\udfc6 <b>Win Rate:</b> 37.5%\n\ud83d\udcca <b>Trades totales:</b> 16 (6W / 8L)\n\ud83d\udc9a <b>Avg win:</b> $0.15\n\u2764\ufe0f <b>Avg loss:</b> $0.03\n\u26a1 <b>Profit factor:</b> 4.81\n\ud83d\udcd0 <b>Sharpe ratio:</b> 8.00\n\n\ud83d\udcca <b>Posiciones abiertas:</b> 1\n\n<b>\u00daltimos trades:</b>\n  \u2705 JUP [momentum_breakout] $+0.42 via POSITION_DECISION\n  \u2705 JUP [momentum_breakout] $+0.40 via PARTIAL_TAKE\n  \u274c SOL [breakout] $-0.08 via SMART_ROTATION\n  \u2705 JUP [breakout] $+0.01 via TRAILING_SL\n  \u2705 JUP [trend_momentum] $+0.15 via TRAILING_SL"
   },
   {
-    "ts": "2026-04-03T06:21:34.231897-06:00",
-    "msg": "\u26a0\ufe0f <b>ALERTA DRAWDOWN</b>\nDrawdown actual: 23.9%\nCapital: $761.20\nM\u00e1ximo permitido: 10%"
+    "ts": "2026-04-27T22:52:21.092200-06:00",
+    "msg": "\u26a0\ufe0f <b>ALERTA DRAWDOWN</b>\nDrawdown actual: 9.9%\nCapital: $91.27\nM\u00e1ximo permitido: 10%"
   },
   {
-    "ts": "2026-04-03T07:00:32.577246-06:00",
-    "msg": "\ud83c\udf05 <b>Reporte Diario \u2014 Solana Bot</b>\n\ud83d\udcc5 Friday 03 April 2026, 07:00 MT\n\n\ud83d\udcb0 <b>Capital:</b> $761.20\n\ud83d\udcca <b>Valor total:</b> $761.20\n\ud83d\udcc8 <b>Retorno:</b> -23.88%\n\ud83d\udcc9 <b>Drawdown:</b> 23.88%\n\n\ud83c\udfc6 <b>Win Rate:</b> 0.0%\n\ud83d\udcca <b>Trades totales:</b> 0 (0W / 0L)\n\ud83d\udc9a <b>Avg win:</b> $0.00\n\u2764\ufe0f <b>Avg loss:</b> $0.00\n\u26a1 <b>Profit factor:</b> 0.00\n\ud83d\udcd0 <b>Sharpe ratio:</b> 0.00\n\n\ud83d\udcca <b>Posiciones abiertas:</b> 0"
+    "ts": "2026-04-27T23:21:34.536792-06:00",
+    "msg": "\u26a0\ufe0f <b>ALERTA DRAWDOWN</b>\nDrawdown actual: 10.4%\nCapital: $81.27\nM\u00e1ximo permitido: 10%"
   },
   {
-    "ts": "2026-04-03T07:07:49.102487-06:00",
-    "msg": "\ud83c\udf05 <b>Reporte Diario \u2014 Solana Bot</b>\n\ud83d\udcc5 Friday 03 April 2026, 07:07 MT\n\n\ud83d\udcb0 <b>Capital:</b> $1000.00\n\ud83d\udcca <b>Valor total:</b> $1000.00\n\ud83d\udcc8 <b>Retorno:</b> +0.00%\n\ud83d\udcc9 <b>Drawdown:</b> 0.00%\n\n\ud83c\udfc6 <b>Win Rate:</b> 0.0%\n\ud83d\udcca <b>Trades totales:</b> 0 (0W / 0L)\n\ud83d\udc9a <b>Avg win:</b> $0.00\n\u2764\ufe0f <b>Avg loss:</b> $0.00\n\u26a1 <b>Profit factor:</b> 0.00\n\ud83d\udcd0 <b>Sharpe ratio:</b> 0.00\n\n\ud83d\udcca <b>Posiciones abiertas:</b> 0"
+    "ts": "2026-04-27T23:42:44.032762-06:00",
+    "msg": "\u26a0\ufe0f <b>ALERTA DRAWDOWN</b>\nDrawdown actual: 19.5%\nCapital: $91.28\nM\u00e1ximo permitido: 10%"
   },
   {
-    "ts": "2026-04-03T07:10:46.290531-06:00",
-    "msg": "\u26a0\ufe0f <b>ALERTA DRAWDOWN</b>\nDrawdown actual: 21.6%\nCapital: $784.54\nM\u00e1ximo permitido: 10%"
+    "ts": "2026-04-27T23:44:38.798008-06:00",
+    "msg": "\u26a0\ufe0f <b>ALERTA DRAWDOWN</b>\nDrawdown actual: 38.6%\nCapital: $91.28\nM\u00e1ximo permitido: 10%"
   },
   {
-    "ts": "2026-04-03T07:31:40.675377-06:00",
-    "msg": "\ud83c\udf05 <b>Reporte Diario \u2014 Solana Bot</b>\n\ud83d\udcc5 Friday 03 April 2026, 07:31 MT\n\n\ud83d\udcb0 <b>Capital:</b> $838.24\n\ud83d\udcca <b>Valor total:</b> $1000.00\n\ud83d\udcc8 <b>Retorno:</b> +0.00%\n\ud83d\udcc9 <b>Drawdown:</b> 0.00%\n\n\ud83c\udfc6 <b>Win Rate:</b> 0.0%\n\ud83d\udcca <b>Trades totales:</b> 0 (0W / 0L)\n\ud83d\udc9a <b>Avg win:</b> $0.00\n\u2764\ufe0f <b>Avg loss:</b> $0.00\n\u26a1 <b>Profit factor:</b> 0.00\n\ud83d\udcd0 <b>Sharpe ratio:</b> 0.00\n\n\ud83d\udcca <b>Posiciones abiertas:</b> 1"
+    "ts": "2026-04-28T00:03:40.868462-06:00",
+    "msg": "\u26a0\ufe0f <b>ALERTA DRAWDOWN</b>\nDrawdown actual: 87.6%\nCapital: $91.28\nM\u00e1ximo permitido: 10%"
   },
   {
-    "ts": "2026-04-03T07:32:49.793877-06:00",
-    "msg": "\u26a0\ufe0f <b>ALERTA DRAWDOWN</b>\nDrawdown actual: 16.2%\nCapital: $838.24\nM\u00e1ximo permitido: 10%"
+    "ts": "2026-04-28T06:38:05.095985-06:00",
+    "msg": "\u26a0\ufe0f <b>ALERTA DRAWDOWN</b>\nDrawdown actual: 87.7%\nCapital: $103.78\nM\u00e1ximo permitido: 10%"
   },
   {
-    "ts": "2026-04-03T07:34:06.399785-06:00",
-    "msg": "\ud83c\udf05 <b>Reporte Diario \u2014 Solana Bot</b>\n\ud83d\udcc5 Friday 03 April 2026, 07:34 MT\n\n\ud83d\udcb0 <b>Capital:</b> $1000.00\n\ud83d\udcca <b>Valor total:</b> $1000.00\n\ud83d\udcc8 <b>Retorno:</b> +0.00%\n\ud83d\udcc9 <b>Drawdown:</b> 0.00%\n\n\ud83c\udfc6 <b>Win Rate:</b> 0.0%\n\ud83d\udcca <b>Trades totales:</b> 0 (0W / 0L)\n\ud83d\udc9a <b>Avg win:</b> $0.00\n\u2764\ufe0f <b>Avg loss:</b> $0.00\n\u26a1 <b>Profit factor:</b> 0.00\n\ud83d\udcd0 <b>Sharpe ratio:</b> 0.00\n\n\ud83d\udcca <b>Posiciones abiertas:</b> 0"
+    "ts": "2026-04-28T07:00:54.985014-06:00",
+    "msg": "\ud83c\udf05 <b>Reporte Diario \u2014 Solana Bot</b>\n\ud83d\udcc5 Tuesday 28 April 2026, 07:00 MT\n\n\ud83d\udcb0 <b>Capital:</b> $103.78\n\ud83d\udcca <b>Valor total:</b> $103.83\n\ud83d\udcc8 <b>Retorno:</b> +0.05%\n\ud83d\udcc9 <b>Drawdown:</b> 0.00%\n\n\ud83c\udfc6 <b>Win Rate:</b> 0.0%\n\ud83d\udcca <b>Trades totales:</b> 0 (0W / 0L)\n\ud83d\udc9a <b>Avg win:</b> $0.00\n\u2764\ufe0f <b>Avg loss:</b> $0.00\n\u26a1 <b>Profit factor:</b> 0.00\n\ud83d\udcd0 <b>Sharpe ratio:</b> 0.00\n\n\ud83d\udcca <b>Posiciones abiertas:</b> 0"
   },
   {
-    "ts": "2026-04-03T09:13:07.802191-06:00",
-    "msg": "\u26a0\ufe0f <b>ALERTA DRAWDOWN</b>\nDrawdown actual: 17.9%\nCapital: $820.62\nM\u00e1ximo permitido: 10%"
+    "ts": "2026-04-28T14:23:28.665729-06:00",
+    "msg": "\u26a0\ufe0f <b>ALERTA DRAWDOWN</b>\nDrawdown actual: 9.6%\nCapital: $93.76\nM\u00e1ximo permitido: 10%"
   },
   {
-    "ts": "2026-04-04T07:00:15.303227-06:00",
-    "msg": "\ud83c\udf05 <b>Reporte Diario \u2014 Solana Bot</b>\n\ud83d\udcc5 Saturday 04 April 2026, 07:00 MT\n\n\ud83d\udcb0 <b>Capital:</b> $925.92\n\ud83d\udcca <b>Valor total:</b> $1000.46\n\ud83d\udcc8 <b>Retorno:</b> +0.05%\n\ud83d\udcc9 <b>Drawdown:</b> 0.00%\n\n\ud83c\udfc6 <b>Win Rate:</b> 0.0%\n\ud83d\udcca <b>Trades totales:</b> 0 (0W / 0L)\n\ud83d\udc9a <b>Avg win:</b> $0.00\n\u2764\ufe0f <b>Avg loss:</b> $0.00\n\u26a1 <b>Profit factor:</b> 0.00\n\ud83d\udcd0 <b>Sharpe ratio:</b> 0.00\n\n\ud83d\udcca <b>Posiciones abiertas:</b> 2"
+    "ts": "2026-04-28T14:50:50.948326-06:00",
+    "msg": "\u26a0\ufe0f <b>ALERTA DRAWDOWN</b>\nDrawdown actual: 86.3%\nCapital: $83.83\nM\u00e1ximo permitido: 10%"
   },
   {
-    "ts": "2026-04-08T07:02:11.354192-06:00",
-    "msg": "\ud83c\udf05 <b>Reporte Diario \u2014 Solana Bot</b>\n\ud83d\udcc5 Wednesday 08 April 2026, 07:02 MT\n\n\ud83d\udcb0 <b>Capital:</b> $944.10\n\ud83d\udcca <b>Valor total:</b> $1000.00\n\ud83d\udcc8 <b>Retorno:</b> +0.00%\n\ud83d\udcc9 <b>Drawdown:</b> 0.00%\n\n\ud83c\udfc6 <b>Win Rate:</b> 0.0%\n\ud83d\udcca <b>Trades totales:</b> 0 (0W / 0L)\n\ud83d\udc9a <b>Avg win:</b> $0.00\n\u2764\ufe0f <b>Avg loss:</b> $0.00\n\u26a1 <b>Profit factor:</b> 0.00\n\ud83d\udcd0 <b>Sharpe ratio:</b> 0.00\n\n\ud83d\udcca <b>Posiciones abiertas:</b> 1"
+    "ts": "2026-04-28T17:39:09.396640-06:00",
+    "msg": "\u26a0\ufe0f <b>ALERTA DRAWDOWN</b>\nDrawdown actual: 12.1%\nCapital: $100.00\nM\u00e1ximo permitido: 10%"
   }
 ]

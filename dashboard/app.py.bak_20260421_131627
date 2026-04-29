@@ -25,7 +25,7 @@ DATA = BASE / "agents" / "data"
 RESET_ATTACHMENTS_DIR = DATA / "reset_attachments"
 RESET_ATTACHMENTS_DIR.mkdir(parents=True, exist_ok=True)
 ALLOWED_ATTACH_EXT = {'png', 'jpg', 'jpeg', 'gif', 'webp', 'pdf', 'txt', 'csv'}
-WATCHDOG_LOG = Path("/home/enderj/.config/solana-jupiter-bot/modular.live.log")
+WATCHDOG_LOG = Path("/home/enderj/.config/solana-jupiter-bot/modular.log")
 
 def load_json(path):
     try:
@@ -106,44 +106,6 @@ def safe_parse_dt(s):
     except (ValueError, TypeError):
         return None
 
-def _load_reset_baseline():
-    """Resolve the current reset baseline from reset_history.json[-1].
-
-    v2.12.29: single source of truth for all post-reset filtering.
-    The legacy reset_log_20260326.json (paper-era, 2026-04-05) is NO LONGER
-    consulted — it misleadingly pulled in 20 pre-scale trades.
-
-    Returns (reset_dt, reset_capital, reset_date_str) or (None, None, None).
-    """
-    rh = load_json(DATA / "reset_history.json")
-    if not (isinstance(rh, list) and rh):
-        return None, None, None
-    latest = rh[-1]
-    reset_date_str = latest.get("reset_date")
-    if not reset_date_str:
-        return None, None, None
-    reset_dt = safe_parse_dt(reset_date_str)
-    if reset_dt is None:
-        return None, None, None
-    # Prefer new_capital (post-scale amount), fall back to capital_after
-    reset_capital = safe_float(latest.get("new_capital") or latest.get("capital_after") or 0.0)
-    return reset_dt, reset_capital, reset_date_str
-
-
-
-# v2.13.3: Capital-tier helper (mirror of executor.py logic)
-def _get_capital_tier(capital: float):
-    """Return (risk_pct, leverage, max_positions, tier_name) based on on-chain equity."""
-    if capital < 50:
-        return (0.0, 1.0, 0, "insufficient")
-    if capital < 150:
-        return (0.10, 1.5, 1, "micro")
-    if capital < 300:
-        return (0.06, 2.0, 2, "small")
-    if capital < 1000:
-        return (0.03, 2.5, 3, "medium")
-    return (0.012, 3.0, 3, "large")
-
 def estimate_open_position_pnl(pos: dict, current_price: float | None = None) -> dict:
     """Estimate net PnL if the open position were closed now."""
     symbol = str(pos.get('symbol', ''))
@@ -185,353 +147,8 @@ def estimate_open_position_pnl(pos: dict, current_price: float | None = None) ->
     }
 
 # ── Version & Changelog ──────────────────────────────────────────────────────
-VERSION = "2.13.4-live"
+VERSION = "2.12.17-live"
 CHANGELOG = [
-    {
-        "version": "2.13.4-live",
-        "date": "2026-04-28",
-        "title": "Fix: Close accidental SOL position + reset bot stats + sync wallet local",
-        "changes": [
-            "CLOSE: Accidental SOL long position closed manually via Jupiter CLI. Position DeFZZjLN7EHU9r1N5YtMWMTLK7dcg4zA5nUYiivSZerJ, size $29.91, PnL +$0.015, fees $0.022. Tx: 2G2RbTNXSnHAjo3vUCUXDffZ8WVZtBDX5gFFhUxRriNqEnEjDjtTk37D16shS4mjmv9M7xkJtCa2SeoWHgGMPPvT.",
-            "RESET: All bot statistics reset (portfolio, equity cache, risk report, strategy signals, equity history).",
-            "SYNC: Wallet EEmtkySNz1SLNZBMBu6EsuqkEhttEKjejsEXdEFT2fMH synced from remote server to local macOS (~/.config/solana-jupiter-bot/wallet.json).",
-            "FIX: jupiter_perp_adapter.py import robustness for dual execution contexts (orchestrator vs standalone).",
-            "FIX: risk_manager.py drawdown calculation now includes Jupiter Perps position value (total_size_usd) to prevent false pause when collateral is locked in contract.",
-        ]
-    },
-    {
-        "version": "2.13.3-live",
-        "date": "2026-04-28",
-        "title": "Capital-Tier Auto-Sizing: dynamic risk/leverage/positions based on on-chain equity",
-        "changes": [
-            "NEW executor.py _get_capital_tier(): auto-detects account tier from wallet_total (insufficient/micro/small/medium/large).",
-            "NEW executor.py _get_risk_for_capital() v2.13.3: enforces Jupiter Perps $10 min collateral as hard floor. risk_usd = max(capital * tier_risk_pct, $10 * leverage). With $100 → Micro tier → 1.5x lev → $15 risk (was $1.20, causing silent $10 override).",
-            "NEW executor.py paper_open_position(): uses fetch_wallet_equity() wallet_total as primary capital source for sizing (falls back to bookkeeping capital).",
-            "NEW executor.py MAX_POSITIONS: tier-aware. Auto-learner max_positions is crossed with tier max. Micro ($50-149) → 1 pos max, Small ($150-299) → 2, Medium/Large → 3.",
-            "HARDEN jupiter_perp_adapter.py: removed silent $10 collateral override. Now returns PerpResult with reason=undersized_margin, forcing executor to size correctly upstream.",
-            "NEW dashboard/app.py: /api/stats exposes capital_tier + max_positions_tier. Header shows tier badge (color-coded: micro=amber, small=blue, medium=green, large=purple, insufficient=red).",
-        ]
-    },
-    {
-        "version": "2.13.2-live",
-        "date": "2026-04-28",
-        "title": "Expand perps universe to BTC,ETH + close test position",
-        "changes": [
-            "EXPAND: JUP_PERP_MARKET_WHITELIST=SOL,BTC,ETH (was SOL only).",
-            "EXPAND: TRADE_WHITELIST=SOL,JUP,ETH,BTC for spot consistency.",
-            "EXPAND: MINT_MAP uncommented BTC (Wormhole wBTC).",
-            "CLOSE: Manual SOL 2x long test position closed. Tx: 4qiudDKA..., received 9.93 USDC, PnL -0.43%.",
-            "RESET: Soft-reset to $100.00 baseline post-position-close.",
-        ]
-    },
-    {
-        "version": "2.13.1-live",
-        "date": "2026-04-28",
-        "title": "Jupiter Perps safety hardening: on-chain SL/TP + real liq_price + RPC resilience",
-        "changes": [
-            "FIX agents/jupiter_perp_cli_wrapper.py: open_position() now passes --sl and --tp to Jupiter CLI for on-chain stop-loss/take-profit protection. Previously positions opened with zero on-chain TPSL, leaving them unprotected if the bot died.",
-            "FIX agents/jupiter_perp_cli_wrapper.py: captures liquidationPriceUsd and positionPubkey from CLI open response. OpenResult now includes liq_price and position_pubkey.",
-            "FIX agents/jupiter_perp_adapter.py: PerpResult extended with liq_price and position_pubkey. open_perp_position() extracts sl_price/tp_price from signal and forwards to wrapper.",
-            "FIX agents/executor.py: real_open_position() Jupiter Perps branch now uses adapter-returned liq_price instead of local approximation (was off by ~$0.44 / 1%). Falls back to local formula only if CLI returns 0 for backward compat.",
-            "FIX agents/executor.py: stores position_pubkey in portfolio.json for precise future close via --position (avoids symbol-based lookup ambiguity).",
-            "FIX agents/wallet_equity.py: per-token RPC error handling with retry (3 attempts, 1s backoff). getTokenAccountsByOwner failures (e.g., 429 rate-limit) no longer silently report balance=0. Falls back to cached balance if <5min stale. Prevents JUP/ETH/USDC from disappearing intermittently and triggering false accounting gaps / emergency closes.",
-            "AUDIT: Granular audit of open SOL 2x long position confirmed entry/size/leverage match on-chain. Discrepancy in liq_price ($41.72 bot vs $42.16 Jupiter) resolved by using CLI value. TPSL gap documented and fixed for future opens.",
-        ]
-    },
-    {
-        "version": "2.13.0-alpha-live",
-        "date": "2026-04-25",
-        "title": "Sprint 1: Jupiter Perpetuals skeleton + research foundation (Drift replaced)",
-        "changes": [
-            "FOUNDATION: Sprint 1 del plan v2.13.x completo. 4 archivos nuevos creados como skeleton para Jupiter Perpetuals integration (drop-in replacement de Drift post-hack 285M).",
-            "NUEVO agents/jupiter_perp_client.py (~250 LOC, async): mirror API de drift_client.py. Phase 1 implementado (initialize, get_native_sol_balance, snapshot stub). Phase 2 (write ops) raise NotImplementedError pending IDL parse.",
-            "NUEVO agents/jupiter_perp_adapter.py (~170 LOC, sync): mirror exacto de drift_adapter con 8 safety gates iguales (JUP_PERP_ENABLED, LIVE_TRADING_ENABLED, kill_switch, daily_loss, market whitelist, confidence, leverage cap, free collateral).",
-            "NUEVO tools/jupiter_perp_setup.py: --status (read-only snapshot) + --verify-program (chequea program ID on-chain). Programa Jupiter Perps verificado en mainnet: PERPHjGBqRHArX4DySjwM6UJHiR3sWAatqfdBS2qQJu (owner BPFLoaderUpgradeable, executable).",
-            "NUEVO tools/jupiter_perp_smoke.py: smoke test stub Phase 1. Phase 2 implementara round-trip mainnet $2 (autorizado por user).",
-            ".env.example actualizado con 9 vars JUP_PERP_* (todos defaults safe, ENABLED=false).",
-            "JUPITER_PERPS_STATUS.md doc completa con plan Phase 2 (parse IDL desde julianfssen/jupiter-perps-anchor-idl-parsing, derivar PDAs position+custody, build instantIncreasePosition + instantDecreasePosition ix en Python).",
-            "RESEARCH key findings: (1) NO existe SDK Python oficial para Jupiter Perps (jupiter-python-sdk solo soporta swap/limit/DCA, perps en TODO). (2) NO existe REST API pública para perps. (3) Solucion = manual ix building con anchorpy + IDL parse del community repo. (4) Solnet.JupiterPerps (C#) descartado como bridge.",
-            "Drift code (agents/drift_*.py + tools/drift_*.py) PRESERVADO como template — NO eliminar. Todo gateado JUP_PERP_ENABLED=false, cero impacto al spot bot live.",
-            "TODO PROXIMO: Sprint 1 Phase 2 = parse IDL + ix building (3-5 dias dev). Bloqueador para Sprint 2 (Wild+Perps) y consideracion para Sprint 3-4 (Smart Grid AI Agent).",
-        ]
-    },
-    {
-        "version": "2.12.32.5-live",
-        "date": "2026-04-25",
-        "title": "Drift integration PAUSADA INDEFINIDAMENTE post-hack 285M + Jupiter Perps elegido como alternativa",
-        "changes": [
-            "DECISION: Drift Protocol integration PAUSADA INDEFINIDAMENTE. Hack confirmado 2026-04-01: pérdida 285M USD, >50% TVL, atacantes DPRK, vector durable_nonces + token CVT falso usado como collateral. Riesgo de seguridad demasiado alto incluso post-fix de driftpy. Source Chainalysis blog.",
-            "ALTERNATIVA elegida: Jupiter Perpetuals (mismo Jupiter SDK ya usado para spot, JLP pool 2.5B USD, mismo wallet, hasta 100x leverage). Backups Pacifica (5-50x, fees 0.04%) y Raydium Perps (80+ pairs, fees 0.025% beta).",
-            "INVESTIGACION: Wild mode actual del bot = martingala con LLM controlando size doubling. NO confundir con grid trading. Estado en agents/data/wild_mode_state.json, código en agents/wild_mode_learner.py + agents/wild_mode_backtest/. Auto-learning activo via wild_mode_knowledge.jsonl. Last session 2026-04-24, JUP solo nivel 0 (no se escaló).",
-            "Drift code en live branch (drift_client.py + drift_adapter.py + tools/drift_*.py) NO se elimina - útil como template para futuro agents/jupiter_perp_client.py. Pero DRIFT_ENABLED=false permanente.",
-            "DRIFT_DEVNET_STATUS_2026_04_25.md actualizado con info hack y plan revisado.",
-            "OBSERVABILIDAD: bot con 3 trades open (JUP +3% recovering, SOL/ETH ~-1%), wallet 104.85 vs baseline 104.67 (delta +0.18). Stats post-fix: 4 closed (2W/2L, PF 0.14, return +0.20%).",
-        ]
-    },
-    {
-        "version": "2.12.32.4-live",
-        "date": "2026-04-25",
-        "title": "Drift mainnet write op also blocked - integration on hold pending driftpy 0.8.90+",
-        "changes": [
-            "TEST mainnet (autorizado por user): tools/drift_setup.py --env mainnet --deposit 2.0 fallo en preflight con InstructionFallbackNotFound 101 (Anchor error). Discriminator de la ix initialize_user no reconocido por programa Drift mainnet. Cero costo financiero - tx no se sometio.",
-            "DESCUBRIMIENTO: driftpy 0.8.89 esta stale en AMBOS networks (no solo devnet como se pensaba). Last release 2026-02-18, 2+ meses sin update. Drift Labs upgrado el programa on-chain en ambos environments sin lanzar SDK Python compatible.",
-            "Read paths siguen funcionando (snapshot, oracle, funding) por deserializacion tolerante. Pero TODO write op (initialize_user, deposit_usdc, place_perp_order) bloqueado.",
-            "PLAN REVISADO: Drift integration en hold hasta driftpy 0.8.90+. Sin ETA upstream. Spot bot v2.12.32.x sigue intacto - drift code 100% gated detras de DRIFT_ENABLED=false.",
-            "DRIFT_DEVNET_STATUS_2026_04_25.md actualizado con tercera iteracion (mainnet attempt + bloqueo confirmado). project_solana_drift_devnet_2026_04_25.md memory actualizada.",
-            "Spot validation continua: 3 posiciones simultaneas (JUP+SOL+ETH) post-cleanup auto-learner v2.12.32.2 acelera llenado de sample del gate-check.",
-        ]
-    },
-    {
-        "version": "2.12.32.3-live",
-        "date": "2026-04-25",
-        "title": "Gate-check fix: exclude operational reconciles from PF/WR metrics",
-        "changes": [
-            "FIX (tools/weekly_report.py): metricas Phase 1->2 gate-check incluian ORPHAN_RECONCILE_* + reconcile_orphan_* + MANUAL_CLOSE como trades, sesgando PF/WR. Estos son recovery actions, NO decisiones del bot. Ahora se filtran via _filter_strategy_only() antes de compute_metrics(). Las 6 reconciles benignas que se contaban como wins ya no inflan el PF artificialmente.",
-            "RESULTADO: gate-check ahora reporta 3 trades reales (todos losers post-v2.12.30) vs 9 que reportaba antes (3 reales + 6 reconciles). Sample sigue siendo chico - se necesitan ≥50 trades del gate antes de Phase 2.",
-            "OBSERVABILIDAD: identificacion de 3 strategy trades all-losers post-fix es una señal IMPORTANTE para validacion - aunque aun no concluyente con n=3, si el patron continua sobre 30+ trades indicaria que hay otro bug operativo o que la estrategia no es rentable en este regimen de mercado.",
-        ]
-    },
-    {
-        "version": "2.12.32.2-live",
-        "date": "2026-04-25",
-        "title": "Auto-learner cleanup (3 simultaneous positions) + Drift devnet root-cause confirmed external",
-        "changes": [
-            "OPS FIX (auto_learner_state.json): tokens_to_avoid [SOL,ETH] -> [], max_positions 2 -> 3, total_trades_learned + adaptation_count + last_trade_count -> 0 (re-aprende post-fix). Auto-learner habia adaptado restricciones agresivas basado en 6 trades pre-fix contaminados (16.7% WR, -$0.06). Cleanup permite usar los 3 slots de la whitelist (SOL/JUP/ETH) simultaneamente. SL/TP params (4.4%/5.6%) preservados.",
-            "RESULTADO: Bot abrio inmediatamente 3 posiciones simultaneas (JUP + SOL + ETH, $30 exposure) tras restart de pickup del state. Multiplica oportunidades de validacion spot por 3.",
-            "DOCS DRIFT (DRIFT_DEVNET_STATUS_2026_04_25.md): Root cause de PerpMarketNotFound 6078 confirmado EXTERNO. Drift Labs upgrado el programa Drift en devnet sin lanzar driftpy compatible. driftpy 0.8.89 (master HEAD del repo) funciona perfectamente con mainnet (validado read-only via Helius RPC), pero falla con devnet (program version mismatch). PR #39 en drift-rs confirma race condition similar.",
-            "PLAN REVISADO Drift: skip devnet smoke (bloqueo externo sin ETA), validar directamente con mainnet $2-5 test cuando user autorice. Wallet ya inicializada en Drift mainnet, 8 safety gates activos via drift_adapter.py. Drift code 100% gated detras de DRIFT_ENABLED=false - cero impacto al bot live.",
-            "VALIDATION: 3 trades closed (2W/1L), PF 3.97, WR 67%, return +0.07% post-reset. 3 abiertos (JUP+SOL+ETH). Wallet baseline $104.67 -> actual $104.69 (Δ +$0.02).",
-        ]
-    },
-    {
-        "version": "2.12.32.1-live",
-        "date": "2026-04-25",
-        "title": "Drift devnet audit (read path validated, write op blocker documented)",
-        "changes": [
-            "AUDIT: Drift Protocol perps esta 95% wired en `live` — agents/drift_client.py (open/close/deposit/init/snapshot async wrapper), agents/drift_adapter.py (sync wrapper + 8 safety gates), tools/drift_setup.py + drift_devnet_smoke.py + drift_devnet_mint_usdc.py. requirements.txt y .env tienen DRIFT_*. NO empezar desde cero — solo desbloquear write op.",
-            "SETUP: .venv-drift con driftpy 0.8.89 + deps creado en LIVE workspace, aislado del .venv del bot. No conflicta.",
-            "VALIDATE devnet: wallet EEmtky...2fMH ya inicializado en Drift, $0.50 USDC collateral, 2.46 SOL para fees, drift_user_exists=True. Read path (drift_setup.py --status) pasa end-to-end.",
-            "BLOCKER: tools/drift_devnet_smoke.py falla en open_sol_perp_market con `PerpMarketNotFound 6078` (Drift program error). Diagnostico: get_perp_market_account(0)+remaining_accounts retornan datos validos en driftpy, pero el programa Drift on-chain rechaza el ix. Hipotesis: driftpy 0.8.89 incompatible con upgrade del programa devnet. NO es bug del bot.",
-            "DOC: DRIFT_DEVNET_STATUS_2026_04_25.md con plan de accion mañana (verificar SOL-PERP pubkey, buscar issue en driftpy GitHub, patch open_sol_perp_market con readable_perp_market_indexes, fork main HEAD). Memory: project_solana_drift_devnet_2026_04_25.md.",
-            "REGLA: NO habilitar DRIFT_ENABLED=true en mainnet sin validar smoke devnet primero. Spot bot v2.12.32 corre sin tocar drift code (todo gated).",
-        ]
-    },
-    {
-        "version": "2.12.32-live",
-        "date": "2026-04-25",
-        "title": "fee_exit gap closed in TIME_EXIT/SL/TP/TRAILING_SL + openclaw-gateway memory cap",
-        "changes": [
-            "FIX (executor.py:1491): TIME_EXIT/SL/TP/TRAILING_SL live close path hardcodeaba pos['fee_exit']=0 — trade_history y dashboard sobrestimaban net pnl en cada close normal. Ahora aplica fee_exit del Jupiter swap (TAKER_FEE + slippage) sobre pnl_real_usd, mismo modelo que v2.12.30 emergency_close. Tambien registra price_impact_exit para telemetry.",
-            "FIX log: linea de cierre LIVE ahora muestra gross / fee / net en lugar de solo gross — visibilidad real del costo de salida en logs.",
-            "OPS: openclaw-gateway.service systemd drop-in en ROG (~/.config/systemd/user/openclaw-gateway.service.d/memory-limits.conf) con MemoryHigh=2G, MemoryMax=3G, OOMScoreAdjust=500. Cierra TODO de incidente 2026-04-24T01:14 UTC (host OOM cascade que mato live orch). Drop-in survive openclaw upgrades.",
-            "AUDIT: VERSION post-reset baseline=$104.67, win-rate post-fix=67% PF=3.97 sobre 3 trades — necesita >=30 trades para gate-check.",
-        ]
-    },
-    {
-        "version": "2.12.31.1-live",
-        "date": "2026-04-24",
-        "title": "OPS day-1 retrospective: systemd service in repo + 3 orphan reconciles + kill loop documented",
-        "changes": [
-            "DEPLOY: systemd unit file checked in deploy/systemd/solana-live-bot.service (was solo en /etc/systemd/system/, ahora en git para deployment reproducible). Incluye MemoryMax=1.5G/MemoryHigh=1.2G + Restart=always RestartSec=30 + journald logging.",
-            "DEPLOY: ExecStopPost diagnostic hook deploy/systemd/solana-live-bot.diag.conf para captura de estado al kill (drop-in conf).",
-            "OPS DAY-1: 3 orphan reconciles ejecutados via mismo broadcast_race pattern (emergency_close.py timeout pero tx confirmada on-chain). Reconcile #1 manual via decoded txs, #2 manual post-host-OOM, #3 via tools/reconcile_all_orphans.py auto (heuristica funciono esa vez).",
-            "OPS INCIDENT: host OOM cascade 2026-04-24T01:14 UTC — openclaw-gateway memory leak 26GB virt killed cascadingly el live orch. Recovery via reconcile #2 + systemd migration. user TODO: aplicar MemoryMax=4G a openclaw-gateway.service.",
-            "OPS GAP-CLOSED: solana-live-bot.service systemd unit creado — auto-respawn substituye relanzamiento manual. Validado en produccion (auto-respawn trabajo correctamente al primer signal kill).",
-            "INVESTIGATION: kill loop SIGKILL ~6/h en solana-live-bot.service investigado 2h via bpftrace v1+v2. Killer es bash efimero spawn-die en ms; descartado: emergency_close cron, health_check cron, OOM, memory cap, system cron, systemd timers, bittrader scripts. Root cause exacto NO capturado (bpftrace exec map overflow por host load). Documentado como ruido no fatal — systemd respawn lo absorbe; pivot monitoring a wallet/capital primary, ignore NRestarts.",
-            "MEMORIA: feedback_solana_live_kill_loop.md guardado para futuras sesiones — explica patron + decision plan B.",
-        ]
-    },
-    {
-        "version": "2.12.31-live",
-        "date": "2026-04-23",
-        "title": "Fix boton reset (3 bugs) + /api/soft-reset + reset_history enriquecido",
-        "changes": [
-            "BUG A (reset): /api/reset hardcodeaba mode=paper_drift - reseteo silenciosamente cambiaba bot live a paper. FIX: preserva mode del portfolio actual o acepta override via body.mode.",
-            "BUG B (reset): /api/reset hacia positions=[] en todos los casos - orphanaba positions live on-chain (tokens ya swapped, portfolio perdia track). FIX: nuevo flag preserve_positions (default True si mode=live). capital_usd se ajusta restando margin_locked para no double-contar.",
-            "BUG C (reset): /api/reset no auto-detectaba capital, requeria input manual. FIX: si capital=None/<=0, consulta wallet_equity.fetch_wallet_equity() y usa wallet_total como default. capital_source se registra en entry.",
-            "NUEVO: /api/soft-reset - wrapper convenience con defaults safe (preserve_positions=True, capital=wallet_total, mode preservado). Ideal para 'empezar a medir desde hoy' sin romper live trading.",
-            "BACKUP AUTO: antes de cualquier mutation, /api/reset hace copia de portfolio.json / trade_history.json / reset_history.json / daily_target_state.json / auto_learner_state.json con sufijo .bak_v2_12_31_reset_<epoch>.",
-            "RESET_HISTORY ENRIQUECIDO: nuevos campos por entry - wallet_snapshot (USDC+SOL+tokens on-chain), auto_learner_snapshot (params + counters al momento del reset), preserved_positions (lista completa con margin+entry+pnl), mode_pre_reset, mode_post_reset, capital_source, backups_created, version.",
-            "AUTO-LEARNER: trades siguen exportandose a auto_learner.db ANTES de truncate (comportamiento existente preservado). DB sobrevive todos los resets acumulando conocimiento permanente.",
-            "EJECUCION HOY: reset aplicado via /api/soft-reset post-fixes v2.12.30 - baseline fresh $104.57 para medir strategy limpia sin noise del bug emergency_close historico.",
-        ]
-    },
-    {
-        "version": "2.12.30.1-live",
-        "date": "2026-04-23",
-        "title": "HOTFIX reporter: total_value + return_pct usan wallet-total",
-        "changes": [
-            "HOTFIX: agents/reporter.py computaba su propia total_value y return_pct usando solo capital_usd + invested + unrealized (ignoraba SOL fuel + dust). Reportaba return_pct -20% cuando wallet real estaba +1.5%.",
-            "FIX: reporter ahora delega a wallet_equity.fetch_wallet_equity() (fallback a bot-equity si RPC falla). total_value y return_pct ahora reflejan wallet on-chain consistente con v2.12.30 drawdown fix.",
-            "VALIDACION standalone: total_value=\$104.53 (antes \$81.36), return_pct=+1.58% (antes -20.94%), drawdown=0.0% (antes 20.94%).",
-        ]
-    },
-    {
-        "version": "2.12.30-live",
-        "date": "2026-04-23",
-        "title": "Fix 4 bugs operativos: drawdown real, emergency guards, fee tracking, R:R natural",
-        "changes": [
-            "BUG #1 FIX (RAIZ): calculate_drawdown ahora usa wallet-total equity (on-chain USDC+SOL+tokens x prices). Antes solo usaba portfolio.capital_usd excluyendo SOL fuel ($14) + dust ($3) -> reportaba DD 20.87% falso cuando wallet real estaba +1.5%. Disparaba emergency_close Cause #4 en cada trade (73 de 77 hoy con 1.6 min holding mediana).",
-            "BUG #2 FIX: evaluate_emergency_close Cause #4 (drawdown >=8% + all_negative) ahora requiere position_age >=5min AND pnl_pct >=1%. Guard defensivo impide cerrar por micro-dips de 0.05% slippage de entrada. Cause #1/#2/#3 sin cambios (regression tests cubren).",
-            "BUG #3 FIX: fee_exit ya NO hardcoded a 0 en live closes. real_close_position computa fee con mismo modelo que paper (TAKER_FEE 0.1% + slippage por simbolo). pnl_usd/pnl_pct ahora netos de fee_exit. Nuevo campo price_impact_exit en trade records para telemetria Jupiter.",
-            "RESULTADO ESPERADO: R:R natural se respeta (SL 3.5% dispara antes que emergency), fee visibility completa, drawdown refleja realidad on-chain, emergency_closes caen de 73/dia esperados a 0-1/dia.",
-            "NUEVO: agents/wallet_equity.py - shared helper promoted from dashboard v2.12.28. Dashboard refactor para usar shared module (elimina duplicacion ~100 lineas).",
-            "NUEVO: tools/test_v2_12_30.py - suite de 13 tests unitarios (drawdown wallet + emergency guards + fee tracking). TODOS PASAN.",
-            "OPS: user paro el bot manualmente 2026-04-23T13:45Z tras detectar sangrado ~$1.50/dia en fees+slippage. Deploy incluye reset portfolio.status ACTIVE + delete kill switch + delete STOP_TRADING.",
-        ]
-    },
-    {
-        "version": "2.12.29-live",
-        "date": "2026-04-23",
-        "title": "Unificar dashboard reset baseline a reset_history.json[-1]",
-        "changes": [
-            "BUG: api_stats leia reset_log_20260326.json (archivo de era paper, reset_date 2026-04-05) directamente. Mezclaba 20 trades pre-scale (era $8 capital) con 11 post-scale (era $100). User veia PF 0.181 vs realidad 0.118, WR 58% vs real 45%.",
-            "FIX: nuevo helper _load_reset_baseline() como fuente unica — consume reset_history.json[-1] (scale 2026-04-22 $8->$100).",
-            "FIX: api_stats, api_stats_post_reset, api_equity usan helper. Legacy reset_log_20260326.json NO se consulta mas.",
-            "FIX: api_trades filtra por reset_dt por default (antes retornaba 31 mezclados). Query ?all=1 para historia completa (audit/debug).",
-            "RESULTADO: dashboard muestra 11 trades / 5W-6L-0F / Net -$0.56 / PF 0.118 / WR 45.5% (realidad post-scale, consistente con gráficas que ya estaban correctas).",
-        ]
-    },
-    {
-        "version": "2.12.28-live",
-        "date": "2026-04-23",
-        "title": "Wallet-total equity + initial_capital inmutable (dashboard muestra realidad on-chain)",
-        "changes": [
-            "PROBLEMA: user reporto dashboard Equity \$91.48 vs user expected \$102. Root causes: (1) initial_capital fue resetado a \$90.10 por tools/reconcile_all_orphans.py (bug: cada reconcile sobrescribia baseline), (2) bot equity excluye SOL fuel + dust residues que el user SI tiene on-chain.",
-            "FIX A: tools/reconcile_all_orphans.py ya NO sobrescribe initial_capital. Solo lo establece si falta (nuevo portfolio). Preserva baseline permanente.",
-            "FIX B: dashboard/app.py nuevo helper _fetch_wallet_equity() (cache 60s) query on-chain USDC + SOL + JUP + ETH x Jupiter prices (fallback a market_latest.json si Jupiter API down). Nuevo endpoint /api/wallet-equity.",
-            "INTEGRATION: api_stats usa wallet_total como equity cuando disponible, fallback a bot_equity si RPC fails. Resto de metricas (return_pct, drawdown) flowean naturalmente.",
-            "STATE FIX: portfolio.initial_capital \$90.10 -> \$102.90 (real deposit value = USDC \$100.10 + SOL fuel ~\$2.80).",
-            "VERIFICACION: /api/wallet-equity reporta wallet_total=\$105.62, /api/stats return_pct=+2.64% (ganancia real). Dashboard ahora muestra realidad on-chain inclusive SOL fuel + dust.",
-            "Nota: endpoint original cachea 60s para no spammear RPC. Paper bot falla silencioso y cae a bot_equity, compatible.",
-        ]
-    },
-    {
-        "version": "2.12.27-live",
-        "date": "2026-04-23",
-        "title": "Fix dashboard equity curve baseline (reset_history stale desde paper era)",
-        "changes": [
-            "BUG: dashboard /api/equity usaba reset_history.json[-1] como baseline de equity curve. Latest entry era 2026-04-13 con new_capital=500 (era paper bot). Dashboard mostraba equity en rango $500 cuando live bot esta en $100.",
-            "EVIDENCIA: user screenshot mostro equity curve desde $500 bajando a $500 (extraño zoom) con discrepancias notorias vs trades reales (que son $10 positions con $0.05-0.30 pnl cada uno).",
-            "FIX: agregado entry a reset_history.json reflejando v2.12.20 scale ($8 -> $100). Baseline ahora $100.10 correcto, equity curve $99-100 range matchea reality.",
-            "VERIFICADO via /api/equity: first=$100.10, last=$99.59, max=$100.17, min=$99.59. Refleja pnl real del día (-$0.51 net).",
-            "Otras charts afectadas positivamente: wins/losses donut ahora solo cuenta trades post-reset (3W/3L = 50/50), symbol_pnl refleja reality (ETH -$0.027, JUP -$0.32, SOL -$0.16), distribution histogram muestra 6 trades post-scale real range.",
-            "NO code change — solo state fix en agents/data/reset_history.json (archivo gitignored). Versión bumped para documentar el fix.",
-        ]
-    },
-    {
-        "version": "2.12.26-live",
-        "date": "2026-04-23",
-        "title": "FIX daily_target reset usa equity (no solo capital_usd) + safety >20% skip",
-        "changes": [
-            "ROOT CAUSE: orchestrator.py:273 day-reset guardaba starting_capital = capital_usd (solo USDC libre). Cuando hay positions abiertas al day-rollover 00:00 UTC, capital_usd es artificialmente bajo (invested locked). El siguiente calculo daily_pnl_pct aparenta +30% ganancia falsa - dispara DAILY_TARGET_MAX_REACHED - force-close positions que suelen ser en losses.",
-            "EVIDENCIA: 2026-04-23 00:05 UTC, 3 positions cerraron con loss total -$0.58 reportando DAILY_TARGET_MAX_REACHED: 32.52% >= 5.0%. Pero 32.52% era falso (starting_capital=62.17 vs equity real 92.17).",
-            "FIX orchestrator.py: day-reset ahora calcula equity = capital_usd + sum(position.margin_usd) + sum(position.pnl_usd). Matchea la logica de daily_target.py:69-78 que ya tenia correcto pero no corria por timing.",
-            "FIX daily_target.py: safety check defensivo - si daily_pnl_pct > 20% (claramente bug), log warning y skip trigger. Defensa en profundidad por si otra fuente escribe starting_capital malo.",
-            "STATE fix manual: daily_target_state.json starting_capital 62.17 -> 91.59 (equity real), target_reached true -> false, closed_at null.",
-            "NEW tools/test_daily_target_reset.py - 4 unit tests (no positions, positions+unrealized, legit 5%, absurd 30% safety). ALL PASSED.",
-            "Impacto: bug causaba perdidas directamente atribuibles de ~$0.50-1/dia cuando positions abiertas al rollover. Backtester 14d net P&L -$0.50 incluye estas forced-close losses.",
-        ]
-    },
-    {
-        "version": "2.12.25-live",
-        "date": "2026-04-22",
-        "title": "Config bump: LIVE_MAX_POSITIONS 1 -> 3 (aliga con observed behavior)",
-        "changes": [
-            "OBSERVED: durante monitoreo autonomo (iter 7, 15:34-15:39 UTC) bot abrio 3 posiciones simultaneas (SOL+ETH+JUP) pese a LIVE_MAX_POSITIONS=1 en .env. Probable: wild_mode o daily_target logic bypassea el cap, o el var es suggestion no hard cap.",
-            "USER DECISION: 3 concurrent positions es aceptable (max exposure $30 con $10 position size y $90 capital = 33% exposure max).",
-            ".env + .env.example: LIVE_MAX_POSITIONS 1 -> 3 para alinear config con intent/reality.",
-            "NO restart orch necesario — bot ya operando con 3 pos. Cambio se activara oficialmente en proximo watchdog respawn.",
-            "Impacto: mas diversificacion (SOL + ETH + JUP simultaneos), menos USDC libre para switching, pero matchea behavior del LLM cuando detecta multiples senales.",
-        ]
-    },
-    {
-        "version": "2.12.24-live",
-        "date": "2026-04-22",
-        "title": "Phase 1 prep cleanup — .env.example sync + backtester fix & enrich",
-        "changes": [
-            "FIX agents/backtester.py load_trade_history — manejaba solo formato list, ahora soporta dict con trades key (actual formato post-v2.12.16).",
-            "FIX agents/backtester.py by_token — usaba campo token pero trade_history guarda symbol. Ahora por-token breakdown funciona correctamente.",
-            "ENRICH backtester: argparse con --mode (live/paper/paper_drift) + --days N window. Formato $ 4 decimales (vs 2 que round a zero valores pequenos).",
-            ".env.example sync v2.12.24: documentados 3 advanced config vars faltantes (ORCH_LOCK_FILE, ORCH_PGREP_PATTERN, WATCHDOG_PREFIX). PAPERCLIP_API_KEY sigue hardcoded como fallback en paperclip_client.py pero documentado como override opcional.",
-            "Live trading STATS baseline (backtester run): 23 trades / WR 69.6% (16W-7L) / PF 8.94 / payoff 3.91x / max DD $0.0023. Por token: SOL WR 71% (14t), ETH WR 75% (4t), JUP WR 60% (5t). Edge matematicamente validado pre-Phase-1-gate.",
-        ]
-    },
-    {
-        "version": "2.12.23-live",
-        "date": "2026-04-22",
-        "title": "FIX reconcile_critical false-positives — asymmetric check (root cause del patron de crisis 2-3/dia)",
-        "changes": [
-            "ROOT CAUSE: agents/reconcile.py usaba abs() para comparar wallet balance vs position.tokens, flagging excess (wallet > position) como critical, no solo shortage. User fuel real ~0.048 SOL vs hardcoded 0.010 FUEL_RESERVE causaba false-positives 25-33% cada vez que se abria posicion SOL.",
-            "EVIDENCIA: v2.12.16 SOL(25.4%) = false positive (wallet 0.039 SOL, fuel 0.029 excess post-0.01-reserve). v2.12.22 05:08 SOL(33.4%) = mismo bug (wallet 0.163 SOL, 0.048 fuel excess). JUP(100.9%) del v2.12.16 era real orphan (wallet=0, correcto).",
-            "FIX agents/reconcile.py: asymmetric check. Solo flag SHORTAGE (actual < expected) como warning/critical. Excess (actual > expected) = info severity, benign (user fuel, residue, airdrops, other positions).",
-            "Discrepancy dataclass: nuevo campo is_shortage=True para log differentiation (SHORTAGE vs excess).",
-            "NEW tools/test_reconcile_asymmetric.py — 6 unit tests cubren: SOL excess false-positive, JUP orphan real, ETH partial close, ETH exact match, JUP tiny excess benign, JUP 1% shortage warning. ALL PASSED.",
-            "Impacto esperado: crisis reconcile_critical 2-3/dia → <0.5/dia. Downtime bot 4h/dia → <1h/dia. Cero riesgo aditivo — solo reduce falsos positivos.",
-        ]
-    },
-    {
-        "version": "2.12.22-live",
-        "date": "2026-04-22",
-        "title": "Phase 1 prep — Telegram signals module + health badge + runbook + auto-learner reset",
-        "changes": [
-            "NEW agents/telegram_signals.py — signal broadcaster pattern paperclip_client.py. Hooks on_trade_opened + on_trade_closed + on_daily_report. DISABLED por defecto (TELEGRAM_ENABLED=false). Activacion Phase 2: crear bot via BotFather + canal + set tokens + flip flag.",
-            "WIRE executor.py — telegram hooks en 3 sitios (line 1054 open + 1493 + 1558 close) en paralelo a paperclip. try/except wrapper: si telegram falla, trading sigue normal.",
-            ".env / .env.example — added TELEGRAM_ENABLED + TELEGRAM_SIGNALS_BOT_TOKEN + TELEGRAM_SIGNALS_CHANNEL.",
-            "NEW dashboard health badge — verde/rojo/gris dot + live info (HB age, positions, capital) en header. Poll /api/health cada 30s. CSS + HTML + JS additive, no altera layout existente.",
-            "NEW docs/RUNBOOK.md (250 lines) — incident response procedures: kill switch, orphan, close fail 6024, HB stale, watchdog+orch dead, dust on-chain, capital scale. Includes quick-status links, rollback procedure, Paperclip company UUID map.",
-            "NEW tools/auto_learner_soft_reset.py + APPLIED — reseteo counters de auto_learner post capital-scale v2.12.20 ($8 → $100). Total_trades_learned 19→0, adaptation_count 5→0, last_trade_count frozen a 22 como baseline. Params (SL/TP/leverage/risk_per_trade) preservados — son % scale-invariant. Tokens_to_avoid/prefer preservados.",
-            "CERO cambios en trading logic — todos los items son capa observability + comunicacion + higiene.",
-        ]
-    },
-    {
-        "version": "2.12.21-live",
-        "date": "2026-04-22",
-        "title": "Drift devnet smoke test — infra validada (Phase 1.5 parallel)",
-        "changes": [
-            "FIX agents/drift_client.py:_load_keypair — soporta el formato custom del Jupiter bot (dict con private_key como JSON-array-string) ademas del formato standard de Solana CLI (list of 64 ints). Backward-compatible.",
-            "NEW tools/drift_devnet_mint_usdc.py — portado de origin/drift-integration. Mintea devnet USDC via Drift token_faucet program (V4v1mQiAdLz4qwckEb45WqHYceYizoib39cDBHSWfaB). Idempotente: crea ATA si falta + mint. Usa DRIFT_WALLET_PATH del .env.",
-            "Devnet smoke EXECUTED: Drift user PDA creada, USDC ATA creada, 100 USDC devnet minted, $0.5 depositado como collateral, 2 market orders (long+short) broadcast + aceptadas por Drift.",
-            "GAP identificado: Pyth oracle de SOL-PERP en devnet esta STALE (~52 dias lag), AMM rechaza fills con oracle not valid. NO es bug del codigo — es issue del ambiente devnet. Mainnet oracles actualizan ~400ms, no deberia repetirse.",
-            "Conclusion: infra Drift validada end-to-end excepto fill (bloqueado por oracle stale). Siguiente paso NO es mainnet inmediato — esperar Phase 2 gate (5-7 dias estabilidad Jupiter spot a $100) antes de $20 walk-forward en Drift mainnet.",
-        ]
-    },
-    {
-        "version": "2.12.20-live",
-        "date": "2026-04-22",
-        "title": "Capital scale $8 -> $100 + position size $2 -> $10 (Phase 1 acelerada)",
-        "changes": [
-            "USER deposit: +$92 USDC (wallet $8.10 -> $100.10) + 0.033 SOL fuel (0.015 -> 0.049).",
-            "ENV: LIVE_MAX_POSITION_USD $2 -> $10 (5x scaling proporcional al capital). LIVE_MAX_POSITIONS mantenido en 1 hasta Phase 2 gate.",
-            "STATE: portfolio.json capital_usd $8.09 -> $100.10, initial_capital reset para fresh baseline Phase 1. daily_target_state + wild_mode_state reset a $100 baseline.",
-            "Ratio fee/position mejorado: $0.12 fee sobre $10 posicion = 1.2% (antes era 6% con $2). Break-even alcanzable con edge actual (expectancy +$0.0017/trade NET con $2, escalara ~5x a +$0.008/trade con $10).",
-            "Backups .bak_<epoch> creados para portfolio, trade_history, daily_target, wild_mode, .env (rollback si necesario).",
-            "Phase 1 acelerada: 5-7 dias observacion con cron health_check monitoreando. Gate a Phase 2: 0 crises auto-detectadas + edge positivo sobre 30+ trades a capital escalado.",
-        ]
-    },
-    {
-        "version": "2.12.19-live",
-        "date": "2026-04-22",
-        "title": "Phase 1 observability — weekly_report + health_check + /api/health",
-        "changes": [
-            "NEW: tools/weekly_report.py — compila métricas paper vs live side-by-side (7/14/30 days). Modos table, json, gate-check. Usado para validar edge + Phase 1 gate criteria.",
-            "NEW: tools/health_check.py — cron-friendly health probe. Checks: heartbeat, orch alive (CWD match), watchdog alive, kill_switch, close_failures counter. Flag --alert crea Paperclip issue urgent dedupado 15min.",
-            "NEW: /api/health endpoint en dashboard/app.py — expone {healthy, orch, watchdog, heartbeat, kill_switch, close_failures, portfolio} JSON. Usado por health_check cron + external monitors.",
-            "CRONTAB: */5 * * * * python3 tools/health_check.py --alert → detecta crisis <5min, alerta SOLAAA automáticamente.",
-            "Phase 1 observability lista. Live edge confirmado: WR 83.3% sobre 22 trades últimos 7d, expectancy +$0.0017/trade NET (muy small — scale ayudaría).",
-        ]
-    },
-    {
-        "version": "2.12.18-live",
-        "date": "2026-04-21",
-        "title": "Fix Paperclip routing — SOLAA (paper) -> SOLAAA (Solana Cripto Trading Live)",
-        "changes": [
-            "FIX: agents/paperclip_client.py COMPANY_ID hardcoded apuntaba a SOLAA (paper, UUID 782b926b...) en lugar de SOLAAA (live, UUID 2b0a3d7d-4929-42ef-9602-86324c0a202a). Issues v2.12.16 y v2.12.17 fueron posteados a la company equivocada.",
-            "FIX: .env PAPERCLIP_API_KEY cambiado de agent key de SOLAA (scoped) a board key (acceso a todas las companies).",
-            "MIGRATION: SOLAA-115 (v2.12.16) -> SOLAAA-19, SOLAA-116 (v2.12.17) -> SOLAAA-18. SOLAA originals marcadas cancelled con redirect note.",
-            "NOTA: memoria de 6 dias decia SOLAAA=live, SOLAA=paper — confirmado correcto. Mi audit anterior infirio mal que solo existia una company. Listado de 5 companies verificado: SOL/SOLA (archived), SOLAA (paper), SOLAAA (live), BIT (BitTrader YouTube).",
-        ]
-    },
     {
         "version": "2.12.17-live",
         "date": "2026-04-21",
@@ -1123,7 +740,7 @@ DASHBOARD_HTML = r"""
     cursor: pointer; font-size: 12px; transition: all .2s; margin-left: 8px;
   }
   .btn-reset:hover { background: var(--orange); color: var(--bg); }
-  /* v2.13.3-live: bot ON/OFF toggle (kill switch) */
+  /* v2.10.0-live: bot ON/OFF toggle (kill switch) */
   .btn-bot {
     border: 1px solid var(--border);
     padding: 6px 14px; border-radius: 6px;
@@ -1167,32 +784,6 @@ DASHBOARD_HTML = r"""
   .drift-badge.short   { border-color: #f85149; color: #f85149; }
   .drift-badge.dormant { opacity: 0.5; }
   .drift-badge.err     { border-color: #d29922; color: #d29922; }
-
-  /* v2.12.22 health badge */
-  .health-badge {
-    display: inline-flex; align-items: center; gap: 6px;
-    padding: 4px 10px; border-radius: 12px; font-size: 12px;
-    background: rgba(255,255,255,0.04);
-    border: 1px solid var(--border); font-weight: 500;
-  }
-  .health-dot { font-size: 14px; line-height: 1; transition: color 0.3s; }
-  .health-dot.healthy { color: #10b981; }
-  .health-dot.unhealthy { color: #ef4444; animation: health-pulse 1s infinite; }
-  .health-dot.unknown { color: #6b7280; }
-  @keyframes health-pulse { 0%,100%{opacity:1;} 50%{opacity:0.35;} }
-  /* v2.13.3 tier badge */
-  .tier-badge {
-    display: inline-flex; align-items: center; gap: 6px;
-    padding: 4px 10px; border-radius: 12px; font-size: 12px;
-    background: rgba(255,255,255,0.04);
-    border: 1px solid var(--border); font-weight: 500;
-    color: var(--text2);
-  }
-  .tier-badge.micro    { border-color: #f59e0b; color: #f59e0b; }
-  .tier-badge.small    { border-color: #3b82f6; color: #3b82f6; }
-  .tier-badge.medium   { border-color: #10b981; color: #10b981; }
-  .tier-badge.large    { border-color: #a855f7; color: #a855f7; }
-  .tier-badge.insufficient { border-color: #ef4444; color: #ef4444; }
   .mode-badge {
     font-size: 11px; padding: 2px 8px; border-radius: 10px;
     background: rgba(188,140,255,0.15); color: var(--purple); border: 1px solid var(--purple);
@@ -1318,7 +909,7 @@ DASHBOARD_HTML = r"""
   .reset-btn-cancel{background:var(--bg3);color:var(--text2);}
   .reset-btn-confirm{background:var(--orange);color:#000;}
   /* ── Version Badge ── */
-  /* v2.13.3-live: banner visual para distinguir del paper */
+  /* v2.10.0-live: banner visual para distinguir del paper */
   .live-mode-banner {
     position: fixed; top: 0; left: 0; right: 0;
     background: linear-gradient(90deg, #b91c1c, #dc2626, #b91c1c);
@@ -1632,7 +1223,7 @@ DASHBOARD_HTML = r"""
 <!-- HEADER -->
 <div class="header">
   <div class="header-left">
-    <div class="live-mode-banner" id="liveModeBanner">🔴 LIVE TRADING MODE — REAL MONEY AT RISK (v2.13.3-live, mainnet Solana)</div>
+    <div class="live-mode-banner" id="liveModeBanner">🔴 LIVE TRADING MODE — REAL MONEY AT RISK (v2.10.0-live, mainnet Solana)</div>
     <div class="logo">◎ Solana <span>Cripto</span> Trader<span class="version-badge" id="versionBadge" onclick="openChangelog()" title="Ver historial de versiones">v—</span></div>
     <div class="status-badge" id="statusBadge">
       <div class="status-dot dot-green" id="statusDot"></div>
@@ -1652,13 +1243,6 @@ DASHBOARD_HTML = r"""
     <button class="btn-bot" id="botToggleBtn" onclick="toggleBot()" title="Encender/Apagar bot (kill switch)">⏳</button>
     <span class="fuel-badge" id="solFuelBadge" title="SOL fuel (Jupiter swap fees)">🔋 —</span>
     <span class="drift-badge dormant" id="driftBadge" title="Drift perps status">🎯 Drift: —</span>
-    <span class="health-badge" id="healthBadge" title="Bot infra health (/api/health)">
-      <span class="health-dot unknown" id="healthDot">●</span>
-      <span id="healthLabel">health: —</span>
-    </span>
-    <span class="tier-badge" id="tierBadge" title="Capital tier (auto-sized risk/leverage/positions)">
-      <span id="tierLabel">tier: —</span>
-    </span>
   </div>
 </div>
 
@@ -2008,7 +1592,7 @@ async function loadVersionBadge() {
     const data = await res.json();
     const _verEl = document.getElementById('versionBadge');
     _verEl.textContent = 'v' + data.version;
-    // v2.13.3-live: detectar live mode y mostrar banner
+    // v2.10.0-live: detectar live mode y mostrar banner
     if (data.version && data.version.endsWith('-live')) {
       _verEl.classList.add('is-live');
       const _banner = document.getElementById('liveModeBanner');
@@ -2018,40 +1602,6 @@ async function loadVersionBadge() {
     }
   } catch(e) {}
 }
-
-async function updateHealthBadge() {
-  try {
-    const r = await fetch('/api/health');
-    const h = await r.json();
-    const dot = document.getElementById('healthDot');
-    const label = document.getElementById('healthLabel');
-    if (!dot || !label) return;
-    if (h.healthy) {
-      dot.className = 'health-dot healthy';
-      const age = h.heartbeat && h.heartbeat.age_s != null ? Math.round(h.heartbeat.age_s) + 's' : '—';
-      const pos = h.portfolio ? h.portfolio.open_positions : 0;
-      const cap = h.portfolio ? h.portfolio.capital_usd : 0;
-      label.textContent = `HB ${age} · ${pos}pos · $${(cap||0).toFixed(2)}`;
-    } else {
-      dot.className = 'health-dot unhealthy';
-      const r = [];
-      if (h.orch && !h.orch.alive) r.push('orch dead');
-      if (h.watchdog && !h.watchdog.alive) r.push('watchdog dead');
-      if (h.kill_switch && h.kill_switch.active) r.push('kill switch');
-      if (h.close_failures && h.close_failures.count >= h.close_failures.threshold) r.push('close fails');
-      if (!h.heartbeat || h.heartbeat.age_s == null || h.heartbeat.age_s > 300) r.push('HB stale');
-      label.textContent = 'UNHEALTHY: ' + (r.join(', ') || 'check /api/health');
-    }
-  } catch (e) {
-    const dot = document.getElementById('healthDot');
-    const label = document.getElementById('healthLabel');
-    if (dot) dot.className = 'health-dot unknown';
-    if (label) label.textContent = 'health: unreachable';
-  }
-}
-// v2.12.22: poll /api/health every 30s
-updateHealthBadge();
-setInterval(updateHealthBadge, 30000);
 
 async function refreshAll() {
   try {
@@ -2086,7 +1636,7 @@ function openResetModal() {
 function closeResetModal() {
   document.getElementById('resetModal').classList.remove('open');
 }
-/* ── Bot ON/OFF toggle (v2.13.3-live) ── */
+/* ── Bot ON/OFF toggle (v2.10.0-live) ── */
 /* ── Drift Perps badge (v2.12.0-live) ── */
 async function refreshDrift() {
   const el = document.getElementById('driftBadge');
@@ -2340,21 +1890,7 @@ async function loadStats() {
   const chgEl = document.getElementById('headerChg');
   chgEl.textContent = fmtPct(d.return_pct, true);
   chgEl.className = 'chg ' + (d.return_pct >= 0 ? 'pos' : 'neg');
-  let modeLabel = (d.mode || 'PAPER').toUpperCase().replace(/_/g, ' ');
-  if (d.mode === 'live' && d.jup_perp_enabled) {
-    modeLabel = 'JUPITER PERPS';
-  }
-  document.getElementById('modeBadge').textContent = modeLabel;
-
-  // v2.13.3: Capital tier badge
-  const tierBadge = document.getElementById('tierBadge');
-  const tierLabel = document.getElementById('tierLabel');
-  if (tierBadge && tierLabel) {
-    const tier = d.capital_tier || 'unknown';
-    const tierMaxPos = d.max_positions_tier || 0;
-    tierBadge.className = 'tier-badge ' + tier;
-    tierLabel.textContent = tier.toUpperCase() + (tierMaxPos > 0 ? ' · ' + tierMaxPos + 'pos' : ' · BLOCKED');
-  }
+  document.getElementById('modeBadge').textContent = (d.mode || 'PAPER').toUpperCase().replace('_', ' ');
 
   // Status
   const status = d.portfolio_status || 'ACTIVE';
@@ -2665,7 +2201,7 @@ function renderPositions(d) {
   let html = `<table><thead><tr>
     <th>Símbolo</th><th>Dirección</th><th>Entrada</th><th>Precio Act.</th>
     <th>Ganancia real estimada</th><th>% neto est.</th><th>Margin</th><th>Tamaño</th>
-    <th>Apalanc.</th><th>Liq. Price</th><th>SL</th><th>TP</th><th>Tiempo</th><th>Estrategia</th>
+    <th>SL</th><th>TP</th><th>Tiempo</th><th>Estrategia</th>
     <th>Acción</th>
   </tr></thead><tbody>`;
   for (const p of d.positions) {
@@ -2693,8 +2229,6 @@ function renderPositions(d) {
       <td class="${pnlCls}">${fmtPct(p.pnl_pct, true)}</td>
       <td>${fmt$(p.margin_usd)}</td>
       <td>${fmt$(p.size_usd)}</td>
-      <td>${p.leverage ? p.leverage.toFixed(1) + 'x' : '—'}</td>
-      <td class="neg" style="font-size:10px;">${fmtPrice(p.liquidation_price)}</td>
       <td class="neg">${fmtPrice(p.sl_price)}</td>
       <td class="pos">${fmtPrice(p.tp_price)}</td>
       <td>${p.time_open || '—'}</td>
@@ -2913,7 +2447,7 @@ function renderAIThinking(d) {
       <div style="font-size:10px;color:${fgColor};margin-top:2px;">${fg.label || ''}</div>
     </div>
     <div class="ait-kpi">
-      <div class="ait-kpi-val">$${(d.equity||0).toFixed(2)}</div>
+      <div class="ait-kpi-val">\$${(d.equity||0).toFixed(2)}</div>
       <div class="ait-kpi-lbl">Equity</div>
     </div>
     <div class="ait-kpi">
@@ -3789,142 +3323,6 @@ def api_version():
     return jsonify({"version": VERSION, "changelog": CHANGELOG})
 
 
-@app.route('/api/health')
-def api_health():
-    """v2.12.19 Phase 1: real-time live bot health probe.
-
-    Returns JSON with orch liveness, heartbeat age, kill-switch state,
-    close_failures counter, positions count, capital_usd.
-    Used by cron health_check.py and external monitors.
-    """
-    import os as _os, subprocess as _sp, time as _time
-    from pathlib import Path as _P
-
-    bot_dir = _P("/home/enderj/.openclaw/workspace/Solana-Cripto-Trader-Live")
-    hb_file = _P("/tmp/solana_live_heartbeat")
-    ks_file = _P("/tmp/solana_live_killswitch")
-    cf_file = _P("/tmp/solana_live_close_failures")
-
-    # Heartbeat
-    hb_age = None
-    if hb_file.exists():
-        try:
-            hb_age = _time.time() - float(hb_file.read_text().strip())
-        except (ValueError, OSError):
-            pass
-
-    # Orch + watchdog liveness (CWD match)
-    orch_alive = False
-    orch_pid = None
-    watchdog_alive = False
-    watchdog_pid = None
-    try:
-        pids = _sp.check_output(["pgrep", "-f", "orchestrator.py"], text=True).strip().splitlines()
-        for pid in pids:
-            pid = pid.strip()
-            try:
-                if _os.readlink(f"/proc/{pid}/cwd") == str(bot_dir):
-                    orch_alive = True
-                    orch_pid = int(pid)
-                    break
-            except (OSError, FileNotFoundError):
-                pass
-    except _sp.CalledProcessError:
-        pass
-
-    try:
-        lines = _sp.check_output(["pgrep", "-af", "run_watchdog.sh"], text=True).splitlines()
-        for line in lines:
-            pid = line.split()[0]
-            try:
-                if _os.readlink(f"/proc/{pid}/cwd") == str(bot_dir):
-                    watchdog_alive = True
-                    watchdog_pid = int(pid)
-                    break
-            except (OSError, FileNotFoundError):
-                pass
-    except _sp.CalledProcessError:
-        pass
-
-    # Kill switch
-    kill_switch_active = ks_file.exists()
-    kill_switch_reason = ks_file.read_text(errors="ignore")[:200].strip() if kill_switch_active else None
-
-    # Close failures
-    close_failures = 0
-    if cf_file.exists():
-        try:
-            close_failures = int(cf_file.read_text().strip() or 0)
-        except ValueError:
-            close_failures = -1
-
-    # Portfolio
-    port = load_portfolio()
-    open_positions = [p for p in port.get("positions", []) if p.get("status") == "open"]
-    capital_usd = port.get("capital_usd", 0)
-    total_trades = port.get("total_trades", 0)
-
-    # Overall health
-    healthy = (
-        orch_alive and watchdog_alive and not kill_switch_active
-        and (hb_age is not None and hb_age < 300)
-        and close_failures < 3
-    )
-
-    return jsonify({
-        "healthy": healthy,
-        "version": VERSION,
-        "checked_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-        "orch": {"alive": orch_alive, "pid": orch_pid},
-        "watchdog": {"alive": watchdog_alive, "pid": watchdog_pid},
-        "heartbeat": {
-            "age_s": round(hb_age, 1) if hb_age is not None else None,
-            "fresh": hb_age is not None and hb_age < 120,
-        },
-        "kill_switch": {"active": kill_switch_active, "reason": kill_switch_reason},
-        "close_failures": {"count": close_failures, "threshold": 3},
-        "portfolio": {
-            "capital_usd": capital_usd,
-            "open_positions": len(open_positions),
-            "total_trades": total_trades,
-            "symbols_open": [p.get("symbol") for p in open_positions],
-        },
-    })
-
-
-# v2.12.30: wallet equity helper moved to agents/wallet_equity.py (shared with
-# risk_manager.py::calculate_drawdown). Dashboard keeps local shim name for
-# backward compat.
-try:
-    import sys as _sys_we
-    from pathlib import Path as _Path_we
-    _sys_we.path.insert(0, str(_Path_we(__file__).resolve().parent.parent / "agents"))
-    from wallet_equity import fetch_wallet_equity as _shared_fetch_wallet_equity
-except Exception as _we_err:
-    _shared_fetch_wallet_equity = None
-    import logging as _logging_we
-    _logging_we.getLogger(__name__).warning(f"wallet_equity import failed: {_we_err}")
-
-
-def _fetch_wallet_equity():
-    """Dashboard shim — delegates to agents/wallet_equity.py shared module."""
-    if _shared_fetch_wallet_equity is None:
-        return None
-    try:
-        return _shared_fetch_wallet_equity()
-    except Exception:
-        return None
-
-
-@app.route('/api/wallet-equity')
-def api_wallet_equity():
-    """Expose wallet_total equity (on-chain USDC + SOL + tokens × prices)."""
-    data = _fetch_wallet_equity()
-    if data is None:
-        return jsonify({"error": "wallet equity unavailable", "wallet_total": None}), 200
-    return jsonify(data)
-
-
 @app.route('/api/stats')
 def api_stats():
     """
@@ -3938,11 +3336,17 @@ def api_stats():
     port = load_portfolio()
     comp = load_json(DATA / "compound_state.json")
 
-    # --- Determine reset baseline (v2.12.29: reset_history.json[-1]) ---
-    reset_dt, reset_capital, _reset_date_str = _load_reset_baseline()
-    has_reset = reset_dt is not None
-    if not has_reset:
-        reset_capital = 500.0
+    # --- Determine reset baseline ---
+    reset_log = load_json(DATA / "reset_log_20260326.json")
+    has_reset = bool(reset_log and reset_log.get("reset_date"))
+    reset_dt = None
+    if has_reset:
+        try:
+            reset_dt = safe_parse_dt(reset_log["reset_date"])
+        except (ValueError, TypeError):
+            has_reset = False
+
+    reset_capital = safe_float(reset_log.get("capital_after", 500.0)) if has_reset else 500.0
     # Read initial_capital directly from portfolio (set correctly by reset endpoint)
     initial_capital = safe_float(port.get("initial_capital", 500.0))
 
@@ -4030,16 +3434,7 @@ def api_stats():
     margin_locked = sum(safe_float(p.get("margin_usd", 0)) for p in open_pos)
     invested = sum(safe_float(p.get("margin_usd", p.get("size_usd", 0))) for p in open_pos)
     # True equity includes free capital + margin locked in positions + unrealized PnL
-    bot_equity = capital_usd + margin_locked + unrealized
-
-    # v2.12.28: prefer wallet-total equity (on-chain) when available.
-    # Includes SOL fuel + dust residues that bot equity ignores.
-    # Falls back to bot_equity if RPC fails (paper bot, network issue).
-    _wallet_data = _fetch_wallet_equity()
-    if _wallet_data and _wallet_data.get("wallet_total") is not None:
-        equity = _wallet_data["wallet_total"]
-    else:
-        equity = bot_equity
+    equity = capital_usd + margin_locked + unrealized
 
     return_pct = ((equity - initial_capital) / initial_capital * 100) \
                  if initial_capital > 0 else 0.0
@@ -4103,11 +3498,8 @@ def api_stats():
         "max_loss_streak":    max_loss_streak,
         "portfolio_status":   risk.get("portfolio_status", "ACTIVE"),
         "mode":               port.get("mode", "paper"),
-        "jup_perp_enabled":   os.environ.get("JUP_PERP_ENABLED", "").lower() in ("true", "1", "yes"),
         "accounting_gap":     round(accounting_gap, 2),
         "real_capital_change":round(real_capital_change, 2),
-        "capital_tier":       _get_capital_tier(equity)[3],
-        "max_positions_tier": _get_capital_tier(equity)[2],
     })
 
 
@@ -4117,10 +3509,23 @@ def api_stats_post_reset():
     Used for visualization only — auto_learner always uses full history."""
     from datetime import datetime as dt
 
-    # v2.12.29: single source via helper, no legacy fallback
-    reset_dt, reset_capital, reset_date_str = _load_reset_baseline()
-    if reset_dt is None:
+    # Load reset log — try latest from reset_history first, then fallback
+    reset_log = {}
+    reset_history = load_json(DATA / "reset_history.json")
+    if isinstance(reset_history, list) and reset_history:
+        reset_log = reset_history[-1]  # latest reset
+    if not reset_log or not reset_log.get("reset_date"):
+        reset_log = load_json(DATA / "reset_log_20260326.json")
+    if not reset_log or not reset_log.get("reset_date"):
         return jsonify({"has_reset": False})
+
+    reset_date_str = reset_log["reset_date"]
+    try:
+        reset_dt = safe_parse_dt(reset_date_str)
+    except (ValueError, TypeError):
+        return jsonify({"has_reset": False})
+
+    reset_capital = safe_float(reset_log.get("capital_after", 500.0))
 
     # Filter closed trades after reset
     trades_raw = load_trade_history()
@@ -4190,9 +3595,13 @@ def api_equity():
     closed_all = [t for t in trades_raw if t.get("status") in ("closed", None, "")]
 
     # Filter to post-reset trades if reset exists
-    # v2.12.29: single source via helper, no legacy fallback
-    _reset_dt_helper, _reset_cap_helper, _reset_date_helper = _load_reset_baseline()
-    reset_log = {"reset_date": _reset_date_helper, "capital_after": _reset_cap_helper, "new_capital": _reset_cap_helper} if _reset_dt_helper else {}
+    # Try reset_history.json (latest) first, then fallback to legacy file
+    reset_log = {}
+    _rh = load_json(DATA / "reset_history.json")
+    if isinstance(_rh, list) and _rh:
+        reset_log = _rh[-1]
+    if not reset_log or not reset_log.get("reset_date"):
+        reset_log = load_json(DATA / "reset_log_20260326.json")
     has_reset = bool(reset_log and reset_log.get("reset_date"))
     reset_dt = None
     if has_reset:
@@ -4286,22 +3695,8 @@ def api_equity():
 @app.route('/api/trades')
 def api_trades():
     limit = int(request.args.get("limit", 50))
-    show_all = request.args.get("all", "").lower() in ("1", "true", "yes")
     trades_raw = load_trade_history()
     closed = [t for t in trades_raw if t.get("status") in ("closed", None, "")]
-
-    # v2.12.29: filter to post-reset by default (consistency with /api/stats).
-    # Use ?all=1 for full history (audit/debug).
-    if not show_all:
-        _reset_dt, _, _ = _load_reset_baseline()
-        if _reset_dt is not None:
-            _filtered = []
-            for _t in closed:
-                _ct = safe_parse_dt(_t.get("close_time", ""))
-                if _ct is not None and _ct >= _reset_dt:
-                    _filtered.append(_t)
-            closed = _filtered
-
     # sort newest first
     closed.sort(key=lambda t: t.get("close_time", ""), reverse=True)
     result = []
@@ -4688,22 +4083,20 @@ def api_positions():
             })
 
         result.append({
-            "symbol":            symbol,
-            "direction":         direction,
-            "entry_price":       entry_price,
-            "current_price":     round(current_price, 8),
-            "pnl_usd":           round(pnl_usd, 4),
-            "pnl_pct":           round(pnl_pct, 4),
-            "margin_usd":        margin,
-            "size_usd":          round(size_usd, 2),
-            "leverage":          safe_float(t.get("leverage", 0)),
-            "liquidation_price": safe_float(t.get("liquidation_price", 0)),
-            "sl_price":          safe_float(t.get("sl_price", 0)),
-            "tp_price":          safe_float(t.get("tp_price", 0)),
-            "strategy":          t.get("strategy", ""),
-            "time_open":         time_open_str,
-            "in_chain":          bool(chain_info),
-            "chain_levels":      chain_levels_out,
+            "symbol":        symbol,
+            "direction":     direction,
+            "entry_price":   entry_price,
+            "current_price": round(current_price, 8),
+            "pnl_usd":       round(pnl_usd, 4),
+            "pnl_pct":       round(pnl_pct, 4),
+            "margin_usd":    margin,
+            "size_usd":      round(size_usd, 2),
+            "sl_price":      safe_float(t.get("sl_price", 0)),
+            "tp_price":      safe_float(t.get("tp_price", 0)),
+            "strategy":      t.get("strategy", ""),
+            "time_open":     time_open_str,
+            "in_chain":      bool(chain_info),
+            "chain_levels":  chain_levels_out,
         })
 
     return jsonify({"positions": result})
@@ -4849,90 +4242,19 @@ def api_log():
     return jsonify({"lines": lines})
 
 
-@app.route('/api/soft-reset', methods=['POST'])
-def api_soft_reset():
-    """v2.12.31: convenience wrapper over /api/reset with safe defaults for live.
-
-    No body required. Auto-detects capital from wallet_equity, preserves positions
-    and current mode, preserves auto_learner params. Use when you want "start
-    measuring from today" without losing in-flight live positions or paper state.
-    """
-    body = request.get_json() or {}
-    # Build safe defaults — caller can override via body
-    # v2.12.31: strip None values so they fall through to defaults in /api/reset
-    payload = {}
-    if body.get("capital") is not None:
-        payload["capital"] = body["capital"]
-    payload["preserve_positions"] = body.get("preserve_positions", True)
-    if body.get("mode"):
-        payload["mode"] = body["mode"]
-    payload["reason"] = body.get("reason", "Soft reset — baseline refresh, positions + auto_learner preserved")
-    payload["notes"] = body.get("notes", "")
-    payload["attachments"] = body.get("attachments", [])
-    # Replay as if POST /api/reset with our merged payload
-    with app.test_request_context(
-        '/api/reset', method='POST', json=payload
-    ):
-        return api_reset()
-
-
 @app.route('/api/reset', methods=['POST'])
 def api_reset():
     """Reset all bot state to initial values."""
     try:
         data = request.get_json() or {}
-        import shutil as _shutil
-        import time as _time_mod
-
+        capital = float(data.get("capital", 500.0))
+        
         now = datetime.now(timezone.utc).isoformat()
         today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-
+        
         # === GUARDAR SNAPSHOT ANTES DEL RESET ===
         old_portfolio = load_portfolio()
         old_history = load_trade_history()
-        old_mode = old_portfolio.get("mode", "live")  # v2.12.31 Bug A fix
-
-        # v2.12.31 Bug C fix: auto-detect capital from wallet_equity when not specified
-        _req_capital = data.get("capital")
-        _capital_source = "user_input"
-        if _req_capital is None or float(_req_capital) <= 0:
-            _capital_source = "fallback_portfolio"
-            capital = safe_float(old_portfolio.get("capital_usd", 500))
-            try:
-                import sys as _sys
-                from pathlib import Path as _Path
-                _agents_path = str(_Path(__file__).resolve().parent.parent / "agents")
-                if _agents_path not in _sys.path:
-                    _sys.path.insert(0, _agents_path)
-                from wallet_equity import fetch_wallet_equity as _fwe
-                _we_snap = _fwe()
-                if _we_snap and _we_snap.get("wallet_total"):
-                    capital = float(_we_snap["wallet_total"])
-                    _capital_source = "wallet_equity"
-            except Exception as _ce:
-                log.warning(f"api_reset: wallet_equity auto-detect failed: {_ce}")
-        else:
-            capital = float(_req_capital)
-
-        # v2.12.31 Bug B fix: preserve_positions flag (default True for live mode)
-        _preserve_positions = data.get("preserve_positions",
-                                       old_mode == "live")
-        _preserve_positions = bool(_preserve_positions)
-
-        # v2.12.31 Backup all state files before mutation
-        _epoch = int(_time_mod.time())
-        _backups_created = []
-        for _name in ("portfolio.json", "trade_history.json", "reset_history.json",
-                      "daily_target_state.json", "auto_learner_state.json"):
-            _src = DATA / _name
-            if _src.exists():
-                _dst = DATA / f"{_name}.bak_v2_12_31_reset_{_epoch}"
-                try:
-                    _shutil.copy2(_src, _dst)
-                    _backups_created.append(_dst.name)
-                except Exception as _be:
-                    log.warning(f"api_reset: backup failed for {_name}: {_be}")
-        log.info(f"api_reset: {len(_backups_created)} backups created (suffix bak_v2_12_31_reset_{_epoch})")
         
         # Calcular estadísticas del período que termina
         # Fix: trades en history no tienen campo status — identificar por close_time/close_reason
@@ -4961,46 +4283,7 @@ def api_reset():
         best_trade  = max(pnls) if pnls else 0
         worst_trade = min(pnls) if pnls else 0
         
-        # v2.12.31: snapshot wallet + auto_learner params + preserved positions
-        _wallet_snap = None
-        try:
-            import sys as _sys2
-            from pathlib import Path as _P2
-            _ap2 = str(_P2(__file__).resolve().parent.parent / "agents")
-            if _ap2 not in _sys2.path:
-                _sys2.path.insert(0, _ap2)
-            from wallet_equity import fetch_wallet_equity as _fwe2
-            _wallet_snap = _fwe2()
-        except Exception:
-            pass
-
-        _al_snapshot = {}
-        _al_file = DATA / "auto_learner_state.json"
-        if _al_file.exists():
-            try:
-                _al_data = json.load(open(_al_file))
-                _al_snapshot = {
-                    "params": _al_data.get("params", {}),
-                    "total_trades_learned_pre_reset": _al_data.get("total_trades_learned", 0),
-                    "adaptation_count_pre_reset": _al_data.get("adaptation_count", 0),
-                }
-            except Exception:
-                pass
-
-        _preserved_pos_summary = []
-        if _preserve_positions:
-            for _pos in old_portfolio.get("positions", []):
-                if _pos.get("status") == "open":
-                    _preserved_pos_summary.append({
-                        "symbol": _pos.get("symbol"),
-                        "direction": _pos.get("direction"),
-                        "margin_usd": _pos.get("margin_usd"),
-                        "entry_price": _pos.get("entry_price"),
-                        "current_pnl_usd": _pos.get("pnl_usd"),
-                        "open_time": _pos.get("open_time"),
-                    })
-
-        # Crear entrada de historial (v2.12.31 enriched)
+        # Crear entrada de historial
         reset_entry = {
             "reset_date": now,
             "period_start": old_portfolio.get("created_at", "unknown"),
@@ -5019,17 +4302,7 @@ def api_reset():
             "new_capital": capital,
             "reason": data.get("reason", "Manual reset"),
             "notes": data.get("notes", "").strip(),
-            "attachments": data.get("attachments", []),
-            # v2.12.31 enriched metadata
-            "mode_pre_reset": old_mode,
-            "mode_post_reset": data.get("mode") or old_mode,
-            "wallet_snapshot": _wallet_snap,
-            "auto_learner_snapshot": _al_snapshot,
-            "preserved_positions": _preserved_pos_summary,
-            "preserve_positions_flag": _preserve_positions,
-            "backups_created": _backups_created,
-            "capital_source": _capital_source,
-            "version": "2.12.31-live",
+            "attachments": data.get("attachments", [])
         }
         
         # Cargar historial existente y agregar
@@ -5049,19 +4322,13 @@ def api_reset():
         
         # === CONTINUAR CON EL RESET NORMAL ===
         
-        # 1. Portfolio (v2.12.31 — preserve mode + positions when flagged)
-        _new_positions = old_portfolio.get("positions", []) if _preserve_positions else []
-        # For preserve_positions=True, capital_usd should exclude locked margins
-        # (otherwise we double-count). Subtract margins of open positions.
-        _open_margin_locked = sum(safe_float(p.get("margin_usd", 0))
-                                   for p in _new_positions if p.get("status") == "open")
-        _free_capital = max(0.0, capital - _open_margin_locked)
+        # 1. Portfolio
         portfolio = {
-            "capital_usd": round(_free_capital, 4) if _preserve_positions else capital,
-            "initial_capital": capital,  # new baseline = total equity at reset
-            "positions": _new_positions,
+            "capital_usd": capital,
+            "initial_capital": capital,
+            "positions": [],
             "status": "ACTIVE",
-            "mode": data.get("mode") or old_mode,  # v2.12.31 Bug A fix (None-safe)
+            "mode": "paper_drift",
             "created_at": now,
             "last_updated": now,
             "total_trades": 0,
