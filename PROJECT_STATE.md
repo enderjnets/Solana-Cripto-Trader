@@ -7,7 +7,7 @@
 
 ## 📌 Versión Actual
 
-**Bot:** `v2.13.3-live`  
+**Bot:** `v2.13.3-live-fix`  
 **Dashboard:** `v2.13.3-live`  
 **Branch:** `live`  
 **Wallet:** `EEmtkySNz1SLNZBMBu6EsuqkEhttEKjejsEXdEFT2fMH`
@@ -16,13 +16,26 @@
 
 ## 🏦 Capital & Estado de Cuenta
 
-- **On-chain equity:** ~$103.74 (USDC $90.45 + SOL $12.86 + JUP $0.43)
+- **On-chain wallet:** ~$87.92 (USDC $75.45 + SOL $12.04 + JUP $0.43)
+  - Note: $15 USDC locked as collateral in Jupiter Perps SOL position
+- **Perps position value:** $29.91 (SOL long 1.99x)
+- **True equity:** ~$117.83 ($87.92 wallet + $29.91 position)
 - **Initial capital (baseline):** $100.00
-- **Return:** +3.74%
+- **Return:** +17.83% (true equity vs baseline)
 - **Capital tier:** `micro` ($50-$149)
   - Risk per trade: 10% → $15.00 (Jupiter $10 min collateral @ 1.5x)
   - Leverage: 1.5x
   - Max positions: 1
+
+### Open Position (accidentally opened during diagnostic)
+- **Asset:** SOL
+- **Side:** Long
+- **Size:** $29.91
+- **Leverage:** 1.99x
+- **Entry:** $83.79
+- **Liq Price:** $42.12
+- **Pubkey:** `DeFZZjLN7EHU9r1N5YtMWMTLK7dcg4zA5nUYiivSZerJ`
+- **Status:** Registered in portfolio.json, bot managing SL/TP/trailing
 
 ---
 
@@ -42,6 +55,7 @@
 
 | Versión | Fecha | Tema principal |
 |---------|-------|----------------|
+| v2.13.3-live-fix | 2026-04-28 | Pipeline fix: perps sizing + drawdown calculation + adapter imports |
 | v2.13.3-live | 2026-04-28 | Capital-Tier Auto-Sizing (risk/leverage/positions dinámicos) |
 | v2.13.2-live | 2026-04-28 | Expand perps universe: SOL, BTC, ETH + close test position |
 | v2.13.1-live | 2026-04-28 | Jupiter Perps safety: on-chain SL/TP + real liq_price + RPC resilience |
@@ -66,7 +80,8 @@ TRADE_WHITELIST=SOL,JUP,ETH,BTC
 
 1. **RPC rate limiting (residual):** Public RPC aún retorna 429s. Retry logic en `wallet_equity.py` lo maneja, pero private RPC (Helius/QuickNode) recomendado para estabilidad a largo plazo.
 2. **Jupiter CLI dry-run limitation:** CLI rechaza `--dry-run` con "Insufficient funds" si wallet no tiene balance real. No es bug del bot, es comportamiento del CLI.
-3. **Soft-reset accounting gap:** `initial_capital=100.00` pero wallet on-chain es $103.74. Gap de $3.74 por diseño (baseline manual). Por debajo del umbral de banner ($25).
+3. **Perps equity tracking:** `wallet_equity.py` does not include Jupiter Perps position value. Risk manager now compensates, but a native integration would be cleaner.
+4. **Accidental position:** One SOL long opened during diagnostic testing. Bot now manages it, but it was not opened by the strategy signal.
 
 ---
 
