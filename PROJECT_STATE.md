@@ -54,6 +54,8 @@
 
 - **Issue**: `SOLAA-117` — v2.13.4-live: Close accidental SOL position + reset stats + sync wallet
 - **Status**: Done
+- **Issue**: `79ffe661-60bf-41b5-a4c3-f38412ac4baf` — Fix BTC open_time incorrect after manual registration
+- **Status**: Done
 
 ## Infraestructura
 
