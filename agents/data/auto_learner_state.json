@@ -12,10 +12,7 @@
   "adaptation_count": 2,
   "last_trade_count": 0,
   "notes": "Reset capital $100.0 - conocimiento preservado",
-  "tokens_to_avoid": [
-    "SOL",
-    "ETH"
-  ],
+  "tokens_to_avoid": [],
   "tokens_to_prefer": [
     "JUP"
   ],
