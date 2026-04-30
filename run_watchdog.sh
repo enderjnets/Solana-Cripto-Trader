@@ -67,6 +67,13 @@ rm -f "$HANDOVER_FLAG"
 trap "rm -f $LOCKFILE $RESTART_MARKER" EXIT
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# CWD guard: ensure we are running from the Live directory
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [[ "$SCRIPT_DIR" != *"-Live" ]]; then
+    echo "[WATCHDOG] FATAL: Running from wrong directory: $SCRIPT_DIR (expected *-Live). Exiting." >&2
+    exit 1
+fi
+
 cd "$SCRIPT_DIR"
 
 # Load .env for Paperclip API key

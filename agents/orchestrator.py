@@ -197,6 +197,13 @@ def import_agents():
 
 _cycle_global_count = 0
 
+
+# CWD_GUARD fail fast if running from wrong directory
+import os as _cwd_guard_os
+_cwd = _cwd_guard_os.getcwd()
+if "-Live" not in _cwd:
+    raise RuntimeError("[ORCHESTRATOR] FATAL: Running from wrong directory: " + _cwd + " (expected *-Live). Exiting.")
+
 def run_cycle(safe=True, debug=False):
     """Ejecuta un ciclo completo del sistema."""
     # v2.10.0-live: override safe from LIVE_TRADING_ENABLED env
