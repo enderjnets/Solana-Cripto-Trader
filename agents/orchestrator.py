@@ -964,6 +964,14 @@ def run_token_scanner():
 # Use absolute path so ALL entry points (agents/orchestrator.py, root orchestrator.py, etc.)
 # share the same lock regardless of working directory.
 import tempfile
+# Auto-load .env so orchestrator works regardless of how it is launched
+from dotenv import load_dotenv
+import os as _dotenv_os
+_script_dir = _dotenv_os.path.dirname(_dotenv_os.path.abspath(__file__))
+_env_path = _dotenv_os.path.join(_script_dir, '..', '.env')
+load_dotenv(_env_path)
+
+
 # Lock file override via ORCH_LOCK_FILE env var (permite correr paper + live en paralelo)
 LOCK_FILE = Path(os.environ.get("ORCH_LOCK_FILE", str(Path(tempfile.gettempdir()) / "solana_jupiter_orchestrator.lock")))
 
