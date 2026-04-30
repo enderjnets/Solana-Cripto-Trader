@@ -50,6 +50,9 @@
 7. **Fix accounting_gap** — resta collateral de perps
 8. **Fix return_pct** — basado en PnL real, no equity delta
 9. **Fix BTC open_time** — corregido de 2026-04-28T22:01:18Z → 2026-04-29T01:41:18+00:00 (coincide con ID timestamp)
+10. **EMERGENCY: Close BTC after 40h stale** — Tx: `5M67Txpi...SrG2xEVT`
+11. **HARDENING: CWD guards** — watchdog + orchestrator fallan si no corren desde *-Live
+12. **Fix systemd services** — stopped solana-jupiter-bot, enabled solana-live-bot
 
 ## Paperclip
 
