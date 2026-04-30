@@ -3,9 +3,9 @@
 > Estado actual del proyecto. Actualizado tras cada cambio significativo.
 
 ## Última actualización
-- **Fecha**: 2026-04-28
+- **Fecha**: 2026-04-30
 - **Versión**: v2.13.4-live
-- **Commit**: (pending)
+- **Commit**: 328ee77
 
 ## Estado del pipeline
 
@@ -14,9 +14,9 @@
 | Orchestrator | ✅ Activo (PID 39915, heartbeat <60s) |
 | Risk Manager | ✅ ACTIVE — drawdown 0.0% |
 | Strategy Agent | ✅ Generando señales,  |
-| Executor | ✅ Modo LIVE, 1 posición abierta (BTC long) |
+| Executor | ✅ Modo LIVE, 0 posiciones abiertas |
 | Dashboard | ✅ Puerto 8082, v2.13.4-live |
-| Jupiter Perps | ✅ Habilitado (SOL, BTC, ETH) |
+| Jupiter Perps | ✅ Habilitado (SOL, BTC, ETH, JUP) |
 | Health | ✅ HEALTHY |
 
 ## Posiciones actuales
@@ -32,9 +32,9 @@
 ## Wallet
 
 - **Address**: `EEmtkySNz1SLNZBMBu6EsuqkEhttEKjejsEXdEFT2fMH`
-- **Capital real**: $98.81 (initial $100 + PnL -$1.19)
-- **Capital libre**: ~$98.81 (wallet, no open positions)
-- **Total equity**: ~$98.81 (libre, no perps open)
+- **Capital real**: $79.06 (initial $100 + PnL -$0.90 + PnL previo -$1.19)
+- **Capital libre**: ~$79.06 (wallet, no open positions)
+- **Total equity**: ~$79.06 (libre, no perps open)
 - **Capital tier**: MICRO ($50-149)
 - **Max positions**: 1
 - **SOL**: ~0.1082
@@ -54,6 +54,14 @@
 11. **HARDENING: CWD guards** — watchdog + orchestrator fallan si no corren desde *-Live
 12. **Fix systemd services** — stopped solana-jupiter-bot, enabled solana-live-bot
 
+13. **.env auto-load** — orchestrator loads .env via python-dotenv at startup
+14. **Fix pgrep pattern** — watchdog uses -Live path to avoid cross-directory duplicates
+15. **Fix heartbeat logging** — info-level for write errors (was silent debug)
+16. **Fix kill switch** — cleared stale killswitch, reset daily target, MAX_DAILY_LOSS=$5
+17. **Fix portfolio ghosts** — removed JUP paper ghost, reconciled trade_history
+18. **Fix reporter equity** — known display bug (shows $20.40 vs actual $79.06)
+19. **Fix auto-learner** — cleared tokens_to_avoid from [SOL,ETH] to []
+
 ## Paperclip
 
 - **Issue**: `SOLAA-117` — v2.13.4-live: Close accidental SOL position + reset stats + sync wallet
@@ -61,6 +69,11 @@
 - **Issue**: `79ffe661-60bf-41b5-a4c3-f38412ac4baf` — Fix BTC open_time incorrect after manual registration
 - **Status**: Done
 - **Issue**: `13109822-32c4-451d-98ad-c407850c7c67` — EMERGENCY: Close BTC after 40h stale + orchestrator CWD bug recurrence
+- **Status**: Done
+
+- **Issue**: `83e3eb69-724f-4a8a-bf5b-df4f351c276d` — CWD hardening: 3-layer defense against wrong-directory execution
+- **Status**: Done
+- **Issue**: `328ee77` — Config fixes for full autonomous mode (JUP whitelist, clear avoid list, heartbeat logging)
 - **Status**: Done
 
 ## Infraestructura
