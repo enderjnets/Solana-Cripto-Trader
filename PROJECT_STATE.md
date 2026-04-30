@@ -21,19 +21,20 @@
 
 ## Posiciones actuales
 
-**1 posición abierta:**
-- **BTC LONG**: Size $167.10, Collateral $83.55, Leverage 2.0x
-- Entry: $76,429.37, Mark: ~$76,989
-- PnL: ~+$0.67 (+0.80%)
-- SL: $73,946.32 | TP: $80,807.32 | Liq: $38,421.90
-- Position pubkey: `HfB4rkCYrPaCvhNWJU237YXcU25eE5D9ZZkPTD7oKw6Z`
+**0 posiciones abiertas.**
+
+Última posición cerrada:
+- **BTC LONG** (cerrada manualmente 2026-04-30): Size $167.10, Leverage 2.0x
+- Entry: $76,429.37, Close mark: ~$76,115
+- **PnL final: -$0.90 (-1.08%)**, fees: $0.20
+- Tx close: `5M67TxpiQeEkY6Ut9uXSkc2c7EAfmw5xomD8QSWr2ekcj92D7M3WcH9kswxf5JVbiuZsF4qYuoD3eigtSrG2xEVT`
 
 ## Wallet
 
 - **Address**: `EEmtkySNz1SLNZBMBu6EsuqkEhttEKjejsEXdEFT2fMH`
-- **Capital real**: $99.71 (initial $100 + PnL -$0.29)
-- **Capital libre**: ~$16.18 (wallet)
-- **Total equity**: ~$183.29 (libre + perps)
+- **Capital real**: $98.81 (initial $100 + PnL -$1.19)
+- **Capital libre**: ~$98.81 (wallet, no open positions)
+- **Total equity**: ~$98.81 (libre, no perps open)
 - **Capital tier**: MICRO ($50-149)
 - **Max positions**: 1
 - **SOL**: ~0.1082
@@ -55,6 +56,8 @@
 - **Issue**: `SOLAA-117` — v2.13.4-live: Close accidental SOL position + reset stats + sync wallet
 - **Status**: Done
 - **Issue**: `79ffe661-60bf-41b5-a4c3-f38412ac4baf` — Fix BTC open_time incorrect after manual registration
+- **Status**: Done
+- **Issue**: `13109822-32c4-451d-98ad-c407850c7c67` — EMERGENCY: Close BTC after 40h stale + orchestrator CWD bug recurrence
 - **Status**: Done
 
 ## Infraestructura
