@@ -1,21 +1,5 @@
 [
   {
-    "ts": "2026-04-24T01:21:10.331934-06:00",
-    "msg": "\u26a0\ufe0f <b>ALERTA DRAWDOWN</b>\nDrawdown actual: 13.8%\nCapital: $70.19\nM\u00e1ximo permitido: 10%"
-  },
-  {
-    "ts": "2026-04-24T07:56:47.683108-06:00",
-    "msg": "\ud83c\udf05 <b>Reporte Diario \u2014 Solana Bot</b>\n\ud83d\udcc5 Friday 24 April 2026, 07:56 MT\n\n\ud83d\udcb0 <b>Capital:</b> $80.19\n\ud83d\udcca <b>Valor total:</b> $104.66\n\ud83d\udcc8 <b>Retorno:</b> +0.02%\n\ud83d\udcc9 <b>Drawdown:</b> 0.00%\n\n\ud83c\udfc6 <b>Win Rate:</b> 16.7%\n\ud83d\udcca <b>Trades totales:</b> 6 (1W / 5L)\n\ud83d\udc9a <b>Avg win:</b> $0.02\n\u2764\ufe0f <b>Avg loss:</b> $0.02\n\u26a1 <b>Profit factor:</b> 0.27\n\ud83d\udcd0 <b>Sharpe ratio:</b> -13.21\n\n\ud83d\udcca <b>Posiciones abiertas:</b> 1\n\n<b>\u00daltimos trades:</b>\n  \u274c ETH [oversold_bounce] $-0.01 via ORPHAN_RECONCILE_v2.12.31_#2\n  \u274c SOL [oversold_bounce] $-0.03 via ORPHAN_RECONCILE_v2.12.31_#2\n  \u2705 ETH [trend_momentum] $+0.02 via ORPHAN_RECONCILE_v2.12.31\n  \u274c SOL [trend_momentum] $-0.00 via ORPHAN_RECONCILE_v2.12.31\n  \u274c ETH [oversold_bounce] $-0.03 via TIME_EXIT"
-  },
-  {
-    "ts": "2026-04-24T16:39:59.228183-06:00",
-    "msg": "\u274c LOSS \u2014 <b>JUP</b>\nEstrategia: momentum\nP&L: $-0.00 (-0.03%)\nCierre: TRAILING_SL @ $0.173227"
-  },
-  {
-    "ts": "2026-04-25T07:00:29.392861-06:00",
-    "msg": "\ud83c\udf05 <b>Reporte Diario \u2014 Solana Bot</b>\n\ud83d\udcc5 Saturday 25 April 2026, 07:00 MT\n\n\ud83d\udcb0 <b>Capital:</b> $90.20\n\ud83d\udcca <b>Valor total:</b> $104.62\n\ud83d\udcc8 <b>Retorno:</b> -0.02%\n\ud83d\udcc9 <b>Drawdown:</b> 0.02%\n\n\ud83c\udfc6 <b>Win Rate:</b> 11.1%\n\ud83d\udcca <b>Trades totales:</b> 9 (1W / 6L)\n\ud83d\udc9a <b>Avg win:</b> $0.01\n\u2764\ufe0f <b>Avg loss:</b> $0.01\n\u26a1 <b>Profit factor:</b> 0.40\n\ud83d\udcd0 <b>Sharpe ratio:</b> -7.55\n\n\ud83d\udcca <b>Posiciones abiertas:</b> 1\n\n<b>\u00daltimos trades:</b>\n  \u274c JUP [momentum] $-0.00 via TRAILING_SL\n  \u2705 JUP [oversold_bounce] $+0.01 via reconcile_orphan_v2.12.16\n  \u2705 SOL [breakout] $+0.00 via reconcile_orphan_v2.12.16\n  \u274c ETH [oversold_bounce] $-0.01 via ORPHAN_RECONCILE_v2.12.31_#2\n  \u274c SOL [oversold_bounce] $-0.03 via ORPHAN_RECONCILE_v2.12.31_#2"
-  },
-  {
     "ts": "2026-04-25T22:51:50.054397-06:00",
     "msg": "\u2705 WIN \u2014 <b>JUP</b>\nEstrategia: trend_momentum\nP&L: $+0.17 (+3.45%)\nCierre: PARTIAL_TAKE @ $0.179740"
   },
@@ -78,5 +62,21 @@
   {
     "ts": "2026-04-28T17:39:09.396640-06:00",
     "msg": "\u26a0\ufe0f <b>ALERTA DRAWDOWN</b>\nDrawdown actual: 12.1%\nCapital: $100.00\nM\u00e1ximo permitido: 10%"
+  },
+  {
+    "ts": "2026-04-29T07:00:42.209346-06:00",
+    "msg": "\ud83c\udf05 <b>Reporte Diario \u2014 Solana Bot</b>\n\ud83d\udcc5 Wednesday 29 April 2026, 07:00 MT\n\n\ud83d\udcb0 <b>Capital:</b> $16.18\n\ud83d\udcca <b>Valor total:</b> $100.31\n\ud83d\udcc8 <b>Retorno:</b> +0.31%\n\ud83d\udcc9 <b>Drawdown:</b> 0.00%\n\n\ud83c\udfc6 <b>Win Rate:</b> 0.0%\n\ud83d\udcca <b>Trades totales:</b> 1 (0W / 0L)\n\ud83d\udc9a <b>Avg win:</b> $0.00\n\u2764\ufe0f <b>Avg loss:</b> $0.00\n\u26a1 <b>Profit factor:</b> 0.00\n\ud83d\udcd0 <b>Sharpe ratio:</b> 0.00\n\n\ud83d\udcca <b>Posiciones abiertas:</b> 1\n\n<b>\u00daltimos trades:</b>\n  \u274c BTC [trend_momentum] $+0.00 via None"
+  },
+  {
+    "ts": "2026-04-30T11:37:39.355749-06:00",
+    "msg": "\u274c LOSS \u2014 <b>BTC</b>\nEstrategia: trend_momentum\nP&L: $-0.90 (-1.08%)\nCierre: MANUAL_CLOSE @ $0.000000"
+  },
+  {
+    "ts": "2026-04-30T12:52:01.021948-06:00",
+    "msg": "\u26a0\ufe0f <b>ALERTA DRAWDOWN</b>\nDrawdown actual: 79.6%\nCapital: $79.06\nM\u00e1ximo permitido: 10%"
+  },
+  {
+    "ts": "2026-04-30T18:06:41.125664-06:00",
+    "msg": "\u26a0\ufe0f <b>ALERTA DRAWDOWN</b>\nDrawdown actual: 79.6%\nCapital: $100.00\nM\u00e1ximo permitido: 10%"
   }
 ]

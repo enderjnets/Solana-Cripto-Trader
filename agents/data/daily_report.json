@@ -1,22 +1,22 @@
 {
-  "timestamp": "2026-04-29T03:22:16.552558+00:00",
+  "timestamp": "2026-05-01T00:09:23.679401+00:00",
   "metrics": {
-    "capital_usd": 16.18,
+    "capital_usd": 100.0,
     "initial_capital": 100.0,
-    "total_pnl": 0.0,
-    "unrealized_pnl": -0.29,
-    "total_value": 99.44,
-    "return_pct": -0.56,
-    "total_trades": 1,
+    "total_pnl": 0,
+    "unrealized_pnl": 0,
+    "total_value": 20.4,
+    "return_pct": -79.6,
+    "total_trades": 0,
     "wins": 0,
     "losses": 0,
     "win_rate": 0.0,
     "avg_win_usd": 0,
-    "avg_loss_usd": 0.0,
+    "avg_loss_usd": 0,
     "profit_factor": 0,
     "sharpe_ratio": 0.0,
-    "drawdown_pct": 0.56,
-    "open_positions": 1
+    "drawdown_pct": 79.6,
+    "open_positions": 0
   },
   "alerts_sent": []
 }

@@ -1,29 +1,4 @@
 {
-  "timestamp": "2026-04-29T03:22:16.548672+00:00",
-  "decisions": [
-    {
-      "symbol": "BTC",
-      "direction": "long",
-      "action": "HOLD",
-      "confidence": 0.86,
-      "alignment": "ALIGNED",
-      "quant_score": 10,
-      "quant_action": "HOLD",
-      "quant_reasons": [
-        "TP_MODERADO (5.59%)"
-      ],
-      "llm_action": "HOLD",
-      "llm_confidence": 0.72,
-      "llm_reasoning": "Tendencia bullish con 70% confianza, R/R restante de 1.65x supera el umbral de 1.5x para HOLD, y el score de 10/100 est\u00e1 lejos del umbral de cierre. Aunque el Fear & Greed en 26 indica cautela, la posici\u00f3n apenas tiene 5.3h abierta y el margen de maniobra del SL es razonable a 3.38%.",
-      "llm_reasoning_lang": "es",
-      "llm_source": "llm_claude_sonnet",
-      "pnl_usd": -0.2944,
-      "pnl_pct": -0.3524,
-      "dist_tp_pct": 5.587,
-      "dist_sl_pct": 3.378,
-      "rr_remaining": 1.654,
-      "hours_open": 5.3,
-      "evaluated_at": "2026-04-29T03:22:16.548540+00:00"
-    }
-  ]
+  "decisions": [],
+  "last_updated": "2026-05-01T00:06:22.396828+00:00"
 }

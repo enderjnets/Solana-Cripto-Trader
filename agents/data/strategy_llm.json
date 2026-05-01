@@ -1,96 +1,83 @@
 {
   "signals": [
     {
-      "symbol": "ETH",
+      "symbol": "GOAT",
       "direction": "long",
-      "entry_price": 2300.31,
-      "sl_price": 2231.3,
-      "tp_price": 2484.33,
-      "exit_mode": "trailing",
-      "trailing_pct": 0.025,
+      "entry_price": 0.016522,
+      "sl_price": 0.016027,
+      "tp_price": 0.017513,
+      "exit_mode": "fixed",
+      "trailing_pct": null,
       "size_usd": 10.0,
       "confidence": 0.78,
-      "strategy": "momentum",
-      "reasoning": "RSI 68.8 cerca de sobrecompra pero en tendencia bullish, momentum alcista con volumen moderado, setup de continuaci\u00f3n antes de posible aceleraci\u00f3n",
+      "strategy": "oversold_bounce",
+      "reasoning": "Cambio 24h -2.51% con volatilidad 2.51% en mercado Fear. Token con movimiento negativo reciente potencial rebote en contexto de miedo generalizado. Tendencia bullish macro contrarian setup.",
       "factors": [
-        "RSI_momentum_68.8",
-        "tendencia_bullish",
-        "volatilidad_aceptable"
-      ]
-    },
-    {
-      "symbol": "BONK",
-      "direction": "short",
-      "entry_price": 6e-06,
-      "sl_price": 6.18e-06,
-      "tp_price": 5.64e-06,
-      "exit_mode": "fixed",
-      "size_usd": 10.0,
-      "confidence": 0.76,
-      "strategy": "mean_reversion",
-      "reasoning": "RSI 72.5 sobrecompra clara + cambio 24h +2.01% en mercado con miedo, contrarian setup en meme coin con momentum excesivo",
-      "factors": [
-        "RSI_overbought_72.5",
-        "cambio_24h_positivo",
-        "meme_coin_volatil"
-      ]
-    },
-    {
-      "symbol": "FARTCOIN",
-      "direction": "short",
-      "entry_price": 0.205407,
-      "sl_price": 0.211569,
-      "tp_price": 0.193233,
-      "exit_mode": "fixed",
-      "size_usd": 10.0,
-      "confidence": 0.79,
-      "strategy": "mean_reversion",
-      "reasoning": "RSI exacto 70.0 sobrecompra + cambio 24h +2.82%, condici\u00f3n ideal para short contrarian en mercado fearful, meme coin con momentum agotado",
-      "factors": [
-        "RSI_overbought_70.0",
-        "cambio_24h_elevado",
-        "limite_sobrecompra"
+        "cambio_24h_negativo",
+        "volatilidad_suficiente",
+        "mercado_fear_contrarian",
+        "tendencia_bullish_macro"
       ]
     },
     {
       "symbol": "RAY",
       "direction": "long",
-      "entry_price": 0.769362,
-      "sl_price": 0.746281,
-      "tp_price": 0.815524,
+      "entry_price": 0.818027,
+      "sl_price": 0.793485,
+      "tp_price": 0.867109,
       "exit_mode": "trailing",
-      "trailing_pct": 0.035,
+      "trailing_pct": 0.025,
       "size_usd": 10.0,
-      "confidence": 0.81,
+      "confidence": 0.82,
       "strategy": "momentum",
-      "reasoning": "Volatilidad 5.25% extrema + cambio 24h +5.25% con RSI 52.5 en zona saludable, breakout de momentum en token Solana ecosystem, trailing amplio para capturar extensi\u00f3n",
+      "reasoning": "Cambio 24h +4.75% con volatilidad 4.75% \u2014 momentum alcista claro en mercado fear. Breakout de momentum en tendencia bullish general. Trailing para capturar extensi\u00f3n del movimiento.",
       "factors": [
-        "volatilidad_extrema_5.25",
-        "cambio_24h_fuerte",
-        "RSI_momentum_sano",
-        "ecosistema_solana"
+        "momentum_alcista",
+        "volatilidad_alta",
+        "breakout_momentum",
+        "tendencia_bullish_confirmada"
       ]
     },
     {
-      "symbol": "JUP",
+      "symbol": "PENGU",
       "direction": "long",
-      "entry_price": 0.18995,
-      "sl_price": 0.184251,
-      "tp_price": 0.201347,
-      "exit_mode": "fixed",
+      "entry_price": 0.010022,
+      "sl_price": 0.009721,
+      "tp_price": 0.010623,
+      "exit_mode": "trailing",
+      "trailing_pct": 0.03,
       "size_usd": 10.0,
-      "confidence": 0.77,
-      "strategy": "oversold_bounce",
-      "reasoning": "RSI 63.8 no es oversold t\u00e9cnico pero cambio -1.00% con volatilidad 1.00% en token Solana DeFi l\u00edder, acumulaci\u00f3n en debilidad relativa antes de impulso",
+      "confidence": 0.8,
+      "strategy": "momentum",
+      "reasoning": "Cambio 24h +3.45% con volatilidad 3.45% \u2014 momentum positivo en mercado fear. Setup de continuaci\u00f3n alcista con trailing para maximizar captura de tendencia en token de menor precio.",
       "factors": [
-        "token_solana_bluechip",
-        "debilidad_relativa",
-        "volatilidad_suficiente",
-        "ecosistema_fundamental"
+        "momentum_positivo",
+        "volatilidad_elevada",
+        "continuacion_tendencia",
+        "precio_bajo_alto_potencial"
+      ]
+    },
+    {
+      "symbol": "MOODENG",
+      "direction": "long",
+      "entry_price": 0.059229,
+      "sl_price": 0.057452,
+      "tp_price": 0.062783,
+      "exit_mode": "fixed",
+      "trailing_pct": null,
+      "size_usd": 10.0,
+      "confidence": 0.76,
+      "strategy": "contrarian",
+      "reasoning": "Volatilidad 0.52% justo en l\u00edmite, cambio +0.52% positivo en mercado fear. Setup conservador de exposici\u00f3n en token con ligero momentum positivo cuando el mercado general tiene miedo.",
+      "factors": [
+        "volatilidad_minima",
+        "cambio_positivo",
+        "mercado_fear_exposicion",
+        "setup_conservador"
       ]
     }
   ],
-  "generated_at": "2026-04-29T03:21:23.722567+00:00",
+  "generated_at": "2026-05-01T00:09:21.257853+00:00",
   "fear_greed": 26,
   "source": "ai_strategy_extreme"
 }

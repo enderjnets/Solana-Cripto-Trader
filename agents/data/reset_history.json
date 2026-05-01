@@ -1575,5 +1575,43 @@
     ],
     "capital_source": "user_input",
     "version": "2.12.31-live"
+  },
+  {
+    "reset_date": "2026-05-01T00:06:22.396828+00:00",
+    "period_start": "2026-04-28T21:48:25.542580+00:00",
+    "period_end": "2026-05-01T00:06:22.396828+00:00",
+    "initial_capital": 100.0,
+    "final_capital": 20.37,
+    "return_pct": -79.63,
+    "total_pnl_usd": -0.9,
+    "total_trades": 1,
+    "wins": 0,
+    "losses": 1,
+    "flat": 0,
+    "win_rate": 0.0,
+    "best_trade_usd": -0.9,
+    "worst_trade_usd": -0.9,
+    "new_capital": 100.0,
+    "reason": "Full reset + rebalance to $100. Waiting for ~$79.63 SOL transfer to wallet.",
+    "notes": "User deposited ~$104 initially. After unregistered losses ~$83, wallet on-chain is $20.37. Reset to $100 baseline. Bot will remain STOPPED until wallet equity reaches ~$100.",
+    "mode_pre_reset": "live",
+    "mode_post_reset": "live",
+    "wallet_snapshot": {
+      "wallet_total": 20.37,
+      "balances": {
+        "SOL": 0.148983,
+        "USDC": 6.64919,
+        "JUP": 2.282295,
+        "ETH": 0.00042
+      },
+      "prices": {
+        "SOL": 82.998696,
+        "JUP": 0.18001,
+        "ETH": 2258.79638
+      },
+      "ts": 1777592786.6990452
+    },
+    "capital_source": "user_input",
+    "version": "2.13.4-live"
   }
 ]

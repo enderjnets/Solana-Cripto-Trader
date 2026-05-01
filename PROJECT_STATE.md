@@ -3,9 +3,9 @@
 > Estado actual del proyecto. Actualizado tras cada cambio significativo.
 
 ## Última actualización
-- **Fecha**: 2026-04-30
+- **Fecha**: 2026-05-01
 - **Versión**: v2.13.4-live
-- **Commit**: 328ee77
+- **Commit**: (pending-reset)
 
 ## Estado del pipeline
 
@@ -21,7 +21,7 @@
 
 ## Posiciones actuales
 
-**0 posiciones abiertas.**
+**0 posiciones abiertas. BOT STOPPED — esperando transferencia ~$79.63**
 
 Última posición cerrada:
 - **BTC LONG** (cerrada manualmente 2026-04-30): Size $167.10, Leverage 2.0x
@@ -32,11 +32,11 @@
 ## Wallet
 
 - **Address**: `EEmtkySNz1SLNZBMBu6EsuqkEhttEKjejsEXdEFT2fMH`
-- **Capital real**: $79.06 (initial $100 + PnL -$0.90 + PnL previo -$1.19)
-- **Capital libre**: ~$79.06 (wallet, no open positions)
-- **Total equity**: ~$79.06 (libre, no perps open)
+- **Capital real**: $20.37 (initial $100 + PnL -$0.90 + PnL previo -$1.19)
+- **Capital libre**: ~$100.00 (reset contable) (wallet, no open positions)
+- **Total equity**: ~$20.37 (on-chain real) (libre, no perps open)
 - **Capital tier**: MICRO ($50-149)
-- **Max positions**: 1
+- **Max positions**: 3
 - **SOL**: ~0.1082
 
 ## Fixes aplicados en esta sesión
@@ -61,6 +61,9 @@
 17. **Fix portfolio ghosts** — removed JUP paper ghost, reconciled trade_history
 18. **Fix reporter equity** — known display bug (shows $20.40 vs actual $79.06)
 19. **Fix auto-learner** — cleared tokens_to_avoid from [SOL,ETH] to []
+
+20. **Full reset a $100** — portfolio, trade_history, risk, daily_target, equity_history, compound, alerts, cooldowns, decisions, wild_mode, scanner, signals reseteados
+21. **Bot STOPPED** — drawdown 79.6% hasta que wallet on-chain alcance ~$100
 
 ## Paperclip
 
