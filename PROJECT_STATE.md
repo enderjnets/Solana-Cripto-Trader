@@ -87,3 +87,47 @@
 | Dashboard | `http://100.88.47.99:8082` |
 | Wallet local | `~/.config/solana-jupiter-bot/wallet.json` |
 | Wallet remota | `~/wallet.json` en servidor |
+
+## Fix alertas spam ROG (2026-05-01)
+
+**Problema:** Mensajes repetitivos  cada minuto vía Telegram (bot @EkoBit_Rog_bot).
+
+**Causa raíz:** El health monitor en ASUS Dorada (10.0.0.56, ) seguía buscando el servicio antiguo , que fue reemplazado por . Al no encontrarlo, intentaba reiniciarlo cada minuto y enviaba alerta de fallo.
+
+**Fix aplicado:**
+1. Actualizado  en ASUS Dorada para monitorear  (servicio actual)
+2. Actualizado puerto dashboard:  → 
+3. Actualizado puerto Paperclip:  → 
+4. Desactivados 3 cron jobs obsoletos de OpenClaw en ROG que también monitoreaban el bot antiguo
+5. Limpiado log de monitor ( con 30k+ líneas de errores acumulados)
+
+**Infraestructura actualizada:**
+
+| Servicio | Host | Puerto | Notas |
+|----------|------|--------|-------|
+| Bot live | ROG (100.88.47.99) | — |  |
+| Dashboard | ROG | 8082 | Flask app |
+| Paperclip | ROG | 3100 | REST API |
+| Health monitor | ASUS Dorada (10.0.0.56) | — | Revisa ROG cada minuto |
+
+## Fix alertas spam ROG (2026-05-01)
+
+**Problema:** Mensajes repetitivos "ROG Alert: Solana bot DOWN after restart attempt" cada minuto via Telegram (bot @EkoBit_Rog_bot).
+
+**Causa raiz:** El health monitor en ASUS Dorada (10.0.0.56, /home/enderj/.paperclip/rog-health-monitor.sh) seguia buscando el servicio antiguo `solana-jupiter-bot.service`, que fue reemplazado por `solana-live-bot.service`. Al no encontrarlo, intentaba reiniciarlo cada minuto y enviaba alerta de fallo.
+
+**Fix aplicado:**
+1. Actualizado `rog-health-monitor.sh` en ASUS Dorada para monitorear `solana-live-bot` (servicio actual)
+2. Actualizado puerto dashboard: 8081 -> 8082
+3. Actualizado puerto Paperclip: 3102 -> 3100
+4. Desactivados 3 cron jobs obsoletos de OpenClaw en ROG que tambien monitoreaban el bot antiguo
+5. Limpiado log de monitor (monitor.log con 30k+ lineas de errores acumulados)
+
+**Infraestructura actualizada:**
+
+| Servicio | Host | Puerto | Notas |
+|----------|------|--------|-------|
+| Bot live | ROG (100.88.47.99) | -- | `solana-live-bot.service` |
+| Dashboard | ROG | 8082 | Flask app |
+| Paperclip | ROG | 3100 | REST API |
+| Health monitor | ASUS Dorada (10.0.0.56) | -- | Revisa ROG cada minuto |
