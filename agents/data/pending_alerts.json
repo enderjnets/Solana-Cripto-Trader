@@ -1,9 +1,5 @@
 [
   {
-    "ts": "2026-04-25T22:51:50.054397-06:00",
-    "msg": "\u2705 WIN \u2014 <b>JUP</b>\nEstrategia: trend_momentum\nP&L: $+0.17 (+3.45%)\nCierre: PARTIAL_TAKE @ $0.179740"
-  },
-  {
     "ts": "2026-04-25T23:42:50.330007-06:00",
     "msg": "\u2705 WIN \u2014 <b>JUP</b>\nEstrategia: trend_momentum\nP&L: $+0.15 (+3.09%)\nCierre: TRAILING_SL @ $0.178329"
   },
@@ -78,5 +74,9 @@
   {
     "ts": "2026-04-30T18:06:41.125664-06:00",
     "msg": "\u26a0\ufe0f <b>ALERTA DRAWDOWN</b>\nDrawdown actual: 79.6%\nCapital: $100.00\nM\u00e1ximo permitido: 10%"
+  },
+  {
+    "ts": "2026-04-30T20:24:55.554587-06:00",
+    "msg": "\u274c LOSS \u2014 <b>SOL</b>\nEstrategia: unknown\nP&L: $+0.00 (-0.25%)\nCierre: MANUAL_CLOSE_ORPHAN @ $0.000000"
   }
 ]

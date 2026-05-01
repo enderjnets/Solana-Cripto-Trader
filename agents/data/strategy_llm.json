@@ -1,79 +1,81 @@
 {
   "signals": [
     {
-      "symbol": "SOL",
+      "symbol": "JUP",
       "direction": "short",
-      "entry_price": 83.56,
-      "sl_price": 86.07,
-      "tp_price": 78.54,
+      "entry_price": 0.183305,
+      "sl_price": 0.188805,
+      "tp_price": 0.172305,
       "exit_mode": "fixed",
-      "trailing_pct": null,
       "size_usd": 10.0,
       "confidence": 0.78,
       "strategy": "mean_reversion",
-      "reasoning": "RSI 69.2 cerca sobrecompra en tendencia bajista de corto plazo, volatilidad muy baja 0.28% no justifica trailing, mejor fixed por falta de momentum",
+      "reasoning": "RSI 66.2 cerca sobrecompra + volatilidad extremadamente baja 0.15% = movimiento comprimido, probable correcci\u00f3n. Cambio 24h plano (-0.15%) en tendencia bullish general sugiere debilidad relativa.",
       "factors": [
-        "RSI_near_overbought_69",
-        "low_volatility",
-        "fear_market"
-      ]
-    },
-    {
-      "symbol": "JUP",
-      "direction": "short",
-      "entry_price": 0.1835,
-      "sl_price": 0.189,
-      "tp_price": 0.1725,
-      "exit_mode": "trailing",
-      "trailing_pct": 0.025,
-      "size_usd": 10.0,
-      "confidence": 0.85,
-      "strategy": "mean_reversion",
-      "reasoning": "RSI 77.9 sobrecompra extrema + volatilidad 0.86% permite trailing, en mercado Fear los tokens sobrecomprados corrigen fuerte",
-      "factors": [
-        "RSI_overbought_78",
-        "high_volatility",
-        "fear_market_contrarian"
+        "RSI_near_overbought_66",
+        "low_volatility_compression",
+        "relative_weakness_bullish_trend"
       ]
     },
     {
       "symbol": "RAY",
       "direction": "short",
-      "entry_price": 0.8044,
-      "sl_price": 0.8285,
-      "tp_price": 0.7561,
+      "entry_price": 0.817836,
+      "sl_price": 0.842371,
+      "tp_price": 0.768928,
       "exit_mode": "trailing",
       "trailing_pct": 0.025,
       "size_usd": 10.0,
-      "confidence": 0.83,
-      "strategy": "momentum_fade",
-      "reasoning": "RSI 73.5 sobrecompra + cambio +1.30% en 24h con volatilidad 1.30%, momentum alcista agotado en mercado Fear, trailing captura extensi\u00f3n de ca\u00edda",
+      "confidence": 0.85,
+      "strategy": "contrarian_fade",
+      "reasoning": "RSI 74.6 sobrecompra clara + cambio +3.86% en 24h cumple criterio SHORT en Fear. Volatilidad alta 3.86% permite trailing. Mercado en Fear general, este rally es desproporcionado y vulnerable a correcci\u00f3n.",
       "factors": [
-        "RSI_overbought_73",
-        "positive_change_fading",
+        "RSI_overbought_74",
+        "high_24h_change_3.86",
+        "high_volatility_3.86",
+        "fear_market_contrarian"
+      ]
+    },
+    {
+      "symbol": "PENGU",
+      "direction": "long",
+      "entry_price": 0.009997,
+      "sl_price": 0.009747,
+      "tp_price": 0.010497,
+      "exit_mode": "trailing",
+      "trailing_pct": 0.02,
+      "size_usd": 10.0,
+      "confidence": 0.76,
+      "strategy": "momentum_catch",
+      "reasoning": "Cambio +2.76% con RSI 43 = momentum temprano antes de sobrecompra. Volatilidad 2.76% saludable. En mercado Fear, este relative strength sugiere acumulaci\u00f3n. Trailing para capturar extensi\u00f3n si rompe.",
+      "factors": [
+        "early_momentum_2.76",
+        "RSI_43_room_to_run",
+        "relative_strength_fear_market",
         "high_volatility"
       ]
     },
     {
-      "symbol": "BTC",
+      "symbol": "WIF",
       "direction": "long",
-      "entry_price": 76427.16,
-      "sl_price": 74516.48,
-      "tp_price": 80448.52,
+      "entry_price": 0.186488,
+      "sl_price": 0.181824,
+      "tp_price": 0.195812,
       "exit_mode": "trailing",
       "trailing_pct": 0.025,
       "size_usd": 10.0,
-      "confidence": 0.8,
-      "strategy": "trend_following",
-      "reasoning": "RSI 58.8 en zona saludable, tendencia BULLISH general, volatilidad 0.57% suficiente para trailing, mejor setup long disponible en mercado Fear",
+      "confidence": 0.74,
+      "strategy": "momentum_breakout",
+      "reasoning": "Cambio +4.61% con volatilidad 4.61% = movimiento explosivo. RSI 55.8 no sobrecompra, espacio para continuar. En Fear market, WIF mostrando fuerza relativa excepcional. Trailing para maximizar captura de tendencia.",
       "factors": [
-        "RSI_healthy_59",
-        "bullish_trend",
-        "fear_market_opportunity"
+        "strong_momentum_4.61",
+        "RSI_55_room_to_run",
+        "explosive_volatility",
+        "relative_strength_extreme"
       ]
     }
   ],
-  "generated_at": "2026-05-01T02:02:34.903949+00:00",
+  "generated_at": "2026-05-01T02:39:27.523401+00:00",
   "fear_greed": 26,
   "source": "ai_strategy_extreme"
 }

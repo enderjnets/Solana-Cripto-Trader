@@ -154,7 +154,7 @@ def calculate_metrics(portfolio: dict, history: list) -> dict:
         from wallet_equity import fetch_wallet_equity as _fwe
         _we = _fwe()
         if _we and _we.get("wallet_total") is not None:
-            total_value = float(_we["wallet_total"])
+            total_value = float(_we.get("total_equity", _we.get("wallet_total", 0)))
     except Exception:
         pass
 

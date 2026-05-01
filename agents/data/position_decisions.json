@@ -1,4 +1,29 @@
 {
-  "decisions": [],
-  "last_updated": "2026-05-01T00:06:22.396828+00:00"
+  "timestamp": "2026-05-01T02:40:36.363306+00:00",
+  "decisions": [
+    {
+      "symbol": "SOL",
+      "direction": "long",
+      "action": "CLOSE",
+      "confidence": 0.58,
+      "alignment": "SPLIT (quant=HOLD, llm=CLOSE)",
+      "quant_score": 10,
+      "quant_action": "HOLD",
+      "quant_reasons": [
+        "TP_MODERADO (5.00%)"
+      ],
+      "llm_action": "CLOSE",
+      "llm_confidence": 0.72,
+      "llm_reasoning": "Score de 10/100 indica se\u00f1al fuerte de cierre, y el TP moderado de solo 5% con R/R de 1.99x no compensa el riesgo en un mercado con Fear & Greed de 26 (extremo miedo). Adem\u00e1s, la posici\u00f3n ya es perdedora desde el inicio y no tiene otras posiciones positivas que compensen, actuando como peso muerto que retrasa el target de $2.00.",
+      "llm_reasoning_lang": "es",
+      "llm_source": "llm_claude_sonnet",
+      "pnl_usd": -0.0693,
+      "pnl_pct": -0.6152,
+      "dist_tp_pct": 4.997,
+      "dist_sl_pct": 2.512,
+      "rr_remaining": 1.989,
+      "hours_open": 0.2,
+      "evaluated_at": "2026-05-01T02:40:36.363202+00:00"
+    }
+  ]
 }
