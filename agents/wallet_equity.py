@@ -36,6 +36,7 @@ _CACHE = {"ts": 0.0, "data": None}
 MINT_USDC = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
 MINT_JUP = "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN"
 MINT_ETH = "7vfCXTUXx5WJV5JADk17DUJ4ksgau7utNKj4b963voxs"
+MINT_BTC = "3NZ9JMVBmGAqocybic2c7LQCJScmgsAZ6vQqTDzcqmJh"
 MINT_SOL_WRAPPED = "So11111111111111111111111111111111111111112"
 
 _DISK_CACHE_PATH = DATA / "wallet_equity_cache.json"
@@ -70,9 +71,10 @@ def _load_market_latest_prices():
             "SOL": float(tokens.get("SOL", {}).get("price", 0) or 0),
             "JUP": float(tokens.get("JUP", {}).get("price", 0) or 0),
             "ETH": float(tokens.get("ETH", {}).get("price", 0) or 0),
+            "BTC": float(tokens.get("BTC", {}).get("price", 0) or 0),
         }
     except Exception:
-        return {"SOL": 0.0, "JUP": 0.0, "ETH": 0.0}
+        return {"SOL": 0.0, "JUP": 0.0, "ETH": 0.0, "BTC": 0.0}
 
 
 def _fetch_token_balance(wallet: str, mint: str, rpc: str, timeout: int = 5, retries: int = 2) -> float:
@@ -162,7 +164,7 @@ def fetch_wallet_equity(force_refresh: bool = False):
             balances["SOL"] = r["result"]["value"] / 1e9
 
         # SPL tokens — each with independent error handling + cache fallback
-        for sym, mint in (("USDC", MINT_USDC), ("JUP", MINT_JUP), ("ETH", MINT_ETH)):
+        for sym, mint in (("USDC", MINT_USDC), ("JUP", MINT_JUP), ("ETH", MINT_ETH), ("BTC", MINT_BTC)):
             rpc_total += 1
             try:
                 balances[sym] = _fetch_token_balance(wallet, mint, rpc)
@@ -182,14 +184,15 @@ def fetch_wallet_equity(force_refresh: bool = False):
                     balances[sym] = 0
 
         # Prices — Jupiter primary
-        sol_px = jup_px = eth_px = 0.0
+        sol_px = jup_px = eth_px = btc_px = 0.0
         try:
-            ids = f"{MINT_SOL_WRAPPED},{MINT_JUP},{MINT_ETH}"
+            ids = f"{MINT_SOL_WRAPPED},{MINT_JUP},{MINT_ETH},{MINT_BTC}"
             px_r = requests.get(f"https://price.jup.ag/v6/price?ids={ids}", timeout=5).json()
             px_data = px_r.get("data", {})
             sol_px = float(px_data.get(MINT_SOL_WRAPPED, {}).get("price", 0) or 0)
             jup_px = float(px_data.get(MINT_JUP, {}).get("price", 0) or 0)
             eth_px = float(px_data.get(MINT_ETH, {}).get("price", 0) or 0)
+            btc_px = float(px_data.get(MINT_BTC, {}).get("price", 0) or 0)
         except Exception:
             pass
 
@@ -202,14 +205,17 @@ def fetch_wallet_equity(force_refresh: bool = False):
                 jup_px = fb["JUP"]
             if eth_px == 0:
                 eth_px = fb["ETH"]
+            if btc_px == 0:
+                btc_px = fb["BTC"]
 
-        prices = {"SOL": sol_px, "JUP": jup_px, "ETH": eth_px}
+        prices = {"SOL": sol_px, "JUP": jup_px, "ETH": eth_px, "BTC": btc_px}
 
         wallet_total = (
             balances["USDC"]
             + balances["SOL"] * sol_px
             + balances["JUP"] * jup_px
             + balances["ETH"] * eth_px
+            + balances["BTC"] * btc_px
         )
 
         # Heuristic: if >50% of token queries failed AND wallet_total looks implausibly low
