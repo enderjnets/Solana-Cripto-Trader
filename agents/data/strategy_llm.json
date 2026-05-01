@@ -1,83 +1,79 @@
 {
   "signals": [
     {
-      "symbol": "GOAT",
-      "direction": "long",
-      "entry_price": 0.016522,
-      "sl_price": 0.016027,
-      "tp_price": 0.017513,
+      "symbol": "SOL",
+      "direction": "short",
+      "entry_price": 83.56,
+      "sl_price": 86.07,
+      "tp_price": 78.54,
       "exit_mode": "fixed",
       "trailing_pct": null,
       "size_usd": 10.0,
       "confidence": 0.78,
-      "strategy": "oversold_bounce",
-      "reasoning": "Cambio 24h -2.51% con volatilidad 2.51% en mercado Fear. Token con movimiento negativo reciente potencial rebote en contexto de miedo generalizado. Tendencia bullish macro contrarian setup.",
+      "strategy": "mean_reversion",
+      "reasoning": "RSI 69.2 cerca sobrecompra en tendencia bajista de corto plazo, volatilidad muy baja 0.28% no justifica trailing, mejor fixed por falta de momentum",
       "factors": [
-        "cambio_24h_negativo",
-        "volatilidad_suficiente",
-        "mercado_fear_contrarian",
-        "tendencia_bullish_macro"
+        "RSI_near_overbought_69",
+        "low_volatility",
+        "fear_market"
+      ]
+    },
+    {
+      "symbol": "JUP",
+      "direction": "short",
+      "entry_price": 0.1835,
+      "sl_price": 0.189,
+      "tp_price": 0.1725,
+      "exit_mode": "trailing",
+      "trailing_pct": 0.025,
+      "size_usd": 10.0,
+      "confidence": 0.85,
+      "strategy": "mean_reversion",
+      "reasoning": "RSI 77.9 sobrecompra extrema + volatilidad 0.86% permite trailing, en mercado Fear los tokens sobrecomprados corrigen fuerte",
+      "factors": [
+        "RSI_overbought_78",
+        "high_volatility",
+        "fear_market_contrarian"
       ]
     },
     {
       "symbol": "RAY",
-      "direction": "long",
-      "entry_price": 0.818027,
-      "sl_price": 0.793485,
-      "tp_price": 0.867109,
+      "direction": "short",
+      "entry_price": 0.8044,
+      "sl_price": 0.8285,
+      "tp_price": 0.7561,
       "exit_mode": "trailing",
       "trailing_pct": 0.025,
       "size_usd": 10.0,
-      "confidence": 0.82,
-      "strategy": "momentum",
-      "reasoning": "Cambio 24h +4.75% con volatilidad 4.75% \u2014 momentum alcista claro en mercado fear. Breakout de momentum en tendencia bullish general. Trailing para capturar extensi\u00f3n del movimiento.",
+      "confidence": 0.83,
+      "strategy": "momentum_fade",
+      "reasoning": "RSI 73.5 sobrecompra + cambio +1.30% en 24h con volatilidad 1.30%, momentum alcista agotado en mercado Fear, trailing captura extensi\u00f3n de ca\u00edda",
       "factors": [
-        "momentum_alcista",
-        "volatilidad_alta",
-        "breakout_momentum",
-        "tendencia_bullish_confirmada"
+        "RSI_overbought_73",
+        "positive_change_fading",
+        "high_volatility"
       ]
     },
     {
-      "symbol": "PENGU",
+      "symbol": "BTC",
       "direction": "long",
-      "entry_price": 0.010022,
-      "sl_price": 0.009721,
-      "tp_price": 0.010623,
+      "entry_price": 76427.16,
+      "sl_price": 74516.48,
+      "tp_price": 80448.52,
       "exit_mode": "trailing",
-      "trailing_pct": 0.03,
+      "trailing_pct": 0.025,
       "size_usd": 10.0,
       "confidence": 0.8,
-      "strategy": "momentum",
-      "reasoning": "Cambio 24h +3.45% con volatilidad 3.45% \u2014 momentum positivo en mercado fear. Setup de continuaci\u00f3n alcista con trailing para maximizar captura de tendencia en token de menor precio.",
+      "strategy": "trend_following",
+      "reasoning": "RSI 58.8 en zona saludable, tendencia BULLISH general, volatilidad 0.57% suficiente para trailing, mejor setup long disponible en mercado Fear",
       "factors": [
-        "momentum_positivo",
-        "volatilidad_elevada",
-        "continuacion_tendencia",
-        "precio_bajo_alto_potencial"
-      ]
-    },
-    {
-      "symbol": "MOODENG",
-      "direction": "long",
-      "entry_price": 0.059229,
-      "sl_price": 0.057452,
-      "tp_price": 0.062783,
-      "exit_mode": "fixed",
-      "trailing_pct": null,
-      "size_usd": 10.0,
-      "confidence": 0.76,
-      "strategy": "contrarian",
-      "reasoning": "Volatilidad 0.52% justo en l\u00edmite, cambio +0.52% positivo en mercado fear. Setup conservador de exposici\u00f3n en token con ligero momentum positivo cuando el mercado general tiene miedo.",
-      "factors": [
-        "volatilidad_minima",
-        "cambio_positivo",
-        "mercado_fear_exposicion",
-        "setup_conservador"
+        "RSI_healthy_59",
+        "bullish_trend",
+        "fear_market_opportunity"
       ]
     }
   ],
-  "generated_at": "2026-05-01T00:09:21.257853+00:00",
+  "generated_at": "2026-05-01T02:02:34.903949+00:00",
   "fear_greed": 26,
   "source": "ai_strategy_extreme"
 }

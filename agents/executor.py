@@ -1843,30 +1843,55 @@ def real_open_position(signal: dict, portfolio: dict, market: dict = None) -> Op
                 return None
             # v2.13.1: use on-chain liq_price when available; fallback to local calc
             _liq_price = getattr(_pr, "liq_price", 0) or 0
+            _notional = _pr.size_sol * _pr.entry_price
+            _margin = _notional / max(_pr.leverage, 1.1)
+            _fee_entry = _notional * 0.001
             if _liq_price <= 0:
                 # fallback to local approximation for backward compat
-                _notional = _pr.size_sol * _pr.entry_price
-                _margin = _notional / max(_pr.leverage, 1.1)
-                _fee_entry = _notional * 0.001
                 _liq_price = _pr.entry_price * (1 - (_margin - _fee_entry) / _notional)
-            return {
+            now_iso = datetime.now(timezone.utc).isoformat()
+            position = {
+                "id": f"{symbol}_perp_{int(time.time())}",
                 "symbol": symbol,
                 "direction": _pr.direction,
                 "entry_price": _pr.entry_price,
-                "size_usd": _pr.size_sol * _pr.entry_price,
+                "current_price": _pr.entry_price,
+                "size_usd": round(_notional, 4),
+                "notional_value": round(_notional, 4),
+                "margin_usd": round(_margin, 4),
                 "tokens": _pr.size_sol,
                 "mode": "jupiter_perp",
                 "leverage": _pr.leverage,
                 "signature": _pr.signature,
                 "status": "open",
-                "opened_at": datetime.now(timezone.utc).isoformat(),
+                "opened_at": now_iso,
+                "open_time": now_iso,
                 "sl_price": signal.get("sl_price"),
                 "tp_price": signal.get("tp_price"),
                 "strategy": signal.get("strategy"),
                 "confidence": signal.get("confidence"),
                 "liquidation_price": round(_liq_price, 8),
                 "position_pubkey": getattr(_pr, "position_pubkey", None),
+                "fee_entry": round(_fee_entry, 6),
+                "pnl_usd": 0.0,
+                "pnl_pct": 0.0,
             }
+            portfolio.setdefault("positions", []).append(position)
+            # v2.13.4: fix capital tracking for perp positions
+            _new_cap = round(portfolio.get("capital_usd", 0) - _margin, 2)
+            if _new_cap < 0:
+                log.error(f"post-perp capital tracking error: ${portfolio.get('capital_usd',0):.2f} - ${_margin:.2f} < 0 (perp ya ejecutado, ajustando a 0)")
+            portfolio["capital_usd"] = max(0.0, _new_cap)
+            # immediate persist
+            try:
+                from pathlib import Path as _P
+                _pf_path = _P(__file__).parent / "data" / "portfolio.json"
+                _tmp_path = _pf_path.with_suffix(".json.tmp")
+                _tmp_path.write_text(json.dumps(portfolio, indent=2))
+                _tmp_path.replace(_pf_path)
+            except Exception as _ps_err:
+                log.warning(f"    immediate persist (perp open) failed: {_ps_err}")
+            return position
         except Exception as _e:
             log.error(f"real_open_position: jupiter perp routing error: {_e}")
             return None
@@ -2031,6 +2056,69 @@ def real_open_position(signal: dict, portfolio: dict, market: dict = None) -> Op
     log.info(f"   tx: {result.signature}")
     log.info(f"   tokens: {tokens_received:.6f} | impact: {result.price_impact_pct:.4f}%")
     return position
+
+
+def _close_jupiter_perp(pos: dict, portfolio: dict, reason: str = "close") -> Optional[dict]:
+    """Close a Jupiter Perp position and return close result dict.
+
+    Wraps jupiter_perp_adapter.close_perp_position with portfolio accounting.
+    Returns dict with exit_price, pnl_real_usd, fee_exit, signature on success.
+    Returns None if close fails or is blocked by gates.
+    """
+    symbol = pos.get("symbol", "SOL")
+    try:
+        import jupiter_perp_adapter as _jpa
+    except Exception as _e:
+        log.error(f"_close_jupiter_perp: import failed: {_e}")
+        return None
+
+    _cr = _jpa.close_perp_position(symbol)
+    if _cr is None:
+        log.warning(f"_close_jupiter_perp: {symbol} close blocked by gate")
+        return None
+    if not _cr.success:
+        log.warning(f"_close_jupiter_perp: {symbol} close failed — {_cr.reason}")
+        return None
+
+    # Get current market price for PnL calculation
+    try:
+        market_data = json.loads(MARKET_FILE.read_text()) if MARKET_FILE.exists() else {}
+    except Exception:
+        market_data = {}
+    current_price = float(market_data.get("tokens", {}).get(symbol, {}).get("price", 0))
+    if current_price <= 0:
+        # Fallback to entry price if market data unavailable
+        current_price = pos.get("current_price", pos.get("entry_price", 0))
+
+    entry_price = float(pos.get("entry_price", current_price) or current_price)
+    size_usd = float(pos.get("size_usd", 0) or 0)
+    direction = pos.get("direction", "long")
+
+    if direction == "long":
+        pnl_real_usd = (current_price - entry_price) / max(entry_price, 1e-9) * size_usd
+    else:
+        pnl_real_usd = (entry_price - current_price) / max(entry_price, 1e-9) * size_usd
+
+    # Estimate exit fee (same as entry fee estimation)
+    notional = pos.get("notional_value", size_usd)
+    try:
+        fee_exit = notional * (TAKER_FEE + get_slippage(symbol))
+    except Exception:
+        fee_exit = notional * 0.001
+
+    # Return margin to capital
+    margin = float(pos.get("margin_usd", 0) or 0)
+    if margin > 0:
+        portfolio["capital_usd"] = round(portfolio.get("capital_usd", 0) + margin + pnl_real_usd, 2)
+
+    log.info(f"🔒 JUPITER PERP CLOSED: {symbol} {direction} @ ${current_price:.6f} | PnL: ${pnl_real_usd:+.4f} | reason: {reason}")
+
+    return {
+        "exit_price": round(current_price, 8),
+        "pnl_real_usd": round(pnl_real_usd, 4),
+        "fee_exit": round(fee_exit, 6),
+        "signature": _cr.signature,
+    }
 
 
 def real_close_position(pos: dict, portfolio: dict) -> Optional[dict]:

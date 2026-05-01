@@ -1,1 +1,28 @@
-[]
+[
+  {
+    "id": "SOL_1777600526",
+    "symbol": "SOL",
+    "direction": "short",
+    "strategy": "unknown",
+    "entry_price": 83.56,
+    "exit_price": 83.56,
+    "margin_usd": 11.25,
+    "notional_value": 112.3,
+    "leverage": 10.0,
+    "size_usd": 112.3,
+    "fee_entry": 0.0,
+    "fee_exit": 0.0,
+    "funding_accumulated": 0.0,
+    "pnl_usd": 0.0,
+    "pnl_pct": -0.25,
+    "status": "closed",
+    "open_time": "2026-05-01T02:07:36.746241+00:00",
+    "close_time": "2026-05-01T02:07:36.746241+00:00",
+    "close_reason": "MANUAL_CLOSE_ORPHAN",
+    "mode": "jupiter_perp",
+    "confidence": 0.0,
+    "tx_signature_open": "unknown",
+    "tx_signature_close": "61B87cjdTxUqvP1PzyS4CD4pJ4hY93adxuoyTxrYzH5kqHDHgtRCA9VwC59SHFQDUr9YM3nwuA72SvbdWn3PKaAm",
+    "position_pubkey": "AUC89RdWf9FSMeBLJrEvSCj9zkFPXPXQsm6Pc8v1QRjK"
+  }
+]
