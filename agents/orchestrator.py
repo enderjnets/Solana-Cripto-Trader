@@ -245,7 +245,7 @@ def run_cycle(safe=True, debug=False):
         with open(_hb_path, "w") as _hf:
             _hf.write(str(time.time()))
     except Exception as _hb_err:
-        log.debug(f"heartbeat write error (non-fatal): {_hb_err}")
+        log.info(f"HEARTBEAT WRITE ERROR (non-fatal): {_hb_err}")
 
     # v2.10.0-live Sprint 2 Fase 4: on-chain reconciliation cada 10 ciclos (solo live)
     if _cycle_global_count % 10 == 0 and os.environ.get("LIVE_TRADING_ENABLED", "false").lower() == "true":
