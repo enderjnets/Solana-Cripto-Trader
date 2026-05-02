@@ -31,6 +31,9 @@
   .badge-m { background:rgba(255,123,114,0.15); color:var(--orange); border:1px solid var(--orange); }
   .two-col { grid-column: span 2; }
   @media (max-width: 800px) { .two-col { grid-column: span 1; } }
+  .gate-bar { background:var(--bg3); height:8px; border-radius:4px; overflow:hidden; margin-top:6px; }
+  .gate-fill { height:100%; background:var(--green); transition:width 0.5s; }
+  .alert-box { background:rgba(248,81,73,0.1); border:1px solid var(--red); border-radius:6px; padding:10px; margin-top:10px; font-size:12px; color:var(--red); }
 </style>
 </head>
 <body>
@@ -47,7 +50,7 @@
   <!-- K Metrics -->
   <div class="card">
     <div class="agent-header">
-      <h3>AAA-K — El Estratega</h3>
+      <h3>AAA-K - El Estratega</h3>
       <span class="agent-badge badge-k">Kimi 2.6</span>
     </div>
     <div class="metric"><span>Capital</span><span class="metric-value" id="k-capital">-</span></div>
@@ -64,7 +67,7 @@
   <!-- M Metrics -->
   <div class="card">
     <div class="agent-header">
-      <h3>AAA-M — El Cazador</h3>
+      <h3>AAA-M - El Cazador</h3>
       <span class="agent-badge badge-m">MiniMax M2.7</span>
     </div>
     <div class="metric"><span>Capital</span><span class="metric-value" id="m-capital">-</span></div>
@@ -78,21 +81,43 @@
     <div class="metric"><span>Return</span><span class="metric-value" id="m-return">-</span></div>
   </div>
 
+  <!-- Meta-Arbitro -->
+  <div class="card two-col">
+    <h3>Meta-Arbitro - Scoreboard</h3>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:8px;">
+      <div>
+        <div class="metric"><span>Lider</span><span class="metric-value blue" id="meta-leader">-</span></div>
+        <div class="metric"><span>Peso K</span><span class="metric-value" id="meta-weight-k">-</span></div>
+        <div class="metric"><span>Peso M</span><span class="metric-value" id="meta-weight-m">-</span></div>
+      </div>
+      <div>
+        <div class="metric"><span>Fase Gate</span><span class="metric-value" id="meta-gate-phase">-</span></div>
+        <div class="metric"><span>Condicion</span><span class="metric-value" id="meta-gate-name">-</span></div>
+        <div class="metric"><span>Accion</span><span class="metric-value" id="meta-gate-action">-</span></div>
+      </div>
+    </div>
+    <div style="margin-top:12px;">
+      <div style="font-size:12px;color:var(--text2);">Progreso hacia transferencia completa</div>
+      <div class="gate-bar"><div class="gate-fill" id="meta-gate-bar" style="width:0%"></div></div>
+    </div>
+    <div id="meta-alerts"></div>
+  </div>
+
   <!-- Equity Comparison -->
   <div class="card two-col">
-    <h3>La Carrera — Equity K vs M</h3>
+    <h3>La Carrera - Equity K vs M</h3>
     <div class="chart-container"><canvas id="equityChart"></canvas></div>
   </div>
 
   <!-- K Positions -->
   <div class="card">
-    <h3>Posiciones Abiertas — AAA-K</h3>
+    <h3>Posiciones Abiertas - AAA-K</h3>
     <div class="positions" id="k-positions-list"><div style="color:var(--text2);">Cargando...</div></div>
   </div>
 
   <!-- M Positions -->
   <div class="card">
-    <h3>Posiciones Abiertas — AAA-M</h3>
+    <h3>Posiciones Abiertas - AAA-M</h3>
     <div class="positions" id="m-positions-list"><div style="color:var(--text2);">Cargando...</div></div>
   </div>
 </div>
@@ -104,6 +129,7 @@ async function loadAll() {
   await Promise.all([
     loadAgent('k', '/api/aaa/k/status', '/api/aaa/k/portfolio'),
     loadAgent('m', '/api/aaa/m/status', '/api/aaa/m/portfolio'),
+    loadMeta(),
     loadEquity()
   ]);
   document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
@@ -143,6 +169,26 @@ async function loadAgent(agent, statusUrl, portfolioUrl) {
   } catch(e) { console.error(agent + ' portfolio', e); }
 }
 
+async function loadMeta() {
+  try {
+    const r = await fetch('/api/aaa/meta/status');
+    const d = await r.json();
+    document.getElementById('meta-leader').textContent = d.leader || '-';
+    document.getElementById('meta-weight-k').textContent = (d.weights?.K * 100 || 0).toFixed(0) + '%';
+    document.getElementById('meta-weight-m').textContent = (d.weights?.M * 100 || 0).toFixed(0) + '%';
+    document.getElementById('meta-gate-phase').textContent = d.gate_phase + '/5';
+    document.getElementById('meta-gate-name').textContent = d.gate_name || '-';
+    document.getElementById('meta-gate-action').textContent = d.gate_action || '-';
+    document.getElementById('meta-gate-bar').style.width = ((d.gate_phase / 5) * 100) + '%';
+    const alertsDiv = document.getElementById('meta-alerts');
+    if (d.alerts && d.alerts.length > 0) {
+      alertsDiv.innerHTML = d.alerts.map(a => '<div class="alert-box">' + a + '</div>').join('');
+    } else {
+      alertsDiv.innerHTML = '';
+    }
+  } catch(e) { console.error('meta', e); }
+}
+
 async function loadEquity() {
   try {
     const [rk, rm] = await Promise.all([
@@ -151,15 +197,10 @@ async function loadEquity() {
     ]);
     const ctx = document.getElementById('equityChart').getContext('2d');
     if (equityChart) equityChart.destroy();
-
-    // Normalize dates
-    const labels = rk.dates.map((x, i) => i);
-    const mLabels = rm.dates.map((x, i) => i);
-
     equityChart = new Chart(ctx, {
       type: 'line',
       data: {
-        labels: labels,
+        labels: rk.dates.map((x, i) => i),
         datasets: [
           {
             label: 'AAA-K (Kimi)',

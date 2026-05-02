@@ -5629,6 +5629,20 @@ def api_aaa_m_metrics():
         return jsonify({'error': str(e)}), 500
 
 
+@app.route('/api/aaa/meta/status')
+def api_aaa_meta_status():
+    try:
+        import sys
+        sys.path.insert(0, str(Path(__file__).parent.parent / 'agents'))
+        from aaa_shared import DATA_DIR
+        state_file = DATA_DIR / 'meta_arbitro_state.json'
+        if state_file.exists():
+            return jsonify(json.loads(state_file.read_text()))
+        return jsonify({'error': 'Meta-Arbitro not initialized'}), 404
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/aaa')
 def aaa_dashboard():
     html_path = Path(__file__).parent / 'aaa_dashboard.html'
