@@ -5518,7 +5518,7 @@ def api_aaa_k_status():
         from aaa_shared import load_portfolio, calculate_metrics, load_trade_history
         port = load_portfolio('AAA-K')
         trades = load_trade_history('AAA-K')
-        metrics = calculate_metrics(trades, 50000.0)
+        metrics = calculate_metrics(trades, port.get('initial_capital', 1000.0))
         open_pos = [p for p in port.get('positions', []) if p.get('status') == 'open']
         total_equity = port['capital_usd'] + sum(
             p.get('margin_usd', 0) + p.get('pnl_usd', 0) for p in open_pos
@@ -5528,8 +5528,9 @@ def api_aaa_k_status():
             'status': port.get('status', 'UNKNOWN'),
             'capital_usd': port.get('capital_usd', 0),
             'total_equity': round(total_equity, 2),
-            'initial_capital': port.get('initial_capital', 50000),
+            'initial_capital': port.get('initial_capital', 1000.0),
             'open_positions': len(open_pos),
+            'positions': open_pos,
             'total_trades': metrics['total_trades'],
             'win_rate': metrics['win_rate'],
             'profit_factor': metrics['profit_factor'],
@@ -5573,7 +5574,7 @@ def api_aaa_k_metrics():
         sys.path.insert(0, str(Path(__file__).parent.parent / 'agents'))
         from aaa_shared import calculate_metrics, load_trade_history
         trades = load_trade_history('AAA-K')
-        return jsonify(calculate_metrics(trades, 50000.0))
+        return jsonify(calculate_metrics(trades, 1000.0))
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -5586,7 +5587,7 @@ def api_aaa_m_status():
         from aaa_shared import load_portfolio, calculate_metrics, load_trade_history
         port = load_portfolio('AAA-M')
         trades = load_trade_history('AAA-M')
-        metrics = calculate_metrics(trades, 50000.0)
+        metrics = calculate_metrics(trades, port.get('initial_capital', 1000.0))
         open_pos = [p for p in port.get('positions', []) if p.get('status') == 'open']
         total_equity = port['capital_usd'] + sum(
             p.get('margin_usd', 0) + p.get('pnl_usd', 0) for p in open_pos
@@ -5596,8 +5597,9 @@ def api_aaa_m_status():
             'status': port.get('status', 'UNKNOWN'),
             'capital_usd': port.get('capital_usd', 0),
             'total_equity': round(total_equity, 2),
-            'initial_capital': port.get('initial_capital', 50000),
+            'initial_capital': port.get('initial_capital', 1000.0),
             'open_positions': len(open_pos),
+            'positions': open_pos,
             'total_trades': metrics['total_trades'],
             'win_rate': metrics['win_rate'],
             'profit_factor': metrics['profit_factor'],
@@ -5633,6 +5635,110 @@ def api_aaa_m_equity():
         return jsonify({'error': str(e)}), 500
 
 
+
+
+@app.route('/api/aaa/k/telemetry')
+def api_aaa_k_telemetry():
+    try:
+        import sys
+        sys.path.insert(0, str(Path(__file__).parent.parent / 'agents'))
+        from aaa_shared import DATA_DIR, load_portfolio, load_trade_history
+        port = load_portfolio('AAA-K')
+        trades = load_trade_history('AAA-K')
+
+        cfg_path = DATA_DIR / 'aaa_k_config.json'
+        cfg = json.loads(cfg_path.read_text()) if cfg_path.exists() else {}
+        kn_path = DATA_DIR / 'knowledge_k.json'
+        _raw = json.loads(kn_path.read_text()) if kn_path.exists() else []
+        knowledge = _raw.get('entries',[]) if isinstance(_raw, dict) else _raw
+        st_path = DATA_DIR / 'aaa_k_state.json'
+        state = json.loads(st_path.read_text()) if st_path.exists() else {}
+
+        last_cycle = state.get('last_cycle_time')
+        now = datetime.now(timezone.utc)
+        seconds_since = 0
+        if last_cycle:
+            try:
+                lc = datetime.fromisoformat(last_cycle.replace('Z','+00:00'))
+                seconds_since = (now - lc).total_seconds()
+            except:
+                pass
+
+        return jsonify({
+            'agent': 'AAA-K',
+            'cycle_count': port.get('cycle_count', 0),
+            'last_cycle_time': last_cycle,
+            'seconds_since_cycle': round(seconds_since, 1),
+            'cycle_frequency_sec': 120,
+            'llm_model': 'Kimi-2.6',
+            'llm_last_call': state.get('last_llm_call'),
+            'llm_avg_latency_ms': state.get('llm_avg_latency_ms', 0),
+            'active_variant': cfg.get('active_variant_id', 'v1'),
+            'variant_params': cfg.get('parameters', {}),
+            'ab_test': cfg.get('ab_test', {}),
+            'evolution_history': cfg.get('evolution_history', [])[-5:],
+            'baseline_sharpe': cfg.get('baseline_sharpe', 0),
+            'knowledge_count': len(knowledge),
+            'latest_knowledge': knowledge[-3:] if knowledge else [],
+            'last_decision': state.get('last_decision'),
+            'last_error': state.get('last_error'),
+            'safety_guard_rejections': sum(1 for e in cfg.get('evolution_history',[]) if 'REJECTED' in str(e.get('action',''))),
+            'open_positions': len([p for p in port.get('positions',[]) if p.get('status')=='open']),
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/aaa/m/telemetry')
+def api_aaa_m_telemetry():
+    try:
+        import sys
+        sys.path.insert(0, str(Path(__file__).parent.parent / 'agents'))
+        from aaa_shared import DATA_DIR, load_portfolio, load_trade_history
+        port = load_portfolio('AAA-M')
+        trades = load_trade_history('AAA-M')
+
+        cfg_path = DATA_DIR / 'aaa_m_config.json'
+        cfg = json.loads(cfg_path.read_text()) if cfg_path.exists() else {}
+        kn_path = DATA_DIR / 'knowledge_m.json'
+        _raw = json.loads(kn_path.read_text()) if kn_path.exists() else []
+        knowledge = _raw.get('entries',[]) if isinstance(_raw, dict) else _raw
+        st_path = DATA_DIR / 'aaa_m_state.json'
+        state = json.loads(st_path.read_text()) if st_path.exists() else {}
+
+        last_cycle = state.get('last_cycle_time')
+        now = datetime.now(timezone.utc)
+        seconds_since = 0
+        if last_cycle:
+            try:
+                lc = datetime.fromisoformat(last_cycle.replace('Z','+00:00'))
+                seconds_since = (now - lc).total_seconds()
+            except:
+                pass
+
+        return jsonify({
+            'agent': 'AAA-M',
+            'cycle_count': port.get('cycle_count', 0),
+            'last_cycle_time': last_cycle,
+            'seconds_since_cycle': round(seconds_since, 1),
+            'cycle_frequency_sec': 30,
+            'llm_model': 'MiniMax-M2.7',
+            'llm_last_call': state.get('last_llm_call'),
+            'llm_avg_latency_ms': state.get('llm_avg_latency_ms', 0),
+            'active_variant': cfg.get('active_variant_id', 'v1'),
+            'variant_params': cfg.get('parameters', {}),
+            'ab_test': cfg.get('ab_test', {}),
+            'evolution_history': cfg.get('evolution_history', [])[-5:],
+            'baseline_sharpe': cfg.get('baseline_sharpe', 0),
+            'knowledge_count': len(knowledge),
+            'latest_knowledge': knowledge[-3:] if knowledge else [],
+            'last_decision': state.get('last_decision'),
+            'last_error': state.get('last_error'),
+            'safety_guard_rejections': sum(1 for e in cfg.get('evolution_history',[]) if 'REJECTED' in str(e.get('action',''))),
+            'open_positions': len([p for p in port.get('positions',[]) if p.get('status')=='open']),
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 @app.route('/api/aaa/m/metrics')
 def api_aaa_m_metrics():
     try:
@@ -5640,7 +5746,7 @@ def api_aaa_m_metrics():
         sys.path.insert(0, str(Path(__file__).parent.parent / 'agents'))
         from aaa_shared import calculate_metrics, load_trade_history
         trades = load_trade_history('AAA-M')
-        return jsonify(calculate_metrics(trades, 50000.0))
+        return jsonify(calculate_metrics(trades, 1000.0))
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
