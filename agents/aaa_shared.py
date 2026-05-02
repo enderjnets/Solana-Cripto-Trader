@@ -266,13 +266,18 @@ def calculate_metrics(trades: List[dict], capital_start: float = 50000.0) -> dic
 
     # Sharpe ratio (simplificado): usando pnl_pct por trade como returns
     returns = [t.get("pnl_pct", 0) for t in trades]
-    if len(returns) >= 2:
+    sharpe = 0.0
+    if len(returns) >= 5:
         avg_ret = sum(returns) / len(returns)
         variance = sum((r - avg_ret) ** 2 for r in returns) / len(returns)
         std_ret = math.sqrt(variance) if variance > 0 else 0.0
-        sharpe = (avg_ret / std_ret * math.sqrt(365)) if std_ret > 0 else 0.0
-    else:
-        sharpe = 0.0
+        # Minimum std to avoid division by near-zero
+        std_ret = max(std_ret, 0.001)
+        sharpe = (avg_ret / std_ret * math.sqrt(365))
+    elif len(returns) >= 2:
+        # With 2-4 trades, use a simplified estimate
+        avg_ret = sum(returns) / len(returns)
+        sharpe = avg_ret * 2  # Rough estimate without full std calc
 
     # Max drawdown
     equity = capital_start
