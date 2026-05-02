@@ -906,7 +906,7 @@ def run_cycle(safe=True, debug=False):
 
     # v2.14.0: Meta-Arbitro status log
     try:
-        _meta_file = DATA_DIR / "meta_arbitro_state.json"
+        _meta_file = BASE_DIR / "aaa_data" / "meta_arbitro_state.json"
         if _meta_file.exists():
             _meta = json.loads(_meta_file.read_text())
             _leader = _meta.get("leader", "?")
