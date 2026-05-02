@@ -912,7 +912,7 @@ def run_cycle(safe=True, debug=False):
             _leader = _meta.get("leader", "?")
             _gate = _meta.get("gate_phase", 0)
             _weights = _meta.get("weights", {})
-            log.info(f"   ⚖️  Meta-Arbitro: Leader={_leader} | Gate={_gate}/5 | K={_weights.get(K,0):.0%} M={_weights.get(M,0):.0%}")
+            log.info(f"   ⚖️  Meta-Arbitro: Leader={_leader} | Gate={_gate}/5 | K={_weights.get('K',0):.0%} M={_weights.get('M',0):.0%}")
             if _meta.get("alerts"):
                 for _alert in _meta["alerts"][:2]:
                     log.warning(f"      🚨 {_alert}")
