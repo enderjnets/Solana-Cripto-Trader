@@ -754,15 +754,34 @@ function renderDecision(elId, decision) {
     el.innerHTML = '<div class="decision-action" style="color:var(--text-dim)">NO RECENT DECISION</div>';
     return;
   }
-  const color = decision.action === 'OPEN' ? 'var(--good)' : decision.action === 'CLOSE' ? 'var(--bad)' : 'var(--warn)';
-  const sym = decision.symbol || '---';
+  const action = decision.action;
+  const color = action === 'OPEN' ? 'var(--good)' : action === 'CLOSE' ? 'var(--bad)' : 'var(--warn)';
+  const sym = decision.symbol || '';
   const dir = decision.direction || '';
+  const hasSym = sym && sym !== 'NONE' && sym !== 'N/A' && sym !== '';
+  const hasDir = dir && dir !== 'none' && dir !== '';
   const conf = decision.confidence !== undefined ? (decision.confidence * 100).toFixed(0) + '%' : '--';
-  el.innerHTML = `
-    <div class="decision-action" style="color:${color}">${decision.action} ${sym} ${dir}</div>
-    <div style="font-size:0.7rem; color:var(--text-dim); margin-top:2px;">Confidence: ${conf} | Leverage: ${decision.leverage || '--'}x | Margin: ${decision.margin_pct || '--'}%</div>
-    <div class="decision-reason">${decision.reasoning || 'No reasoning recorded.'}</div>
-  `;
+
+  let header = action;
+  if (action === 'OPEN' && hasSym) header += ' ' + sym + ' ' + dir.toUpperCase();
+  if (action === 'CLOSE' && hasSym) header += ' ' + sym;
+
+  let meta = '';
+  if (action === 'OPEN') {
+    meta = 'Confidence: ' + conf;
+    if (decision.leverage) meta += ' | Leverage: ' + decision.leverage + 'x';
+    if (decision.margin_pct) meta += ' | Margin: ' + (decision.margin_pct * 100).toFixed(2) + '%';
+    if (decision.sl_pct) meta += ' | SL: ' + (decision.sl_pct * 100).toFixed(1) + '%';
+    if (decision.tp_pct) meta += ' | TP: ' + (decision.tp_pct * 100).toFixed(1) + '%';
+  } else if (action === 'CLOSE') {
+    meta = 'Confidence: ' + conf;
+  } else {
+    meta = 'Confidence: ' + conf;
+  }
+
+  el.innerHTML = '<div class="decision-action" style="color:' + color + '">' + header + '</div>' +
+    '<div style="font-size:0.7rem; color:var(--text-dim); margin-top:2px;">' + meta + '</div>' +
+    '<div class="decision-reason">' + (decision.reasoning || 'No reasoning recorded.') + '</div>';
 }
 
 function renderTerminal(elId, entries, colorClass) {
