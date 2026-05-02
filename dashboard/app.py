@@ -185,8 +185,20 @@ def estimate_open_position_pnl(pos: dict, current_price: float | None = None) ->
     }
 
 # ── Version & Changelog ──────────────────────────────────────────────────────
-VERSION = "2.13.4-live"
+VERSION = "2.13.7-live"
 CHANGELOG = [
+    {
+        "version": "2.13.7-live",
+        "date": "2026-05-01",
+        "title": "LLM Close Unblocking + Prompt Refinement: fix 36 blocked CLOSE recs",
+        "changes": [
+            "FIX orchestrator.py: quant_score >= 60 veto replaced with (conf >= 0.80 OR quant >= 30). LLM now has veto power at high confidence.",
+            "FIX risk_manager.py prompt: removed PESO MUERTO trigger, softened  target pressure, added GOLDEN RULE (score<20 + P&L>-2% + <1h = NO close).",
+            "FIX risk_manager.py prompt: win rate with <5 trades explicitly flagged as statistically insignificant noise.",
+            "FIX risk_manager.py prompt: devil advocate weakened when score < 20 and P&L not catastrophic (<-3%).",
+            "AUDIT: llm_audit.json revealed 36 evaluations, 29 CLOSE recs, 0 executed - all blocked by quant_score >= 60. Now unblocked.",
+        ]
+    },
     {
         "version": "2.13.4-live",
         "date": "2026-04-28",
