@@ -104,23 +104,59 @@ def build_portfolio_context(portfolio: dict) -> str:
 
 # ─── Main Decision Function ─────────────────────────────────────────────────
 
+
+
+def apply_variant_filters(market: dict, filter_rules: dict) -> dict:
+    """Apply variant-specific filter rules to market data."""
+    if not market or "tokens" not in market:
+        return market
+    filtered = {}
+    min_mom = filter_rules.get("min_momentum_pct", 0)
+    min_liq = filter_rules.get("min_liquidity_usd", 0)
+    min_vol = filter_rules.get("min_volume_24h", 0)
+    for sym, data in market["tokens"].items():
+        liq = data.get("liquidity", 0)
+        vol = data.get("volume_24h", 0)
+        mom_5m = abs(data.get("price_5min_change_pct", 0))
+        if liq < min_liq:
+            continue
+        if vol < min_vol:
+            continue
+        if min_mom > 0 and mom_5m < min_mom:
+            continue
+        filtered[sym] = data
+    market_copy = dict(market)
+    market_copy["tokens"] = filtered
+    return market_copy
+
+
 def make_trading_decision(
     market: dict,
     portfolio: dict,
     trade_history: List[dict],
     max_positions: int = 20,
     dynamic_params: Optional[Dict] = None,
+    variant: Optional[Dict] = None,
 ) -> Dict:
     """
     Pide a MiniMax M2.7 una decisión de trading basada en momentum.
     """
+    # Apply variant filter rules if present
+    if variant and variant.get("filter_rules"):
+        market = apply_variant_filters(market, variant["filter_rules"])
     market_snapshot = build_momentum_snapshot(market, top_n=40)
     portfolio_ctx = build_portfolio_context(portfolio)
 
     open_symbols = {p["symbol"] for p in portfolio.get("positions", []) if p.get("status") == "open"}
     open_count = len(open_symbols)
 
-    system = "Eres un scalper experto en crypto. Tu estilo es AGRESIVO y RAPIDO. Detectas momentum, breakouts y volumen spikes. Responde SOLO en JSON valido. No uses markdown fences."
+    # Build variant-aware system prompt
+    system_base = "Eres un scalper experto en crypto. Tu estilo es AGRESIVO y RAPIDO. Detectas momentum, breakouts y volumen spikes. Responde SOLO en JSON valido. No uses markdown fences."
+    variant_addon = variant.get("system_prompt_addon", "") if variant else ""
+    if variant_addon:
+        system = system_base + "\n\nVARIANTE ACTIVA: " + variant_addon
+    else:
+        system = system_base
 
     prompt = f"""Eres AAA-M ("El Cazador"), un agente de trading agresivo con capital de $50,000.
 

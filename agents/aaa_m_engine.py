@@ -30,6 +30,7 @@ from aaa_m_brain import make_trading_decision, analyze_recent_trades
 from aaa_m_evolution import (
     load_config, get_effective_params, ParameterApplier,
     check_and_rollback_if_needed, record_baseline_sharpe,
+    get_active_variant, maybe_start_ab_test, ABTestManager,
 )
 
 logging.basicConfig(
@@ -54,9 +55,16 @@ def cycle(debug: bool = False) -> dict:
     # -- Load dynamic config (hot-reload) --
     evo_config = load_config()
     params = get_effective_params(evo_config)
+    variant = get_active_variant(evo_config)
     if debug:
         log.info(f"   Params: SL={params['default_sl_pct']:.1%} TP={params['default_tp_pct']:.1%} "
                  f"LEV={params['default_leverage']}x MOM>{params['min_momentum_pct']}%")
+    if variant and variant.get("name"):
+        log.info(f"   Variant: {variant['name']} (addon={len(variant.get('system_prompt_addon', ''))}ch)")
+    # Check A/B test evaluation
+    ab_result = ABTestManager.evaluate_and_finalize(evo_config)
+    if ab_result:
+        log.info(f"   A/B Test result: {ab_result}")
 
     portfolio = load_portfolio(AGENT_NAME)
     trade_history = load_trade_history(AGENT_NAME)
@@ -99,6 +107,11 @@ def cycle(debug: bool = False) -> dict:
             if current_sharpe != 0.0:
                 record_baseline_sharpe(current_sharpe, evo_config)
 
+            # -- Phase 3: Auto-variant generation & A/B test --
+            test_started = maybe_start_ab_test(evo_config, analysis)
+            if test_started:
+                log.info("   🧬 A/B TEST STARTED from self-analysis")
+
             # -- Save knowledge for auto_learner integration --
             knowledge_file = Path(__file__).parent / "aaa_data" / "knowledge_m.json"
             knowledge = {"entries": [], "evolution_history": [], "last_updated": None}
@@ -133,6 +146,7 @@ def cycle(debug: bool = False) -> dict:
             market, portfolio, trade_history,
             max_positions=params["max_positions"],
             dynamic_params=params,
+            variant=variant,
         )
 
         log.info(f"   Decision: {decision.get('action')} | Conf: {decision.get('confidence', 0):.0%}")
@@ -227,6 +241,10 @@ def cycle(debug: bool = False) -> dict:
         params = get_effective_params(evo_config)
 
     log.info(f"📊 Metricas: WR={metrics['win_rate']:.1f}% PF={metrics['profit_factor']:.2f} Sharpe={metrics['sharpe_ratio']:.2f} DD={metrics['max_drawdown_pct']:.1f}% PnL=${metrics['total_pnl']:+.2f}")
+
+    # -- Record A/B test cycle --
+    ABTestManager.record_cycle(evo_config, variant.get("name", "v1") if variant else "v1",
+                                metrics.get("sharpe_ratio", 0.0), metrics.get("total_trades", 0))
 
     save_portfolio(portfolio, AGENT_NAME)
 
