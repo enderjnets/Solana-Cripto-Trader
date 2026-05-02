@@ -1,0 +1,13 @@
+{
+  "capital_usd": 1000.0,
+  "initial_capital": 1000.0,
+  "positions": [],
+  "status": "ACTIVE",
+  "agent": "AAA-K",
+  "created_at": "2026-05-02T22:12:24.833397+00:00",
+  "cycle_count": 0,
+  "last_updated": "2026-05-02T22:12:24.833413+00:00",
+  "total_trades": 0,
+  "wins": 0,
+  "losses": 0
+}

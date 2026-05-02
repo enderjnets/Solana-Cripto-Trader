@@ -1,0 +1,205 @@
+{
+  "entries": [
+    {
+      "timestamp": "2026-05-02T17:22:12.563208+00:00",
+      "type": "portfolio_health",
+      "health_score": 15,
+      "recommendations": [
+        "DETENER TRADING INMEDIATAMENTE: El portafolio muestra se\u00f1ales cr\u00edticas de deterioro con 3 p\u00e9rdidas consecutivas en tiempo de hold 0.0h, indicando entradas instant\u00e1neamente fallidas o slippage extremo",
+        "Revisar la l\u00f3gica LLM_DECISION: Las tres operaciones id\u00e9nticas (BTC LONG) con duraci\u00f3n cero sugieren un bug en la ejecuci\u00f3n, slippage descontrolado, o se\u00f1ales generadas en condiciones de mercado inadecuadas",
+        "Implementar circuit breaker: Establecer pausa autom\u00e1tica tras 3 p\u00e9rdidas consecutivas o drawdown >1% antes de continuar operando",
+        "Mantener capital en reserva: Con 0 posiciones abiertas y m\u00e9tricas de rendimiento catastr\u00f3ficas (Profit Factor 0.0, Sharpe -1.72), preservar los $49,974 restantes es prioridad absoluta",
+        "Realizar backtest de las se\u00f1ales LLM en condiciones id\u00e9nticas de mercado antes de reanudar trading en vivo"
+      ],
+      "positions_to_close": [],
+      "lessons": [
+        "Las se\u00f1ales generadas por LLM pueden sufrir de 'paper trading bias' donde el modelo no cuenta con latencia de ejecuci\u00f3n, slippage, o impacto de mercado real; las duraciones de 0.0h confirman ejecuci\u00f3n fallida o condiciones imposibles",
+        "Concentraci\u00f3n extrema en BTC LONG \u00fanicamente demuestra ausencia de diversificaci\u00f3n y posible sobre-optimizaci\u00f3n del modelo para condiciones alcistas espec\u00edficas que no se materializaron",
+        "La p\u00e9rdida promedio de ~$8.58 por trade con hold time cero indica que las comisiones y/o slippage est\u00e1n consumiendo el capital sin exposici\u00f3n de mercado real, sugiriendo operaciones en timeframe inadecuado o exchange con liquidez insuficiente",
+        "El Win Rate 0% con solo 3 trades no es estad\u00edsticamente significativo, pero la consistencia del patr\u00f3n (misma direcci\u00f3n, mismo resultado, mismo tiempo) se\u00f1ala un problema sist\u00e9mico, no mala suerte",
+        "El Sharpe negativo extremo (-1.72) con drawdown m\u00ednimo (0.05%) revela que el riesgo est\u00e1 mal calculado o las operaciones no generan exposici\u00f3n real, produciendo retornos negativos sin compensaci\u00f3n de riesgo asumido"
+      ],
+      "confidence": 0.92
+    },
+    {
+      "timestamp": "2026-05-02T17:51:42.632029+00:00",
+      "type": "portfolio_health",
+      "health_score": 35,
+      "recommendations": [
+        "DETENER TRADING INMEDIATAMENTE: El portafolio muestra se\u00f1ales de deterioro cr\u00edtico con 3 p\u00e9rdidas consecutivas en trades de duraci\u00f3n cero horas, indicando ejecuciones fallidas o slippage extremo",
+        "Revisar infraestructura de ejecuci\u00f3n: Los hold times de 0.0h sugieren que las \u00f3rdenes se cierran instant\u00e1neamente con p\u00e9rdida, posiblemente por errores en la l\u00f3gica del bot, fees excesivos, o slippage en entrada/salida",
+        "Implementar per\u00edodo de paper trading obligatorio de m\u00ednimo 20 trades antes de reactivar capital real",
+        "Establecer stop de trading autom\u00e1tico tras 3 p\u00e9rdidas consecutivas o drawdown del 1% ($500)",
+        "Auditar costos de transacci\u00f3n: P\u00e9rdidas de ~$8 por trade en capital de $50k (0.016% cada una) son consistentes con fees de maker/taker del 0.05% por lado en exchanges con apalancamiento, o spreads en ejecuci\u00f3n de mercado"
+      ],
+      "positions_to_close": [],
+      "lessons": [
+        "El patr\u00f3n de 3 trades LONG consecutivos y p\u00e9rdidas id\u00e9nticas (~$8) con hold time cero indica que la se\u00f1al de entrada LLM_DECISION est\u00e1 generando \u00f3rdenes que no persisten, posiblemente por: (a) condici\u00f3n de salida inmediata en el mismo ciclo, (b) rechazo de la orden por fondos insuficientes post-fee, o (c) bug en el loop de ejecuci\u00f3n que abre y cierra en el mismo tick",
+        "El Profit Factor de 0.0 y Sharpe Ratio de -1.72 con solo 3 trades confirma que no existe edge estad\u00edstico; la 'estrategia' est\u00e1 perdiendo dinero de manera determinista, no por varianza",
+        "El drawdown del 0.05% es m\u00ednimo en magnitud pero el 100% de trades perdedores con duraci\u00f3n nula es un indicador de fallo sist\u00e9mico, no de mala suerte; la m\u00e9trica relevante es la tasa de fallo de ejecuci\u00f3n, no el riesgo de mercado",
+        "No se debe incrementar tama\u00f1o de posici\u00f3n, diversificar a otros tokens, ni 'seguir la tendencia' hasta que se identifique y corrija la causa ra\u00edz de las ejecuciones de duraci\u00f3n cero"
+      ],
+      "confidence": 0.92
+    },
+    {
+      "timestamp": "2026-05-02T18:22:08.562252+00:00",
+      "type": "portfolio_health",
+      "health_score": 15,
+      "recommendations": [
+        "DETENER OPERACIONES INMEDIATAMENTE: El portafolio muestra se\u00f1ales cr\u00edticas de deterioro con 3 p\u00e9rdidas consecutivas en trades de duraci\u00f3n cero, indicando ejecuciones defectuosas o slippage extremo",
+        "Investigar mecanismo de ejecuci\u00f3n: Los hold times de 0.0h sugieren que las \u00f3rdenes se cierran instant\u00e1neamente con p\u00e9rdida, posiblemente por errores en la l\u00f3gica de entrada/salida del LLM o problemas de liquidez",
+        "Implementar circuit breaker: Establecer pausa autom\u00e1tica tras 3 p\u00e9rdidas consecutivas antes de continuar trading",
+        "Revisar calibraci\u00f3n del modelo LLM: Las decisiones generan p\u00e9rdidas sistem\u00e1ticas; requiere backtesting y validaci\u00f3n fuera de producci\u00f3n",
+        "Mantener capital preservado: Con 99.95% del capital intacto, el da\u00f1o es m\u00ednimo pero el patr\u00f3n es extremadamente preocupante"
+      ],
+      "positions_to_close": [],
+      "lessons": [
+        "CERO DURACI\u00d3N = CERO EDGE: Trades con hold time 0.0h no capturan movimiento direccional alguno; el modelo est\u00e1 operando contra s\u00ed mismo o ejecutando en condiciones de mercado inviables",
+        "LLM_NO_GARANTIZA_ALPHA: Un modelo de lenguaje sin capa de ejecuci\u00f3n robusta, gesti\u00f3n de riesgo por trade, y validaci\u00f3n estad\u00edstica produce resultados peores que aleatorio",
+        "SECUENCIA 3L/0W CON P\u00c9RDIDAS SIMILARES: Patr\u00f3n de -7.99, -9.67, -8.07 sugiere costo fijo por trade (spread + comisi\u00f3n + slippage) que supera cualquier expectativa de ganancia; el edge esperado es negativo por estructura",
+        "SHARPE -1.72 CON DRAWDOWN M\u00cdNIMO: La m\u00e9trica de riesgo-ajustado es catastr\u00f3fica a pesar del drawdown bajo, porque la volatilidad de retornos es m\u00ednima pero sistem\u00e1ticamente negativa",
+        "PRESERVACI\u00d3N DE CAPITAL COMO \u00daNICO OBJETIVO: El \u00fanico factor positivo es que el sistema fall\u00f3 r\u00e1pida y baratamente; requiere redise\u00f1o completo antes de nueva exposici\u00f3n"
+      ],
+      "confidence": 0.95
+    },
+    {
+      "timestamp": "2026-05-02T18:51:38.879566+00:00",
+      "type": "portfolio_health",
+      "health_score": 15,
+      "recommendations": [
+        "DETENER TRADING INMEDIATAMENTE: El sistema est\u00e1 en espiral de p\u00e9rdidas con 0% win rate y Sharpe negativo extremo (-1.72); continuar operando con la l\u00f3gica actual destruir\u00e1 capital",
+        "Revisar completamente la se\u00f1al LLM_DECISION: Tres trades consecutivos en BTC LONG con hold time ~0h indican ejecuci\u00f3n instant\u00e1nea de stop loss o error en l\u00f3gica de entrada/salida",
+        "Implementar per\u00edodo de paper trading obligatorio de m\u00ednimo 20 trades antes de capital real",
+        "Reducir tama\u00f1o de posici\u00f3n a 0.1% del capital ($50) hasta validar edge estad\u00edstico",
+        "Investigar correlaci\u00f3n entre 'LLM_DECISION' y slippage/ejecuci\u00f3n: las p\u00e9rdidas casi id\u00e9nticas (~$8) sugieren patr\u00f3n sistem\u00e1tico de fallo"
+      ],
+      "positions_to_close": [],
+      "lessons": [
+        "Hold time de 0.0h en tres trades consecutivos revela que las 'se\u00f1ales' no est\u00e1n generando trades viables; son liquidaciones inmediatas por stop loss mal ubicado o se\u00f1al contra-tendencia en micro-movimientos",
+        "Concentraci\u00f3n 100% en BTC LONG sin diversificaci\u00f3n expone que el 'LLM' carece de modelo de mercado; no distingue condiciones de mercado bajista/alcista",
+        "Las p\u00e9rdidas de ~$8 en cada trade con capital de $50k implican sizing de ~0.16% con riesgo no proporcional; el sistema est\u00e1 dise\u00f1ado para 'death by a thousand cuts'",
+        "Profit Factor 0.0 y Sharpe -1.72 con solo 3 trades indica que la estrategia no tiene fundamentos estad\u00edsticos; es ruido puro con costos de transacci\u00f3n"
+      ],
+      "confidence": 0.95
+    },
+    {
+      "timestamp": "2026-05-02T19:21:58.393743+00:00",
+      "type": "portfolio_health",
+      "health_score": 15,
+      "recommendations": [
+        "DETENER TRADING INMEDIATAMENTE: 3 trades consecutivos de p\u00e9rdida en 0.0h de hold time indican ejecuci\u00f3n defectuosa o slippage extremo, no fallo de se\u00f1al",
+        "Investigar mecanismo de ejecuci\u00f3n: hold time de 0.0h sugiere que las posiciones se cierran instant\u00e1neamente por stop loss mal configurado, error de API, o falta de liquidez en el exchange",
+        "No abrir nuevas posiciones hasta diagnosticar y corregir el problema de ejecuci\u00f3n",
+        "Revisar logs de ejecuci\u00f3n para verificar si los trades se cerraron por stop loss, take profit, o error del sistema"
+      ],
+      "positions_to_close": [],
+      "lessons": [
+        "Hold time de 0.0h con PnL negativo consistente (~-$8) es patr\u00f3n de ejecuci\u00f3n rota, no de estrategia perdedora: el modelo predice direcci\u00f3n pero el sistema no puede mantener la posici\u00f3n",
+        "Sharpe ratio de -1.72 con drawdown m\u00ednimo (0.05%) confirma que el riesgo no est\u00e1 en la exposici\u00f3n de mercado sino en costos de transacci\u00f3n o fallos operativos",
+        "Tres trades id\u00e9nticos (BTC LONG | LLM_DECISION) con mismas caracter\u00edsticas sugieren falta de adaptaci\u00f3n del modelo o falta de validaci\u00f3n post-ejecuci\u00f3n",
+        "Profit factor 0.0 y win rate 0% con p\u00e9rdidas peque\u00f1as y fijas indica problema sist\u00e9mico: probablemente fees + spread + slippage exceden el edge de la se\u00f1al, o hay un bug que cierra trades prematuramente"
+      ],
+      "confidence": 0.92
+    },
+    {
+      "timestamp": "2026-05-02T19:51:41.566082+00:00",
+      "type": "portfolio_health",
+      "health_score": 15,
+      "recommendations": [
+        "DETENER OPERACIONES INMEDIATAMENTE: El portafolio muestra se\u00f1ales de destrucci\u00f3n de capital con 3 trades consecutivos perdedores de duraci\u00f3n 0.0h, indicando ejecuciones instant\u00e1neas con slippage severo o errores de l\u00f3gica de entrada/salida",
+        "Implementar per\u00edodo de observaci\u00f3n de 5-10 d\u00edas sin operar para revisar la l\u00f3gica del LLM: los tres trades LONG en BTC con hold time 0.0h sugieren que el modelo est\u00e1 entrando y siendo detenido por condiciones de mercado adversas inmediatas o errores en la gesti\u00f3n de \u00f3rdenes",
+        "Reducir tama\u00f1o de posici\u00f3n a 0.1% del capital ($50) para pruebas de validaci\u00f3n hasta demostrar 10 trades consecutivos con profit factor > 1.0",
+        "Revisar si el LLM est\u00e1 generando se\u00f1ales en timeframe inadecuado o si hay latencia entre generaci\u00f3n de se\u00f1al y ejecuci\u00f3n que cause entrada en condiciones degradadas"
+      ],
+      "positions_to_close": [],
+      "lessons": [
+        "Hold time de 0.0h en 3 trades consecutivos es patol\u00f3gico: indica que las posiciones no est\u00e1n siendo retenidas ni siquiera un minuto, lo que descarta an\u00e1lisis de mercado y apunta a falla sist\u00e9mica en la ejecuci\u00f3n o en la l\u00f3gica de stop-loss",
+        "Concentraci\u00f3n 100% en BTC LONG sin diversificaci\u00f3n expone al portafolio a sesgo direccional en mercado bajista o lateral; el LLM no est\u00e1 adaptando direcci\u00f3n a condiciones de mercado",
+        "P\u00e9rdida de $25.74 en 3 trades ($8.58 promedio) con capital de $50,000 implica riesgo nominal bajo pero frecuencia de fallo del 100%; el problema no es el tama\u00f1o sino la calidad de las se\u00f1ales",
+        "Sharpe Ratio de -1.72 con solo 3 trades y drawdown m\u00ednimo sugiere volatilidad negativa concentrada; cada trade pierde consistentemente, lo que indica edge negativo sistem\u00e1tico, no varianza estad\u00edstica"
+      ],
+      "confidence": 0.92
+    },
+    {
+      "timestamp": "2026-05-02T20:18:12.567272+00:00",
+      "type": "portfolio_health",
+      "health_score": 15,
+      "recommendations": [
+        "DETENER OPERACIONES INMEDIATAMENTE: El portafolio muestra se\u00f1ales de destrucci\u00f3n r\u00e1pida con 3 p\u00e9rdidas consecutivas en tiempo de hold 0.0h, indicando stops excesivamente ajustados o ejecuciones defectuosas",
+        "Implementar per\u00edodo de observaci\u00f3n de 5-10 trades en paper trading antes de reanudar capital real; el LLM_DECISION est\u00e1 generando se\u00f1ales con sesgo de supervivencia o ruido de mercado",
+        "Revisar infraestructura de ejecuci\u00f3n: hold time de 0.0h sugiere que las posiciones se cierran por stop loss instant\u00e1neo, slippage extremo, o error en l\u00f3gica de hold time",
+        "Ajustar tama\u00f1o de posici\u00f3n m\u00e1xima a 0.5% del capital ($250) hasta alcanzar 10 trades con profit factor > 1.0",
+        "Diversificar direccionalidad: 3 LONG consecutivos en BTC sin SHORTs indica sesgo direccional no justificado por m\u00e9tricas"
+      ],
+      "positions_to_close": [],
+      "lessons": [
+        "El hold time de 0.0h en 3 trades consecutivos es una anomal\u00eda cr\u00edtica: no es trading, es donaci\u00f3n de spread y comisiones al mercado; verificar si los stops est\u00e1n dentro del rango del spread",
+        "Win rate 0% con Sharpe -1.72 en solo 3 trades no es estad\u00edsticamente significativo, pero la magnitud de p\u00e9rdidas similares (~$8) y hold time id\u00e9ntico sugiere un patr\u00f3n sist\u00e9mico de ejecuci\u00f3n, no mala suerte",
+        "El LLM_DECISION como \u00fanico motor de se\u00f1ales sin filtro de regime detection o momentum confirmation est\u00e1 operando en condiciones de mercado donde no tiene edge demostrable",
+        "Max drawdown de 0.05% es enga\u00f1osamente bajo: no indica buen riesgo, indica que las posiciones nunca tuvieron tiempo de respirar; el riesgo real est\u00e1 en el acumulado de comisiones y el sesgo de selecci\u00f3n del modelo"
+      ],
+      "confidence": 0.91
+    },
+    {
+      "timestamp": "2026-05-02T20:47:44.057286+00:00",
+      "type": "portfolio_health",
+      "health_score": 35,
+      "recommendations": [
+        "DETENER OPERACIONES INMEDIATAMENTE: El portafolio muestra m\u00e9tricas cr\u00edticas con Sharpe Ratio de -1.72 y Profit Factor 0.0, indicando destrucci\u00f3n sistem\u00e1tica de capital",
+        "Revisar completamente la estrategia LLM_DECISION: Los 3 trades con hold time de 0.0h sugieren ejecuci\u00f3n defectuosa, slippage extremo, o posible bug en la l\u00f3gica de entrada/salida",
+        "Implementar validaci\u00f3n de ejecuci\u00f3n antes de cualquier nuevo trade: Verificar que las \u00f3rdenes se est\u00e9n ejecutando a precios de mercado razonables",
+        "Establecer l\u00edmite de p\u00e9rdida diaria m\u00e1xima de $100 (0.2% del capital) para proteger el 99.95% de capital restante",
+        "No aumentar tama\u00f1o de posici\u00f3n hasta demostrar 10 trades consecutivos con Profit Factor > 1.5"
+      ],
+      "positions_to_close": [],
+      "lessons": [
+        "EJECUCI\u00d3N DEFECTUOSA: Hold time de 0.0h en los 3 trades es estad\u00edsticamente imposible para operaciones manuales o algor\u00edtmicas normales; indica error cr\u00edtico en el sistema de ejecuci\u00f3n, posiblemente cerrando inmediatamente despu\u00e9s de abrir o ejecutando en condiciones de liquidez nula",
+        "FRAGILIDAD DE ESTRATEGIA LLM: Tres se\u00f1ales consecutivas de LONG en BTC resultaron en p\u00e9rdidas similares (-$7.99, -$9.67, -$8.07), sugiriendo que el modelo est\u00e1 capturando ruido o sesgo de momentum inverso en lugar de se\u00f1al predictiva real",
+        "RIESGO DE MUERTE POR MIL CORTES: P\u00e9rdidas individuales peque\u00f1as pero consistentes (-0.016% promedio por trade) con frecuencia alta pueden ser m\u00e1s letales que drawdowns grandes; el costo de transacci\u00f3n impl\u00edcito o slippage est\u00e1 consumiendo todo el capital",
+        "FALTA DE STOP LOSS EFECTIVO: La uniformidad de p\u00e9rdidas (~$8-10) sugiere que no hay mecanismo de stop loss din\u00e1mico adaptado a volatilidad, o que el stop est\u00e1 siendo activado sistem\u00e1ticamente por micro-movimientos adversos",
+        "CAPITAL PRESERVADO POR AZAR, NO POR DISE\u00d1O: Con solo 3 trades y -0.05% de drawdown, el da\u00f1o es m\u00ednimo por falta de exposici\u00f3n, no por gesti\u00f3n de riesgo; la estructura actual permitir\u00eda destrucci\u00f3n total si se escala"
+      ],
+      "confidence": 0.92
+    },
+    {
+      "timestamp": "2026-05-02T21:18:07.520825+00:00",
+      "type": "portfolio_health",
+      "health_score": 35,
+      "recommendations": [
+        "SUSPENDER trading inmediatamente hasta revisi\u00f3n completa de la estrategia LLM_DECISION",
+        "Implementar per\u00edodo de paper trading m\u00ednimo 50 operaciones antes de capital real",
+        "Establecer stop-loss m\u00e1ximo por operaci\u00f3n de $100 (0.2% del capital)",
+        "Revisar la l\u00f3gica de entrada: hold time de 0.0h indica ejecuci\u00f3n instant\u00e1nea sin confirmaci\u00f3n de momentum"
+      ],
+      "positions_to_close": [],
+      "lessons": [
+        "Las 3 operaciones con hold time 0.0h y PnL negativo similar (~$8) sugieren patr\u00f3n sistem\u00e1tico de slippage, comisiones o ejecuci\u00f3n deficiente en entrada/salida inmediata",
+        "El LLM_DECISION est\u00e1 generando se\u00f1ales de falso breakout o reverso; el modelo puede estar sobreajustado a patrones de corto plazo sin validaci\u00f3n de volumen ni estructura de mercado",
+        "Profit Factor 0.0 y Sharpe -1.72 con solo 3 trades indica que la estrategia no tiene edge estad\u00edstico; se necesita m\u00ednimo 30-50 trades para evaluaci\u00f3n pero la consistencia de p\u00e9rdidas iguales es alarmante",
+        "El drawdown del 0.05% es enga\u00f1osamente bajo porque solo representa $25; el riesgo real est\u00e1 en la tasa de deterioro si se mantiene el patr\u00f3n (proyecci\u00f3n: -$500/mes si contin\u00faa)"
+      ],
+      "confidence": 0.85
+    },
+    {
+      "timestamp": "2026-05-02T21:47:45.523287+00:00",
+      "type": "portfolio_health",
+      "health_score": 15,
+      "recommendations": [
+        "DETENER TRADING INMEDIATAMENTE: 3 trades consecutivos con hold time 0.0h indican ejecuci\u00f3n defectuosa o slippage catastr\u00f3fico; investigar si las \u00f3rdenes se ejecutan al precio esperado o hay fallas t\u00e9cnicas",
+        "Implementar per\u00edodo de paper trading obligatorio de m\u00ednimo 20 trades antes de reactivar capital real; el sistema est\u00e1 quemando capital sin generar datos estad\u00edsticamente significativos",
+        "Revisar configuraci\u00f3n de stop-loss y take-profit: p\u00e9rdidas similares (~$8) en todos los trades sugieren stops demasiado ajustados o ejecuci\u00f3n en spread desfavorable",
+        "Mantener tama\u00f1o de posici\u00f3n en 0.1% del capital ($50) hasta alcanzar 30 trades con profit factor > 1.2; actualmente no hay base para sizing mayor",
+        "Auditar el modelo LLM: decisiones generan 0% win rate con hold time nulo, posible overfitting o se\u00f1ales en timeframe incorrecto"
+      ],
+      "positions_to_close": [],
+      "lessons": [
+        "Hold time de 0.0h en 3 trades consecutivos es an\u00f3malo: indica que las posiciones fueron cerradas instant\u00e1neamente por stop-loss o error de ejecuci\u00f3n, no por decisi\u00f3n de estrategia; esto invalida la premisa del modelo LLM",
+        "3 trades son estad\u00edsticamente irrelevantes pero el patr\u00f3n id\u00e9ntico de p\u00e9rdidas revela problema sist\u00e9mico, no mala suerte; la varianza esperada en PnL deber\u00eda ser mayor si el modelo estuviera capturando diferentes condiciones de mercado",
+        "Sharpe ratio de -1.72 con drawdown m\u00ednimo (0.05%) significa que las p\u00e9rdidas son consistentes y predecibles en direcci\u00f3n negativa, lo cual es peor que volatilidad aleatoria: el sistema tiene sesgo negativo estructural",
+        "El capital a\u00fan est\u00e1 99.95% preservado; esta es la \u00fanica m\u00e9trica positiva. Cualquier continuaci\u00f3n del trading actual convertir\u00e1 el problema de ejecuci\u00f3n en p\u00e9rdida real significativa"
+      ],
+      "confidence": 0.92
+    }
+  ],
+  "last_updated": "2026-05-02T21:47:45.523307+00:00"
+}
