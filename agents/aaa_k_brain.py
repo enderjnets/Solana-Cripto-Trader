@@ -182,12 +182,13 @@ Responde SOLO en JSON válido. No uses markdown fences."""
 REGLAS CRÍTICAS:
 1. Máximo {max_positions} posiciones abiertas simultáneas. Actualmente tienes {open_count} abiertas.
 2. NO abras más de 1 posición por token.
-3. Si una posición abierta está perdiendo >-3% y el mercado se deteriora, recomienda CLOSE.
-4. Si una posición lleva >6h abierta sin mejorar, considera CLOSE (eficiencia de capital).
+3. Si una posición abierta está perdiendo >-5% Y el mercado se deterioró claramente, recomienda CLOSE. NO cierres por micro-pérdidas.
+4. Si una posición lleva >8h abierta sin mejorar, considera CLOSE (eficiencia de capital). Posiciones <1h NUNCA se cierran por "sin mejorar".
 5. Fear & Greed < 20 o > 80 → reduce exposición, no abras nuevas posiciones.
 6. Prioriza tokens con: liquidez >$1M, volumen alto, y tendencia clara a favor.
 7. SL: 4-6%, TP: 6-10%, Leverage: 2-3x para bluechips, 1-2x para memes.
 8. Kelly criterion conservador: 0.5× Kelly. Riesgo máximo por trade: 2% del capital.
+9. IMPORTANTE: Una posición recién abierta tendrá P&L negativo inicial por comisiones (~0.8%). Esto es NORMAL. No es señal de cierre. Déjala correr hasta SL o TP.
 
 SNAPSHOT DE MERCADO:
 {market_snapshot}

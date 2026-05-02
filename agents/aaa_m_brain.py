@@ -165,11 +165,11 @@ REGLAS CRITICAS:
 2. NO abras mas de 1 posicion por token.
 3. Si una posicion abierta lleva >30 min sin mejorar, cierrala (eficiencia de capital).
 4. Si una posicion tiene PnL > +3%, activa trailing stop al 1.5%.
-5. Foco en tokens con: volumen alto, momentum 5min > 2%, y liquidez >$500K.
+5. Foco en tokens con: volumen alto, momentum 5min > 1%, y liquidez >$300K.
 6. SL: 2-3%, TP: 4-8% o trailing, Leverage: 3-5x.
 7. Kelly agresivo: 1.0x Kelly. Riesgo maximo por trade: 3% del capital.
 8. Solo opera LONG en este mercado (shorts solo si Fear & Greed > 75 y token claramente debil).
-9. Si no hay setup claro con momentum, HOLD. No forces trades.
+9. Si no hay setup claro con momentum, HOLD. No forces trades. En mercado lateral (Fear&Greed 30-50), busca micro-breakouts de 1-2% en vez de esperar >2%.
 
 SNAPSHOT DE MERCADO (ordenado por momentum):
 {market_snapshot}

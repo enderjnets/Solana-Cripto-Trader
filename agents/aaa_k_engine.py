@@ -252,6 +252,12 @@ def cycle(debug: bool = False) -> dict:
             target = decision["close_target"]
             for pos in portfolio.get("positions", []):
                 if pos.get("status") == "open" and pos.get("symbol") == target:
+                    # COOLDOWN GUARD: No cerrar posiciones abiertas <30 min ago
+                    opened = datetime.fromisoformat(pos["opened_at"].replace("Z", "+00:00"))
+                    minutes_open = (datetime.now(timezone.utc) - opened).total_seconds() / 60
+                    if minutes_open < 30:
+                        log.info(f"   SHIELD COOLDOWN: Ignorando CLOSE {target} ({minutes_open:.0f}min < 30min)")
+                        break
                     current_price = get_current_price(target, market)
                     if current_price > 0:
                         notional = pos.get("notional_value", 0)
