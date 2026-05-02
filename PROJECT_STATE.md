@@ -4,37 +4,40 @@
 
 ## Última actualización
 - **Fecha**: 2026-05-01
-- **Versión**: v2.13.4-live
-- **Commit**: (pending-reset)
+- **Versión**: v2.13.7-live
+- **Commit**: 152201c + f6e2c87 (orchestrator/risk_manager + VERSION bump)
+- **Paperclip**: SOLAAA-53
 
 ## Estado del pipeline
 
 | Componente | Estado |
 |------------|--------|
-| Orchestrator | ✅ Activo (PID 39915, heartbeat <60s) |
-| Risk Manager | ✅ ACTIVE — drawdown 0.0% |
-| Strategy Agent | ✅ Generando señales,  |
-| Executor | ✅ Modo LIVE, 0 posiciones abiertas |
-| Dashboard | ✅ Puerto 8082, v2.13.4-live |
+| Orchestrator | ✅ Activo (PID 3813078, post-restart) |
+| Risk Manager | ✅ ACTIVE — LLM close unblocked v2.13.7 |
+| Strategy Agent | ✅ Generando señales |
+| Executor | ✅ Modo LIVE, 1 posición abierta (BTC long) |
+| Dashboard | ✅ Puerto 8082, v2.13.7-live |
 | Jupiter Perps | ✅ Habilitado (SOL, BTC, ETH, JUP) |
 | Health | ✅ HEALTHY |
 
 ## Posiciones actuales
 
-**0 posiciones abiertas. BOT STOPPED — esperando transferencia ~$79.63**
+**1 posición abierta:**
+- **BTC LONG** (Jupiter Perp): Size $99.78, Leverage ~2.0x, Margin $50.14
+- Entry: ~$78,190.21, Current PnL: ~-$0.37 (-0.74%)
+- Horas abierta: ~0.5h (re-abierta post-restart v2.13.6)
 
 Última posición cerrada:
-- **BTC LONG** (cerrada manualmente 2026-04-30): Size $167.10, Leverage 2.0x
-- Entry: $76,429.37, Close mark: ~$76,115
-- **PnL final: -$0.90 (-1.08%)**, fees: $0.20
-- Tx close: `5M67TxpiQeEkY6Ut9uXSkc2c7EAfmw5xomD8QSWr2ekcj92D7M3WcH9kswxf5JVbiuZsF4qYuoD3eigtSrG2xEVT`
+- **SOL LONG** (Jupiter Perp, SL hit 2026-05-01): Size ~$10, PnL -$0.08
+- **SOL SHORT** (orphan manual close 2026-05-01): PnL $0.00 (zombie from old bot)
 
 ## Wallet
 
 - **Address**: `EEmtkySNz1SLNZBMBu6EsuqkEhttEKjejsEXdEFT2fMH`
-- **Capital real**: $20.37 (initial $100 + PnL -$0.90 + PnL previo -$1.19)
-- **Capital libre**: ~$100.00 (reset contable) (wallet, no open positions)
-- **Total equity**: ~$20.37 (on-chain real) (libre, no perps open)
+- **Capital real**: $88.68 (portfolio capital_usd)
+- **Capital libre**: $38.54 (disponible para nuevas posiciones)
+- **Total equity**: ~$113.45 (wallet ~$91 + perps ~$22.45)
+- **Margin locked**: $50.14 (BTC perp)
 - **Capital tier**: MICRO ($50-149)
 - **Max positions**: 3
 - **SOL**: ~0.1082
