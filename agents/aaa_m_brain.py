@@ -109,6 +109,7 @@ def make_trading_decision(
     portfolio: dict,
     trade_history: List[dict],
     max_positions: int = 20,
+    dynamic_params: Optional[Dict] = None,
 ) -> Dict:
     """
     Pide a MiniMax M2.7 una decisión de trading basada en momentum.

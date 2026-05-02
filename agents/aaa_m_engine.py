@@ -27,6 +27,10 @@ from aaa_shared import (
     get_current_price, get_token_liquidity,
 )
 from aaa_m_brain import make_trading_decision, analyze_recent_trades
+from aaa_m_evolution import (
+    load_config, get_effective_params, ParameterApplier,
+    check_and_rollback_if_needed, record_baseline_sharpe,
+)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -46,6 +50,13 @@ def cycle(debug: bool = False) -> dict:
     log.info("=" * 60)
     log.info(f"⚡ {AGENT_NAME} — Ciclo {datetime.now(timezone.utc).strftime('%H:%M:%S')} UTC")
     log.info("=" * 60)
+
+    # -- Load dynamic config (hot-reload) --
+    evo_config = load_config()
+    params = get_effective_params(evo_config)
+    if debug:
+        log.info(f"   Params: SL={params['default_sl_pct']:.1%} TP={params['default_tp_pct']:.1%} "
+                 f"LEV={params['default_leverage']}x MOM>{params['min_momentum_pct']}%")
 
     portfolio = load_portfolio(AGENT_NAME)
     trade_history = load_trade_history(AGENT_NAME)
@@ -76,13 +87,28 @@ def cycle(debug: bool = False) -> dict:
             log.info(f"   Recomendaciones: {analysis['recommendations']}")
         if analysis.get("param_changes"):
             log.info(f"   Parametros sugeridos: {analysis['param_changes']}")
+            # -- Phase 2: Auto-apply with safety guards --
+            evo_config = ParameterApplier.apply_changes(
+                evo_config,
+                analysis.get("param_changes", {}),
+                confidence=analysis.get("confidence", 0.0),
+                analysis=analysis.get("analysis", ""),
+            )
+            # Record baseline Sharpe for future rollback check
+            current_sharpe = metrics.get("sharpe_ratio", 0.0) if 'metrics' in dir() else 0.0
+            if current_sharpe != 0.0:
+                record_baseline_sharpe(current_sharpe, evo_config)
 
     # 3. Decidir nuevas posiciones
     open_count = len([p for p in portfolio.get("positions", []) if p.get("status") == "open"])
 
     if open_count < MAX_POSITIONS:
         log.info(f"⚡ Consultando a MiniMax M2.7 ({open_count}/{MAX_POSITIONS} posiciones)...")
-        decision = make_trading_decision(market, portfolio, trade_history, max_positions=MAX_POSITIONS)
+        decision = make_trading_decision(
+            market, portfolio, trade_history,
+            max_positions=params["max_positions"],
+            dynamic_params=params,
+        )
 
         log.info(f"   Decision: {decision.get('action')} | Conf: {decision.get('confidence', 0):.0%}")
         if decision.get("reasoning"):
@@ -104,9 +130,9 @@ def cycle(debug: bool = False) -> dict:
                     capital = portfolio.get("capital_usd", 0)
                     margin_pct = decision.get("margin_pct", 0.02)
                     margin = capital * margin_pct
-                    leverage = min(decision.get("leverage", 3), 10)
-                    sl_pct = decision.get("sl_pct", 0.025)
-                    tp_pct = decision.get("tp_pct", 0.06)
+                    leverage = min(decision.get("leverage", params["default_leverage"]), 10)
+                    sl_pct = decision.get("sl_pct", params["default_sl_pct"])
+                    tp_pct = decision.get("tp_pct", params["default_tp_pct"])
 
                     liq = get_token_liquidity(symbol, market)
                     if liq < 200_000:
@@ -167,6 +193,14 @@ def cycle(debug: bool = False) -> dict:
 
     # 5. Metrics
     metrics = calculate_metrics(trade_history, capital_start=INITIAL_CAPITAL)
+
+    # -- Check for Sharpe degradation and rollback if needed --
+    evo_config = check_and_rollback_if_needed(metrics.get("sharpe_ratio", 0.0), evo_config)
+    rolled_back = evo_config.get("last_applied") is None and evo_config.get("evolution_history") and                   evo_config["evolution_history"][-1].get("action") == "ROLLBACK"
+    if rolled_back:
+        log.warning("🔄 Parametros restaurados por degradacion de Sharpe")
+        params = get_effective_params(evo_config)
+
     log.info(f"📊 Metricas: WR={metrics['win_rate']:.1f}% PF={metrics['profit_factor']:.2f} Sharpe={metrics['sharpe_ratio']:.2f} DD={metrics['max_drawdown_pct']:.1f}% PnL=${metrics['total_pnl']:+.2f}")
 
     save_portfolio(portfolio, AGENT_NAME)
