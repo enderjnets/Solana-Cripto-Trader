@@ -185,8 +185,24 @@ def estimate_open_position_pnl(pos: dict, current_price: float | None = None) ->
     }
 
 # ── Version & Changelog ──────────────────────────────────────────────────────
-VERSION = "2.13.7-live"
+VERSION = "2.14.0-alpha"
 CHANGELOG = [
+    {
+        "version": "2.14.0-alpha",
+        "date": "2026-05-01",
+        "title": "AAA: Agente de Autoaprendizaje Acelerado - Dual LLM Engine (Kimi + MiniMax)",
+        "changes": [
+            "NEW agents/aaa_shared.py: Paper trading engine, metrics (Sharpe/PF/WR/DD), persistence layer for AAA agents.",
+            "NEW agents/aaa_k_brain.py: Kimi 2.6 wrapper for conservative macro trading (2-8h holds, 2-3x lev).",
+            "NEW agents/aaa_k_engine.py: AAA-K motor, cycle every 2min, max 10 positions, $50K paper capital.",
+            "NEW agents/aaa_m_brain.py: MiniMax M2.7 wrapper for aggressive momentum scalping (0.5-2h holds, 3-5x lev).",
+            "NEW agents/aaa_m_engine.py: AAA-M motor, cycle every 30s, max 20 positions, $50K paper capital.",
+            "NEW agents/aaa_meta_arbitro.py: Judge engine comparing K vs M, dynamic weights, 6-phase transfer gate.",
+            "NEW dashboard/aaa_dashboard.html: Standalone /aaa dashboard with dual equity chart, scoreboard, gate progress.",
+            "API: /api/aaa/{k,m,meta}/status, /portfolio, /equity, /metrics endpoints.",
+            "Integration: Orchestrator logs Meta-Arbitro status every cycle (leader, gate, weights, alerts).",
+        ]
+    },
     {
         "version": "2.13.7-live",
         "date": "2026-05-01",
