@@ -120,16 +120,46 @@ def build_trade_history_context(trades: List[dict], max_trades: int = 10) -> str
 
 # ─── Main Decision Function ─────────────────────────────────────────────────
 
+
+
+def apply_variant_filters_k(market: dict, filter_rules: dict) -> dict:
+    """Apply variant-specific filter rules to market data for K."""
+    if not market or "tokens" not in market:
+        return market
+    filtered = {}
+    min_mom = filter_rules.get("min_momentum_pct", 0)
+    min_liq = filter_rules.get("min_liquidity_usd", 0)
+    min_vol = filter_rules.get("min_volume_24h", 0)
+    for sym, data in market["tokens"].items():
+        liq = data.get("liquidity", 0)
+        vol = data.get("volume_24h", 0)
+        mom_5m = abs(data.get("price_5min_change_pct", 0))
+        if liq < min_liq:
+            continue
+        if vol < min_vol:
+            continue
+        if min_mom > 0 and mom_5m < min_mom:
+            continue
+        filtered[sym] = data
+    market_copy = dict(market)
+    market_copy["tokens"] = filtered
+    return market_copy
+
+
 def make_trading_decision(
     market: dict,
     portfolio: dict,
     trade_history: List[dict],
     max_positions: int = 10,
+    variant: Optional[Dict] = None,
 ) -> Dict:
     """
     Pide a Kimi 2.6 una decisión de trading basada en el contexto actual.
     Retorna dict con: action, symbol, direction, confidence, reasoning, sizing_params
     """
+    # Apply variant filter rules if present
+    if variant and variant.get("filter_rules"):
+        market = apply_variant_filters_k(market, variant["filter_rules"])
     market_snapshot = build_market_snapshot(market, top_n=30)
     portfolio_ctx = build_portfolio_context(portfolio)
     history_ctx = build_trade_history_context(trade_history, max_trades=10)
@@ -137,9 +167,15 @@ def make_trading_decision(
     open_symbols = {p["symbol"] for p in portfolio.get("positions", []) if p.get("status") == "open"}
     open_count = len(open_symbols)
 
-    system = """Eres un gestor de riesgo experto en crypto trading. Tu estilo es CONSERVADOR y MACRO.
+    # Build variant-aware system prompt
+    system_base = """Eres un gestor de riesgo experto en crypto trading. Tu estilo es CONSERVADOR y MACRO.
 Analizas el mercado completo y decides si abrir, cerrar, o mantener posiciones.
 Responde SOLO en JSON válido. No uses markdown fences."""
+    variant_addon = variant.get("system_prompt_addon", "") if variant else ""
+    if variant_addon:
+        system = system_base + "\n\nVARIANTE ACTIVA: " + variant_addon
+    else:
+        system = system_base
 
     prompt = f"""Eres AAA-K ("El Estratega"), un agente de trading conservador con capital de $50,000.
 
@@ -281,3 +317,58 @@ Responde en JSON:
     except Exception as e:
         log.warning(f"Error parseando análisis de portafolio: {e}")
         return {"health_score": 50, "recommendations": [], "positions_to_close": [], "lessons": [response[:200]], "confidence": 0.5}
+
+
+# ─── Self-Analysis for Evolution (Phase 2) ─────────────────────────────────
+
+def analyze_recent_trades_k(trades: List[dict], max_trades: int = 20) -> Dict:
+    """
+    Pide a Kimi que analice trades recientes y sugiera mejoras.
+    Se ejecuta cada 30 ciclos (~1h) para el ciclo de auto-evolucion.
+    """
+    recent = sorted(trades, key=lambda x: x.get("close_time", ""), reverse=True)[:max_trades]
+    if not recent:
+        return {"analysis": "Sin trades suficientes", "recommendations": [], "param_changes": [], "confidence": 0.0}
+
+    wins = [t for t in recent if t.get("pnl_usd", 0) > 0]
+    losses = [t for t in recent if t.get("pnl_usd", 0) <= 0]
+
+    lines = [f"Ultimos {len(recent)} trades:"]
+    for t in recent:
+        lines.append(f"  {t['symbol']} {t['direction'].upper()} | {t.get('close_reason', '?')} | PnL: ${t.get('pnl_usd', 0):+.2f} | Hold: {t.get('hours_open', 0):.1f}h")
+    lines.append(f"\nResumen: {len(wins)}W / {len(losses)}L")
+
+    system = "Eres un quant developer experto. Analiza trades y sugiere mejoras de codigo. Responde SOLO en JSON."
+    prompt = f"""Analiza estos trades recientes y sugiere mejoras para el algoritmo conservador:
+
+{chr(10).join(lines)}
+
+Identifica:
+1. Patrones de perdida recurrentes
+2. Patrones de ganancia recurrentes
+3. Parametros que deberian ajustarse (SL, TP, leverage, hold time)
+4. Filtros que deberian agregarse o quitarse
+
+Responde en JSON:
+{{
+  "analysis": "resumen del problema",
+  "recommendations": ["ajuste 1", "ajuste 2"],
+  "param_changes": {{"sl_pct": 0.03, "tp_pct": 0.06, "leverage": 3}},
+  "confidence": 0.0-1.0
+}}"""
+
+    response = _call_llm(prompt, system=system, max_tokens=2000)
+    if not response:
+        return {"analysis": "LLM no disponible", "recommendations": [], "param_changes": {}, "confidence": 0.0}
+
+    try:
+        text = response.strip()
+        if "```" in text:
+            text = text.split("```")[1]
+            if text.startswith("json"):
+                text = text[4:]
+        text = text.strip()
+        return json.loads(text)
+    except Exception as e:
+        log.warning(f"Error parseando analisis K: {e}")
+        return {"analysis": response[:300], "recommendations": [], "param_changes": {}, "confidence": 0.5}

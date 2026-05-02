@@ -39,7 +39,12 @@ from aaa_shared import (
     update_equity_history, calculate_metrics,
     get_current_price, get_token_liquidity,
 )
-from aaa_k_brain import make_trading_decision, analyze_portfolio_health
+from aaa_k_brain import make_trading_decision, analyze_portfolio_health, analyze_recent_trades_k
+from aaa_k_evolution import (
+    load_config, get_effective_params, ParameterApplier,
+    check_and_rollback_if_needed, record_baseline_sharpe,
+    get_active_variant, maybe_start_ab_test, ABTestManager,
+)
 
 # ─── Logging ────────────────────────────────────────────────────────────────
 logging.basicConfig(
@@ -70,6 +75,19 @@ def cycle(debug: bool = False) -> dict:
     trade_history = load_trade_history(AGENT_NAME)
     market = load_market_data()
     signals = load_signals()
+
+    # -- Load dynamic config + variant (hot-reload) --
+    evo_config = load_config()
+    params = get_effective_params(evo_config)
+    variant = get_active_variant(evo_config)
+    if debug:
+        log.info(f"   Params: SL={params['default_sl_pct']:.1%} TP={params['default_tp_pct']:.1%} LEV={params['default_leverage']}x")
+    if variant and variant.get("name"):
+        log.info(f"   Variant: {variant['name']} (addon={len(variant.get('system_prompt_addon', ''))}ch)")
+    # Check A/B test evaluation
+    ab_result = ABTestManager.evaluate_and_finalize(evo_config)
+    if ab_result:
+        log.info(f"   A/B Test result: {ab_result}")
 
     if debug:
         log.info(f"   Capital: ${portfolio.get('capital_usd', 0):.2f}")
@@ -124,6 +142,29 @@ def cycle(debug: bool = False) -> dict:
         if health.get("lessons"):
             log.info(f"   Lecciones: {health['lessons']}")
 
+        # -- Phase 2: Self-analysis every 30 cycles (1h) --
+        if cycle_count % 30 == 0 and cycle_count > 0 and len(trade_history) >= 3:
+            log.info(f"🔄 Self-analysis K (ciclo {cycle_count})...")
+            analysis = analyze_recent_trades_k(trade_history, max_trades=20)
+            log.info(f"   Analisis: {analysis.get('analysis', 'N/A')[:100]}")
+            if analysis.get("recommendations"):
+                log.info(f"   Recomendaciones: {analysis['recommendations']}")
+            if analysis.get("param_changes"):
+                log.info(f"   Parametros sugeridos: {analysis['param_changes']}")
+                evo_config = ParameterApplier.apply_changes(
+                    evo_config,
+                    analysis.get("param_changes", {}),
+                    confidence=analysis.get("confidence", 0.0),
+                    analysis=analysis.get("analysis", ""),
+                )
+                current_sharpe = metrics.get("sharpe_ratio", 0.0) if 'metrics' in dir() else 0.0
+                if current_sharpe != 0.0:
+                    record_baseline_sharpe(current_sharpe, evo_config)
+                # Phase 3: try to start A/B test
+                test_started = maybe_start_ab_test(evo_config, analysis)
+                if test_started:
+                    log.info("   🧬 A/B TEST STARTED")
+
         # -- Save knowledge for auto_learner integration --
         knowledge_file = Path(__file__).parent / "aaa_data" / "knowledge_k.json"
         knowledge = {"entries": [], "last_updated": None}
@@ -152,7 +193,11 @@ def cycle(debug: bool = False) -> dict:
 
     if open_count < MAX_POSITIONS:
         log.info(f"🧠 Consultando a Kimi 2.6 ({open_count}/{MAX_POSITIONS} posiciones)...")
-        decision = make_trading_decision(market, portfolio, trade_history, max_positions=MAX_POSITIONS)
+        decision = make_trading_decision(
+            market, portfolio, trade_history,
+            max_positions=params.get("max_positions", MAX_POSITIONS),
+            variant=variant,
+        )
 
         log.info(f"   Decisión: {decision.get('action')} | Conf: {decision.get('confidence', 0):.0%}")
         if decision.get("reasoning"):
@@ -239,7 +284,19 @@ def cycle(debug: bool = False) -> dict:
 
     # 6. Calcular y loggear métricas
     metrics = calculate_metrics(trade_history, capital_start=INITIAL_CAPITAL)
+
+    # -- Check Sharpe rollback --
+    evo_config = check_and_rollback_if_needed(metrics.get("sharpe_ratio", 0.0), evo_config)
+    rolled_back = evo_config.get("last_applied") is None and evo_config.get("evolution_history") and                   evo_config["evolution_history"][-1].get("action") == "ROLLBACK"
+    if rolled_back:
+        log.warning("🔄 Parametros restaurados por degradacion de Sharpe")
+        params = get_effective_params(evo_config)
+
     log.info(f"📊 Métricas: WR={metrics['win_rate']:.1f}% PF={metrics['profit_factor']:.2f} Sharpe={metrics['sharpe_ratio']:.2f} DD={metrics['max_drawdown_pct']:.1f}% PnL=${metrics['total_pnl']:+.2f}")
+
+    # -- Record A/B test cycle --
+    ABTestManager.record_cycle(evo_config, variant.get("name", "v1") if variant else "v1",
+                                metrics.get("sharpe_ratio", 0.0), metrics.get("total_trades", 0))
 
     # 7. Guardar estado
     save_portfolio(portfolio, AGENT_NAME)

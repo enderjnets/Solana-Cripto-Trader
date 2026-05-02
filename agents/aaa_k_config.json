@@ -1,0 +1,50 @@
+{
+  "version": 2,
+  "created_at": "2026-05-02T12:20:49.674528+00:00",
+  "parameters": {
+    "cycle_interval_sec": 120,
+    "max_positions": 10,
+    "min_confidence_open": 0.6,
+    "min_momentum_pct": 1.0,
+    "min_liquidity_usd": 500000,
+    "default_sl_pct": 0.04,
+    "default_tp_pct": 0.08,
+    "default_leverage": 2,
+    "default_margin_pct": 0.03,
+    "max_hold_hours": 8,
+    "trailing_trigger_pct": 0.05,
+    "trailing_stop_pct": 0.025,
+    "kelly_multiplier": 0.5,
+    "max_risk_per_trade_pct": 0.03
+  },
+  "evolution_history": [],
+  "last_applied": null,
+  "active_variant_id": "v1",
+  "variants": {
+    "v1": {
+      "name": "Trend Breakout v1",
+      "system_prompt_addon": "",
+      "filter_rules": {
+        "min_momentum_pct": 1.0,
+        "min_liquidity_usd": 500000,
+        "min_volume_24h": 2000000
+      },
+      "entry_logic": "trend_breakout",
+      "exit_logic": "fixed_sl_tp_trailing",
+      "sharpe_baseline": 0.0,
+      "trades_count": 0,
+      "created_at": "2026-05-02T12:20:49.674553+00:00"
+    }
+  },
+  "ab_test": {
+    "status": "idle",
+    "control_variant": "v1",
+    "test_variant": null,
+    "cycles_remaining": 0,
+    "sharpe_control": 0.0,
+    "sharpe_test": 0.0,
+    "trades_control": 0,
+    "trades_test": 0,
+    "start_time": null
+  }
+}
