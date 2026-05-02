@@ -623,10 +623,11 @@ def run_cycle(safe=True, debug=False):
             # Fix 3: Excluir posiciones recién abiertas de recomendaciones de cierre
             # v2.13.6: LLM close threshold configurable via env (default 0.70, was 0.75)
             _llm_close_thr = float(os.environ.get("LLM_CLOSE_CONFIDENCE_THRESHOLD", "0.70"))
+            # v2.13.7: Flexible quant score threshold — LLM veto power when highly confident
             close_recs  = [d for d in decisions if d["action"] == "CLOSE"
                            and d["confidence"] >= _llm_close_thr
                            and d.get("hours_open", 0) >= 0.33  # 20 min minimum
-                           and d["quant_score"] >= 60
+                           and (d["confidence"] >= 0.80 or d["quant_score"] >= 30)
                            and d["symbol"] not in just_opened_symbols]
             reduce_recs = [d for d in decisions if d["action"] == "REDUCE" and d["confidence"] >= 0.80]
 

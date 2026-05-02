@@ -820,11 +820,10 @@ CONTEXTO DE PORTAFOLIO COORDINADO:
 - Progreso hacia target: {port_pnl/port_target*100:.0f}% {'✅' if port_pnl >= port_target else ''}
 - Otras posiciones: {', '.join(f"{o['symbol']} {o['direction']} ${o['pnl_usd']:.2f}" for o in others) if others else 'ninguna'}
 
-REGLA CRÍTICA DE PORTAFOLIO:
-- Si esta posición va NEGATIVA y las otras van POSITIVAS, considerar CLOSE para no lastrar el portafolio
-- Si esta posición va negativa Y las otras también, considerar CLOSE si no tiene runway (R/R < 1.0x)
-- Prioridad: llegar al target de ${port_target:.2f} lo más rápido posible
-- Una posición perdedora que no mejora después de horas es PESO MUERTO → cerrar
+REGLA DE PORTAFOLIO (referencial):
+- El target de ${port_target:.2f} es una guía a largo plazo, NO una razón para cerrar apresuradamente
+- Con menos de 5 trades cerradas, el win rate histórico NO es estadísticamente significativo — ignóralo
+- Una posición con P&L entre -1% y +1% tras menos de 1 hora es RUIDO NORMAL, no justifica cierre
 """
 
     _history_ctx = _get_trade_history_context(symbol)
@@ -857,13 +856,14 @@ CONTEXTO DE MERCADO:
 
 REGLAS DE DECISIÓN:
 1. CLOSE si: TP a <1% Y score>30, O SL a <0.5%, O R/R < 0.5x Y perdedor
-2. CLOSE si: posición NEGATIVA por más de 2 horas Y otras posiciones van positivas (peso muerto)
-3. HOLD si: buena tendencia a favor, R/R > 1.5x, posición ganadora con runway
+2. CLOSE si: score >= 50 (señal cuantitativa fuerte de salida) Y confianza del mercado < 50%
+3. HOLD si: score < 30, tendencia a favor, R/R > 1.0x, y no hay señal de reversión clara
 4. REDUCE si: ganancia >8% pero aún tiene potencial — cerrar 50% y mover SL a entrada
 5. TIGHTEN si: ganancia >5% y el trailing stop es muy ancho — ajustar trailing para proteger más profit
+REGLA DE ORO: Score < 20 + P&L > -2% + <1h abierta = NO cerrar. Es ruido de mercado, no señal.
 
 MODO DEVIL'S ADVOCATE:
-Aunque tu instinto sea HOLD, DEBES argumentar brevemente (1 frase) por qué CLOSE podría ser correcto. Si ese argumento es más fuerte que el de HOLD, elige CLOSE.
+Aunque tu instinto sea HOLD, argumenta brevemente (1 frase) por qué CLOSE podría ser correcto. PERO: si score < 20 y P&L no es catastrófico (<-3%), el argumento devil's advocate DEBE ser débil — no inventes razones para cerrar una posición sana.
 
 Responde SOLO en JSON válido:
 {{"action": "CLOSE|HOLD|REDUCE|TIGHTEN", "confidence": 0.0-1.0, "reasoning": "máx 2 oraciones", "trailing_pct": 0.005}}"""
