@@ -903,6 +903,21 @@ def run_cycle(safe=True, debug=False):
     log.info("📊 CICLO COMPLETADO")
     elapsed = time.time() - cycle_start
     log.info(f"   ⏱  Tiempo: {elapsed:.1f}s | Health: {health_score}/10")
+
+    # v2.14.0: Meta-Arbitro status log
+    try:
+        _meta_file = DATA_DIR / "meta_arbitro_state.json"
+        if _meta_file.exists():
+            _meta = json.loads(_meta_file.read_text())
+            _leader = _meta.get("leader", "?")
+            _gate = _meta.get("gate_phase", 0)
+            _weights = _meta.get("weights", {})
+            log.info(f"   ⚖️  Meta-Arbitro: Leader={_leader} | Gate={_gate}/5 | K={_weights.get(K,0):.0%} M={_weights.get(M,0):.0%}")
+            if _meta.get("alerts"):
+                for _alert in _meta["alerts"][:2]:
+                    log.warning(f"      🚨 {_alert}")
+    except Exception:
+        pass
     
     # Guardar reporte
     report = {
