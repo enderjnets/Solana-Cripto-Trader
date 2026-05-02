@@ -96,7 +96,7 @@ def build_market_snapshot(market: dict, top_n: int = 30) -> str:
 def build_portfolio_context(portfolio: dict) -> str:
     """Construye contexto de portafolio para el prompt."""
     capital = portfolio.get("capital_usd", 0)
-    initial = portfolio.get("initial_capital", 50000)
+    initial = portfolio.get("initial_capital", 1000)
     positions = [p for p in portfolio.get("positions", []) if p.get("status") == "open"]
     pnl_total = sum(p.get("pnl_usd", 0) for p in positions)
 
@@ -193,7 +193,8 @@ Responde SOLO en JSON válido. No uses markdown fences."""
     else:
         system = system_base
 
-    prompt = f"""Eres AAA-K ("El Estratega"), un agente de trading conservador con capital de $50,000.
+    initial_cap = portfolio.get("initial_capital", 1000)
+    prompt = f"""Eres AAA-K ("El Estratega"), un agente de trading conservador con capital de ${initial_cap:,.0f}.
 
 REGLAS CRÍTICAS:
 1. Máximo {max_positions} posiciones abiertas simultáneas. Actualmente tienes {open_count} abiertas.

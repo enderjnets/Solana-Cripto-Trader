@@ -25,7 +25,7 @@
       "name": "Trend Breakout v1",
       "system_prompt_addon": "",
       "filter_rules": {
-        "min_momentum_pct": 1.0,
+        "min_momentum_pct": 0.0,
         "min_liquidity_usd": 500000,
         "min_volume_24h": 2000000
       },

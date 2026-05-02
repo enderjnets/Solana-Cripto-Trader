@@ -25,7 +25,7 @@
       "name": "Momentum Hunter v1",
       "system_prompt_addon": "",
       "filter_rules": {
-        "min_momentum_pct": 2.0,
+        "min_momentum_pct": 0.0,
         "min_liquidity_usd": 200000,
         "min_volume_24h": 1000000
       },

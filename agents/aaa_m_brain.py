@@ -93,7 +93,7 @@ def build_momentum_snapshot(market: dict, top_n: int = 40) -> str:
 def build_portfolio_context(portfolio: dict) -> str:
     """Contexto de portafolio para M."""
     capital = portfolio.get("capital_usd", 0)
-    initial = portfolio.get("initial_capital", 50000)
+    initial = portfolio.get("initial_capital", 1000)
     positions = [p for p in portfolio.get("positions", []) if p.get("status") == "open"]
     pnl_total = sum(p.get("pnl_usd", 0) for p in positions)
 
@@ -173,7 +173,8 @@ def make_trading_decision(
     else:
         system = system_base
 
-    prompt = f"""Eres AAA-M ("El Cazador"), un agente de trading agresivo con capital de $50,000.
+    initial_cap = portfolio.get("initial_capital", 1000)
+    prompt = f"""Eres AAA-M ("El Cazador"), un agente de trading agresivo con capital de ${initial_cap:,.0f}.
 
 REGLAS CRITICAS:
 1. Maximo {max_positions} posiciones abiertas. Actualmente tienes {open_count} abiertas.

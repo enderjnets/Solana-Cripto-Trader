@@ -61,7 +61,7 @@ AGENT_NAME = "AAA-K"
 CYCLE_INTERVAL_SEC = 120       # 2 minutos
 PORTFOLIO_ANALYSIS_INTERVAL = 15  # Cada 15 ciclos = 30 min
 MAX_POSITIONS = 10
-INITIAL_CAPITAL = 50000.0
+INITIAL_CAPITAL = 1000.0
 
 # ─── Main Cycle ─────────────────────────────────────────────────────────────
 
