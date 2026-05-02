@@ -1,12 +1,12 @@
 {
-  "timestamp": "2026-05-02T02:51:21.725550+00:00",
+  "timestamp": "2026-05-02T03:48:20.293467+00:00",
   "metrics": {
-    "capital_usd": 88.68,
+    "capital_usd": 38.54,
     "initial_capital": 100.0,
     "total_pnl": -0.08,
-    "unrealized_pnl": 0.02,
-    "total_value": 91.01,
-    "return_pct": -8.99,
+    "unrealized_pnl": -0.36,
+    "total_value": 162.37,
+    "return_pct": 62.37,
     "total_trades": 2,
     "wins": 0,
     "losses": 2,

@@ -621,9 +621,10 @@ def run_cycle(safe=True, debug=False):
         if portfolio_data and portfolio_data.get("positions") and not _stale_dec:
             decisions = rm.evaluate_position_decision(portfolio_data, market_data_for_dec, research_data)
             # Fix 3: Excluir posiciones recién abiertas de recomendaciones de cierre
-            # FIX 2026-04-05: Umbrales MUY estrictos — solo cerrar si confidence >= 0.75 AND hours >= 20min
+            # v2.13.6: LLM close threshold configurable via env (default 0.70, was 0.75)
+            _llm_close_thr = float(os.environ.get("LLM_CLOSE_CONFIDENCE_THRESHOLD", "0.70"))
             close_recs  = [d for d in decisions if d["action"] == "CLOSE"
-                           and d["confidence"] >= 0.75
+                           and d["confidence"] >= _llm_close_thr
                            and d.get("hours_open", 0) >= 0.33  # 20 min minimum
                            and d["quant_score"] >= 60
                            and d["symbol"] not in just_opened_symbols]

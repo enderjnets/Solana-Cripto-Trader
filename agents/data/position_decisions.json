@@ -1,29 +1,29 @@
 {
-  "timestamp": "2026-05-02T02:51:19.563909+00:00",
+  "timestamp": "2026-05-02T03:48:18.223299+00:00",
   "decisions": [
     {
       "symbol": "BTC",
       "direction": "long",
-      "action": "HOLD",
-      "confidence": 0.86,
-      "alignment": "ALIGNED",
+      "action": "CLOSE",
+      "confidence": 0.58,
+      "alignment": "SPLIT (quant=HOLD, llm=CLOSE)",
       "quant_score": 10,
       "quant_action": "HOLD",
       "quant_reasons": [
-        "TP_MODERADO (4.44%)"
+        "TP_MODERADO (5.41%)"
       ],
-      "llm_action": "HOLD",
+      "llm_action": "CLOSE",
       "llm_confidence": 0.72,
-      "llm_reasoning": "Posici\u00f3n apenas ganadora con R/R 1.42x en tendencia bullish, pero score bajo 10/100 y TP moderado limitan convicci\u00f3n. No cumple criterios de cierre ni reduce, pero falta runway para ser \u00f3ptima.",
+      "llm_reasoning": "Score de 10/100 indica se\u00f1al d\u00e9bil; aunque tendencia bullish, el R/R 1.29x es marginal, el portafolio est\u00e1 -18% del target $2 con 0% win rate reciente, y esta posici\u00f3n ya es peso muerto potencial desde el inicio. Devil's advocate: HOLD ser\u00eda v\u00e1lido si el momentum bullish de 70% confianza se materializa r\u00e1pido, pero el historial reciente muestra que esperar en trades d\u00e9biles resulta en SLs.",
       "llm_reasoning_lang": "es",
       "llm_source": "llm_claude_sonnet",
-      "pnl_usd": 0.0162,
-      "pnl_pct": 0.1436,
-      "dist_tp_pct": 4.44,
-      "dist_sl_pct": 3.134,
-      "rr_remaining": 1.417,
-      "hours_open": 6.0,
-      "evaluated_at": "2026-05-02T02:51:19.563805+00:00"
+      "pnl_usd": -0.3587,
+      "pnl_pct": -0.7154,
+      "dist_tp_pct": 5.405,
+      "dist_sl_pct": 4.177,
+      "rr_remaining": 1.294,
+      "hours_open": 0.5,
+      "evaluated_at": "2026-05-02T03:48:18.223212+00:00"
     }
   ]
 }

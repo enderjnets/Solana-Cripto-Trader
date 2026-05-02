@@ -1,79 +1,80 @@
 {
   "signals": [
     {
-      "symbol": "ETH",
+      "symbol": "MOODENG",
       "direction": "long",
-      "entry_price": 2298.74,
-      "sl_price": 2230.28,
-      "tp_price": 2436.67,
-      "exit_mode": "trailing",
-      "trailing_pct": 0.025,
+      "entry_price": 0.060675,
+      "sl_price": 0.058855,
+      "tp_price": 0.064316,
+      "exit_mode": "fixed",
+      "trailing_pct": null,
       "size_usd": 10.0,
-      "confidence": 0.78,
-      "strategy": "momentum",
-      "reasoning": "RSI 58 en zona momentum alcista, tendencia bullish confirmada, volatilidad adecuada para capturar extensi\u00f3n del movimiento",
+      "confidence": 0.88,
+      "strategy": "oversold_bounce",
+      "reasoning": "RSI 9.8 extremadamente sobreventa, p\u00e1nico excesivo en token de baja cap. Rebound t\u00e9cnico inminente.",
       "factors": [
-        "RSI_momentum_58",
-        "tendencia_bullish",
-        "volatilidad_suficiente"
+        "RSI_extreme_oversold_9.8",
+        "capitulation_setup",
+        "high_volatility_1.82"
       ]
     },
     {
       "symbol": "JUP",
       "direction": "long",
-      "entry_price": 0.179128,
-      "sl_price": 0.174153,
-      "tp_price": 0.189876,
+      "entry_price": 0.178722,
+      "sl_price": 0.173361,
+      "tp_price": 0.189446,
+      "exit_mode": "trailing",
+      "trailing_pct": 0.025,
+      "size_usd": 10.0,
+      "confidence": 0.81,
+      "strategy": "oversold_momentum",
+      "reasoning": "RSI 37.4 cerca sobreventa, ca\u00edda -3.03% en 24h con alta volatilidad 3.03%. Setup de reversi\u00f3n en token l\u00edder Solana.",
+      "factors": [
+        "RSI_oversold_37.4",
+        "high_volatility_3.03",
+        "solana_ecosystem_leader",
+        "fear_dip_buying"
+      ]
+    },
+    {
+      "symbol": "PENGU",
+      "direction": "short",
+      "entry_price": 0.010134,
+      "sl_price": 0.010438,
+      "tp_price": 0.009526,
+      "exit_mode": "fixed",
+      "trailing_pct": null,
+      "size_usd": 10.0,
+      "confidence": 0.78,
+      "strategy": "overbought_reversal",
+      "reasoning": "RSI 64.7 cerca sobrecompra con +0.86% en 24h en mercado con miedo. Divergencia bajista probable vs tendencia alcista general.",
+      "factors": [
+        "RSI_near_overbought_64.7",
+        "positive_24h_in_fear_market",
+        "meme_coin_risk"
+      ]
+    },
+    {
+      "symbol": "WIF",
+      "direction": "short",
+      "entry_price": 0.187429,
+      "sl_price": 0.193051,
+      "tp_price": 0.176184,
       "exit_mode": "fixed",
       "trailing_pct": null,
       "size_usd": 10.0,
       "confidence": 0.76,
-      "strategy": "oversold_bounce",
-      "reasoning": "RSI 46.5 cerca de zona de valor, ca\u00edda -2.34% en 24h en contexto bullish ofrece entrada con riesgo/recompensa favorable",
+      "strategy": "momentum_fade",
+      "reasoning": "RSI 57.9 con ca\u00edda -1.19% en mercado alcista general. Debilidad relativa en meme coin. Fade del rebote previo.",
       "factors": [
-        "precio_sobreventa_relativa",
-        "divergencia_bajista_corto_plazo",
-        "contexto_bullish"
-      ]
-    },
-    {
-      "symbol": "RAY",
-      "direction": "long",
-      "entry_price": 0.807647,
-      "sl_price": 0.785456,
-      "tp_price": 0.856106,
-      "exit_mode": "fixed",
-      "trailing_pct": null,
-      "size_usd": 10.0,
-      "confidence": 0.81,
-      "strategy": "oversold_bounce",
-      "reasoning": "RSI 38.4 en zona de sobreventa relativa, mayor probabilidad de rebote t\u00e9cnico en tendencia alcista general del mercado",
-      "factors": [
-        "RSI_sobreventa_relativa_38",
-        "reversion_a_la_media_probable",
-        "volatilidad_aceptable"
-      ]
-    },
-    {
-      "symbol": "FARTCOIN",
-      "direction": "long",
-      "entry_price": 0.205615,
-      "sl_price": 0.199444,
-      "tp_price": 0.217951,
-      "exit_mode": "trailing",
-      "trailing_pct": 0.03,
-      "size_usd": 10.0,
-      "confidence": 0.74,
-      "strategy": "momentum",
-      "reasoning": "Alto momentum +3.15% con RSI 53.4 en zona de expansi\u00f3n, volatilidad 3.15% permite trailing para capturar movimiento extendido",
-      "factors": [
-        "momentum_alcista_24h",
-        "volatilidad_alta_3.15",
-        "RSI_expansion_53"
+        "relative_weakness",
+        "meme_coin_volatility",
+        "negative_24h_in_bullish_context"
       ]
     }
   ],
-  "generated_at": "2026-05-02T02:46:35.009853+00:00",
+  "generated_at": "2026-05-02T03:47:13.886728+00:00",
   "fear_greed": 39,
   "source": "ai_strategy_extreme"
 }
