@@ -748,6 +748,42 @@ def _quant_score(pos: dict, market: dict, research: dict) -> dict:
     }
 
 
+def _get_trade_history_context(symbol: str, max_trades: int = 5) -> str:
+    """Build enriched context from recent trade history for LLM prompt."""
+    try:
+        _th_file = DATA_DIR / "trade_history.json"
+        if not _th_file.exists():
+            return ""
+        _trades = json.loads(_th_file.read_text())
+        if not isinstance(_trades, list):
+            return ""
+        _recent = _trades[-max_trades:]
+        _lines = []
+        for t in _recent:
+            _lines.append(f"  {t.get('symbol')} {t.get('direction')} | {t.get('close_reason')} | PnL: ${t.get('pnl_usd',0):.2f}")
+        from collections import defaultdict
+        _strat = defaultdict(lambda: {"wins": 0, "losses": 0, "pnl": 0.0})
+        for t in _trades:
+            s = t.get("strategy", "unknown")
+            if t.get("pnl_usd", 0) > 0:
+                _strat[s]["wins"] += 1
+            else:
+                _strat[s]["losses"] += 1
+            _strat[s]["pnl"] += t.get("pnl_usd", 0)
+        _wr_lines = []
+        for s, d in _strat.items():
+            _total = d["wins"] + d["losses"]
+            if _total > 0:
+                _wr = d["wins"] / _total * 100
+                _wr_lines.append(f"  {s}: {_wr:.0f}% WR ({d['wins']}W/{d['losses']}L) | Total PnL: ${d['pnl']:.2f}")
+        _ctx = "HISTORIAL RECIENTE DE TRADES:" + chr(10) + chr(10).join(_lines)
+        if _wr_lines:
+            _ctx += chr(10) + "WIN RATE POR ESTRATEGIA:" + chr(10) + chr(10).join(_wr_lines)
+        return _ctx
+    except Exception:
+        return ""
+
+
 def _llm_decision(pos: dict, quant: dict, market: dict, research: dict,
                    portfolio_context: dict = None) -> dict:
     """
@@ -791,7 +827,10 @@ REGLA CRÍTICA DE PORTAFOLIO:
 - Una posición perdedora que no mejora después de horas es PESO MUERTO → cerrar
 """
 
-    prompt = f"""Eres un gestor de riesgo experto en crypto. Analiza esta posición y decide: CLOSE, HOLD o REDUCE.
+    _history_ctx = _get_trade_history_context(symbol)
+    _funding = pos.get("funding_accumulated", 0)
+
+    prompt = f"""Eres un gestor de riesgo experto en crypto. Analiza esta posición y decide: CLOSE, HOLD, REDUCE o TIGHTEN.
 
 POSICIÓN ACTUAL:
 - Symbol: {symbol}
@@ -804,6 +843,7 @@ POSICIÓN ACTUAL:
 - Leverage: {leverage}x
 - Horas abierta: {quant['hours_open']:.1f}h
 - R/R restante: {quant['rr_remaining']:.2f}x
+- Funding acumulado: ${_funding:.4f}
 
 ANÁLISIS CUANTITATIVO:
 - Score: {quant['score']}/100 (>50 = señal de cerrar)
@@ -813,12 +853,17 @@ CONTEXTO DE MERCADO:
 - Tendencia: {research.get('trend', 'NEUTRAL')} (confianza: {research.get('confidence', 0.5):.0%})
 - Fear & Greed: {market.get('fear_greed', {}).get('value', 50)}/100
 {portfolio_section}
+{_history_ctx}
+
 REGLAS DE DECISIÓN:
 1. CLOSE si: TP a <1% Y score>30, O SL a <0.5%, O R/R < 0.5x Y perdedor
 2. CLOSE si: posición NEGATIVA por más de 2 horas Y otras posiciones van positivas (peso muerto)
 3. HOLD si: buena tendencia a favor, R/R > 1.5x, posición ganadora con runway
 4. REDUCE si: ganancia >8% pero aún tiene potencial — cerrar 50% y mover SL a entrada
 5. TIGHTEN si: ganancia >5% y el trailing stop es muy ancho — ajustar trailing para proteger más profit
+
+MODO DEVIL'S ADVOCATE:
+Aunque tu instinto sea HOLD, DEBES argumentar brevemente (1 frase) por qué CLOSE podría ser correcto. Si ese argumento es más fuerte que el de HOLD, elige CLOSE.
 
 Responde SOLO en JSON válido:
 {{"action": "CLOSE|HOLD|REDUCE|TIGHTEN", "confidence": 0.0-1.0, "reasoning": "máx 2 oraciones", "trailing_pct": 0.005}}"""
@@ -1048,6 +1093,63 @@ def evaluate_position_decision(portfolio: dict, market: dict, research: dict) ->
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "decisions": decisions
     }, indent=2))
+
+    # v2.13.6: LLM audit trail — track every LLM decision for post-hoc analysis
+    try:
+        _audit_path = DATA_DIR / "llm_audit.json"
+        _audit = {"version": "1.0", "entries": [], "summary": {}}
+        if _audit_path.exists():
+            _audit = json.loads(_audit_path.read_text())
+        _audit.setdefault("entries", [])
+        _audit.setdefault("summary", {
+            "total_evaluations": 0,
+            "llm_recommended_close": 0,
+            "llm_recommended_reduce": 0,
+            "llm_recommended_tighten": 0,
+            "llm_recommended_hold": 0,
+            "executed_close": 0,
+            "executed_reduce": 0,
+            "executed_tighten": 0,
+            "avg_pnl_when_llm_said_close": 0.0,
+            "avg_pnl_when_llm_said_hold": 0.0,
+        })
+        _now = datetime.now(timezone.utc).isoformat()
+        for d in decisions:
+            _entry = {
+                "evaluated_at": _now,
+                "symbol": d["symbol"],
+                "position_id": d.get("position_id"),
+                "llm_action": d.get("llm_action", "HOLD"),
+                "llm_confidence": d.get("llm_confidence", 0),
+                "quant_action": d.get("quant_action", "HOLD"),
+                "quant_score": d.get("quant_score", 0),
+                "final_action": d["action"],
+                "pnl_usd_at_eval": d.get("pnl_usd", 0),
+                "pnl_pct_at_eval": d.get("pnl_pct", 0),
+                "hours_open": d.get("hours_open", 0),
+                "llm_reasoning": d.get("llm_reasoning", "")[:200],
+                "executed": False,
+                "close_reason": None,
+                "final_pnl_usd": None,
+                "final_pnl_pct": None,
+            }
+            _audit["entries"].append(_entry)
+            _audit["summary"]["total_evaluations"] += 1
+            _act = d.get("llm_action", "HOLD")
+            if _act == "CLOSE":
+                _audit["summary"]["llm_recommended_close"] += 1
+            elif _act == "REDUCE":
+                _audit["summary"]["llm_recommended_reduce"] += 1
+            elif _act == "TIGHTEN":
+                _audit["summary"]["llm_recommended_tighten"] += 1
+            else:
+                _audit["summary"]["llm_recommended_hold"] += 1
+        # Cap entries to 5000 to prevent unbounded growth
+        if len(_audit["entries"]) > 5000:
+            _audit["entries"] = _audit["entries"][-5000:]
+        _audit_path.write_text(json.dumps(_audit, indent=2))
+    except Exception as _e:
+        log.debug(f"llm_audit write failed: {_e}")
 
     return decisions
 

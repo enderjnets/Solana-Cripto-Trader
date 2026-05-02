@@ -1,13 +1,5 @@
 [
   {
-    "ts": "2026-04-25T23:42:50.330007-06:00",
-    "msg": "\u2705 WIN \u2014 <b>JUP</b>\nEstrategia: trend_momentum\nP&L: $+0.15 (+3.09%)\nCierre: TRAILING_SL @ $0.178329"
-  },
-  {
-    "ts": "2026-04-26T06:12:02.996125-06:00",
-    "msg": "\u2705 WIN \u2014 <b>JUP</b>\nEstrategia: breakout\nP&L: $+0.01 (+0.13%)\nCierre: TRAILING_SL @ $0.179428"
-  },
-  {
     "ts": "2026-04-26T07:00:22.800666-06:00",
     "msg": "\ud83c\udf05 <b>Reporte Diario \u2014 Solana Bot</b>\n\ud83d\udcc5 Sunday 26 April 2026, 07:00 MT\n\n\ud83d\udcb0 <b>Capital:</b> $70.53\n\ud83d\udcca <b>Valor total:</b> $104.94\n\ud83d\udcc8 <b>Retorno:</b> +0.29%\n\ud83d\udcc9 <b>Drawdown:</b> 0.00%\n\n\ud83c\udfc6 <b>Win Rate:</b> 30.8%\n\ud83d\udcca <b>Trades totales:</b> 13 (4W / 7L)\n\ud83d\udc9a <b>Avg win:</b> $0.06\n\u2764\ufe0f <b>Avg loss:</b> $0.02\n\u26a1 <b>Profit factor:</b> 2.22\n\ud83d\udcd0 <b>Sharpe ratio:</b> 7.68\n\n\ud83d\udcca <b>Posiciones abiertas:</b> 3\n\n<b>\u00daltimos trades:</b>\n  \u2705 JUP [breakout] $+0.01 via TRAILING_SL\n  \u2705 JUP [trend_momentum] $+0.15 via TRAILING_SL\n  \u2705 JUP [trend_momentum] $+0.17 via PARTIAL_TAKE\n  \u274c JUP [oversold_momentum] $-0.08 via SMART_ROTATION\n  \u274c JUP [momentum] $-0.00 via TRAILING_SL"
   },
@@ -78,5 +70,13 @@
   {
     "ts": "2026-04-30T20:24:55.554587-06:00",
     "msg": "\u274c LOSS \u2014 <b>SOL</b>\nEstrategia: unknown\nP&L: $+0.00 (-0.25%)\nCierre: MANUAL_CLOSE_ORPHAN @ $0.000000"
+  },
+  {
+    "ts": "2026-05-01T07:01:51.129380-06:00",
+    "msg": "\ud83c\udf05 <b>Reporte Diario \u2014 Solana Bot</b>\n\ud83d\udcc5 Friday 01 May 2026, 07:01 MT\n\n\ud83d\udcb0 <b>Capital:</b> $88.73\n\ud83d\udcca <b>Valor total:</b> $90.20\n\ud83d\udcc8 <b>Retorno:</b> -9.80%\n\ud83d\udcc9 <b>Drawdown:</b> 0.00%\n\n\ud83c\udfc6 <b>Win Rate:</b> 0.0%\n\ud83d\udcca <b>Trades totales:</b> 1 (0W / 1L)\n\ud83d\udc9a <b>Avg win:</b> $0.00\n\u2764\ufe0f <b>Avg loss:</b> $0.00\n\u26a1 <b>Profit factor:</b> 0.00\n\ud83d\udcd0 <b>Sharpe ratio:</b> 0.00\n\n\ud83d\udcca <b>Posiciones abiertas:</b> 1\n\n<b>\u00daltimos trades:</b>\n  \u274c SOL [unknown] $+0.00 via MANUAL_CLOSE_ORPHAN"
+  },
+  {
+    "ts": "2026-05-01T14:54:12.419628-06:00",
+    "msg": "\u274c LOSS \u2014 <b>SOL</b>\nEstrategia: oversold_bounce\nP&L: $-0.08 (-0.73%)\nCierre: SL @ $83.365196"
   }
 ]

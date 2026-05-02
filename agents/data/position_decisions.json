@@ -1,8 +1,8 @@
 {
-  "timestamp": "2026-05-01T02:40:36.363306+00:00",
+  "timestamp": "2026-05-02T02:44:59.699940+00:00",
   "decisions": [
     {
-      "symbol": "SOL",
+      "symbol": "BTC",
       "direction": "long",
       "action": "CLOSE",
       "confidence": 0.58,
@@ -10,20 +10,20 @@
       "quant_score": 10,
       "quant_action": "HOLD",
       "quant_reasons": [
-        "TP_MODERADO (5.00%)"
+        "TP_MODERADO (4.42%)"
       ],
       "llm_action": "CLOSE",
       "llm_confidence": 0.72,
-      "llm_reasoning": "Score de 10/100 indica se\u00f1al fuerte de cierre, y el TP moderado de solo 5% con R/R de 1.99x no compensa el riesgo en un mercado con Fear & Greed de 26 (extremo miedo). Adem\u00e1s, la posici\u00f3n ya es perdedora desde el inicio y no tiene otras posiciones positivas que compensen, actuando como peso muerto que retrasa el target de $2.00.",
+      "llm_reasoning": "Score de 10/100 indica se\u00f1al de cierre fuerte; el TP moderado de 4.42% con R/R de 1.40x es insuficiente para justificar el riesgo dado el Fear & Greed de 39 (miedo) y el objetivo de $2.00 que requiere eficiencia de capital. Adem\u00e1s, tras 5.8h abierta con P&L casi nulo, la posici\u00f3n act\u00faa como peso muerto sin momentum.",
       "llm_reasoning_lang": "es",
       "llm_source": "llm_claude_sonnet",
-      "pnl_usd": -0.0693,
-      "pnl_pct": -0.6152,
-      "dist_tp_pct": 4.997,
-      "dist_sl_pct": 2.512,
-      "rr_remaining": 1.989,
-      "hours_open": 0.2,
-      "evaluated_at": "2026-05-01T02:40:36.363202+00:00"
+      "pnl_usd": 0.0199,
+      "pnl_pct": 0.1766,
+      "dist_tp_pct": 4.422,
+      "dist_sl_pct": 3.15,
+      "rr_remaining": 1.404,
+      "hours_open": 5.8,
+      "evaluated_at": "2026-05-02T02:44:59.699857+00:00"
     }
   ]
 }

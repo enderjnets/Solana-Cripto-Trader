@@ -1,81 +1,102 @@
 {
   "signals": [
     {
-      "symbol": "JUP",
-      "direction": "short",
-      "entry_price": 0.183305,
-      "sl_price": 0.188805,
-      "tp_price": 0.172305,
-      "exit_mode": "fixed",
-      "size_usd": 10.0,
-      "confidence": 0.78,
-      "strategy": "mean_reversion",
-      "reasoning": "RSI 66.2 cerca sobrecompra + volatilidad extremadamente baja 0.15% = movimiento comprimido, probable correcci\u00f3n. Cambio 24h plano (-0.15%) en tendencia bullish general sugiere debilidad relativa.",
-      "factors": [
-        "RSI_near_overbought_66",
-        "low_volatility_compression",
-        "relative_weakness_bullish_trend"
-      ]
-    },
-    {
-      "symbol": "RAY",
-      "direction": "short",
-      "entry_price": 0.817836,
-      "sl_price": 0.842371,
-      "tp_price": 0.768928,
+      "symbol": "ETH",
+      "direction": "long",
+      "entry_price": 2295.65,
+      "sl_price": 2226.78,
+      "tp_price": 2433.39,
       "exit_mode": "trailing",
       "trailing_pct": 0.025,
       "size_usd": 10.0,
-      "confidence": 0.85,
-      "strategy": "contrarian_fade",
-      "reasoning": "RSI 74.6 sobrecompra clara + cambio +3.86% en 24h cumple criterio SHORT en Fear. Volatilidad alta 3.86% permite trailing. Mercado en Fear general, este rally es desproporcionado y vulnerable a correcci\u00f3n.",
+      "confidence": 0.78,
+      "strategy": "oversold_bounce",
+      "reasoning": "RSI 40.1 en zona de acumulaci\u00f3n, tendencia bullish general con miedo en F&G 39. Rebote desde soporte con volatilidad adecuada para capturar movimiento extendido",
       "factors": [
-        "RSI_overbought_74",
-        "high_24h_change_3.86",
-        "high_volatility_3.86",
-        "fear_market_contrarian"
+        "RSI_acumulacion_40",
+        "tendencia_bullish",
+        "fear_contrarian_setup",
+        "volatilidad_1.37"
       ]
     },
     {
-      "symbol": "PENGU",
+      "symbol": "JUP",
       "direction": "long",
-      "entry_price": 0.009997,
-      "sl_price": 0.009747,
-      "tp_price": 0.010497,
-      "exit_mode": "trailing",
-      "trailing_pct": 0.02,
+      "entry_price": 0.17907,
+      "sl_price": 0.1737,
+      "tp_price": 0.18992,
+      "exit_mode": "fixed",
+      "trailing_pct": null,
       "size_usd": 10.0,
       "confidence": 0.76,
-      "strategy": "momentum_catch",
-      "reasoning": "Cambio +2.76% con RSI 43 = momentum temprano antes de sobrecompra. Volatilidad 2.76% saludable. En mercado Fear, este relative strength sugiere acumulaci\u00f3n. Trailing para capturar extensi\u00f3n si rompe.",
+      "strategy": "oversold_bounce",
+      "reasoning": "RSI 38.2 sobrevendido, cambio -1.88% con volatilidad 1.88% permite entrada en miedo. Token Solana ecosystem con liquidez. Rebote limitado esperado \u2192 TP fijo",
       "factors": [
-        "early_momentum_2.76",
-        "RSI_43_room_to_run",
-        "relative_strength_fear_market",
-        "high_volatility"
+        "RSI_oversold_38",
+        "cambio_negativo_miedo",
+        "volatilidad_suficiente",
+        "solana_ecosystem"
+      ]
+    },
+    {
+      "symbol": "FARTCOIN",
+      "direction": "long",
+      "entry_price": 0.205237,
+      "sl_price": 0.199077,
+      "tp_price": 0.217551,
+      "exit_mode": "trailing",
+      "trailing_pct": 0.03,
+      "size_usd": 10.0,
+      "confidence": 0.81,
+      "strategy": "momentum",
+      "reasoning": "Cambio +3.09% con volatilidad 3.09% ALTA en mercado con miedo (F&G 39). RSI 47.9 neutral con espacio alcista. Momentum fuerte en meme coin con cap > $200M. Trailing para capturar explosi\u00f3n",
+      "factors": [
+        "momentum_3pct",
+        "volatilidad_alta_3",
+        "fear_momentum_contrarian",
+        "meme_liquidez"
       ]
     },
     {
       "symbol": "WIF",
       "direction": "long",
-      "entry_price": 0.186488,
-      "sl_price": 0.181824,
-      "tp_price": 0.195812,
-      "exit_mode": "trailing",
-      "trailing_pct": 0.025,
+      "entry_price": 0.186409,
+      "sl_price": 0.180818,
+      "tp_price": 0.197593,
+      "exit_mode": "fixed",
+      "trailing_pct": null,
       "size_usd": 10.0,
-      "confidence": 0.74,
-      "strategy": "momentum_breakout",
-      "reasoning": "Cambio +4.61% con volatilidad 4.61% = movimiento explosivo. RSI 55.8 no sobrecompra, espacio para continuar. En Fear market, WIF mostrando fuerza relativa excepcional. Trailing para maximizar captura de tendencia.",
+      "confidence": 0.79,
+      "strategy": "oversold_bounce",
+      "reasoning": "RSI 32.5 claramente sobrevendido, volatilidad muy baja 0.15% pero cambio positivo +0.15% indica agotamiento vendedor. Meme coin con cap $186M en punto de inflexi\u00f3n. TP fijo por baja volatilidad",
       "factors": [
-        "strong_momentum_4.61",
-        "RSI_55_room_to_run",
-        "explosive_volatility",
-        "relative_strength_extreme"
+        "RSI_oversold_32",
+        "agotamiento_vendedor",
+        "cambio_positivo",
+        "cap_bajo_limite"
+      ]
+    },
+    {
+      "symbol": "RAY",
+      "direction": "long",
+      "entry_price": 0.809,
+      "sl_price": 0.78473,
+      "tp_price": 0.85754,
+      "exit_mode": "fixed",
+      "trailing_pct": null,
+      "size_usd": 10.0,
+      "confidence": 0.72,
+      "strategy": "oversold_bounce",
+      "reasoning": "RSI 38.0 sobrevendido en DEX nativo Solana. Volatilidad extremadamente baja 0.09% pero cambio positivo +0.09% sugiere consolidaci\u00f3n antes de movimiento. Riesgo bajo, entrada cautelosa en fear",
+      "factors": [
+        "RSI_oversold_38",
+        "dex_solana_nativo",
+        "consolidacion_positiva",
+        "bajo_riesgo"
       ]
     }
   ],
-  "generated_at": "2026-05-01T02:39:27.523401+00:00",
-  "fear_greed": 26,
+  "generated_at": "2026-05-02T02:31:34.921412+00:00",
+  "fear_greed": 39,
   "source": "ai_strategy_extreme"
 }

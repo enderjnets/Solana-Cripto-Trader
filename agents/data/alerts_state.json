@@ -3,6 +3,8 @@
   "last_alert_time": null,
   "alerted_trades": [
     "SOL_1777600526",
+    "SOL_perp_1777602647",
     "dd_79"
-  ]
+  ],
+  "last_daily_report": "2026-05-01"
 }

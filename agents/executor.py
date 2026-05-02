@@ -797,6 +797,30 @@ def close_positions_emergency(portfolio: dict, symbols: list, market: dict, hist
     # Remove closed positions from portfolio
     portfolio["positions"] = [p for p in portfolio["positions"] if p.get("status") != "closed"]
 
+    # v2.13.6: Update llm_audit with final outcomes for executed decisions
+    try:
+        _audit_path = DATA_DIR / "llm_audit.json"
+        if _audit_path.exists():
+            _audit = json.loads(_audit_path.read_text())
+            for pos in closed:
+                for entry in reversed(_audit.get("entries", [])):
+                    if entry.get("symbol") == pos.get("symbol") and not entry.get("executed"):
+                        entry["executed"] = True
+                        entry["close_reason"] = pos.get("close_reason")
+                        entry["final_pnl_usd"] = pos.get("pnl_usd")
+                        entry["final_pnl_pct"] = pos.get("pnl_pct")
+                        _act = entry.get("llm_action", "HOLD")
+                        if _act == "CLOSE":
+                            _audit["summary"]["executed_close"] = _audit["summary"].get("executed_close", 0) + 1
+                        elif _act == "REDUCE":
+                            _audit["summary"]["executed_reduce"] = _audit["summary"].get("executed_reduce", 0) + 1
+                        elif _act == "TIGHTEN":
+                            _audit["summary"]["executed_tighten"] = _audit["summary"].get("executed_tighten", 0) + 1
+                        break
+            _audit_path.write_text(json.dumps(_audit, indent=2))
+    except Exception as _e:
+        log.debug(f"llm_audit update on close failed: {_e}")
+
     return closed
 
 
