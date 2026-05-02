@@ -17,6 +17,7 @@ import sys
 import json
 import time
 import logging
+from aaa_alerts import alert_gate_advance
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
@@ -186,6 +187,16 @@ def run_cycle():
 
     # Evaluar gate
     gate_phase = evaluate_gate(metrics_k, metrics_m, history)
+    
+    # Alert on gate advancement
+    prev_gate = 0
+    try:
+        prev_data = json.loads(Path(DATA_DIR / "meta_arbitro_state.json").read_text())
+        prev_gate = prev_data.get("gate_phase", 0)
+    except Exception:
+        pass
+    if gate_phase > prev_gate:
+        alert_gate_advance(prev_gate, gate_phase, leader)
     gate_info = GATE_PHASES[gate_phase]
     log.info(f"🚪 Gate Fase {gate_phase}: {gate_info['name']} — {gate_info['condition']}")
 

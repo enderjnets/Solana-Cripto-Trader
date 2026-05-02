@@ -40,6 +40,7 @@ from aaa_shared import (
     get_current_price, get_token_liquidity,
 )
 from aaa_k_brain import make_trading_decision, analyze_portfolio_health, analyze_recent_trades_k
+from aaa_alerts import alert_first_trade, alert_evolution_applied, alert_rollback, alert_drawdown
 from aaa_k_evolution import (
     load_config, get_effective_params, ParameterApplier,
     check_and_rollback_if_needed, record_baseline_sharpe,
@@ -290,9 +291,12 @@ def cycle(debug: bool = False) -> dict:
     rolled_back = evo_config.get("last_applied") is None and evo_config.get("evolution_history") and                   evo_config["evolution_history"][-1].get("action") == "ROLLBACK"
     if rolled_back:
         log.warning("🔄 Parametros restaurados por degradacion de Sharpe")
+        alert_rollback(AGENT_NAME, "Sharpe degradado >30%", metrics.get("sharpe_ratio", 0.0))
         params = get_effective_params(evo_config)
 
     log.info(f"📊 Métricas: WR={metrics['win_rate']:.1f}% PF={metrics['profit_factor']:.2f} Sharpe={metrics['sharpe_ratio']:.2f} DD={metrics['max_drawdown_pct']:.1f}% PnL=${metrics['total_pnl']:+.2f}")
+    if metrics.get("max_drawdown_pct", 0) > 5.0:
+        alert_drawdown(AGENT_NAME, metrics["max_drawdown_pct"])
 
     # -- Record A/B test cycle --
     ABTestManager.record_cycle(evo_config, variant.get("name", "v1") if variant else "v1",

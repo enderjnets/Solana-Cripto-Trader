@@ -12,6 +12,7 @@ import logging
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Optional, Any
+from aaa_alerts import alert_ab_test_result
 
 log = logging.getLogger("aaa_m_evolution")
 
@@ -417,6 +418,7 @@ class ABTestManager:
             ab["status"] = "promoted"
             save_config(config)
             log.info(f"A/B TEST: Test PROMOTED (improvement={improvement:.2f}x)")
+            alert_ab_test_result("AAA-M", test_id, "promoted", improvement)
             return "promoted"
 
         ab["status"] = "test_rejected"
