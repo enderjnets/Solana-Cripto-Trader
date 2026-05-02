@@ -266,6 +266,50 @@ def run_cycle(safe=True, debug=False):
         log.warning(f"   ⚠️ Position Updater error: {e}")
         results["position_updater"] = {"ok": False, "error": str(e)}
 
+    # Paso 3e: AAA Advisory — Live Advisory Mode (SOLAAA-63)
+    log.info("━" * 40)
+    log.info("💡 [3e/6] AAA Advisory")
+    try:
+        aaa_advisory_enabled = os.environ.get("AAA_ADVISORY_ENABLED", "true").lower() == "true"
+        if aaa_advisory_enabled:
+            import aaa_advisory
+            advisory = aaa_advisory.generate_advisory_report()
+            
+            if advisory.get("aaa_available"):
+                # Log recomendaciones AAA-K
+                k_recs = advisory.get("aaa_k", {}).get("recommendations", [])
+                m_recs = advisory.get("aaa_m", {}).get("recommendations", [])
+                
+                for rec in k_recs:
+                    log.info(f"   💡 AAA-K: {rec['direction']} {rec['symbol']} | Conf: {rec['confidence']:.0%} | {rec.get('reason', '')[:60]}")
+                for rec in m_recs:
+                    log.info(f"   💡 AAA-M: {rec['direction']} {rec['symbol']} | Conf: {rec['confidence']:.0%} | {rec.get('reason', '')[:60]}")
+                
+                if not k_recs and not m_recs:
+                    log.info("   ℹ️  AAA sin posiciones abiertas")
+                
+                # Log divergencias
+                div = advisory.get("divergence", {})
+                if div.get("divergences"):
+                    for d in div["divergences"]:
+                        log.warning(f"   ⚠️  DIVERGENCIA: AAA-{d.get('aaa_agent','?')}={d['aaa_direction']} {d['symbol']} vs Live={d['live_direction']} {d['symbol']}")
+                
+                # Log convergencias
+                if div.get("convergences"):
+                    for c in div["convergences"]:
+                        log.info(f"   ✅ CONVERGENCIA: {c['direction']} {c['symbol']} (AAA-{c.get('aaa_agent','?')})")
+                
+                results["aaa_advisory"] = {"ok": True, "recommendations": len(k_recs) + len(m_recs)}
+            else:
+                log.info("   ℹ️  AAA no disponible (sin datos)")
+                results["aaa_advisory"] = {"ok": True, "skipped": True}
+        else:
+            log.info("   ⏭️  AAA Advisory deshabilitado (AAA_ADVISORY_ENABLED=false)")
+            results["aaa_advisory"] = {"ok": True, "skipped": True}
+    except Exception as e:
+        log.warning(f"   ⚠️ AAA Advisory error: {e}")
+        results["aaa_advisory"] = {"ok": False, "error": str(e)}
+
     # Paso 4: Executor
     log.info("━" * 40)
     log.info("⚡ [4/6] Executor")

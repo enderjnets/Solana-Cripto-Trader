@@ -1712,6 +1712,23 @@ DASHBOARD_HTML = r"""
     </div>
   </section>
 
+  <!-- AAA ADVISORY (SOLAAA-63) -->
+  <section>
+    <div class="section-title">💡 AAA Live Advisory</div>
+    <div class="card" id="aaaAdvisoryCard">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+        <div style="font-size:12px;color:var(--text2);">
+          Gate: <strong id="aaaGatePhase">—</strong> | Leader: <strong id="aaaLeader">—</strong> | 
+          K-Sharpe: <strong id="aaaKSharpe">—</strong> | M-Sharpe: <strong id="aaaMSharpe">—</strong>
+        </div>
+        <span id="aaaAdvisoryStatus" style="font-size:10px;padding:2px 8px;border-radius:4px;background:var(--bg);color:var(--text2);">Cargando...</span>
+      </div>
+      <div id="aaaAdvisoryBody">
+        <div class="empty">Esperando datos de AAA...</div>
+      </div>
+    </div>
+  </section>
+
   <!-- TRADE HISTORY -->
   <section>
     <div class="section-title"><span data-i18n="tradeHistory">📋 Historial de Trades</span></div>
@@ -1983,7 +2000,8 @@ async function refreshAll() {
       loadResetHistory(),
       refreshBotStatus(),
       refreshFuel(),
-      refreshDrift()
+      refreshDrift(),
+      loadAAAAdvisory()
     ]);
     document.getElementById('lastUpdate').textContent =
       'Actualizado: ' + new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -2062,6 +2080,84 @@ async function refreshDrift() {
 }
 
 /* ── SOL Fuel badge (v2.11.0-live) ── */
+async function loadAAAAdvisory() {
+  const card = document.getElementById('aaaAdvisoryCard');
+  const body = document.getElementById('aaaAdvisoryBody');
+  const status = document.getElementById('aaaAdvisoryStatus');
+  if (!card || !body) return;
+  try {
+    const r = await fetch('/api/aaa/advisory');
+    const d = await r.json();
+    if (!d.available) {
+      status.textContent = 'Off';
+      status.style.background = 'var(--bg)';
+      body.innerHTML = '<div class="empty">AAA Advisory no disponible</div>';
+      return;
+    }
+    // Update header stats
+    const meta = d.meta_arbitro || {};
+    document.getElementById('aaaGatePhase').textContent = `G${meta.gate_phase || 0} — ${meta.gate_name || 'Observation'}`;
+    document.getElementById('aaaLeader').textContent = meta.leader || '—';
+    const kSharpe = safe_float(d.aaa_k?.sharpe);
+    const mSharpe = safe_float(d.aaa_m?.sharpe);
+    document.getElementById('aaaKSharpe').textContent = kSharpe.toFixed(2);
+    document.getElementById('aaaKSharpe').style.color = kSharpe > 1 ? 'var(--green)' : (kSharpe < 0 ? 'var(--red)' : 'var(--text2)');
+    document.getElementById('aaaMSharpe').textContent = mSharpe.toFixed(2);
+    document.getElementById('aaaMSharpe').style.color = mSharpe > 1 ? 'var(--green)' : (mSharpe < 0 ? 'var(--red)' : 'var(--text2)');
+
+    // Build recommendations table
+    let html = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">';
+    ['K','M'].forEach(agent => {
+      const agentData = d['aaa_' + agent.toLowerCase()] || {};
+      const recs = agentData.recommendations || [];
+      const equity = safe_float(agentData.equity);
+      html += `<div style="background:var(--bg);border-radius:8px;padding:10px;">`;
+      html += `<div style="font-weight:700;margin-bottom:6px;">AAA-${agent} <span style="font-size:11px;color:var(--text2);font-weight:400;">$${equity.toFixed(2)}</span></div>`;
+      if (recs.length === 0) {
+        html += `<div class="empty" style="padding:8px;font-size:12px;">Sin posiciones abiertas</div>`;
+      } else {
+        html += `<div style="display:flex;flex-direction:column;gap:6px;">`;
+        recs.forEach(rec => {
+          const arrow = rec.direction === 'LONG' ? '🟢' : '🔴';
+          const conf = (rec.confidence || 0) * 100;
+          html += `<div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;padding:4px 6px;background:rgba(255,255,255,0.03);border-radius:4px;">`;
+          html += `<span>${arrow} <strong>${rec.symbol}</strong> ${rec.direction} <span style="color:var(--text2);">(${conf.toFixed(0)}%)</span></span>`;
+          html += `<span style="color:${(rec.pnl_usd || 0) >= 0 ? 'var(--green)' : 'var(--red)'};">${(rec.pnl_usd || 0) >= 0 ? '+' : ''}$${(rec.pnl_usd || 0).toFixed(2)}</span>`;
+          html += `</div>`;
+        });
+        html += `</div>`;
+      }
+      html += `</div>`;
+    });
+    html += '</div>';
+
+    // Divergences
+    const div = d.divergence || {};
+    const divergences = div.divergences || [];
+    const convergences = div.convergences || [];
+    if (divergences.length > 0 || convergences.length > 0) {
+      html += `<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">`;
+      divergences.forEach(dv => {
+        html += `<span style="font-size:11px;padding:3px 8px;border-radius:4px;background:rgba(255,100,100,0.15);color:#ff6464;">⚠️ ${dv.symbol}: AAA-${dv.aaa_agent} ${dv.aaa_direction} vs Live ${dv.live_direction}</span>`;
+      });
+      convergences.forEach(cv => {
+        html += `<span style="font-size:11px;padding:3px 8px;border-radius:4px;background:rgba(100,255,100,0.1);color:#64ff64;">✅ ${cv.symbol}: ${cv.direction}</span>`;
+      });
+      html += `</div>`;
+    }
+
+    body.innerHTML = html;
+    status.textContent = 'Live';
+    status.style.background = 'rgba(100,255,100,0.15)';
+    status.style.color = '#64ff64';
+  } catch(e) {
+    console.warn('loadAAAAdvisory', e);
+    status.textContent = 'Err';
+    status.style.background = 'var(--red)';
+    body.innerHTML = '<div class="empty">Error cargando AAA Advisory</div>';
+  }
+}
+
 async function refreshFuel() {
   const el = document.getElementById('solFuelBadge');
   if (!el) return;
@@ -4614,6 +4710,16 @@ def api_positions():
         })
 
     return jsonify({"positions": result})
+
+
+@app.route('/api/aaa/advisory')
+def api_aaa_advisory():
+    """Devuelve el estado de AAA Live Advisory Mode (SOLAAA-63)."""
+    advisory_path = DATA / "aaa_advisory.json"
+    data = load_json(advisory_path)
+    if not data:
+        return jsonify({"available": False, "message": "AAA Advisory no disponible"})
+    return jsonify({"available": True, **data})
 
 
 @app.route('/api/ai-thinking')
