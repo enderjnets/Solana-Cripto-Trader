@@ -3809,7 +3809,7 @@ function connectChatSSE(){
 
 @app.route('/')
 def index():
-    return render_template_string(DASHBOARD_HTML)
+    return send_from_directory(str(Path(__file__).parent), 'index.html')
 
 
 @app.route('/api/version')

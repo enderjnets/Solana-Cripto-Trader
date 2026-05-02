@@ -34,15 +34,42 @@
   .gate-bar { background:var(--bg3); height:8px; border-radius:4px; overflow:hidden; margin-top:6px; }
   .gate-fill { height:100%; background:var(--green); transition:width 0.5s; }
   .alert-box { background:rgba(248,81,73,0.1); border:1px solid var(--red); border-radius:6px; padding:10px; margin-top:10px; font-size:12px; color:var(--red); }
+
+  .nav-tabs { display: flex; gap: 4px; margin-left: 16px; background: var(--bg3); border-radius: 8px; padding: 3px; border: 1px solid var(--border); }
+  .nav-tab { padding: 5px 14px; border-radius: 6px; font-size: 12px; font-weight: 600; color: var(--text2); cursor: pointer; text-decoration: none; transition: all .2s; border: none; background: transparent; }
+  .nav-tab:hover { color: var(--text); }
+  .nav-tab.active { background: var(--blue); color: var(--bg); }
+  .nav-tab.active:hover { color: var(--bg); }
+
+  .nav-tabs {
+    display: flex; gap: 4px; margin-left: 16px;
+    background: var(--bg3); border-radius: 8px;
+    padding: 3px; border: 1px solid var(--border);
+  }
+  .nav-tab {
+    padding: 5px 14px; border-radius: 6px; font-size: 12px;
+    font-weight: 600; color: var(--text2); cursor: pointer;
+    text-decoration: none; transition: all .2s; border: none; background: transparent;
+  }
+  .nav-tab:hover { color: var(--text); }
+  .nav-tab.active { background: var(--blue); color: var(--bg); }
+  .nav-tab.active:hover { color: var(--bg); }
 </style>
+
 </head>
 <body>
 <div class="header">
-  <div class="logo">AAA <span>Auto-Aprendizaje Acelerado</span></div>
+  <div style="display:flex;align-items:center;">
+    <div class="logo" style="font-size:18px;">◎ Solana <span style="color:var(--purple)">Cripto</span> Trader</div>
+    <nav class="nav-tabs">
+      <a href="/" class="nav-tab">Live</a>
+      <a href="/aaa" class="nav-tab active">AAA</a>
+    </nav>
+  </div>
   <div style="display:flex;gap:12px;align-items:center;">
+    <span style="color:var(--text2);font-size:12px;">🧠 Auto-Aprendizaje Acelerado</span>
     <span id="lastUpdate" style="color:var(--text2);font-size:12px;">-</span>
     <button class="refresh" onclick="loadAll()">Refresh</button>
-    <a href="/" style="color:var(--text2);font-size:12px;">Live Dashboard</a>
   </div>
 </div>
 
