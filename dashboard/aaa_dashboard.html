@@ -302,6 +302,17 @@
   .pill-red { background: rgba(255,51,102,0.1); color: var(--bad); border: 1px solid rgba(255,51,102,0.2); }
   .pill-yellow { background: rgba(255,215,0,0.1); color: var(--warn); border: 1px solid rgba(255,215,0,0.2); }
   .pill-blue { background: rgba(0,240,255,0.1); color: var(--k); border: 1px solid rgba(0,240,255,0.2); }
+  .shield-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+  .shield-item {
+    font-size: 0.65rem; padding: 3px 8px; border-radius: 4px;
+    background: rgba(255,215,0,0.08); border: 1px solid rgba(255,215,0,0.2);
+    color: var(--warn); font-family: 'Courier New', monospace;
+    display: flex; align-items: center; gap: 4px;
+  }
+  .shield-item.cleared {
+    background: rgba(0,255,136,0.06); border-color: rgba(0,255,136,0.15); color: var(--good);
+  }
+  .shield-icon { font-size: 0.8rem; }
 
   /* Bottom row: Meta + Advisory */
   .bottom-grid {
@@ -419,7 +430,8 @@
     <h1>AAA Command Center</h1>
     <div class="subtitle">Neural Trading Network // Autonomous Agent Assembly</div>
     <div class="live-badge"><span class="live-dot"></span>LIVE FEED ACTIVE</div>
-    <div class="refresh-timer" id="refreshTimer">Next refresh: 10s</div>
+    <a href="/" class="live-badge" style="margin-left:12px; border-color:var(--meta); color:var(--meta); text-decoration:none;">← LIVE DASHBOARD</a>
+    <div class="refresh-timer" id="refreshTimer">Next refresh: --</div>
   </header>
 
   <div class="conn-bar">
@@ -491,6 +503,14 @@
         <div style="font-size:0.65rem; color:var(--text-dim); text-transform:uppercase; letter-spacing:1px; margin-bottom:4px;">Last Decision</div>
         <div class="decision-box" id="kDecision">
           <div class="decision-action" style="color:var(--text-dim)">WAITING FOR DATA...</div>
+        </div>
+
+        <!-- Cooldown Shield -->
+        <div style="margin-top:14px;">
+          <div style="font-size:0.65rem; color:var(--text-dim); text-transform:uppercase; letter-spacing:1px; margin-bottom:4px;">Shield Status</div>
+          <div class="shield-list" id="kShields">
+            <span style="font-size:0.7rem; color:var(--text-dim)">No active shields</span>
+          </div>
         </div>
 
         <!-- Evolution Log -->
@@ -580,6 +600,14 @@
         <div style="font-size:0.65rem; color:var(--text-dim); text-transform:uppercase; letter-spacing:1px; margin-bottom:4px;">Last Decision</div>
         <div class="decision-box" id="mDecision">
           <div class="decision-action" style="color:var(--text-dim)">WAITING FOR DATA...</div>
+        </div>
+
+        <!-- Cooldown Shield -->
+        <div style="margin-top:14px;">
+          <div style="font-size:0.65rem; color:var(--text-dim); text-transform:uppercase; letter-spacing:1px; margin-bottom:4px;">Shield Status</div>
+          <div class="shield-list" id="mShields">
+            <span style="font-size:0.7rem; color:var(--text-dim)">No active shields</span>
+          </div>
         </div>
 
         <div style="margin-top:14px;">
@@ -781,6 +809,20 @@ function renderKnowledge(elId, entries) {
   }).join('<br>');
 }
 
+function renderShields(elId, shields) {
+  const el = document.getElementById(elId);
+  if (!shields || !shields.length) {
+    el.innerHTML = '<span style="font-size:0.7rem; color:var(--text-dim)">No active shields</span>';
+    return;
+  }
+  el.innerHTML = shields.map(s =>
+    '<div class="shield-item">' +
+      '<span class="shield-icon">🛡️</span>' +
+      '<span>' + s + ' <span style="opacity:0.6">(shielded)</span></span>' +
+    '</div>'
+  ).join('');
+}
+
 function renderPositions(tableId, countId, positions) {
   const tbl = document.getElementById(tableId);
   const cnt = document.getElementById(countId);
@@ -804,16 +846,8 @@ function renderPositions(tableId, countId, positions) {
   tbl.innerHTML = html;
 }
 
-async function loadAll() {
-  const [kStatus, mStatus, kTelemetry, mTelemetry, meta, equityK, equityM] = await Promise.all([
-    fetchJSON(API + '/api/aaa/k/status'),
-    fetchJSON(API + '/api/aaa/m/status'),
-    fetchJSON(API + '/api/aaa/k/telemetry'),
-    fetchJSON(API + '/api/aaa/m/telemetry'),
-    fetchJSON(API + '/api/aaa/meta/status'),
-    fetchJSON(API + '/api/aaa/k/equity'),
-    fetchJSON(API + '/api/aaa/m/equity'),
-  ]);
+async function renderAll(kStatus, mStatus, kTelemetry, mTelemetry, meta, equityK, equityM) {
+  // All data already fetched by caller
 
   // Update connection
   const hasErrors = [kStatus,mStatus,kTelemetry,mTelemetry,meta].some(x => x.error);
@@ -848,6 +882,7 @@ async function loadAll() {
     document.getElementById('kVariant').textContent = kTelemetry.active_variant || '--';
     document.getElementById('kKnowledgeCount').textContent = kTelemetry.knowledge_count || 0;
     renderDecision('kDecision', kTelemetry.last_decision);
+    renderShields('kShields', kTelemetry.cooldown_active);
     renderTerminal('kEvolutionLog', kTelemetry.evolution_history, 'info');
     renderKnowledge('kKnowledge', kTelemetry.latest_knowledge);
     document.getElementById('kStatus').textContent = kTelemetry.seconds_since_cycle < freq * 2 ? 'ONLINE' : 'STALE';
@@ -878,6 +913,7 @@ async function loadAll() {
     document.getElementById('mVariant').textContent = mTelemetry.active_variant || '--';
     document.getElementById('mKnowledgeCount').textContent = mTelemetry.knowledge_count || 0;
     renderDecision('mDecision', mTelemetry.last_decision);
+    renderShields('mShields', mTelemetry.cooldown_active);
     renderTerminal('mEvolutionLog', mTelemetry.evolution_history, 'info');
     renderKnowledge('mKnowledge', mTelemetry.latest_knowledge);
     document.getElementById('mStatus').textContent = mTelemetry.seconds_since_cycle < freq * 3 ? 'ONLINE' : 'STALE';
@@ -942,62 +978,78 @@ async function loadAll() {
 
   // --- ADVISORY FEED ---
   const feed = document.getElementById('advisoryFeed');
-  let advisories = [];
-  const nowStr = new Date().toISOString().slice(11,19);
-  advisories.push({
-    time: nowStr,
-    sev: 'info',
-    title: 'SYSTEM ONLINE',
-    body: 'AAA Command Center initialized. K cycles every 120s, M every 30s. Telemetry streams active.'
-  });
-  if (!meta.error) {
-    const gp = meta.gate_phase !== undefined ? meta.gate_phase : 0;
-    const phases = ['Observation','Whitelist','Parameters','Sizing','Single Trade','Full Ensemble'];
-    const nextPhase = gp < 5 ? phases[gp+1] : 'MAXIMUM CLEARANCE';
-    advisories.push({
-      time: nowStr,
-      sev: gp >= 5 ? 'info' : 'warning',
-      title: 'GATE PHASE ' + gp + ': ' + (meta.gate_name || phases[gp]),
-      body: 'Meta-Arbitro evaluating ensemble readiness. Next: ' + nextPhase + '. Leader: ' + (meta.leader || '--') + '. Action: ' + (meta.gate_action || 'None') + '.'
-    });
+  const advisoryData = await fetchJSON(API + '/api/aaa/advisory');
+  if (!advisoryData.error && advisoryData.advisories) {
+    feed.innerHTML = advisoryData.advisories.map(a =>
+      '<div class="advisory-item">' +
+        '<div class="advisory-time">' + (a.time || '--:--:--') + '</div>' +
+        '<div class="advisory-sev-' + a.sev + '">' + a.title + '</div>' +
+        '<div style="color:var(--text-dim); font-size:0.7rem; margin-top:2px;">' + a.body + '</div>' +
+      '</div>'
+    ).join('');
+  } else {
+    feed.innerHTML = '<div class="advisory-item"><div style="color:var(--text-dim)">Advisory feed unavailable</div></div>';
   }
-  if (!kStatus.error) {
-    const ret = kStatus.return_pct || 0;
-    const dd = kStatus.max_drawdown_pct || 0;
-    if (dd > 5) {
-      advisories.push({ time: nowStr, sev: 'critical', title: 'AAA-K DRAWDOWN ALERT', body: 'Max drawdown ' + fmtPct(dd) + ' exceeds 5% threshold. Review risk parameters.' });
-    } else if (ret < -3) {
-      advisories.push({ time: nowStr, sev: 'warning', title: 'AAA-K NEGATIVE RETURN', body: 'Return ' + fmtPct(ret) + '. Agent may be in adverse market conditions.' });
-    } else {
-      advisories.push({ time: nowStr, sev: 'info', title: 'AAA-K NOMINAL', body: 'Return ' + fmtPct(ret) + ', DD ' + fmtPct(dd) + '. Operating within normal parameters.' });
-    }
-  }
-  if (!mStatus.error) {
-    const ret = mStatus.return_pct || 0;
-    const dd = mStatus.max_drawdown_pct || 0;
-    if (dd > 5) {
-      advisories.push({ time: nowStr, sev: 'critical', title: 'AAA-M DRAWDOWN ALERT', body: 'Max drawdown ' + fmtPct(dd) + ' exceeds 5% threshold.' });
-    } else if (mStatus.total_trades > 0 && mStatus.win_rate < 0.3) {
-      advisories.push({ time: nowStr, sev: 'warning', title: 'AAA-M LOW WIN RATE', body: 'Win rate ' + (mStatus.win_rate*100).toFixed(0) + '% after ' + mStatus.total_trades + ' trades. Consider strategy review.' });
-    } else {
-      advisories.push({ time: nowStr, sev: 'info', title: 'AAA-M NOMINAL', body: 'Return ' + fmtPct(ret) + ', ' + (mStatus.total_trades||0) + ' trades. Scalping engine active.' });
-    }
-  }
-  feed.innerHTML = advisories.map(a =>
-    '<div class="advisory-item">' +
-      '<div class="advisory-time">' + a.time + '</div>' +
-      '<div class="advisory-sev-' + a.sev + '">' + a.title + '</div>' +
-      '<div style="color:var(--text-dim); font-size:0.7rem; margin-top:2px;">' + a.body + '</div>' +
-    '</div>'
-  ).join('');
 }
 
-loadAll();
+// ── SSE Real-Time Stream ──────────────────────────────────────────────────
+let sseConnected = false;
+let lastDataHash = '';
+
+function dataHash(obj) {
+  try { return JSON.stringify(obj).slice(0, 200); } catch(e) { return Date.now().toString(); }
+}
+
+async function loadAllWithHashCheck() {
+  const [kStatus, mStatus, kTelemetry, mTelemetry, meta, equityK, equityM] = await Promise.all([
+    fetchJSON(API + '/api/aaa/k/status'),
+    fetchJSON(API + '/api/aaa/m/status'),
+    fetchJSON(API + '/api/aaa/k/telemetry'),
+    fetchJSON(API + '/api/aaa/m/telemetry'),
+    fetchJSON(API + '/api/aaa/meta/status'),
+    fetchJSON(API + '/api/aaa/k/equity'),
+    fetchJSON(API + '/api/aaa/m/equity'),
+  ]);
+  const h = dataHash({k: kStatus, m: mStatus, kt: kTelemetry, mt: mTelemetry, meta: meta});
+  if (h !== lastDataHash) {
+    lastDataHash = h;
+    await renderAll(kStatus, mStatus, kTelemetry, mTelemetry, meta, equityK, equityM);
+  }
+}
+
+// Initial load
+loadAllWithHashCheck();
+
+// SSE connection
+const es = new EventSource(API + '/api/events');
+es.onopen = () => {
+  sseConnected = true;
+  document.getElementById('connText').textContent = 'SSE: CONNECTED // Real-time stream active';
+  document.getElementById('connDot').className = 'conn-dot conn-ok';
+};
+es.onmessage = (e) => {
+  const msg = JSON.parse(e.data);
+  if (msg.type === 'heartbeat') return;
+  if (msg.type === 'connected') {
+    document.getElementById('refreshTimer').textContent = 'SSE STREAM ACTIVE';
+    return;
+  }
+  // Data changed on server, trigger reload
+  loadAllWithHashCheck();
+};
+es.onerror = () => {
+  sseConnected = false;
+  document.getElementById('connText').textContent = 'SSE: RECONNECTING // Fallback polling 30s';
+  document.getElementById('connDot').className = 'conn-dot conn-warn';
+};
+
+// Fallback polling every 30s if SSE fails
 setInterval(() => {
-  countdown--;
-  if (countdown <= 0) { loadAll(); countdown = 10; }
-  document.getElementById('refreshTimer').textContent = 'Next refresh: ' + countdown + 's';
-}, 1000);
+  if (!sseConnected) {
+    loadAllWithHashCheck();
+    document.getElementById('refreshTimer').textContent = 'Fallback poll: ' + new Date().toISOString().slice(11,19);
+  }
+}, 30000);
 </script>
 </body>
 </html>

@@ -11,6 +11,7 @@ import json
 import os
 import math
 import threading
+import queue
 import time as _time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -18,6 +19,18 @@ from flask import Flask, jsonify, render_template_string, request, Response, sen
 import uuid
 
 app = Flask(__name__)
+
+# ── SSE Broadcast Queue ──────────────────────────────────────────────────────
+broadcast_queue = queue.Queue()
+
+def broadcast_event(event_type: str, payload: dict):
+    """Push event to all connected SSE clients."""
+    msg = json.dumps({"type": event_type, "data": payload, "ts": datetime.now(timezone.utc).isoformat()})
+    try:
+        broadcast_queue.put(msg, block=False)
+    except queue.Full:
+        pass
+
 
 # ── Data paths ───────────────────────────────────────────────────────────────
 BASE = Path(__file__).parent.parent
@@ -5684,6 +5697,7 @@ def api_aaa_k_telemetry():
             'last_error': state.get('last_error'),
             'safety_guard_rejections': sum(1 for e in cfg.get('evolution_history',[]) if 'REJECTED' in str(e.get('action',''))),
             'open_positions': len([p for p in port.get('positions',[]) if p.get('status')=='open']),
+            'cooldown_active': state.get('cooldown_active', []),
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -5751,6 +5765,19 @@ def api_aaa_m_metrics():
         return jsonify({'error': str(e)}), 500
 
 
+
+
+@app.route('/api/aaa/advisory')
+def api_aaa_advisory():
+    try:
+        import sys
+        sys.path.insert(0, str(Path(__file__).parent.parent / 'agents'))
+        from aaa_advisory import generate_advisories
+        from aaa_shared import DATA_DIR
+        return jsonify(generate_advisories(DATA_DIR))
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/aaa/meta/status')
 def api_aaa_meta_status():
     try:
@@ -5765,6 +5792,21 @@ def api_aaa_meta_status():
         return jsonify({'error': str(e)}), 500
 
 
+
+
+@app.route('/api/events')
+def api_events():
+    """Server-Sent Events stream for real-time dashboard updates."""
+    def event_stream():
+        yield f"data: {json.dumps({'type': 'connected', 'ts': datetime.now(timezone.utc).isoformat()})}\n\n"
+        while True:
+            try:
+                msg = broadcast_queue.get(timeout=15)
+                yield f"data: {msg}\n\n"
+            except queue.Empty:
+                yield f"data: {json.dumps({'type': 'heartbeat', 'ts': datetime.now(timezone.utc).isoformat()})}\n\n"
+    return Response(event_stream(), mimetype='text/event-stream')
+
 @app.route('/aaa')
 def aaa_dashboard():
     html_path = Path(__file__).parent / 'aaa_dashboard.html'
@@ -5778,4 +5820,4 @@ if __name__ == '__main__':
     port = int(sys.argv[1]) if len(sys.argv) > 1 else 8081
     print(f"🚀 Solana Cripto Trader Dashboard")
     print(f"   URL: http://localhost:{port}")
-    app.run(host='0.0.0.0', port=port, debug=False, use_reloader=True)
+    app.run(host='0.0.0.0', port=port, debug=False, use_reloader=False)

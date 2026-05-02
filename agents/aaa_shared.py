@@ -393,7 +393,13 @@ def update_equity_history(equity: float, agent: str):
     data = {"equity": [], "dates": []}
     if path.exists():
         try:
-            data = json.loads(path.read_text())
+            raw = json.loads(path.read_text())
+            if isinstance(raw, list):
+                # Convert legacy list format to dict format
+                data["equity"] = [item.get("equity", 0) for item in raw]
+                data["dates"] = [item.get("timestamp", "") for item in raw]
+            elif isinstance(raw, dict):
+                data = raw
         except Exception:
             pass
     data.setdefault("equity", [])

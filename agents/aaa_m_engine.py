@@ -52,6 +52,8 @@ def cycle(debug: bool = False) -> dict:
     log.info("=" * 60)
     log.info(f"⚡ {AGENT_NAME} — Ciclo {datetime.now(timezone.utc).strftime('%H:%M:%S')} UTC")
     log.info("=" * 60)
+    last_decision = None
+    last_error = None
 
     # -- Load dynamic config (hot-reload) --
     evo_config = load_config()
@@ -150,6 +152,7 @@ def cycle(debug: bool = False) -> dict:
             dynamic_params=params,
             variant=variant,
         )
+        last_decision = decision
 
         log.info(f"   Decision: {decision.get('action')} | Conf: {decision.get('confidence', 0):.0%}")
         if decision.get("reasoning"):
@@ -255,6 +258,35 @@ def cycle(debug: bool = False) -> dict:
                                 metrics.get("sharpe_ratio", 0.0), metrics.get("total_trades", 0))
 
     save_portfolio(portfolio, AGENT_NAME)
+
+    # Save telemetry state for dashboard
+    try:
+        lat_file = BASE_DIR / "aaa_data" / "aaa_m_llm_latencies.json"
+        latencies = json.loads(lat_file.read_text()) if lat_file.exists() else []
+        avg_lat = sum(l["latency_ms"] for l in latencies) / len(latencies) if latencies else 0
+        last_llm_call = latencies[-1]["timestamp"] if latencies else None
+        cooldown_active = []
+        for p in portfolio.get("positions", []):
+            if p.get("status") == "open" and p.get("opened_at"):
+                try:
+                    opened = datetime.fromisoformat(p["opened_at"].replace("Z", "+00:00"))
+                    mins = (datetime.now(timezone.utc) - opened).total_seconds() / 60
+                    if mins < 30:
+                        cooldown_active.append(p.get("symbol", "?"))
+                except Exception:
+                    pass
+        state = {
+            "last_cycle_time": datetime.now(timezone.utc).isoformat(),
+            "last_decision": last_decision,
+            "last_llm_call": last_llm_call,
+            "llm_avg_latency_ms": round(avg_lat, 1),
+            "last_error": last_error,
+            "cooldown_active": cooldown_active,
+            "cycle_count": cycle_count,
+        }
+        (BASE_DIR / "aaa_data" / "aaa_m_state.json").write_text(json.dumps(state, indent=2, default=str))
+    except Exception as e:
+        log.warning(f"   Error guardando state file: {e}")
 
     return {
         "agent": AGENT_NAME,

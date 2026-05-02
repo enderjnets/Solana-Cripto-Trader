@@ -11,6 +11,7 @@ Output: Decisiones de trading rápidas
 import json
 import logging
 import os
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional, List, Dict
@@ -28,13 +29,27 @@ except ImportError:
 
 
 def _call_llm(prompt: str, system: str = "", max_tokens: int = 2000) -> Optional[str]:
-    """Llama a MiniMax M2.7."""
+    """Llama a MiniMax M2.7. Tracks latency."""
+    t0 = time.time()
+    result = None
     if _HAS_MINIMAX:
         try:
-            return call_minimax_m2_7(prompt, system=system, max_tokens=max_tokens)
+            result = call_minimax_m2_7(prompt, system=system, max_tokens=max_tokens)
         except Exception as e:
             log.warning(f"MiniMax error: {e}")
-    return None
+    latency_ms = round((time.time() - t0) * 1000, 1)
+    # Save latency for telemetry
+    lat_file = Path(__file__).parent / "aaa_data" / "aaa_m_llm_latencies.json"
+    latencies = []
+    if lat_file.exists():
+        try:
+            latencies = json.loads(lat_file.read_text())
+        except Exception:
+            pass
+    latencies.append({"timestamp": datetime.now(timezone.utc).isoformat(), "latency_ms": latency_ms})
+    latencies = latencies[-20:]
+    lat_file.write_text(json.dumps(latencies, indent=2))
+    return result
 
 
 # ─── Prompt Builders ────────────────────────────────────────────────────────
