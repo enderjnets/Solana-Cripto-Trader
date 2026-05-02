@@ -99,6 +99,31 @@ def cycle(debug: bool = False) -> dict:
             if current_sharpe != 0.0:
                 record_baseline_sharpe(current_sharpe, evo_config)
 
+            # -- Save knowledge for auto_learner integration --
+            knowledge_file = Path(__file__).parent / "aaa_data" / "knowledge_m.json"
+            knowledge = {"entries": [], "evolution_history": [], "last_updated": None}
+            if knowledge_file.exists():
+                try:
+                    knowledge = json.loads(knowledge_file.read_text())
+                except Exception:
+                    pass
+            entry = {
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "type": "self_analysis",
+                "analysis": analysis.get("analysis", "")[:300],
+                "recommendations": analysis.get("recommendations", []),
+                "param_changes": analysis.get("param_changes", {}),
+                "confidence": analysis.get("confidence", 0.0),
+                "trades_analyzed": min(len(trade_history), 20),
+            }
+            knowledge["entries"].append(entry)
+            # Keep only last 10 entries
+            knowledge["entries"] = knowledge["entries"][-10:]
+            knowledge["evolution_history"] = evo_config.get("evolution_history", [])[-10:]
+            knowledge["last_updated"] = datetime.now(timezone.utc).isoformat()
+            knowledge_file.write_text(json.dumps(knowledge, indent=2))
+            log.info(f"   💾 Knowledge saved to knowledge_m.json ({len(knowledge['entries'])} entries)")
+
     # 3. Decidir nuevas posiciones
     open_count = len([p for p in portfolio.get("positions", []) if p.get("status") == "open"])
 

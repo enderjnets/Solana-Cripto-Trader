@@ -124,6 +124,29 @@ def cycle(debug: bool = False) -> dict:
         if health.get("lessons"):
             log.info(f"   Lecciones: {health['lessons']}")
 
+        # -- Save knowledge for auto_learner integration --
+        knowledge_file = Path(__file__).parent / "aaa_data" / "knowledge_k.json"
+        knowledge = {"entries": [], "last_updated": None}
+        if knowledge_file.exists():
+            try:
+                knowledge = json.loads(knowledge_file.read_text())
+            except Exception:
+                pass
+        entry = {
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "type": "portfolio_health",
+            "health_score": health.get("health_score", 0),
+            "recommendations": health.get("recommendations", []),
+            "positions_to_close": health.get("positions_to_close", []),
+            "lessons": health.get("lessons", []),
+            "confidence": health.get("confidence", 0.0),
+        }
+        knowledge["entries"].append(entry)
+        knowledge["entries"] = knowledge["entries"][-10:]
+        knowledge["last_updated"] = datetime.now(timezone.utc).isoformat()
+        knowledge_file.write_text(json.dumps(knowledge, indent=2))
+        log.info(f"   Knowledge saved to knowledge_k.json ({len(knowledge['entries'])} entries)")
+
     # 4. Decidir nuevas posiciones
     open_count = len([p for p in portfolio.get("positions", []) if p.get("status") == "open"])
 

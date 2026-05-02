@@ -268,6 +268,10 @@ You are the AI brain of a Solana paper trading bot. Analyze the trade data below
     
     prompt += f"\n## Knowledge Base (accumulated lessons)\n```\n{knowledge}\n```\n"
     
+    # Add AAA paper trading insights
+    aaa_knowledge = load_aaa_knowledge()
+    prompt += f"\n## Insights from AAA Paper Trading Agents\n{aaa_knowledge}\n"
+    
     prompt += """
 ## Your Output (respond in EXACTLY this JSON format)
 
@@ -615,6 +619,9 @@ def run(debug: bool = False) -> dict:
     # 3. DECIDE — Apply changes with safety rails
     old_params = state.get("params", {}).copy()
     new_params = apply_changes(state, llm_response)
+    
+    # 3b. Adopt validated AAA parameter suggestions
+    new_params = adopt_aaa_params({"params": new_params}, "")
     
     # Log changes
     changes = []
