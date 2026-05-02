@@ -5490,6 +5490,86 @@ def api_chat_status():
     return jsonify({"thinking": False})
 
 
+# ═══════════════════════════════════════════════════════════════════════
+# AAA (Auto-Aprendizaje Acelerado) Endpoints
+# ═══════════════════════════════════════════════════════════════════════
+
+@app.route('/api/aaa/k/status')
+def api_aaa_k_status():
+    try:
+        import sys
+        sys.path.insert(0, str(Path(__file__).parent.parent / 'agents'))
+        from aaa_shared import load_portfolio, calculate_metrics, load_trade_history
+        port = load_portfolio('AAA-K')
+        trades = load_trade_history('AAA-K')
+        metrics = calculate_metrics(trades, 50000.0)
+        open_pos = [p for p in port.get('positions', []) if p.get('status') == 'open']
+        total_equity = port['capital_usd'] + sum(
+            p.get('margin_usd', 0) + p.get('pnl_usd', 0) for p in open_pos
+        )
+        return jsonify({
+            'agent': 'AAA-K',
+            'status': port.get('status', 'UNKNOWN'),
+            'capital_usd': port.get('capital_usd', 0),
+            'total_equity': round(total_equity, 2),
+            'initial_capital': port.get('initial_capital', 50000),
+            'open_positions': len(open_pos),
+            'total_trades': metrics['total_trades'],
+            'win_rate': metrics['win_rate'],
+            'profit_factor': metrics['profit_factor'],
+            'sharpe_ratio': metrics['sharpe_ratio'],
+            'max_drawdown_pct': metrics['max_drawdown_pct'],
+            'total_pnl': metrics['total_pnl'],
+            'return_pct': metrics['return_pct'],
+            'cycle_count': port.get('cycle_count', 0),
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/aaa/k/portfolio')
+def api_aaa_k_portfolio():
+    try:
+        import sys
+        sys.path.insert(0, str(Path(__file__).parent.parent / 'agents'))
+        from aaa_shared import load_portfolio
+        port = load_portfolio('AAA-K')
+        return jsonify(port)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/aaa/k/equity')
+def api_aaa_k_equity():
+    try:
+        import sys
+        sys.path.insert(0, str(Path(__file__).parent.parent / 'agents'))
+        from aaa_shared import get_equity_history
+        return jsonify(get_equity_history('AAA-K'))
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/aaa/k/metrics')
+def api_aaa_k_metrics():
+    try:
+        import sys
+        sys.path.insert(0, str(Path(__file__).parent.parent / 'agents'))
+        from aaa_shared import calculate_metrics, load_trade_history
+        trades = load_trade_history('AAA-K')
+        return jsonify(calculate_metrics(trades, 50000.0))
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/aaa')
+def aaa_dashboard():
+    html_path = Path(__file__).parent / 'aaa_dashboard.html'
+    if html_path.exists():
+        return html_path.read_text()
+    return 'AAA Dashboard not found', 404
+
+
 if __name__ == '__main__':
     import sys
     port = int(sys.argv[1]) if len(sys.argv) > 1 else 8081

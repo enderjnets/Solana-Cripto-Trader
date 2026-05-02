@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AAA - Auto-Aprendizaje Acelerado</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  :root { --bg:#0d1117; --bg2:#161b22; --bg3:#1c2128; --border:#30363d; --text:#e6edf3; --text2:#8b949e; --green:#3fb950; --red:#f85149; --blue:#58a6ff; --purple:#bc8cff; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { background:var(--bg); color:var(--text); font-family:'Segoe UI',system-ui,sans-serif; font-size:14px; }
+  .header { background:var(--bg2); border-bottom:1px solid var(--border); padding:16px 24px; display:flex; align-items:center; justify-content:space-between; }
+  .logo { font-size:20px; font-weight:700; color:var(--blue); }
+  .logo span { color:var(--purple); }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:16px; padding:24px; }
+  .card { background:var(--bg2); border:1px solid var(--border); border-radius:12px; padding:20px; }
+  .card h3 { font-size:14px; color:var(--text2); margin-bottom:12px; text-transform:uppercase; letter-spacing:0.5px; }
+  .metric { display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--border); }
+  .metric:last-child { border-bottom:none; }
+  .metric-value { font-weight:600; }
+  .green { color:var(--green); } .red { color:var(--red); } .blue { color:var(--blue); }
+  .chart-container { position:relative; height:250px; }
+  .positions { max-height:200px; overflow-y:auto; }
+  .pos-row { display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid var(--border); font-size:13px; }
+  .status-dot { width:8px; height:8px; border-radius:50%; display:inline-block; margin-right:6px; }
+  .refresh { background:var(--bg3); border:1px solid var(--border); color:var(--text); padding:6px 14px; border-radius:6px; cursor:pointer; font-size:12px; }
+  .refresh:hover { background:var(--border); }
+</style>
+</head>
+<body>
+<div class="header">
+  <div class="logo">AAA <span>Auto-Aprendizaje Acelerado</span></div>
+  <div style="display:flex;gap:12px;align-items:center;">
+    <span id="lastUpdate" style="color:var(--text2);font-size:12px;">-</span>
+    <button class="refresh" onclick="loadAll()">Refresh</button>
+    <a href="/" style="color:var(--text2);font-size:12px;">Live Dashboard</a>
+  </div>
+</div>
+
+<div class="grid">
+  <div class="card">
+    <h3>AAA-K - El Estratega (Kimi 2.6)</h3>
+    <div class="metric"><span>Capital</span><span class="metric-value" id="k-capital">-</span></div>
+    <div class="metric"><span>Equity Total</span><span class="metric-value" id="k-equity">-</span></div>
+    <div class="metric"><span>Posiciones Abiertas</span><span class="metric-value" id="k-positions">-</span></div>
+    <div class="metric"><span>Win Rate</span><span class="metric-value" id="k-wr">-</span></div>
+    <div class="metric"><span>Profit Factor</span><span class="metric-value" id="k-pf">-</span></div>
+    <div class="metric"><span>Sharpe</span><span class="metric-value" id="k-sharpe">-</span></div>
+    <div class="metric"><span>Max Drawdown</span><span class="metric-value" id="k-dd">-</span></div>
+    <div class="metric"><span>PnL Total</span><span class="metric-value" id="k-pnl">-</span></div>
+    <div class="metric"><span>Return</span><span class="metric-value" id="k-return">-</span></div>
+  </div>
+
+  <div class="card">
+    <h3>Equity Curve - AAA-K</h3>
+    <div class="chart-container"><canvas id="equityChart"></canvas></div>
+  </div>
+
+  <div class="card">
+    <h3>Posiciones Abiertas - AAA-K</h3>
+    <div class="positions" id="k-positions-list"><div style="color:var(--text2);">Cargando...</div></div>
+  </div>
+</div>
+
+<script>
+let equityChart = null;
+
+async function loadAll() {
+  await Promise.all([loadStatus(), loadEquity(), loadPortfolio()]);
+  document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
+}
+
+async function loadStatus() {
+  try {
+    const r = await fetch('/api/aaa/k/status');
+    const d = await r.json();
+    document.getElementById('k-capital').textContent = '$' + d.capital_usd.toLocaleString();
+    document.getElementById('k-equity').textContent = '$' + d.total_equity.toLocaleString();
+    document.getElementById('k-positions').textContent = d.open_positions;
+    document.getElementById('k-wr').textContent = d.win_rate + '%';
+    document.getElementById('k-pf').textContent = d.profit_factor;
+    document.getElementById('k-sharpe').textContent = d.sharpe_ratio;
+    document.getElementById('k-dd').textContent = d.max_drawdown_pct + '%';
+    const pnlEl = document.getElementById('k-pnl');
+    pnlEl.textContent = (d.total_pnl >= 0 ? '+' : '') + '$' + d.total_pnl.toLocaleString();
+    pnlEl.className = 'metric-value ' + (d.total_pnl >= 0 ? 'green' : 'red');
+    const retEl = document.getElementById('k-return');
+    retEl.textContent = (d.return_pct >= 0 ? '+' : '') + d.return_pct + '%';
+    retEl.className = 'metric-value ' + (d.return_pct >= 0 ? 'green' : 'red');
+  } catch(e) { console.error('status', e); }
+}
+
+async function loadEquity() {
+  try {
+    const r = await fetch('/api/aaa/k/equity');
+    const d = await r.json();
+    const ctx = document.getElementById('equityChart').getContext('2d');
+    if (equityChart) equityChart.destroy();
+    equityChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: d.dates.map(x => new Date(x).toLocaleTimeString()),
+        datasets: [{
+          label: 'Equity AAA-K',
+          data: d.equity,
+          borderColor: '#58a6ff',
+          backgroundColor: 'rgba(88,166,255,0.1)',
+          fill: true,
+          tension: 0.3,
+          pointRadius: 2,
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { ticks: { color: '#8b949e', maxTicksLimit: 6 }, grid: { color: '#30363d' } },
+          y: { ticks: { color: '#8b949e' }, grid: { color: '#30363d' } }
+        }
+      }
+    });
+  } catch(e) { console.error('equity', e); }
+}
+
+async function loadPortfolio() {
+  try {
+    const r = await fetch('/api/aaa/k/portfolio');
+    const d = await r.json();
+    const open = (d.positions || []).filter(p => p.status === 'open');
+    const list = document.getElementById('k-positions-list');
+    if (open.length === 0) { list.innerHTML = '<div style="color:var(--text2)">Sin posiciones abiertas</div>'; }
+    else {
+      list.innerHTML = open.map(p => {
+        const color = p.pnl_usd >= 0 ? 'green' : 'red';
+        return '<div class="pos-row"><span><span class="status-dot" style="background:var(--' + color + ')"></span>' + p.symbol + ' ' + p.direction.toUpperCase() + '</span><span class="' + color + '">$' + p.pnl_usd.toFixed(2) + ' (' + p.pnl_pct.toFixed(2) + '%)</span></div>';
+      }).join('');
+    }
+  } catch(e) { console.error('portfolio', e); }
+}
+
+loadAll();
+setInterval(loadAll, 30000);
+</script>
+</body>
+</html>
