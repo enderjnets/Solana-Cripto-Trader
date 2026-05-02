@@ -5562,6 +5562,73 @@ def api_aaa_k_metrics():
         return jsonify({'error': str(e)}), 500
 
 
+@app.route('/api/aaa/m/status')
+def api_aaa_m_status():
+    try:
+        import sys
+        sys.path.insert(0, str(Path(__file__).parent.parent / 'agents'))
+        from aaa_shared import load_portfolio, calculate_metrics, load_trade_history
+        port = load_portfolio('AAA-M')
+        trades = load_trade_history('AAA-M')
+        metrics = calculate_metrics(trades, 50000.0)
+        open_pos = [p for p in port.get('positions', []) if p.get('status') == 'open']
+        total_equity = port['capital_usd'] + sum(
+            p.get('margin_usd', 0) + p.get('pnl_usd', 0) for p in open_pos
+        )
+        return jsonify({
+            'agent': 'AAA-M',
+            'status': port.get('status', 'UNKNOWN'),
+            'capital_usd': port.get('capital_usd', 0),
+            'total_equity': round(total_equity, 2),
+            'initial_capital': port.get('initial_capital', 50000),
+            'open_positions': len(open_pos),
+            'total_trades': metrics['total_trades'],
+            'win_rate': metrics['win_rate'],
+            'profit_factor': metrics['profit_factor'],
+            'sharpe_ratio': metrics['sharpe_ratio'],
+            'max_drawdown_pct': metrics['max_drawdown_pct'],
+            'total_pnl': metrics['total_pnl'],
+            'return_pct': metrics['return_pct'],
+            'cycle_count': port.get('cycle_count', 0),
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/aaa/m/portfolio')
+def api_aaa_m_portfolio():
+    try:
+        import sys
+        sys.path.insert(0, str(Path(__file__).parent.parent / 'agents'))
+        from aaa_shared import load_portfolio
+        return jsonify(load_portfolio('AAA-M'))
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/aaa/m/equity')
+def api_aaa_m_equity():
+    try:
+        import sys
+        sys.path.insert(0, str(Path(__file__).parent.parent / 'agents'))
+        from aaa_shared import get_equity_history
+        return jsonify(get_equity_history('AAA-M'))
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/aaa/m/metrics')
+def api_aaa_m_metrics():
+    try:
+        import sys
+        sys.path.insert(0, str(Path(__file__).parent.parent / 'agents'))
+        from aaa_shared import calculate_metrics, load_trade_history
+        trades = load_trade_history('AAA-M')
+        return jsonify(calculate_metrics(trades, 50000.0))
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/aaa')
 def aaa_dashboard():
     html_path = Path(__file__).parent / 'aaa_dashboard.html'
