@@ -4,9 +4,9 @@
 
 ## Última actualización
 - **Fecha**: 2026-05-01
-- **Versión**: v2.13.7-live
-- **Commit**: 152201c + f6e2c87 (orchestrator/risk_manager + VERSION bump)
-- **Paperclip**: SOLAAA-53
+- **Versión**: v2.14.0-alpha
+- **Commit**: 804d469 (AAA full implementation) (orchestrator/risk_manager + VERSION bump)
+- **Paperclip**: SOLAAA-53, SOLAAA-54 (AAA feature)
 
 ## Estado del pipeline
 
@@ -16,7 +16,10 @@
 | Risk Manager | ✅ ACTIVE — LLM close unblocked v2.13.7 |
 | Strategy Agent | ✅ Generando señales |
 | Executor | ✅ Modo LIVE, 1 posición abierta (BTC long) |
-| Dashboard | ✅ Puerto 8082, v2.13.7-live |
+| AAA-K | ✅ Corriendo (PID ~3845441), Kimi 2.6, 0K paper |
+| AAA-M | ✅ Corriendo (PID ~3847905), MiniMax M2.7, 0K paper |
+| Meta-Arbitro | ✅ Corriendo, Gate 0/5, pesos K=50% M=50% |
+| Dashboard | ✅ Puerto 8082, v2.14.0-alpha + /aaa page |
 | Jupiter Perps | ✅ Habilitado (SOL, BTC, ETH, JUP) |
 | Health | ✅ HEALTHY |
 
