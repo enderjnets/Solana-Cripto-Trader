@@ -1,6 +1,9 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AAA Command Center | Neural Trading Network</title>
@@ -776,7 +779,12 @@ function renderDecision(elId, decision) {
   } else if (action === 'CLOSE') {
     meta = 'Confidence: ' + conf;
   } else {
-    meta = 'Confidence: ' + conf;
+    // HOLD or other — only show confidence if meaningful
+    if (decision.confidence > 0) {
+      meta = 'Confidence: ' + conf;
+    } else {
+      meta = '<span style="color:var(--text-dim)">No actionable setup detected</span>';
+    }
   }
 
   el.innerHTML = '<div class="decision-action" style="color:' + color + '">' + header + '</div>' +
