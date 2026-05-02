@@ -3,100 +3,77 @@
     {
       "symbol": "ETH",
       "direction": "long",
-      "entry_price": 2295.65,
-      "sl_price": 2226.78,
-      "tp_price": 2433.39,
+      "entry_price": 2298.74,
+      "sl_price": 2230.28,
+      "tp_price": 2436.67,
       "exit_mode": "trailing",
       "trailing_pct": 0.025,
       "size_usd": 10.0,
       "confidence": 0.78,
-      "strategy": "oversold_bounce",
-      "reasoning": "RSI 40.1 en zona de acumulaci\u00f3n, tendencia bullish general con miedo en F&G 39. Rebote desde soporte con volatilidad adecuada para capturar movimiento extendido",
+      "strategy": "momentum",
+      "reasoning": "RSI 58 en zona momentum alcista, tendencia bullish confirmada, volatilidad adecuada para capturar extensi\u00f3n del movimiento",
       "factors": [
-        "RSI_acumulacion_40",
+        "RSI_momentum_58",
         "tendencia_bullish",
-        "fear_contrarian_setup",
-        "volatilidad_1.37"
+        "volatilidad_suficiente"
       ]
     },
     {
       "symbol": "JUP",
       "direction": "long",
-      "entry_price": 0.17907,
-      "sl_price": 0.1737,
-      "tp_price": 0.18992,
+      "entry_price": 0.179128,
+      "sl_price": 0.174153,
+      "tp_price": 0.189876,
       "exit_mode": "fixed",
       "trailing_pct": null,
       "size_usd": 10.0,
       "confidence": 0.76,
       "strategy": "oversold_bounce",
-      "reasoning": "RSI 38.2 sobrevendido, cambio -1.88% con volatilidad 1.88% permite entrada en miedo. Token Solana ecosystem con liquidez. Rebote limitado esperado \u2192 TP fijo",
+      "reasoning": "RSI 46.5 cerca de zona de valor, ca\u00edda -2.34% en 24h en contexto bullish ofrece entrada con riesgo/recompensa favorable",
       "factors": [
-        "RSI_oversold_38",
-        "cambio_negativo_miedo",
-        "volatilidad_suficiente",
-        "solana_ecosystem"
-      ]
-    },
-    {
-      "symbol": "FARTCOIN",
-      "direction": "long",
-      "entry_price": 0.205237,
-      "sl_price": 0.199077,
-      "tp_price": 0.217551,
-      "exit_mode": "trailing",
-      "trailing_pct": 0.03,
-      "size_usd": 10.0,
-      "confidence": 0.81,
-      "strategy": "momentum",
-      "reasoning": "Cambio +3.09% con volatilidad 3.09% ALTA en mercado con miedo (F&G 39). RSI 47.9 neutral con espacio alcista. Momentum fuerte en meme coin con cap > $200M. Trailing para capturar explosi\u00f3n",
-      "factors": [
-        "momentum_3pct",
-        "volatilidad_alta_3",
-        "fear_momentum_contrarian",
-        "meme_liquidez"
-      ]
-    },
-    {
-      "symbol": "WIF",
-      "direction": "long",
-      "entry_price": 0.186409,
-      "sl_price": 0.180818,
-      "tp_price": 0.197593,
-      "exit_mode": "fixed",
-      "trailing_pct": null,
-      "size_usd": 10.0,
-      "confidence": 0.79,
-      "strategy": "oversold_bounce",
-      "reasoning": "RSI 32.5 claramente sobrevendido, volatilidad muy baja 0.15% pero cambio positivo +0.15% indica agotamiento vendedor. Meme coin con cap $186M en punto de inflexi\u00f3n. TP fijo por baja volatilidad",
-      "factors": [
-        "RSI_oversold_32",
-        "agotamiento_vendedor",
-        "cambio_positivo",
-        "cap_bajo_limite"
+        "precio_sobreventa_relativa",
+        "divergencia_bajista_corto_plazo",
+        "contexto_bullish"
       ]
     },
     {
       "symbol": "RAY",
       "direction": "long",
-      "entry_price": 0.809,
-      "sl_price": 0.78473,
-      "tp_price": 0.85754,
+      "entry_price": 0.807647,
+      "sl_price": 0.785456,
+      "tp_price": 0.856106,
       "exit_mode": "fixed",
       "trailing_pct": null,
       "size_usd": 10.0,
-      "confidence": 0.72,
+      "confidence": 0.81,
       "strategy": "oversold_bounce",
-      "reasoning": "RSI 38.0 sobrevendido en DEX nativo Solana. Volatilidad extremadamente baja 0.09% pero cambio positivo +0.09% sugiere consolidaci\u00f3n antes de movimiento. Riesgo bajo, entrada cautelosa en fear",
+      "reasoning": "RSI 38.4 en zona de sobreventa relativa, mayor probabilidad de rebote t\u00e9cnico en tendencia alcista general del mercado",
       "factors": [
-        "RSI_oversold_38",
-        "dex_solana_nativo",
-        "consolidacion_positiva",
-        "bajo_riesgo"
+        "RSI_sobreventa_relativa_38",
+        "reversion_a_la_media_probable",
+        "volatilidad_aceptable"
+      ]
+    },
+    {
+      "symbol": "FARTCOIN",
+      "direction": "long",
+      "entry_price": 0.205615,
+      "sl_price": 0.199444,
+      "tp_price": 0.217951,
+      "exit_mode": "trailing",
+      "trailing_pct": 0.03,
+      "size_usd": 10.0,
+      "confidence": 0.74,
+      "strategy": "momentum",
+      "reasoning": "Alto momentum +3.15% con RSI 53.4 en zona de expansi\u00f3n, volatilidad 3.15% permite trailing para capturar movimiento extendido",
+      "factors": [
+        "momentum_alcista_24h",
+        "volatilidad_alta_3.15",
+        "RSI_expansion_53"
       ]
     }
   ],
-  "generated_at": "2026-05-02T02:31:34.921412+00:00",
+  "generated_at": "2026-05-02T02:46:35.009853+00:00",
   "fear_greed": 39,
   "source": "ai_strategy_extreme"
 }

@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-05-02T02:45:01.887882+00:00",
+  "timestamp": "2026-05-02T02:51:21.727282+00:00",
   "results": {
     "market_data": {
       "ok": true,
@@ -10,7 +10,7 @@
     },
     "strategy": {
       "ok": true,
-      "signals": 5
+      "signals": 3
     },
     "position_updater": {
       "ok": true
