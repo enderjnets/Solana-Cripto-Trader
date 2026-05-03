@@ -18,12 +18,32 @@ def load_json(path: Path):
 
 def generate_advisories(data_dir: Path) -> Dict:
     """Genera advisories basados en estados de K, M y Meta-Arbitro."""
+    import sys
+    sys.path.insert(0, str(data_dir.parent))
+    from aaa_shared import load_portfolio, calculate_metrics, load_trade_history
+
     advisories = []
     now = datetime.now(timezone.utc)
     now_str = now.strftime("%H:%M:%S")
 
-    k_status = load_json(data_dir / "portfolio_AAA-K.json")
-    m_status = load_json(data_dir / "portfolio_AAA-M.json")
+    # Load K metrics
+    try:
+        k_port = load_portfolio('AAA-K')
+        k_trades = load_trade_history('AAA-K')
+        k_metrics = calculate_metrics(k_trades, k_port.get('initial_capital', 1000.0))
+    except Exception as e:
+        log.warning(f"Error loading K metrics: {e}")
+        k_port, k_metrics = {}, {}
+
+    # Load M metrics
+    try:
+        m_port = load_portfolio('AAA-M')
+        m_trades = load_trade_history('AAA-M')
+        m_metrics = calculate_metrics(m_trades, m_port.get('initial_capital', 1000.0))
+    except Exception as e:
+        log.warning(f"Error loading M metrics: {e}")
+        m_port, m_metrics = {}, {}
+
     k_state = load_json(data_dir / "aaa_k_state.json")
     m_state = load_json(data_dir / "aaa_m_state.json")
     meta = load_json(data_dir / "meta_arbitro_state.json")
@@ -51,11 +71,11 @@ def generate_advisories(data_dir: Path) -> Dict:
         })
 
     # K analysis
-    if k_status:
-        ret = k_status.get("return_pct", 0)
-        dd = k_status.get("max_drawdown_pct", 0)
-        trades = k_status.get("total_trades", 0)
-        wr = k_status.get("win_rate", 0)
+    if k_metrics:
+        ret = k_metrics.get("return_pct", 0)
+        dd = k_metrics.get("max_drawdown_pct", 0)
+        trades = k_metrics.get("total_trades", 0)
+        wr = k_metrics.get("win_rate", 0)
         if dd > 5:
             advisories.append({"time": now_str, "sev": "critical", "title": "AAA-K DRAWDOWN ALERT", "body": f"Max drawdown {dd:.2f}% exceeds 5% threshold.", "agent": "K"})
         elif ret < -5:
@@ -67,17 +87,16 @@ def generate_advisories(data_dir: Path) -> Dict:
         else:
             advisories.append({"time": now_str, "sev": "info", "title": "AAA-K NOMINAL", "body": f"Return {ret:.2f}%, DD {dd:.2f}%. Operating normally.", "agent": "K"})
 
-        # Cooldown shield
         if k_state and k_state.get("cooldown_active"):
             syms = ", ".join(k_state["cooldown_active"])
             advisories.append({"time": now_str, "sev": "info", "title": "AAA-K SHIELD ACTIVE", "body": f"Cooldown guard protecting: {syms}", "agent": "K"})
 
     # M analysis
-    if m_status:
-        ret = m_status.get("return_pct", 0)
-        dd = m_status.get("max_drawdown_pct", 0)
-        trades = m_status.get("total_trades", 0)
-        wr = m_status.get("win_rate", 0)
+    if m_metrics:
+        ret = m_metrics.get("return_pct", 0)
+        dd = m_metrics.get("max_drawdown_pct", 0)
+        trades = m_metrics.get("total_trades", 0)
+        wr = m_metrics.get("win_rate", 0)
         if dd > 5:
             advisories.append({"time": now_str, "sev": "critical", "title": "AAA-M DRAWDOWN ALERT", "body": f"Max drawdown {dd:.2f}% exceeds 5% threshold.", "agent": "M"})
         elif ret < -5:

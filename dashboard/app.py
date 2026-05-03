@@ -5750,9 +5750,12 @@ def api_aaa_m_telemetry():
             'last_error': state.get('last_error'),
             'safety_guard_rejections': sum(1 for e in cfg.get('evolution_history',[]) if 'REJECTED' in str(e.get('action',''))),
             'open_positions': len([p for p in port.get('positions',[]) if p.get('status')=='open']),
+            'cooldown_active': state.get('cooldown_active', []),
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+
 @app.route('/api/aaa/m/metrics')
 def api_aaa_m_metrics():
     try:

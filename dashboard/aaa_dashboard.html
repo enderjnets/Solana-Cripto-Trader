@@ -965,11 +965,12 @@ async function renderAll(kStatus, mStatus, kTelemetry, mTelemetry, meta, equityK
   }
 
   // --- EQUITY CHART ---
-  const ek = Array.isArray(equityK) ? equityK : [];
-  const em = Array.isArray(equityM) ? equityM : [];
-  const labels = ek.map((_,i) => i);
-  const dataK = ek.map(e => e.equity || e.total_equity || e.capital_usd || 0);
-  const dataM = em.map(e => e.equity || e.total_equity || e.capital_usd || 0);
+  // Handle both dict format {"equity": [], "dates": []} and legacy array format
+  const ek = (equityK && equityK.equity) ? equityK.equity : (Array.isArray(equityK) ? equityK : []);
+  const em = (equityM && equityM.equity) ? equityM.equity : (Array.isArray(equityM) ? equityM : []);
+  const labels = (equityK && equityK.dates) ? equityK.dates.map(d => d.slice(11,16)) : ek.map((_,i) => i);
+  const dataK = ek;
+  const dataM = em;
 
   if (!equityChart) {
     const ctx = document.getElementById('equityChart').getContext('2d');
@@ -1005,6 +1006,7 @@ async function renderAll(kStatus, mStatus, kTelemetry, mTelemetry, meta, equityK
 
   // --- ADVISORY FEED ---
   const feed = document.getElementById('advisoryFeed');
+  const advisoryStatus = document.getElementById('advisoryStatus');
   const advisoryData = await fetchJSON(API + '/api/aaa/advisory');
   if (!advisoryData.error && advisoryData.advisories) {
     feed.innerHTML = advisoryData.advisories.map(a =>
@@ -1014,8 +1016,25 @@ async function renderAll(kStatus, mStatus, kTelemetry, mTelemetry, meta, equityK
         '<div style="color:var(--text-dim); font-size:0.7rem; margin-top:2px;">' + a.body + '</div>' +
       '</div>'
     ).join('');
+    // Update status pill based on worst severity
+    const worst = advisoryData.advisories.reduce((w, a) => {
+      const rank = {critical: 3, warning: 2, info: 1};
+      return rank[a.sev] > rank[w] ? a.sev : w;
+    }, 'info');
+    if (worst === 'critical') {
+      advisoryStatus.textContent = 'CRITICAL';
+      advisoryStatus.className = 'pill pill-red';
+    } else if (worst === 'warning') {
+      advisoryStatus.textContent = 'WARNING';
+      advisoryStatus.className = 'pill pill-yellow';
+    } else {
+      advisoryStatus.textContent = 'NOMINAL';
+      advisoryStatus.className = 'pill pill-green';
+    }
   } else {
     feed.innerHTML = '<div class="advisory-item"><div style="color:var(--text-dim)">Advisory feed unavailable</div></div>';
+    advisoryStatus.textContent = 'OFFLINE';
+    advisoryStatus.className = 'pill pill-red';
   }
 }
 
